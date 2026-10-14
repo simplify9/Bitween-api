@@ -56,7 +56,7 @@ namespace SW.Bitween.Web
             {
                 if (_last is { } fresh && DateTime.UtcNow - fresh.At < CacheFor) return fresh.Result;
 
-                var result = await Task.Run(Probe, cancellationToken);
+                var result = await ProbeAsync(cancellationToken);
                 _last = (DateTime.UtcNow, result);
                 return result;
             }
@@ -66,7 +66,7 @@ namespace SW.Bitween.Web
             }
         }
 
-        private HealthCheckResult Probe()
+        private async Task<HealthCheckResult> ProbeAsync(CancellationToken cancellationToken)
         {
             var connectionString = configuration.GetConnectionString("RabbitMQ");
             if (string.IsNullOrWhiteSpace(connectionString))
@@ -80,8 +80,8 @@ namespace SW.Bitween.Web
                     AutomaticRecoveryEnabled = false,
                     RequestedConnectionTimeout = TimeSpan.FromSeconds(5),
                 };
-                using var connection = factory.CreateConnection("bitween-health");
-                connection.Close();
+                await using var connection = await factory.CreateConnectionAsync("bitween-health", cancellationToken);
+                await connection.CloseAsync(cancellationToken);
                 return HealthCheckResult.Healthy();
             }
             catch (Exception ex)

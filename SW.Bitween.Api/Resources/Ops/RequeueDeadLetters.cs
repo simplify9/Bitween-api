@@ -30,7 +30,7 @@ public class RequeueDeadLetters(DeadLetterQueues deadLetters, BitweenDbContext d
         int requeued;
         try
         {
-            requeued = deadLetters.Requeue(queue, request.Count ?? DeadLetterQueues.MaxRequeue);
+            requeued = await deadLetters.RequeueAsync(queue, request.Count ?? DeadLetterQueues.MaxRequeue);
         }
         catch (OperationInterruptedException)
         {

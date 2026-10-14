@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using RabbitMQ.Client;
+using RabbitMQ.Client.Exceptions;
 using SW.Bus.RabbitMqExtensions;
 
 namespace SW.Bitween.Resources.Ops;
@@ -72,7 +74,7 @@ public class DeadLetterQueues(
     /// confirmed it is on the main queue, so a failure part-way loses nothing.
     /// </summary>
     /// <returns>How many were moved.</returns>
-    public int Requeue(string queue, int count)
+    public async Task<int> RequeueAsync(string queue, int count)
     {
         var main = Regex.Replace(queue, @"\.bad$", "", RegexOptions.IgnoreCase);
         var connectionString = configuration.GetConnectionString("RabbitMQ")
@@ -84,35 +86,39 @@ public class DeadLetterQueues(
             RequestedConnectionTimeout = TimeSpan.FromSeconds(15)
         };
 
-        using var connection = factory.CreateConnection("bitween-dead-letter-requeue");
-        using var channel = connection.CreateModel();
+        await using var connection = await factory.CreateConnectionAsync("bitween-dead-letter-requeue");
+        // With confirmations tracked, a publish completes only once the broker has the message,
+        // and throws when it can't route it.
+        await using var channel = await connection.CreateChannelAsync(
+            new CreateChannelOptions(publisherConfirmationsEnabled: true, publisherConfirmationTrackingEnabled: true));
         // Published straight to the queue: through its exchange, every other consumer of the same
         // message would get it again too. And a queue that isn't there would swallow it.
-        channel.QueueDeclarePassive(main);
-        channel.ConfirmSelect();
-        var returned = false;
-        channel.BasicReturn += (_, _) => returned = true;
+        await channel.QueueDeclarePassiveAsync(main);
 
         var moved = 0;
         while (moved < Math.Clamp(count, 1, MaxRequeue))
         {
-            var message = channel.BasicGet(queue, autoAck: false);
+            var message = await channel.BasicGetAsync(queue, autoAck: false);
             if (message is null) break;
 
-            var properties = message.BasicProperties;
+            var properties = new BasicProperties(message.BasicProperties);
             if (properties.Headers is { } headers)
                 properties.Headers = headers.Where(h => !IsRetryState(h.Key))
                     .ToDictionary(h => h.Key, h => h.Value);
 
-            channel.BasicPublish("", main, mandatory: true, properties, message.Body);
-            channel.WaitForConfirmsOrDie(TimeSpan.FromSeconds(10));
-            if (returned)
+            try
             {
-                channel.BasicNack(message.DeliveryTag, multiple: false, requeue: true);
+                using var confirmed = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                await channel.BasicPublishAsync("", main, mandatory: true, properties, message.Body, confirmed.Token);
+            }
+            catch (PublishException)
+            {
+                // Returned or refused: it stays where it was.
+                await channel.BasicNackAsync(message.DeliveryTag, multiple: false, requeue: true);
                 break;
             }
 
-            channel.BasicAck(message.DeliveryTag, multiple: false);
+            await channel.BasicAckAsync(message.DeliveryTag, multiple: false);
             moved++;
         }
 

@@ -60,7 +60,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
 
         await using var adapter = await StartAdapterAsync(setup.DataSourceId);
 
-        Publish(queue, "{\"orderId\":501,\"channel\":\"web\"}");
+        await PublishAsync(queue, "{\"orderId\":501,\"channel\":\"web\"}");
 
         var parent = await WaitForXchangeAsync(setup.DocumentId);
         Assert.NotNull(parent);
@@ -91,7 +91,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
         var external = await ArrangeAsync(queue, EchoHandler);
         await using (var adapter = await StartAdapterAsync(external.DataSourceId))
         {
-            Publish(queue, payload);
+            await PublishAsync(queue, payload);
             var externalParent = await WaitForXchangeAsync(external.DocumentId);
             Assert.NotNull(externalParent);
             ExternalResult = await DriveToResultAsync(externalParent!, external.SubscriptionId);
@@ -134,7 +134,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
 
         await using var adapter = await StartAdapterAsync(setup.DataSourceId);
 
-        Publish(queue, "{\"orderId\":503,\"channel\":\"pos\"}");
+        await PublishAsync(queue, "{\"orderId\":503,\"channel\":\"pos\"}");
 
         var parent = await WaitForXchangeAsync(setup.DocumentId);
         Assert.NotNull(parent);
@@ -171,7 +171,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
             .Describe().Single(h => h.InstanceKey == setup.DataSourceId.ToString());
         Assert.Equal(InstanceState.Ready, health.State);
 
-        Publish(queue, "{\"orderId\":504,\"channel\":\"web\"}");
+        await PublishAsync(queue, "{\"orderId\":504,\"channel\":\"web\"}");
 
         var parent = await WaitForXchangeAsync(setup.DocumentId);
         Assert.NotNull(parent);
@@ -206,7 +206,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
 
         await using var adapter = await StartAdapterAsync(setup.DataSourceId);
 
-        Publish(queue, "{\"orderId\":505,\"channel\":\"web\"}");
+        await PublishAsync(queue, "{\"orderId\":505,\"channel\":\"web\"}");
 
         var parent = await WaitForXchangeAsync(setup.DocumentId);
         Assert.NotNull(parent);
@@ -218,7 +218,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
         Assert.Contains("handler refused the message", result.Exception);
 
         // Ingest still succeeded: the adapter acked, and the queue drained.
-        await WaitAsync(() => Depth(queue) == 0, TimeSpan.FromSeconds(20),
+        await WaitAsync(async () => await DepthAsync(queue) == 0, TimeSpan.FromSeconds(20),
             "a handler failure must not leave the message stuck on the broker");
     }
 
@@ -419,37 +419,35 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
         public ValueTask DisposeAsync() => new(host.StopAsync(adapterId, instanceKey, drain: false));
     }
 
-    private void Publish(string queue, string body)
+    private async Task PublishAsync(string queue, string body)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
-        channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false);
 
-        var properties = channel.CreateBasicProperties();
+        var properties = new BasicProperties();
         properties.ContentType = "application/json";
         properties.MessageId = Guid.NewGuid().ToString("N");
-        properties.DeliveryMode = 2;
+        properties.DeliveryMode = DeliveryModes.Persistent;
 
-        channel.BasicPublish("", queue, properties, Encoding.UTF8.GetBytes(body));
+        await channel.BasicPublishAsync("", queue, mandatory: false, basicProperties: properties,
+            body: Encoding.UTF8.GetBytes(body));
     }
 
-    private uint Depth(string queue)
+    private async Task<uint> DepthAsync(string queue)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
-        return channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false).MessageCount;
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        return (await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false)).MessageCount;
     }
 
-    private IConnection ExternalConnection() => new ConnectionFactory
+    private Task<IConnection> ExternalConnectionAsync() => new ConnectionFactory
     {
         HostName = fixture.ExternalRabbitHost,
         Port = fixture.ExternalRabbitPort,
         UserName = fixture.ExternalRabbitUser,
         Password = fixture.ExternalRabbitPassword
-    }.CreateConnection("pipeline-tests");
-
-    private static async Task WaitAsync(Func<bool> condition, TimeSpan timeout, string because) =>
-        await WaitAsync(() => Task.FromResult(condition()), timeout, because);
+    }.CreateConnectionAsync("pipeline-tests");
 
     private static async Task WaitAsync(Func<Task<bool>> condition, TimeSpan timeout, string because)
     {

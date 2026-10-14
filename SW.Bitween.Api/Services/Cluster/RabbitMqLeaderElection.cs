@@ -70,13 +70,14 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
         if (connection == null) return null;
 
         var queue = $"{QueuePrefix}{resource}";
-        IModel channel = null;
+        IChannel channel = null;
         try
         {
-            channel = connection.CreateModel();
+            channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
 
             // THE LOCK. Exclusive means one connection; every other node's declare fails here.
-            channel.QueueDeclare(queue, durable: false, exclusive: true, autoDelete: true);
+            await channel.QueueDeclareAsync(queue, durable: false, exclusive: true, autoDelete: true,
+                cancellationToken: cancellationToken);
         }
         catch (OperationInterruptedException)
         {
@@ -144,7 +145,7 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
             if (_connection is { IsOpen: true }) return _connection;
 
             _connection?.Dispose();
-            _connection = _factory.CreateConnection($"bitween-election-{nodeName}");
+            _connection = await _factory.CreateConnectionAsync($"bitween-election-{nodeName}", cancellationToken);
 
             _logger.LogInformation("Election connection open for node {Node}.", nodeName);
             return _connection;
@@ -164,15 +165,15 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
 
     public void Dispose()
     {
-        try { _connection?.Close(TimeSpan.FromSeconds(2)); } catch { }
+        try { _connection?.CloseAsync(TimeSpan.FromSeconds(2)).GetAwaiter().GetResult(); } catch { }
         _connection?.Dispose();
         _connectionGate.Dispose();
     }
 
-    private sealed class RabbitMqLease(string resource, string queue, long term, IModel channel,
+    private sealed class RabbitMqLease(string resource, string queue, long term, IChannel channel,
         IServiceProvider serviceProvider, string nodeName) : IResourceLease
     {
-        private readonly IModel _channel = channel;
+        private readonly IChannel _channel = channel;
         private readonly IServiceProvider _serviceProvider = serviceProvider;
         private bool _released;
 
@@ -199,7 +200,7 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
             return current != null && current.Term == Term && current.OwnerNode == nodeName;
         }
 
-        public ValueTask DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             _released = true;
 
@@ -210,11 +211,9 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
             // a lease still held the lock until its whole election connection dropped, and the
             // next node could never take over. Deleting is allowed for the owning connection and
             // frees it at once.
-            try { _channel.QueueDelete(_queue, ifUnused: false, ifEmpty: false); } catch { }
-            try { _channel.Close(); } catch { }
+            try { await _channel.QueueDeleteAsync(_queue, ifUnused: false, ifEmpty: false); } catch { }
+            try { await _channel.CloseAsync(); } catch { }
             _channel.Dispose();
-
-            return ValueTask.CompletedTask;
         }
     }
 }

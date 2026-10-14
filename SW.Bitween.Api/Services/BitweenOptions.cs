@@ -24,11 +24,19 @@ namespace SW.Bitween
             JwtExpiryMinutes = 60;
             PartnerKeyHeader = PartnerKeyHeaders.Default;
             BusDefaultQueuePrefetch = 12;
+            BusPublisherConfirms = true;
             QueuePrefix = "bitween";
             UseAzureManagedIdentity = false;
         }
 
         public ushort? BusDefaultQueuePrefetch { get; set; }
+
+        /// <summary>
+        /// Whether a publish on Bitween's own bus waits for the broker to confirm it, and fails if
+        /// it doesn't. On, SW.Bus's default since 10.1: the outbox removes a row only once its message
+        /// is on the broker. Off is how 10.0 published, for a deployment that can't afford the wait.
+        /// </summary>
+        public bool BusPublisherConfirms { get; set; }
 
         public string DatabaseType { get; set; }
         public string AdminDatabaseName { get; set; }

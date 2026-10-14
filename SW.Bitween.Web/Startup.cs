@@ -165,6 +165,7 @@ namespace SW.Bitween.Web
             {
                 config.ApplicationName = bitweenOptions.QueuePrefix;
                 config.DefaultQueuePrefetch = bitweenOptions.BusDefaultQueuePrefetch!.Value;
+                config.PublisherConfirms = bitweenOptions.BusPublisherConfirms;
                 config.ManagementUrl = bitweenOptions.RabbitMqManagementUrl;
                 config.ManagementUsername = bitweenOptions.RabbitMqManagementUsername;
                 config.ManagementPassword = bitweenOptions.RabbitMqManagementPassword;

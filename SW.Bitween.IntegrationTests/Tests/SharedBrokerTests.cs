@@ -64,9 +64,9 @@ public class SharedBrokerTests(BitweenFixture fixture)
         Assert.Single(instances);
         Assert.NotNull(instances[0].ProcessId);
 
-        Publish(orders.Queue, """{"kind":"order"}""");
-        Publish(invoices.Queue, """{"kind":"invoice"}""");
-        Publish(shipments.Queue, """{"kind":"shipment"}""");
+        await PublishAsync(orders.Queue, """{"kind":"order"}""");
+        await PublishAsync(invoices.Queue, """{"kind":"invoice"}""");
+        await PublishAsync(shipments.Queue, """{"kind":"shipment"}""");
 
         await WaitAsync(async () =>
             await CountAsync(orders.DocumentId) == 1 &&
@@ -101,8 +101,8 @@ public class SharedBrokerTests(BitweenFixture fixture)
 
         // Interleaved rather than queue by queue: three consumers on one channel handling
         // deliveries at the same time is the state that finds a routing bug.
-        using (var connection = ExternalConnection())
-        using (var channel = connection.CreateModel())
+        await using (var connection = await ExternalConnectionAsync())
+        await using (var channel = await connection.CreateChannelAsync())
         {
             for (var i = 0; i < each; i++)
                 foreach (var (queue, kind) in new[]
@@ -110,7 +110,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
                              (orders.Queue, "order"), (invoices.Queue, "invoice"),
                              (shipments.Queue, "shipment"),
                          })
-                    PublishOn(channel, queue, $$"""{"kind":"{{kind}}","n":{{i}}}""");
+                    await PublishOnAsync(channel, queue, $$"""{"kind":"{{kind}}","n":{{i}}}""");
         }
 
         await WaitAsync(async () =>
@@ -152,20 +152,20 @@ public class SharedBrokerTests(BitweenFixture fixture)
 
         // Acme's own traffic, on the same broker, with messages already waiting.
         var theirs = Unique("acme-warehouse");
-        DeclareQueue(theirs);
-        for (var i = 0; i < 5; i++) Publish(theirs, $$"""{"theirs":{{i}}}""");
+        await DeclareQueueAsync(theirs);
+        for (var i = 0; i < 5; i++) await PublishAsync(theirs, $$"""{"theirs":{{i}}}""");
 
         await using var supervisor = Supervisor();
         await supervisor.ReconcileAsync();
 
-        Publish(orders.Queue, """{"kind":"order"}""");
+        await PublishAsync(orders.Queue, """{"kind":"order"}""");
         await WaitAsync(async () => await CountAsync(orders.DocumentId) == 1,
             TimeSpan.FromSeconds(60), "Bitween's own queue never produced an Xchange");
 
         // Bitween has demonstrably been running against this broker, so an untouched depth here
         // means it left the queue alone rather than that nothing happened at all.
         await Task.Delay(TimeSpan.FromSeconds(3));
-        Assert.Equal(5u, Depth(theirs));
+        Assert.Equal(5u, await DepthAsync(theirs));
     }
 
     /// <summary>
@@ -185,7 +185,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
         await using var supervisor = Supervisor();
         await supervisor.ReconcileAsync();
 
-        Publish(orders.Queue, """{"before":true}""");
+        await PublishAsync(orders.Queue, """{"before":true}""");
         await WaitAsync(async () => await CountAsync(orders.DocumentId) == 1,
             TimeSpan.FromSeconds(60), "the first integration never worked");
 
@@ -196,9 +196,9 @@ public class SharedBrokerTests(BitweenFixture fixture)
         // Still one connection: the new gateway joined it rather than opening a second.
         Assert.Single(Instances(acme));
 
-        Publish(returns.Queue, """{"kind":"return"}""");
-        Publish(orders.Queue, """{"after":true}""");
-        Publish(invoices.Queue, """{"kind":"invoice"}""");
+        await PublishAsync(returns.Queue, """{"kind":"return"}""");
+        await PublishAsync(orders.Queue, """{"after":true}""");
+        await PublishAsync(invoices.Queue, """{"kind":"invoice"}""");
 
         await WaitAsync(async () =>
             await CountAsync(returns.DocumentId) == 1 &&
@@ -224,8 +224,8 @@ public class SharedBrokerTests(BitweenFixture fixture)
         await using var supervisor = Supervisor();
         await supervisor.ReconcileAsync();
 
-        Publish(orders.Queue, """{"n":1}""");
-        Publish(invoices.Queue, """{"n":1}""");
+        await PublishAsync(orders.Queue, """{"n":1}""");
+        await PublishAsync(invoices.Queue, """{"n":1}""");
         await WaitAsync(async () =>
             await CountAsync(orders.DocumentId) == 1 && await CountAsync(invoices.DocumentId) == 1,
             TimeSpan.FromSeconds(60), "both integrations did not start working");
@@ -233,8 +233,8 @@ public class SharedBrokerTests(BitweenFixture fixture)
         await SetGatewayInactiveAsync(invoices.GatewayId, true);
         await supervisor.ReconcileAsync();
 
-        Publish(orders.Queue, """{"n":2}""");
-        Publish(invoices.Queue, """{"n":2}""");
+        await PublishAsync(orders.Queue, """{"n":2}""");
+        await PublishAsync(invoices.Queue, """{"n":2}""");
 
         await WaitAsync(async () => await CountAsync(orders.DocumentId) == 2,
             TimeSpan.FromSeconds(60), "the active integration stopped working too");
@@ -243,7 +243,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
         // thrown away, which is the outcome that would look identical from Bitween's side.
         await Task.Delay(TimeSpan.FromSeconds(3));
         Assert.Equal(1, await CountAsync(invoices.DocumentId));
-        Assert.True(Depth(invoices.Queue) >= 1,
+        Assert.True(await DepthAsync(invoices.Queue) >= 1,
             "the message for the deactivated gateway was consumed and dropped rather than left on the queue");
     }
 
@@ -265,8 +265,8 @@ public class SharedBrokerTests(BitweenFixture fixture)
         await supervisor.ReconcileAsync();
 
         var shared = Guid.NewGuid().ToString("N");
-        Publish(orders.Queue, """{"from":"orders"}""", shared);
-        Publish(invoices.Queue, """{"from":"invoices"}""", shared);
+        await PublishAsync(orders.Queue, """{"from":"orders"}""", shared);
+        await PublishAsync(invoices.Queue, """{"from":"invoices"}""", shared);
 
         await WaitAsync(async () =>
             await CountAsync(orders.DocumentId) == 1 && await CountAsync(invoices.DocumentId) == 1,
@@ -274,7 +274,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
             "one of the two was deduplicated away - the key is not scoped to the endpoint");
 
         // And a genuine redelivery on ONE of them still is a duplicate.
-        Publish(orders.Queue, """{"from":"orders"}""", shared);
+        await PublishAsync(orders.Queue, """{"from":"orders"}""", shared);
         await Task.Delay(TimeSpan.FromSeconds(5));
         Assert.Equal(1, await CountAsync(orders.DocumentId));
     }
@@ -303,8 +303,8 @@ public class SharedBrokerTests(BitweenFixture fixture)
         Assert.Single(Instances(contoso));
         Assert.NotEqual(Instances(acme)[0].ProcessId, Instances(contoso)[0].ProcessId);
 
-        Publish(acmeOrders.Queue, """{"tenant":"acme"}""");
-        Publish(contosoOrders.Queue, """{"tenant":"contoso"}""");
+        await PublishAsync(acmeOrders.Queue, """{"tenant":"acme"}""");
+        await PublishAsync(contosoOrders.Queue, """{"tenant":"contoso"}""");
 
         await WaitAsync(async () =>
             await CountAsync(acmeOrders.DocumentId) == 1 &&
@@ -337,8 +337,8 @@ public class SharedBrokerTests(BitweenFixture fixture)
         await using var supervisor = Supervisor();
         await supervisor.ReconcileAsync();
 
-        Publish(orders.Queue, """{"kind":"order","id":"A-1"}""");
-        Publish(invoices.Queue, """{"kind":"invoice","id":"I-9"}""");
+        await PublishAsync(orders.Queue, """{"kind":"order","id":"A-1"}""");
+        await PublishAsync(invoices.Queue, """{"kind":"invoice","id":"I-9"}""");
 
         var orderXchange = await WaitForXchangeAsync(orders.DocumentId);
         var invoiceXchange = await WaitForXchangeAsync(invoices.DocumentId);
@@ -436,7 +436,7 @@ public class SharedBrokerTests(BitweenFixture fixture)
 
         // Declared here rather than left to the adapter, so a queue exists to publish into even
         // before the supervisor has started anything.
-        DeclareQueue(queue);
+        await DeclareQueueAsync(queue);
 
         return new Integration(queue, document.Id, gateway.Id, subscriptionId);
     }
@@ -572,46 +572,47 @@ public class SharedBrokerTests(BitweenFixture fixture)
         }
     }
 
-    private void Publish(string queue, string body, string? messageId = null)
+    private async Task PublishAsync(string queue, string body, string? messageId = null)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
-        PublishOn(channel, queue, body, messageId);
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        await PublishOnAsync(channel, queue, body, messageId);
     }
 
-    private static void PublishOn(IModel channel, string queue, string body, string? messageId = null)
+    private static async Task PublishOnAsync(IChannel channel, string queue, string body, string? messageId = null)
     {
-        channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
+        await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false);
 
-        var properties = channel.CreateBasicProperties();
+        var properties = new BasicProperties();
         properties.ContentType = "application/json";
         properties.MessageId = messageId ?? Guid.NewGuid().ToString("N");
-        properties.DeliveryMode = 2;
+        properties.DeliveryMode = DeliveryModes.Persistent;
 
-        channel.BasicPublish("", queue, properties, Encoding.UTF8.GetBytes(body));
+        await channel.BasicPublishAsync("", queue, mandatory: false, basicProperties: properties,
+            body: Encoding.UTF8.GetBytes(body));
     }
 
-    private void DeclareQueue(string queue)
+    private async Task DeclareQueueAsync(string queue)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
-        channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false);
     }
 
-    private uint Depth(string queue)
+    private async Task<uint> DepthAsync(string queue)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
-        return channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false).MessageCount;
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        return (await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false)).MessageCount;
     }
 
-    private IConnection ExternalConnection() => new ConnectionFactory
+    private Task<IConnection> ExternalConnectionAsync() => new ConnectionFactory
     {
         HostName = fixture.ExternalRabbitHost,
         Port = fixture.ExternalRabbitPort,
         UserName = fixture.ExternalRabbitUser,
         Password = fixture.ExternalRabbitPassword,
-    }.CreateConnection("shared-broker-tests");
+    }.CreateConnectionAsync("shared-broker-tests");
 
     private static async Task WaitAsync(Func<Task<bool>> condition, TimeSpan timeout, string because)
     {

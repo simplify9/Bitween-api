@@ -55,7 +55,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
 
         Assert.NotNull(InstanceOf(dataSourceId));
 
-        Publish(queue, """{"from":"the supervisor"}""");
+        await PublishAsync(queue, """{"from":"the supervisor"}""");
 
         var xchange = await WaitForXchangeAsync(documentId);
         Assert.NotNull(xchange);
@@ -79,7 +79,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
         var declared = await DetailsOf(dataSourceId);
         Assert.Contains(queue, string.Join(",", declared.Values));
 
-        Publish(queue, """{"routed":"by endpoint"}""");
+        await PublishAsync(queue, """{"routed":"by endpoint"}""");
         Assert.NotNull(await WaitForXchangeAsync(documentId));
     }
 
@@ -102,8 +102,8 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
         var secondDocument = await AddGatewayAsync(dataSourceId, second);
         await supervisor.ReconcileAsync();
 
-        Publish(first, """{"queue":"first"}""");
-        Publish(second, """{"queue":"second"}""");
+        await PublishAsync(first, """{"queue":"first"}""");
+        await PublishAsync(second, """{"queue":"second"}""");
 
         Assert.NotNull(await WaitForXchangeAsync(firstDocument));
         Assert.NotNull(await WaitForXchangeAsync(secondDocument));
@@ -195,7 +195,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
             Assert.NotNull(after);
             Assert.NotEqual(before, after);
 
-            Publish(queue, """{"from":"after the restart"}""");
+            await PublishAsync(queue, """{"from":"after the restart"}""");
             Assert.NotNull(await WaitForXchangeAsync(documentId));
         }
         finally { options.BusProviderUnhealthyRestartSeconds = restartAfter; }
@@ -397,7 +397,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
         Assert.Null(InstanceOf(broken));
         Assert.NotNull(InstanceOf(healthy));
 
-        Publish(queue, """{"still":"working"}""");
+        await PublishAsync(queue, """{"still":"working"}""");
         Assert.NotNull(await WaitForXchangeAsync(documentId));
     }
 
@@ -515,7 +515,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
         Assert.DoesNotContain(dead, details);
 
         // And prove it by behaviour: the live queue still works.
-        Publish(live, """{"gateway":"live"}""");
+        await PublishAsync(live, """{"gateway":"live"}""");
         Assert.NotNull(await WaitForXchangeAsync(liveDocument));
     }
 
@@ -705,28 +705,29 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
         try { await host.StopAsync(instance.AdapterId, instance.InstanceKey, drain: false); } catch { }
     }
 
-    private void Publish(string queue, string body)
+    private async Task PublishAsync(string queue, string body)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
 
-        channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
+        await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false);
 
-        var properties = channel.CreateBasicProperties();
+        var properties = new BasicProperties();
         properties.ContentType = "application/json";
         properties.MessageId = Guid.NewGuid().ToString("N");
-        properties.DeliveryMode = 2;
+        properties.DeliveryMode = DeliveryModes.Persistent;
 
-        channel.BasicPublish("", queue, properties, Encoding.UTF8.GetBytes(body));
+        await channel.BasicPublishAsync("", queue, mandatory: false, basicProperties: properties,
+            body: Encoding.UTF8.GetBytes(body));
     }
 
-    private IConnection ExternalConnection() => new ConnectionFactory
+    private Task<IConnection> ExternalConnectionAsync() => new ConnectionFactory
     {
         HostName = fixture.ExternalRabbitHost,
         Port = fixture.ExternalRabbitPort,
         UserName = fixture.ExternalRabbitUser,
         Password = fixture.ExternalRabbitPassword
-    }.CreateConnection("supervisor-tests");
+    }.CreateConnectionAsync("supervisor-tests");
 
     private async Task<Xchange> WaitForXchangeAsync(int documentId)
     {

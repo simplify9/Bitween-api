@@ -47,7 +47,7 @@
     <!-- Talks the SQS API without LocalStack's weight; the fixture already starts a plain
          container for MailHog, so this follows the same pattern. -->
     <PackageReference Include="AWSSDK.SQS" Version="3.7.400.87" />
-    <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.2.2" />
 
     <!-- Serverless runtime -->
     <PackageReference Include="SimplyWorks.Serverless" Version="10.2.2" />
@@ -56,7 +56,7 @@
     <PackageReference Include="SimplyWorks.Serverless.Tooling" Version="10.2.2" />
 
     <!-- Bus (for IPublish + AddBus registration) -->
-    <PackageReference Include="SimplyWorks.Bus" Version="10.0.3" />
+    <PackageReference Include="SimplyWorks.Bus" Version="10.1.0" />
 
     <!-- EF Core naming conventions (used by PgSql context) -->
     <PackageReference Include="EFCore.NamingConventions" Version="9.0.0" />

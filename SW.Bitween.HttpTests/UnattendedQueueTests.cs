@@ -28,16 +28,17 @@ public class UnattendedQueueTests(HttpFixture fixture)
         var held = $"{Prefix}.busservice.held{Guid.NewGuid():N}"[..60];
         var attended = $"{Prefix}.xchangeservice.0ungrouped";
 
-        using var connection = new ConnectionFactory { Uri = new Uri(fixture.RabbitConnectionString) }.CreateConnection();
-        using var channel = connection.CreateModel();
+        await using var connection =
+            await new ConnectionFactory { Uri = new Uri(fixture.RabbitConnectionString) }.CreateConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
         foreach (var queue in new[] { orphan, $"{orphan}.retry", $"{orphan}.bad", held })
-            channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
-        channel.BasicPublish("", orphan, null, Encoding.UTF8.GetBytes("left behind 1"));
-        channel.BasicPublish("", orphan, null, Encoding.UTF8.GetBytes("left behind 2"));
-        channel.BasicPublish("", $"{orphan}.bad", null, Encoding.UTF8.GetBytes("dead"));
+            await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false);
+        await channel.BasicPublishAsync("", orphan, Encoding.UTF8.GetBytes("left behind 1"));
+        await channel.BasicPublishAsync("", orphan, Encoding.UTF8.GetBytes("left behind 2"));
+        await channel.BasicPublishAsync("", $"{orphan}.bad", Encoding.UTF8.GetBytes("dead"));
         // Something outside Bitween still reads this one.
-        using var reader = connection.CreateModel();
-        reader.BasicConsume(held, autoAck: false, new EventingBasicConsumer(reader));
+        await using var reader = await connection.CreateChannelAsync();
+        await reader.BasicConsumeAsync(held, autoAck: false, new AsyncEventingBasicConsumer(reader));
 
         using var admin = await fixture.AdminAsync();
 

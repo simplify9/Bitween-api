@@ -31,7 +31,7 @@ public class DeadLetterRequeueTests(BitweenFixture fixture)
     {
         await using var scope = fixture.CreateScope();
         var url = scope.ServiceProvider.GetRequiredService<IConfiguration>().GetConnectionString("RabbitMQ");
-        return new ConnectionFactory { Uri = new Uri(url!) }.CreateConnection();
+        return await new ConnectionFactory { Uri = new Uri(url!) }.CreateConnectionAsync();
     }
 
     private DeadLetterQueues Service(params string[] known) =>
@@ -42,21 +42,24 @@ public class DeadLetterRequeueTests(BitweenFixture fixture)
     private async Task<string> Lane(int dead, bool withMain = true)
     {
         var main = $"test.deadletters.lane{Interlocked.Increment(ref _seq)}.{Guid.NewGuid():N}";
-        using var connection = await Broker();
-        using var channel = connection.CreateModel();
-        if (withMain) channel.QueueDeclare(main, durable: false, exclusive: false, autoDelete: false);
-        channel.QueueDeclare($"{main}.bad", durable: false, exclusive: false, autoDelete: false);
+        await using var connection = await Broker();
+        await using var channel = await connection.CreateChannelAsync();
+        if (withMain) await channel.QueueDeclareAsync(main, durable: false, exclusive: false, autoDelete: false);
+        await channel.QueueDeclareAsync($"{main}.bad", durable: false, exclusive: false, autoDelete: false);
         for (var i = 1; i <= dead; i++)
         {
-            var props = channel.CreateBasicProperties();
-            props.CorrelationId = $"c{i}";
-            props.Headers = new Dictionary<string, object>
+            var props = new BasicProperties
             {
-                ["x-death"] = new List<object> { new Dictionary<string, object> { ["count"] = 5L } },
-                ["exception0"] = "boom",
-                ["tenant"] = "acme",
+                CorrelationId = $"c{i}",
+                Headers = new Dictionary<string, object?>
+                {
+                    ["x-death"] = new List<object> { new Dictionary<string, object> { ["count"] = 5L } },
+                    ["exception0"] = "boom",
+                    ["tenant"] = "acme",
+                },
             };
-            channel.BasicPublish("", $"{main}.bad", props, Encoding.UTF8.GetBytes($"{{\"n\":{i}}}"));
+            await channel.BasicPublishAsync("", $"{main}.bad", mandatory: false, basicProperties: props,
+                body: Encoding.UTF8.GetBytes($"{{\"n\":{i}}}"));
         }
 
         return main;
@@ -64,10 +67,10 @@ public class DeadLetterRequeueTests(BitweenFixture fixture)
 
     private async Task<List<BasicGetResult>> Drain(string queue)
     {
-        using var connection = await Broker();
-        using var channel = connection.CreateModel();
+        await using var connection = await Broker();
+        await using var channel = await connection.CreateChannelAsync();
         var got = new List<BasicGetResult>();
-        while (channel.BasicGet(queue, autoAck: true) is { } message) got.Add(message);
+        while (await channel.BasicGetAsync(queue, autoAck: true) is { } message) got.Add(message);
         return got;
     }
 
@@ -76,14 +79,14 @@ public class DeadLetterRequeueTests(BitweenFixture fixture)
     {
         var main = await Lane(3);
 
-        Assert.Equal(2, Service().Requeue($"{main}.bad", 2));
+        Assert.Equal(2, await Service().RequeueAsync($"{main}.bad", 2));
 
         var requeued = await Drain(main);
         Assert.Equal(["{\"n\":1}", "{\"n\":2}"], requeued.Select(m => Encoding.UTF8.GetString(m.Body.ToArray())));
-        var headers = requeued[0].BasicProperties.Headers;
+        var headers = requeued[0].BasicProperties.Headers!;
         Assert.False(headers.ContainsKey("x-death"));
         Assert.False(headers.ContainsKey("exception0"));
-        Assert.Equal("acme", Encoding.UTF8.GetString((byte[])headers["tenant"]));
+        Assert.Equal("acme", Encoding.UTF8.GetString((byte[])headers["tenant"]!));
         Assert.Equal("c1", requeued[0].BasicProperties.CorrelationId);
 
         Assert.Single(await Drain($"{main}.bad"));
@@ -94,7 +97,7 @@ public class DeadLetterRequeueTests(BitweenFixture fixture)
     {
         var main = await Lane(1, withMain: false);
 
-        Assert.ThrowsAny<OperationInterruptedException>(() => Service().Requeue($"{main}.bad", 10));
+        await Assert.ThrowsAnyAsync<OperationInterruptedException>(() => Service().RequeueAsync($"{main}.bad", 10));
 
         Assert.Single(await Drain($"{main}.bad"));
     }

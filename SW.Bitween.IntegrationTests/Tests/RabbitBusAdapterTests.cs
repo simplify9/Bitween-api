@@ -49,8 +49,8 @@ public class RabbitBusAdapterTests(BitweenFixture fixture)
 
         const string body = """{"instruction":"reorder","sku":"A-1"}""";
 
-        PublishRaw(queue, body, messageId: null);
-        PublishRaw(queue, body, messageId: null);
+        await PublishRawAsync(queue, body, messageId: null);
+        await PublishRawAsync(queue, body, messageId: null);
 
         await WaitAsync(async () => await CountAsync(documentId) >= 2, TimeSpan.FromSeconds(45),
             "the second identical message was swallowed - a content hash is being used as identity");
@@ -73,9 +73,9 @@ public class RabbitBusAdapterTests(BitweenFixture fixture)
         const string body = """{"same":"payload"}""";
         var redelivered = Guid.NewGuid().ToString("N");
 
-        PublishRaw(queue, body, Guid.NewGuid().ToString("N"));
-        PublishRaw(queue, body, redelivered);
-        PublishRaw(queue, body, redelivered);   // the redelivery
+        await PublishRawAsync(queue, body, Guid.NewGuid().ToString("N"));
+        await PublishRawAsync(queue, body, redelivered);
+        await PublishRawAsync(queue, body, redelivered);   // the redelivery
 
         await WaitAsync(async () => await CountAsync(documentId) >= 2, TimeSpan.FromSeconds(45),
             "two distinct messages did not both produce an Xchange");
@@ -108,7 +108,7 @@ public class RabbitBusAdapterTests(BitweenFixture fixture)
         var (dataSourceId, documentId, lease) = await ArrangeAsync(queue);
         await using var _ = lease;
 
-        PublishMany(queue, count);
+        await PublishManyAsync(queue, count);
 
         await WaitAsync(async () => await CountAsync(documentId) >= count, TimeSpan.FromSeconds(90),
             $"only {await CountAsync(documentId)} of {count} messages became an Xchange");
@@ -139,7 +139,7 @@ public class RabbitBusAdapterTests(BitweenFixture fixture)
         const int count = 40;
 
         var queue = Unique("rb-egress");
-        DeclareQueue(queue);
+        await DeclareQueueAsync(queue);
 
         var (_, _, lease) = await ArrangeAsync(Unique("rb-egress-in"));
         await using var _ = lease;
@@ -152,10 +152,10 @@ public class RabbitBusAdapterTests(BitweenFixture fixture)
                 ContentType = "application/json"
             }, timeoutSeconds: 30)));
 
-        await WaitAsync(() => Task.FromResult(Depth(queue) >= count), TimeSpan.FromSeconds(30),
-            $"only {Depth(queue)} of {count} published messages reached the queue");
+        await WaitAsync(async () => await DepthAsync(queue) >= count, TimeSpan.FromSeconds(30),
+            $"only {await DepthAsync(queue)} of {count} published messages reached the queue");
 
-        Assert.Equal((uint)count, Depth(queue));
+        Assert.Equal((uint)count, await DepthAsync(queue));
     }
 
     // ---------------------------------------------------------------- helpers
@@ -241,61 +241,62 @@ public class RabbitBusAdapterTests(BitweenFixture fixture)
     }
 
     /// <summary>Publishes with full control over the message id, including leaving it unset.</summary>
-    private void PublishRaw(string queue, string body, string messageId)
+    private async Task PublishRawAsync(string queue, string body, string messageId)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
 
-        channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
+        await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false);
 
-        var properties = channel.CreateBasicProperties();
+        var properties = new BasicProperties();
         properties.ContentType = "application/json";
-        properties.DeliveryMode = 2;
+        properties.DeliveryMode = DeliveryModes.Persistent;
         if (messageId != null) properties.MessageId = messageId;
 
-        channel.BasicPublish("", queue, properties, Encoding.UTF8.GetBytes(body));
+        await channel.BasicPublishAsync("", queue, mandatory: false, basicProperties: properties,
+            body: Encoding.UTF8.GetBytes(body));
     }
 
-    private void PublishMany(string queue, int count)
+    private async Task PublishManyAsync(string queue, int count)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
 
-        channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
+        await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false);
 
         for (var i = 0; i < count; i++)
         {
-            var properties = channel.CreateBasicProperties();
+            var properties = new BasicProperties();
             properties.ContentType = "application/json";
-            properties.DeliveryMode = 2;
+            properties.DeliveryMode = DeliveryModes.Persistent;
             properties.MessageId = Guid.NewGuid().ToString("N");
 
-            channel.BasicPublish("", queue, properties,
-                Encoding.UTF8.GetBytes($$"""{"n":{{i}}}"""));
+            await channel.BasicPublishAsync("", queue, mandatory: false, basicProperties: properties,
+                body: Encoding.UTF8.GetBytes($$"""{"n":{{i}}}"""));
         }
     }
 
-    private void DeclareQueue(string queue)
+    private async Task DeclareQueueAsync(string queue)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
-        channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false);
     }
 
-    private uint Depth(string queue)
+    private async Task<uint> DepthAsync(string queue)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
-        return channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false).MessageCount;
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        return (await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false)).MessageCount;
     }
 
-    private IConnection ExternalConnection() => new ConnectionFactory
+    private Task<IConnection> ExternalConnectionAsync() => new ConnectionFactory
     {
         HostName = fixture.ExternalRabbitHost,
         Port = fixture.ExternalRabbitPort,
         UserName = fixture.ExternalRabbitUser,
         Password = fixture.ExternalRabbitPassword
-    }.CreateConnection("rabbit-adapter-tests");
+    }.CreateConnectionAsync("rabbit-adapter-tests");
 
     private static async Task WaitAsync(Func<Task<bool>> condition, TimeSpan timeout, string because)
     {
