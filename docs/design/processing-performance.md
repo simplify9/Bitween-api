@@ -251,7 +251,24 @@ Code: `SW.Bitween.Api/Controllers/GatewayController.cs`, `XchangeService.Process
 
 ### 2. Sync gateway calls wait at least one second
 
-- **Status:** decided 2026-10-14 (2a to 2d; 2e dropped), to be implemented in a separate session. Remove once shipped.
+- **Status:** decided 2026-10-14 (2a to 2d; 2e dropped). Remove once shipped.
+  Implemented 2026-10-14 together with finding 3, as local commits on `releases/r10.0-develop`,
+  not pushed: 6535a5c3 (phases 2.1 to 2.3) and 25ec5f50 (2.4 with 3.5).
+  Measured on the harness (`tests/load`, one node, `PARTNER_DELAY_MS=100`, 5/s for 1 min after a
+  15 s warm-up; at 20/s the single lane saturates near 8/s with a 100 ms partner, so latency
+  there is queueing, not the sync path): before (259c98c4) p50 1011 ms, p95 1032 ms, p99 1064 ms;
+  after (25ec5f50) p50 115 ms, p95 125 ms, p99 132 ms, so about 15 ms of Bitween on top of the
+  partner's 100. Against the instant nginx partner at 20/s, the finding 4 run: p50 1006 ms, p95
+  1015 ms before, p50 8.5 ms, p95 12.6 ms after. Database commands per sync exchange 4.03 before,
+  3.03 after (`exchange_stats`): no poll, and nothing after the result's save.
+  Differences from the plan: `AwaitedOn` names the `ResultSignals` instance (`NodeHeartbeat.NodeName`
+  plus a random suffix per application instance), because two applications in one process (the
+  HTTP tests' second node) share a node name; on the same node the response is handed over in
+  memory whatever its size, the cap applies to the broadcast only; a replayed or dropped call,
+  answered with an exchange it didn't create, has no signal and is checked at once, then polled
+  on the old schedule; the backstop timing is not a setting. The legacy
+  `POST /api/xchanges/{type}` wait keeps its poll. A node on the previous version ignores the
+  broadcast (SW-Bus acks a message type it can't resolve).
 - **Where:** `SW.Bitween.Api/Services/ResultWait.cs`, used by `GatewayController.ProcessAsync`
 - **What happens:** After creating the exchange the request sleeps 1 s before the first result
   check, then 1, 2, 3, 5, 8, 8 s between checks. Each check is a database query.
@@ -334,7 +351,28 @@ Code: `SW.Bitween.Api/Controllers/GatewayController.cs`, `XchangeService.Process
 
 ### 3. Object storage is on the critical path five times
 
-- **Status:** decided 2026-10-14 (3a, 3b, 3e, 3f; 3c rejected), to be implemented in a separate session. Remove once shipped.
+- **Status:** decided 2026-10-14 (3a, 3b, 3e, 3f; 3c rejected). Remove once shipped.
+  Implemented 2026-10-14 together with finding 2, as local commits on `releases/r10.0-develop`,
+  not pushed: 183a1a6d (3.1, 3.2), 233ed43e (3.3), 25ec5f50 (3.5 with finding 2's 2.4); harness
+  additions in a51c9a5e. 3.4 (same-pod cache) skipped: after 3.3 the input reads were already
+  zero for every exchange under the cap, so it would only serve inputs over 256 KB and
+  dispatcher replays on the creating pod.
+  Storage calls per sync exchange on the harness (SeaweedFS request counter, no mapper, so no
+  output file): before 4.00 (2 PUT, 2 GET); after 3.3 3.00 (2 PUT, 1 GET, the answer's response
+  read); after 3.5 2.00 (2 PUT, 0 GET), at 5/s and at 20/s. The harness storage answers in under
+  a millisecond, so it shows the calls removed, not their cost on S3 or Azure Blob; latency moved
+  only with finding 2. Size percentiles from live deployments not yet run: the 256 KB cap stands.
+  Differences from the plan: overlapping a write with the insert itself would need a transaction
+  around the save, whose commit is a round trip finding 4 removed, so each write overlaps the work
+  before its save (promoted properties and the caller's checks for the input, the handler for the
+  output, result preparation for the response) and the save waits for it. The output write is
+  the one that leaves the critical path; the gateway does not get a PUT faster. One consequence:
+  an output write that fails is now seen after the handler delivered rather than before it ran;
+  the exchange fails and its policy may retry. Batch creators (bulk retry, unpause, aggregation)
+  now write their inputs in parallel. The created message carries `Input` only, not the name,
+  content type or bad-data flag: those are on the row, and the storage path never used the flag,
+  so carrying them would make the worker behave differently by path. The worker uses the carried
+  input only when it matches the row's `InputHash`.
 - **Where:** `XchangeService.AddFile`, `GetFile`, `Process`, `RunMapper`, `RunHandler`
 - **What happens:** Input is uploaded at creation and downloaded again by the consumer. Output
   and response are uploaded one after the other before the result is saved. A sync caller's
