@@ -14,8 +14,11 @@ public class PayloadParseCountTests
 {
     private const string Payload = "{\"id\":\"A-1\",\"price\":1.10}";
 
-    /// <summary>One parse to see that the payload is JSON, one to build the model. Finding 6, row 4.</summary>
-    private const int FillParses = 2;
+    /// <summary>
+    /// 2 before finding 6: one parse to see that the payload is JSON, one to build the model (row 4).
+    /// 1 once the model is built from the parse that saw it was JSON (6b).
+    /// </summary>
+    private const int FillParses = 1;
 
     [TestMethod]
     public void Filling_a_template_from_a_json_payload_parses_it_as_often_as_counted()

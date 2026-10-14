@@ -48,22 +48,32 @@ public static class ScribanJsonHelper
     /// The template filled from a JSON message, or as written when the message isn't JSON: a CSV or a
     /// flat file has no fields to fill. A broken template still throws, so a typo isn't used literally.
     /// </summary>
-    public static string FillIfJson(string template, string? payload) =>
-        string.IsNullOrEmpty(template) || !LooksLikeJson(payload) ? template : RenderText(template, payload!);
-
-    public static bool LooksLikeJson(string? payload)
+    /// <remarks>
+    /// The payload is parsed once: the parse that tells it is JSON is the one the template is filled
+    /// from. They used to be two parses of the same text with the same settings (finding 6b).
+    /// </remarks>
+    public static string FillIfJson(string template, string? payload)
     {
-        if (string.IsNullOrWhiteSpace(payload)) return false;
-        if (payload.TrimStart()[0] is not ('{' or '[')) return false;
+        if (string.IsNullOrEmpty(template)) return template;
+        var token = ParseIfJson(payload);
+        return token is null ? template : RenderText(template, token);
+    }
+
+    public static bool LooksLikeJson(string? payload) => ParseIfJson(payload) is not null;
+
+    /// <summary>The payload parsed, when it is an object or an array that parses; null otherwise.</summary>
+    private static JToken? ParseIfJson(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload)) return null;
+        if (payload.TrimStart()[0] is not ('{' or '[')) return null;
         try
         {
             PayloadParseTally.Parsed();
-            JToken.Parse(payload);
-            return true;
+            return JToken.Parse(payload);
         }
         catch (Newtonsoft.Json.JsonReaderException)
         {
-            return false;
+            return null;
         }
     }
 
@@ -71,8 +81,15 @@ public static class ScribanJsonHelper
     {
         // 1. Parse input JSON - handle both root object and root array
         PayloadParseTally.Parsed();
-        var rootToken = JToken.Parse(inputJson);
+        return RenderText(scribanTemplate, JToken.Parse(inputJson));
+    }
 
+    /// <summary>
+    /// <see cref="RenderText(string, string)"/> from a payload already parsed with Newtonsoft's
+    /// defaults, as <c>JToken.Parse</c> parses it. The tree is only read.
+    /// </summary>
+    internal static string RenderText(string scribanTemplate, JToken rootToken)
+    {
         // 2. Build top-level ScriptObject from input (recursive)
         ScriptObject scriptObj;
         if (rootToken is JArray rootArray)
