@@ -85,15 +85,15 @@ The cost of one sync gateway call, native handler, success, before and after:
 
   | Id | Change | Removes | Risk and compatibility |
   |---|---|---|---|
-  | 6a | Cache compiled templates and rules by their text: Scriban `Template.Parse`, DotLiquid URL `Template.Parse`, `MappingRules` deserialization, in bounded in-memory caches keyed by a hash of the text | row 9, every call | none; the same text gives the same template |
-  | 6b | Drop the parses that only re-check: `LooksLikeJson` parses the whole payload to answer yes or no, then `RenderText` parses it again; parse once and pass the tree. The rendered-output tidy (6) can work on the writer's tree instead of re-parsing text. | rows 4 and 6 | none |
+  | 6a | Cache compiled templates and rules by their text: Scriban `Template.Parse` and `MappingRules` deserialization, in bounded in-memory caches keyed by a hash of the text. Not the DotLiquid URL template (see validation). | row 9, every call | none; the same text gives the same template |
+  | 6b | Drop the parse that only re-checks: `LooksLikeJson` parses the whole payload to answer yes or no, then `RenderText` parses it again; parse once and pass the tree. Row 6 stays: the template produces text. | row 4 | none |
   | 6c | Parse once in the pipeline and hand the tree along: an internal `ParsedXchangeFile` (a subclass of `XchangeFile`, which lives in the SimplyWorks package and cannot change) with a lazy, cached `JToken` or `XDocument`. The filter, the schema check, the enrichment and the built-in adapters (`JsonFormat`, `XmlFormat`, `ScribanJsonHelper`, the HTTP handler's URL model) use the cached tree when they are given one. Adapters that run out of process receive text over the wire and parse it themselves, as they must. | rows 2, 5, 7 and 8 share one parse with row 1 (for exchanges created on the same pod; otherwise one parse in the worker) | internal only; the adapter contract does not change |
   | 6d | For the Scriban mapper, give `__partner__` and `__globals__` to the template as variables instead of writing them into the payload and serializing it back. The enrichment stays as it is for mappers that run out of process, which read them out of the payload. | row 3 and its serialize for the built-in Scriban mapper | a template that iterates the payload's keys stops seeing `__partner__` among them; property access `{{ __partner__.key }}` is unchanged. Needs a note in `mapping.md`. |
   | 6e | Move the mapping engine from Newtonsoft to System.Text.Json | about half the cost of each remaining parse | the rules engine is built on `JToken` with decimal number handling and no date parsing, and the Scriban model is built from `JToken`; a rewrite with subtle number and ordering semantics to preserve. Not worth it while 6a to 6d are undone. |
 
-- **Expected effect:** with 6a to 6d, the worst case drops from six input parses to one or
-  two and no template parsing per call; allocations per exchange fall by roughly the payload
-  size times four. Latency per exchange barely moves at small payloads; the per-node CPU
+- **Expected effect:** with 6a, 6b and 6c, the worst case drops from six input parses to two
+  (one per parse profile) and no template parsing per call; allocations per exchange fall by
+  roughly the payload size times three or four. Latency per exchange barely moves at small payloads; the per-node CPU
   ceiling and GC pauses at large payloads are what improve.
 
 - **How it is measured.** A parse counter per exchange, like finding 4's command counter
@@ -101,8 +101,62 @@ The cost of one sync gateway call, native handler, success, before and after:
   1 MB payload: CPU per exchange and allocated bytes per exchange from the runtime counters,
   p95 before and after.
 
-- **Backward compatibility.** 6a, 6b, 6c: none; same input, same output, same adapter
-  contract. 6d: the one behaviour change above, for the built-in Scriban mapper only.
+- **Validation (2026-10-14), read against the code before deciding.** The naive version of 6c,
+  one parse shared by everyone, **would change stored data**, so it must not be built that way:
+
+  | Consumer | Parse settings today | What a shared default tree would change |
+  |---|---|---|
+  | Promoted properties, match expressions (`JsonExchangePayloadReader`), schema check, Scriban model, HTTP URL model | Newtonsoft defaults: floats become `double`, ISO date strings become `DateTime`, and a promoted value is then written back as text, so `1.10` is stored as `1.1` and `2026-10-14T10:00:00Z` as `10/14/2026 10:00:00` | nothing, if the shared tree keeps these defaults |
+  | Rules-based mapper (`JsonFormat`) | `FloatParseHandling.Decimal`, `DateParseHandling.None`, and a trailing-content check, so money stays exact and dates stay text | with the default tree, prices would round and dates would reformat in every mapped document |
+
+  So the two profiles cannot share one tree. The safe design keeps **one cached tree per parse
+  profile**: "defaults" for the first row, "decimal, no dates" for the mapper. Every consumer
+  gets a tree parsed exactly as it parses today, and the count drops from six to two, not to
+  one. The other hazards found:
+
+  - The enrichment (row 3) mutates the tree it parsed. A cached tree is shared, so the
+    enrichment must deep-clone before it injects, or it would leak `__partner__` into the
+    promoted-property read of the same exchange on the same pod.
+  - `MappingRules` is a plain mutable object (public setters, lists). Nothing in `DocumentMapper`
+    writes to it, so caching the deserialized rules is safe today; the cache must hand out the
+    same instance only if that stays true, so a test asserts the rules are not mutated by a run.
+  - Scriban renders with a fresh `TemplateContext` per call and the parsed `Template` holds
+    only the syntax tree, so caching it is safe. DotLiquid's `Template` keeps per-instance
+    state and its thread safety under concurrent renders is not documented; the URL template
+    is a few characters, so **do not cache it**. 6a is Scriban templates and mapping rules only.
+  - Row 6 cannot be dropped: the template produces text, so its output has to be parsed to be
+    tidied. 6b removes row 4 only.
+  - XML goes the same way: `XmlExchangePayloadReader` decodes entities and strips invalid
+    characters before `XDocument.Parse`; `XmlFormat` loads the raw text. Two profiles again.
+
+  What makes it safe to ship:
+
+  1. **Golden tests captured before any change.** A corpus of inputs (numbers `1.10`, `1e5`,
+     large integers, `-0`; dates ISO, with offsets, non-ISO strings; unicode and escapes; nested
+     and root arrays; empty objects; duplicate keys; trailing whitespace and content; a BOM;
+     XML with entities, invalid characters and namespaces) run through each consumer
+     (promoted values, match results, schema errors, rules-mapper output, Scriban output,
+     enriched payload text, HTTP URL rendering) on the current commit, outputs stored as
+     fixtures, and asserted byte for byte after the change.
+  2. **A parse counter per exchange**, like finding 4's command counter, with a test that
+     fails if the count rises.
+  3. **A kill switch**, `Bitween:SharedPayloadParse` (default on): off restores the per-step
+     parsing exactly, so a deployment that sees a difference reverts with a setting, not a
+     rollback. Same for `Bitween:CacheCompiledTemplates`.
+  4. **A concurrency test** rendering one cached Scriban template from many threads with
+     different models.
+  5. The existing suites: `JsonPropertyReaderTests`, `DocumentSchemaTests`, the four Scriban
+     helper suites, `NativeJsonMapperTests`, the `NativeMapper` folder, `MapperContextOptOutTests`,
+     `HttpHandlerBehaviourTests`, plus HTTP and integration.
+
+  **6d is the only option with a visible behaviour change** (a template iterating payload keys
+  stops seeing `__partner__`). Recommended: defer it. It saves one parse and one serialize per
+  Scriban exchange, and it is the one thing here that cannot be proven identical by a golden
+  test.
+
+- **Backward compatibility.** 6a (Scriban and rules only), 6b (row 4 only), 6c (per-profile
+  trees, immutable, cloned before enrichment): none, and proven by the golden corpus and the
+  kill switch. 6d: deferred.
 
 - **Decision:** (pending)
 
