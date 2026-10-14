@@ -12,6 +12,7 @@ Docker with Compose v2 is all it needs; k6 runs in a container on the stack's ne
 tests/load/run.sh                              # 20/s for 2 minutes, after a 15 s warm-up
 RATE=10 DURATION=30s WARMUP=5s tests/load/run.sh
 DOWN=1 tests/load/run.sh                       # stop the stack and delete its data at the end
+RATE=5 PARTNER_DELAY_MS=100 tests/load/run.sh  # against a partner that answers in 100 ms
 ```
 
 On Colima, `run.sh` sets `DOCKER_HOST` to `~/.colima/default/docker.sock` when it is not set.
@@ -30,12 +31,13 @@ The first run builds the Bitween image from the repository's `Dockerfile` (sever
 | `MAX_VUS` | 200 | most calls in flight at once; above it k6 drops iterations and says so |
 | `WAIT_PERIOD` | 30 | seconds Bitween may hold a sync call for its result (`Wait-Period` header) |
 | `PRIME` | 30 | sync calls made one at a time after seeding, before the measured window |
+| `PARTNER_DELAY_MS` | unset | the seeded handler calls `slow-partner`, which answers after this many milliseconds, instead of the nginx partner that answers at once |
 
 ## What runs
 
 | File | Role |
 |---|---|
-| `docker-compose.yml` | PostgreSQL 16 with `pg_stat_statements`, RabbitMQ 3, SeaweedFS as S3 storage, an nginx "partner" answering `{"accepted":true}` at once, Bitween built from `../../Dockerfile`, and k6 (profile `k6`) |
+| `docker-compose.yml` | PostgreSQL 16 with `pg_stat_statements`, RabbitMQ 3, SeaweedFS as S3 storage (with its metrics port), an nginx "partner" answering `{"accepted":true}` at once, the same partner after a fixed delay (`slow-partner`, `partner.py`), Bitween built from `../../Dockerfile`, and k6 (profile `k6`) |
 | `seed.k6.js`, `lib/seed.js` | Through the admin API: signs in as the seeded administrator (and does the forced password change), creates a JSON information type, a partner with a key, a `GatewayApiCall` subscription whose handler is the native HTTP handler posting to the partner (no mapper, no notifications), and an API gateway with the partner attached by key. Names carry a run id, so every run seeds a fresh set. Writes `results/seed.json`, then primes the gateway with `PRIME` sequential calls. |
 | `sync.k6.js` | The load. Reads `results/seed.json`, or seeds in `setup()` when it is missing, so it also runs on its own: `docker compose run --rm k6 run sync.k6.js` |
 | `stats.sql` | Resets `pg_stat_statements`, and reports statements per exchange and the top statements |
@@ -65,6 +67,10 @@ harness measures the warm node.
     the reset Npgsql sends ahead of the first command on a connection taken back from the pool,
     in the same round trip, so it costs a statement but not a trip. This is the column to watch
     for statements removed by a phase.
+- **object storage requests per exchange**: S3 requests on Bitween's bucket during the window, by
+  type, from SeaweedFS's own request counter, divided by the exchanges of this run (warm-up
+  included in both). Storage here is local and answers in under a millisecond, so this harness
+  shows how many calls an exchange makes, not what they cost on S3 or Azure Blob.
 - **db commands per exchange**: Bitween's own figure, `sum(db_commands) / sum(total)` from
   `infolink.exchange_stats` for the seeded subscription, counted by the phase 0 interceptor.
   Shown only when the build has that column. It counts commands (round trips): one
@@ -86,6 +92,10 @@ Each phase is accepted on this harness at the same `RATE` and `DURATION` as the 
 `pg_stat_statements` should also show each removed statement gone from the top list.
 
 ## Notes
+
+- A single node runs one lane. Before lanes run exchanges in parallel (finding 1), a lane does one
+  exchange at a time, so with `PARTNER_DELAY_MS=100` it tops out near 8 exchanges per second:
+  measure latency below that (for example `RATE=5`), or the figures are queueing time.
 
 - The storage is SeaweedFS because MinIO no longer publishes images on Docker Hub. It is
   S3-compatible and Bitween talks to it with its S3 provider, as production does. Bitween creates

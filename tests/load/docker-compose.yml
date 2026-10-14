@@ -52,7 +52,8 @@ services:
   # Bitween creates its bucket itself at startup.
   s3:
     image: chrislusf/seaweedfs:3.80
-    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=256 -volume.max=0
+    # The metrics port gives run.sh the S3 requests per exchange (SeaweedFS_s3_request_total).
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=256 -volume.max=0 -metricsPort=9324
     volumes:
       - ./s3.json:/etc/seaweedfs/s3.json:ro
     healthcheck:
@@ -66,6 +67,17 @@ services:
     image: nginx:1.27.4-alpine
     volumes:
       - ./partner.nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+  # The same partner after a fixed delay (PARTNER_DELAY_MS, default 100), for a run that measures
+  # a sync call against a partner that takes a known time. run.sh points the seed at it when
+  # PARTNER_DELAY_MS is set.
+  slow-partner:
+    image: python:3.12.8-alpine
+    command: ["python3", "-u", "/partner.py"]
+    environment:
+      PARTNER_DELAY_MS: "${PARTNER_DELAY_MS:-100}"
+    volumes:
+      - ./partner.py:/partner.py:ro
 
   bitween:
     build:
@@ -81,6 +93,7 @@ services:
       rabbitmq: { condition: service_healthy }
       s3: { condition: service_healthy }
       partner: { condition: service_started }
+      slow-partner: { condition: service_started }
     ports:
       - "${BITWEEN_PORT:-8090}:8080"
     environment:
@@ -125,6 +138,6 @@ services:
     working_dir: /scripts
     environment:
       BITWEEN_URL: "http://bitween:8080"
-      PARTNER_URL: "http://partner:8080/orders"
+      PARTNER_URL: "${PARTNER_URL:-http://partner:8080/orders}"
       ADMIN_EMAIL: admin@Bitween.systems
       ADMIN_PASSWORD: *admin-password
