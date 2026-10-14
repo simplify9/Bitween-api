@@ -35,7 +35,7 @@ permissions:
   security-events: read
 
 jobs:
-  build-publish-deploy:
+  Dev:
     # Develop: build, publish bitween-develop, deploy to bitween-dev.
     if: ${{ github.ref_name == 'releases/r10.0-develop' }}
     uses: simplify9/.github/.github/workflows/reusable-service-cicd.yml@main
@@ -139,7 +139,7 @@ jobs:
       # (openssl rand -base64 48). Changing it signs out everyone holding an older token.
       helm-set-secret-values: 'global.token.key=${{ secrets.TokenKey }},db=${{ secrets.dbConnection }},global.bus.rabbitUrl=${{ secrets.rabbitUrl }},global.cloudFiles.secretAccessKey=${{ secrets.SecretAccessKey }},global.cloudFiles.accessKeyId=${{ secrets.AccessKeyId }},global.cloudFiles.serviceUrl=${{ secrets.ServiceUrl }},global.cloudFiles.bucketName=${{ secrets.BucketName }},environmentVariables.Bitween__RabbitMqManagementUrl=${{ secrets.RabbitMqManagementUrl }},environmentVariables.Bitween__RabbitMqManagementPassword=${{ secrets.RabbitMqManagementPassword }},environmentVariables.Bitween__RabbitMqManagementUsername=${{ secrets.RabbitMqManagementUsername }}'
 
-  publish-release:
+  Prod:
     # Release: build and publish for clients, deploy production. releases/r10.0 is the
     # repository's default branch, so the reusable workflow treats it as a release: a clean
     # 10.0.<patch> git tag, and the critical Dependabot gate runs first.
