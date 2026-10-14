@@ -265,7 +265,9 @@ public class GatewayController(
                     }
                 case true when ready.ResponseSize != 0:
                     {
-                        var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
+                        // From the signal when it brought the response; from storage when it was too
+                        // large to travel, or the backstop found the result.
+                        var response = ready.Response ?? await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
                         return new ContentResult
                         {
                             StatusCode = ready.ResponseBad ? 400 : 200,

@@ -45,10 +45,10 @@ public class ExchangeCommandCountTests(BitweenFixture fixture, ITestOutputHelper
     /// are deleted in batches off the exchange's path instead of updated inline (phase 2); 5 once the
     /// result lane only hears of results something notifies on (phase 3); 4 once the sync wait reads
     /// the result in the poll that finds it (phase 4). Promoted properties ride in the creation
-    /// batch, and cost no command of their own. Finding 2's signal replaces the poll; the answer
-    /// still loads the exchange to read the response from storage, so 4.
+    /// batch, and cost no command of their own. 3 once finding 2's signal replaces the poll and brings
+    /// the response with it: nothing after the result's save.
     /// </summary>
-    private const int SyncCallBudget = 4;
+    private const int SyncCallBudget = 3;
 
     [Fact]
     public async Task A_sync_gateway_call_stays_within_its_database_command_budget()

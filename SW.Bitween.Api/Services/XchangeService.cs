@@ -877,7 +877,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             await KeepResultEventOnlyIfHeard(xchange, xchangeResult);
             using (BitweenTelemetry.Stage("save"))
                 await dbContext.SaveChangesAsync();
-            await AnnounceResult(message, xchangeResult);
+            await AnnounceResult(message, xchangeResult, responseFile);
             outcome = responseFile?.BadData == true ? "bad_response" : "success";
         }
         catch (Exception ex)
@@ -899,7 +899,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.Error, ex.ToString(), xchangeResult);
             await KeepResultEventOnlyIfHeard(xchange, xchangeResult);
             await dbContext.SaveChangesAsync();
-            await AnnounceResult(message, xchangeResult);
+            await AnnounceResult(message, xchangeResult, responseFile);
             await TrackDeliveryHealth(xchange, xchangeResult, ex.ToString());
         }
         finally
@@ -927,21 +927,26 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// <summary>
     /// Tells the synchronous call waiting for this result, if one is, that it is saved: by ringing the
     /// bell when the call is on this node, by a broadcast to every node otherwise. Never throws: the
-    /// result is saved, and a call that isn't told finds it by its backstop poll.
+    /// result is saved, and a call that isn't told finds it by its backstop poll. The response goes
+    /// with it, so the answer reads nothing: on this node always, in a broadcast under the size cap.
     /// </summary>
-    private async Task AnnounceResult(XchangeMessage message, XchangeResult result)
+    private async Task AnnounceResult(XchangeMessage message, XchangeResult result, XchangeFile responseFile)
     {
         if (message.AwaitedOn == null) return;
         try
         {
             var ready = XchangeResultReady.From(result, message.AwaitedOn);
+            // Only what the result names: a response whose write failed isn't on it.
+            var response = result.ResponseSize > 0 ? responseFile?.Data : null;
             var signals = serviceProvider.GetService<ResultSignals>();
             if (signals?.Node == message.AwaitedOn)
             {
+                ready.Response = response;
                 signals.Complete(ready);
                 return;
             }
 
+            if (FitsInMessage(response)) ready.Response = response;
             if (serviceProvider.GetService<IBroadcast>() is { } broadcast)
                 await broadcast.Broadcast(ready);
         }

@@ -26,6 +26,13 @@ public class XchangeResultReady
     public int ResponseSize { get; set; }
     public string ResponseContentType { get; set; }
 
+    /// <summary>
+    /// The response, as written to storage, so the answer needs no read: always when the worker rang
+    /// the bell on its own node, and in a broadcast when it is no larger than
+    /// <c>Bitween:MessagePayloadMaxBytes</c>. Null otherwise, and the answer reads storage.
+    /// </summary>
+    public string Response { get; set; }
+
     /// <summary>What a saved result says, for the call waiting on it; null for none.</summary>
     public static XchangeResultReady From(Domain.XchangeResult result, string node = null) => result == null
         ? null
