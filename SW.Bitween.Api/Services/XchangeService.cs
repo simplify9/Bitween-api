@@ -800,17 +800,20 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             var xchangeResult = new XchangeResult(xchange.Id, workGroup, outputFile, responseFile,
                 responseXchange?.Id);
             await StampAsync(xchangeResult, xchange);
+            xchangeResult.SetSubscription(xchange.SubscriptionId);
+            // A bad response still means the target answered: the run of failures is over. Written on
+            // the result, which is being inserted anyway, rather than on the subscription row.
+            if (xchange.SubscriptionId != null) xchangeResult.SetConsecutiveFailures(0);
             dbContext.Add(xchangeResult);
             if (responseFile?.BadData == true)
                 await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.BadResult, responseFile.Data,
                     xchangeResult);
             else
                 await TryClearingRetryBudgetAfterSuccess(xchange);
+            await KeepResultEventOnlyIfHeard(xchange, xchangeResult);
             using (BitweenTelemetry.Stage("save"))
                 await dbContext.SaveChangesAsync();
             outcome = responseFile?.BadData == true ? "bad_response" : "success";
-            // A bad response still means the target answered: the run of failures is over.
-            await TrackDeliveryHealth(xchange, null);
         }
         catch (Exception ex)
         {
@@ -820,10 +823,13 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             var xchangeResult = new XchangeResult(xchange.Id, workGroup, outputFile, responseFile,
                 responseXchange?.Id, ex.ToString());
             await StampAsync(xchangeResult, xchange);
+            xchangeResult.SetSubscription(xchange.SubscriptionId);
+            await CountFailure(xchange, xchangeResult);
             dbContext.Add(xchangeResult);
             await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.Error, ex.ToString(), xchangeResult);
+            await KeepResultEventOnlyIfHeard(xchange, xchangeResult);
             await dbContext.SaveChangesAsync();
-            await TrackDeliveryHealth(xchange, ex.ToString());
+            await TrackDeliveryHealth(xchange, xchangeResult, ex.ToString());
         }
         finally
         {
@@ -879,39 +885,76 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     }
 
     /// <summary>
-    /// Counts failed deliveries in a row for a subscription set to pause after some number of them,
-    /// and pauses it when the count is reached. Nothing for one that isn't.
+    /// Records on a failed result how many failures in a row it makes, for a subscription set to
+    /// pause after some number of them: the subscription's latest result's count, plus one. Nothing
+    /// for one that isn't. Runs before the result is saved, so the latest result is the one before.
     /// </summary>
     /// <remarks>
-    /// Counted and compared in the database, not on a loaded copy: exchanges for one subscription
-    /// are processed side by side, and a read-then-write would lose counts and pause it twice.
-    /// Never throws - the exchange's own result is already saved and is what matters.
+    /// The count used to be a counter on the subscription row, updated by every exchange, success or
+    /// failure: a write per exchange on one hot row. Now a success writes 0 on its own result and
+    /// reads nothing, and only a failure reads (one indexed row). Two failures finishing together can
+    /// read the same latest result and both count one more than it; the pause then comes a failure
+    /// late, which is the price of no shared counter. Never throws: the failure is what matters.
     /// </remarks>
-    private async Task TrackDeliveryHealth(Xchange xchange, string exception)
+    private async Task CountFailure(Xchange xchange, XchangeResult result)
     {
         if (xchange.SubscriptionId is not { } subscriptionId) return;
+        try
+        {
+            var subscription = await BitweenCache.SubscriptionByIdAsync(subscriptionId);
+            if (subscription?.AutoPauseAfterFailures == null) return;
+
+            // The row's own count is written on failures and set back to 0 when someone resumes the
+            // subscription, so 0 there means the run starts again whatever the latest result says.
+            // Read in the same query as that result, from the database: the cached row lags.
+            var counts = await dbContext.Set<Subscription>().AsNoTracking()
+                .Where(s => s.Id == subscriptionId)
+                .Select(s => new
+                {
+                    s.ConsecutiveFailures,
+                    Latest = dbContext.Set<XchangeResult>()
+                        .Where(r => r.SubscriptionId == subscriptionId)
+                        .OrderByDescending(r => r.FinishedOn)
+                        .Select(r => r.ConsecutiveFailures)
+                        .FirstOrDefault()
+                })
+                .FirstOrDefaultAsync();
+            var previous = counts == null || counts.ConsecutiveFailures == 0 ? 0 : counts.Latest ?? 0;
+            result.SetConsecutiveFailures(previous + 1);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not count the failures in a row of subscription {SubscriptionId}.", subscriptionId);
+        }
+    }
+
+    /// <summary>
+    /// After a failure is saved: keeps the count and the error on the subscription for its page and
+    /// the alert, and pauses it when the count reaches its limit. Failures only, so a subscription
+    /// that works costs nothing here.
+    /// </summary>
+    /// <remarks>
+    /// The pause is one conditional update, so of several exchanges crossing the line at once only
+    /// one pauses it and alerts. Never throws - the exchange's own result is already saved and is
+    /// what matters.
+    /// </remarks>
+    private async Task TrackDeliveryHealth(Xchange xchange, XchangeResult result, string exception)
+    {
+        if (xchange.SubscriptionId is not { } subscriptionId || result.ConsecutiveFailures is not { } failures) return;
         try
         {
             var subscription = await BitweenCache.SubscriptionByIdAsync(subscriptionId);
             if (subscription?.AutoPauseAfterFailures is not { } threshold) return;
 
             var subscriptions = dbContext.Set<Subscription>().Where(s => s.Id == subscriptionId);
-            if (exception is null)
-            {
-                await subscriptions.Where(s => s.ConsecutiveFailures != 0)
-                    .ExecuteUpdateAsync(u => u
-                        .SetProperty(s => s.ConsecutiveFailures, 0)
-                        .SetProperty(s => s.LastException, (string)null));
-                return;
-            }
-
             await subscriptions.ExecuteUpdateAsync(u => u
-                .SetProperty(s => s.ConsecutiveFailures, s => s.ConsecutiveFailures + 1)
+                .SetProperty(s => s.ConsecutiveFailures, failures)
                 .SetProperty(s => s.LastException, exception));
+            if (failures < threshold) return;
 
             // Only the one exchange whose failure crosses the line pauses it, and alerts.
             var paused = await subscriptions
-                .Where(s => s.PausedOn == null && s.ConsecutiveFailures >= threshold)
+                .Where(s => s.PausedOn == null)
                 .ExecuteUpdateAsync(u => u
                     .SetProperty(s => s.PausedOn, DateTime.UtcNow)
                     .SetProperty(s => s.PausedAutomatically, true));
@@ -938,6 +981,48 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         {
             logger.LogError(ex, "Could not track delivery health for subscription {SubscriptionId}.", subscriptionId);
         }
+    }
+
+    /// <summary>
+    /// Leaves the result event on the result only when something will hear it: a notification of
+    /// the subscription's, or an active legacy notifier watching it, that covers this outcome.
+    /// </summary>
+    /// <remarks>
+    /// The event exists for the result lane, which loaded the result and the exchange again just to
+    /// find, for most subscriptions, that nothing notifies. Decided from the cache as the result is
+    /// saved, so a notification added while this exchange ran is not sent for it. A subscription the
+    /// cache doesn't hold, switched off since this started, keeps the event: the result lane reads it
+    /// from the database. Never throws; when in doubt the event goes, as it always did.
+    /// </remarks>
+    private async Task KeepResultEventOnlyIfHeard(Xchange xchange, XchangeResult result)
+    {
+        try
+        {
+            if (!await SomethingHears(xchange, result)) result.NothingToNotify();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not tell whether anything notifies on xchange {XchangeId}; its result event goes.",
+                xchange.Id);
+        }
+    }
+
+    private async Task<bool> SomethingHears(Xchange xchange, XchangeResult result)
+    {
+        if (xchange.SubscriptionId is not { } subscriptionId) return false;
+        var subscription = await BitweenCache.SubscriptionByIdAsync(subscriptionId);
+        if (subscription == null) return true;
+
+        // The same outcomes NotifyThroughChannels and NotifyResult go by.
+        bool Covers(bool onSuccess, bool onBadResult, bool onFailure) =>
+            result.Success ? result.ResponseBad ? onBadResult : onSuccess : onFailure;
+
+        if ((subscription.Notifications ?? []).Any(n => Covers(n.OnSuccess, n.OnBadResult, n.OnFailure)))
+            return true;
+
+        return (await BitweenCache.ListNotifiersAsync()).Any(n =>
+            !n.Inactive && n.HandlerId != null && n.RunOnSubscriptions?.Contains(subscriptionId) == true &&
+            Covers(n.RunOnSuccessfulResult, n.RunOnBadResult, n.RunOnFailedResult));
     }
 
     /// <summary>

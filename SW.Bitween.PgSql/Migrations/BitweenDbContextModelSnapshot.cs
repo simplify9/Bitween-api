@@ -2900,6 +2900,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("attempt_number");
 
+                    b.Property<int?>("ConsecutiveFailures")
+                        .HasColumnType("integer")
+                        .HasColumnName("consecutive_failures");
+
                     b.Property<int?>("DurationMs")
                         .HasColumnType("integer")
                         .HasColumnName("duration_ms");
@@ -2986,6 +2990,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("uuid")
                         .HasColumnName("retry_group_id");
 
+                    b.Property<int?>("SubscriptionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("subscription_id");
+
                     b.Property<bool>("Success")
                         .HasColumnType("boolean")
                         .HasColumnName("success");
@@ -2995,6 +3003,10 @@ namespace SW.Bitween.PgSql.Migrations
 
                     b.HasIndex("RetryGroupId")
                         .HasDatabaseName("ix_xchange_result_retry_group_id");
+
+                    b.HasIndex("SubscriptionId", "FinishedOn")
+                        .HasDatabaseName("ix_xchange_result_subscription_id_finished_on")
+                        .HasAnnotation("Npgsql:CreatedConcurrently", true);
 
                     b.ToTable("xchange_result", "infolink");
                 });

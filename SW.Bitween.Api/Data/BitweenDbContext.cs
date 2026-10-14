@@ -577,7 +577,8 @@ namespace SW.Bitween
                 b.Property(p => p.NodeName).HasMaxLength(100).IsUnicode(false);
                 b.Property(p => p.MapperVersion).HasMaxLength(50).IsUnicode(false);
                 b.Property(p => p.HandlerVersion).HasMaxLength(50).IsUnicode(false);
-
+                // A subscription's latest result: what auto-pause counts from.
+                b.HasIndex(p => new { p.SubscriptionId, p.FinishedOn });
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });

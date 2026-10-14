@@ -41,9 +41,11 @@ public class ExchangeCommandCountTests(BitweenFixture fixture, ITestOutputHelper
     /// The sync path with a native handler, no mapper, no notifications, no duplicate window, no
     /// idempotency key, auto-pause off, caches warm. 13 before finding 4; 9 once the gateway, its
     /// partners and keys come from the cache, the exchange loads with its has-result flag and the
-    /// retry budget is asked only of policies that have one (phase 1).
+    /// retry budget is asked only of policies that have one (phase 1); 7 once published outbox rows
+    /// are deleted in batches off the exchange's path instead of updated inline (phase 2); 5 once the
+    /// result lane only hears of results something notifies on (phase 3).
     /// </summary>
-    private const int SyncCallBudget = 9;
+    private const int SyncCallBudget = 5;
 
     [Fact]
     public async Task A_sync_gateway_call_stays_within_its_database_command_budget()
@@ -86,11 +88,21 @@ public class ExchangeCommandCountTests(BitweenFixture fixture, ITestOutputHelper
         var message = JsonConvert.SerializeObject(new { Id = xchangeId });
         await using (var worker = fixture.CreateScope())
             await worker.ServiceProvider.GetRequiredService<XchangeService>().Process("commands-test", message);
-        await using (var resultLane = fixture.CreateScope())
-            await resultLane.ServiceProvider.GetRequiredService<XchangeService>()
-                .Process("commands-test" + XchangeService.ResultQueueSuffix, message);
+        // The result lane runs only when the worker queued it a message. The fixture leaves published
+        // outbox rows in place until a test flushes them, so the row says whether it did.
+        if (await ResultEventQueuedAsync(xchangeId))
+            await using (var resultLane = fixture.CreateScope())
+                await resultLane.ServiceProvider.GetRequiredService<XchangeService>()
+                    .Process("commands-test" + XchangeService.ResultQueueSuffix, message);
 
         return await call;
+    }
+
+    private async Task<bool> ResultEventQueuedAsync(string xchangeId)
+    {
+        await using var scope = fixture.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<OutboxMessage>().AsNoTracking()
+            .AnyAsync(m => m.MessageType.EndsWith(XchangeService.ResultQueueSuffix) && m.Body.Contains(xchangeId));
     }
 
     private async Task<string> WaitForUnprocessedExchangeAsync(int subscriptionId, Task call)

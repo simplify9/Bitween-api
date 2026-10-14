@@ -2112,7 +2112,7 @@ namespace SW.Bitween.MySql.Migrations
                     b.HasIndex("Code")
                         .IsUnique();
 
-                    b.ToTable("SubscriptionCategory", (string)null);
+                    b.ToTable("SubscriptionCategory");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.SubscriptionRevision", b =>
@@ -2170,7 +2170,7 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("WorkGroup", (string)null);
+                    b.ToTable("WorkGroup");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Xchange", b =>
@@ -2377,6 +2377,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<int?>("AttemptNumber")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ConsecutiveFailures")
+                        .HasColumnType("int");
+
                     b.Property<int?>("DurationMs")
                         .HasColumnType("int");
 
@@ -2451,12 +2454,17 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<Guid?>("RetryGroupId")
                         .HasColumnType("char(36)");
 
+                    b.Property<int?>("SubscriptionId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("Success")
                         .HasColumnType("tinyint(1)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("RetryGroupId");
+
+                    b.HasIndex("SubscriptionId", "FinishedOn");
 
                     b.ToTable("XchangeResults", (string)null);
                 });

@@ -72,7 +72,7 @@ namespace SW.Bitween.Resources.Subscriptions
                     RunOnBadResponses = subscriber.RunOnBadResponses,
                     ReceiveOn = subscriber.ReceiveOn,
                     AggregateOn = subscriber.AggregateOn,
-                    ConsecutiveFailures = subscriber.ConsecutiveFailures,
+                    ConsecutiveFailures = await SubscriptionFailures.CountAsync(dbContext, subscriber),
                     LastException = subscriber.LastException,
                     AggregationTarget = subscriber.AggregationTarget,
                     ValidatorId = subscriber.ValidatorId,

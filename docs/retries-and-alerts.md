@@ -219,7 +219,7 @@ The policy page's usage panel shows, per subscription and group, the attempts us
 
 ## Auto-pause alerts
 
-A subscription with **Auto-pause** set pauses itself after that many failures in a row. Bitween then sends one alert, recorded as a notification named *Auto-pause alert*, through:
+A subscription with **Auto-pause** set pauses itself after that many failures in a row. Each result records how many failures in a row it makes, and a failure counts from the subscription's latest result. Exchanges finishing at the same moment can read the same latest result, so under heavy concurrent failure a pause can come one or two failures after the number set. Bitween then sends one alert, recorded as a notification named *Auto-pause alert*, through:
 
 - its shared retry policy's policy-wide alert channel;
 - each of its [notifications](#subscription-notifications) ticked **Fails**.
@@ -302,6 +302,8 @@ In the API these are the subscription's `notifications`, each `{ channelId, onFa
 An Email, Teams or Slack channel sends a message Bitween writes. Any other adapter receives a JSON document describing the result, with PascalCase fields: `Id`, `Success`, `Exception`, `StartedOn`, `FinishedOn`, `OutputBad`, `ResponseBad`, `SubscriptionId`, `SubscriptionName`, `DocumentId`, `DocumentName`, `CorrelationId`, `SuppressedSinceLast` and `Event`. Its properties also get `xchangeid`. `Event` is null for an exchange's result, and `gone-quiet` or `back` when the subscription goes quiet or comes back.
 
 Notifications run on each work group's `-Result` queue, separate from exchange processing. `GET /api/notifications` searches what was sent. Each row names its channel, the subscription it reported, and whether it was held back.
+
+An exchange goes on the `-Result` queue only when one of the subscription's notifications or an active legacy notifier covers its outcome, decided as its result is saved. A notification added or changed while an exchange is running is therefore not sent for that exchange; the next one hears.
 
 ## Legacy notifiers
 

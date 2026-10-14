@@ -74,7 +74,16 @@ namespace SW.Bitween.Resources.Subscriptions
                     ExpectTraffic = subscriber.ExpectTraffic,
                     QuietSince = subscriber.QuietSince,
                     IsRunning = subscriber.IsRunning,
-                    ConsecutiveFailures = subscriber.ConsecutiveFailures,
+                    // As SubscriptionFailures counts it: a delivery subscription set to auto-pause
+                    // counts its failures on its results, and a success no longer writes the row
+                    // back to 0, so the latest result says where the run stands.
+                    ConsecutiveFailures = subscriber.AutoPauseAfterFailures == null || subscriber.ConsecutiveFailures == 0
+                        ? subscriber.ConsecutiveFailures
+                        : _dbContext.Set<XchangeResult>()
+                              .Where(r => r.SubscriptionId == subscriber.Id)
+                              .OrderByDescending(r => r.FinishedOn)
+                              .Select(r => r.ConsecutiveFailures)
+                              .FirstOrDefault() ?? subscriber.ConsecutiveFailures,
                     LastException = subscriber.LastException,
                     RetryPolicyId = subscriber.RetryPolicyId,
                     MapperProperties = subscriber.MapperProperties.ToKeyAndValueCollection(),

@@ -1,5 +1,6 @@
 ﻿using SW.PrimitiveTypes;
 using System;
+using System.Linq;
 
 namespace SW.Bitween.Domain
 {
@@ -112,6 +113,37 @@ namespace SW.Bitween.Domain
         {
             RetryGroupId = groupId;
             AttemptNumber = attemptNumber;
+        }
+
+        /// <summary>
+        /// The subscription the exchange ran for, copied here so a subscription's latest result is
+        /// one indexed read. Null on results from before it was recorded, and for routing exchanges.
+        /// </summary>
+        public int? SubscriptionId { get; private set; }
+
+        /// <summary>
+        /// How many failed deliveries in a row this result makes for its subscription: 0 for a
+        /// delivery that went through (a bad response included), the previous result's count plus
+        /// one for a failure. Counted for subscriptions set to pause after failures; null otherwise,
+        /// and on results from before it was recorded. What auto-pause counts, instead of a counter
+        /// on the subscription row that every exchange had to update.
+        /// </summary>
+        public int? ConsecutiveFailures { get; private set; }
+
+        public void SetSubscription(int? subscriptionId) => SubscriptionId = subscriptionId;
+
+        public void SetConsecutiveFailures(int? count) => ConsecutiveFailures = count;
+
+        /// <summary>
+        /// Drops the result event when nothing is set to hear about it: no notifier and no
+        /// notification of the subscription's covers this outcome. Saves the result lane a message,
+        /// and the two reads it made only to find that out. Any other event raised on the result,
+        /// such as a spent retry budget, still goes.
+        /// </summary>
+        public void NothingToNotify()
+        {
+            foreach (var created in Events.OfType<XchangeResultCreatedEvent>().ToList())
+                Events.Remove(created);
         }
 
         /// <summary>

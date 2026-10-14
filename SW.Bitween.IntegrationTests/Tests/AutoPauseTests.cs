@@ -78,6 +78,15 @@ public class AutoPauseTests(BitweenFixture fixture)
             .Set<Subscription>().AsNoTracking().SingleAsync(s => s.Id == subscriptionId);
     }
 
+    /// <summary>Failures in a row as the subscription's page and list show them.</summary>
+    private async Task<int> ShownFailures(int subscriptionId)
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var subscription = await db.Set<Subscription>().AsNoTracking().SingleAsync(s => s.Id == subscriptionId);
+        return await Resources.Subscriptions.SubscriptionFailures.CountAsync(db, subscription);
+    }
+
     private async Task<int> PauseEvents(int subscriptionId)
     {
         await using var scope = fixture.CreateScope();
@@ -129,7 +138,9 @@ public class AutoPauseTests(BitweenFixture fixture)
         await Deliver(id);
         await SetHandler(id, Responder);
         await Deliver(id);
-        Assert.Equal(0, (await Reload(id)).ConsecutiveFailures);
+        // Counted on the results now: the success writes 0 on its own result, not on the subscription
+        // row, and the subscription's page reads it from there.
+        Assert.Equal(0, await ShownFailures(id));
 
         await SetHandler(id, Missing);
         await Deliver(id);
@@ -158,6 +169,35 @@ public class AutoPauseTests(BitweenFixture fixture)
         Assert.False(sub.PausedAutomatically);
         Assert.Equal(0, sub.ConsecutiveFailures);
         Assert.Null(sub.LastException);
+    }
+
+    /// <summary>
+    /// The count lives on the results now, and the latest one still says how many failed before the
+    /// pause. Resuming has to start again from nothing all the same, or the first failure after it
+    /// would pause the subscription straight back.
+    /// </summary>
+    [Fact]
+    public async Task After_resuming_it_takes_the_full_number_of_failures_to_pause_again()
+    {
+        var id = await NewSubscription(2);
+        await Deliver(id);
+        await Deliver(id);
+        Assert.True((await Reload(id)).PausedAutomatically);
+
+        await using (var scope = fixture.CreateScope())
+        {
+            scope.Superuser();
+            await ActivatorUtilities.CreateInstance<Resources.Subscriptions.Pause>(scope.ServiceProvider)
+                .Handle(id, new SubscriptionPause());
+        }
+        Assert.Equal(0, await ShownFailures(id));
+
+        await Deliver(id);
+        Assert.Null((await Reload(id)).PausedOn);
+        Assert.Equal(1, await ShownFailures(id));
+
+        await Deliver(id);
+        Assert.NotNull((await Reload(id)).PausedOn);
     }
 
     /// <summary>

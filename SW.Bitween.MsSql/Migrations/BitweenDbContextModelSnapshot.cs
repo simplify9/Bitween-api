@@ -2121,7 +2121,7 @@ namespace SW.Bitween.MsSql.Migrations
                         .IsUnique()
                         .HasFilter("[Code] IS NOT NULL");
 
-                    b.ToTable("SubscriptionCategory", (string)null);
+                    b.ToTable("SubscriptionCategory");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.SubscriptionRevision", b =>
@@ -2179,7 +2179,7 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("WorkGroup", (string)null);
+                    b.ToTable("WorkGroup");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Xchange", b =>
@@ -2386,6 +2386,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<int?>("AttemptNumber")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ConsecutiveFailures")
+                        .HasColumnType("int");
+
                     b.Property<int?>("DurationMs")
                         .HasColumnType("int");
 
@@ -2460,12 +2463,17 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<Guid?>("RetryGroupId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<int?>("SubscriptionId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("Success")
                         .HasColumnType("bit");
 
                     b.HasKey("Id");
 
                     b.HasIndex("RetryGroupId");
+
+                    b.HasIndex("SubscriptionId", "FinishedOn");
 
                     b.ToTable("XchangeResults", (string)null);
                 });

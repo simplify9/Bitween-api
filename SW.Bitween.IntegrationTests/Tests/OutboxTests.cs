@@ -48,14 +48,13 @@ public class OutboxTests(BitweenFixture fixture)
     {
         await using var scope = fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var message = new OutboxMessage("OutboxTestMessage", JsonConvert.SerializeObject(new { Id = Guid.NewGuid() }));
-        db.Add(message);
-        await db.SaveChangesAsync();
 
-        // Saved with no broker to take it: as a publish failing straight after the commit leaves it.
-        var unreachable = ActivatorUtilities.CreateInstance<PgSql.BitweenDbContext>(scope.ServiceProvider,
+        // Saved while the broker refuses: the publish straight after the commit fails.
+        await using var unreachable = ActivatorUtilities.CreateInstance<PgSql.BitweenDbContext>(scope.ServiceProvider,
             new FailingPublish());
-        await unreachable.PublishOutboxAsync([message]);
+        var message = new OutboxMessage("OutboxTestMessage", JsonConvert.SerializeObject(new { Id = Guid.NewGuid() }));
+        unreachable.Add(message);
+        await unreachable.SaveChangesAsync();
         await fixture.App.Services.GetRequiredService<OutboxAcknowledger>().FlushAsync(CancellationToken.None);
 
         var row = await db.Set<OutboxMessage>().AsNoTracking().SingleAsync(m => m.Id == message.Id);
