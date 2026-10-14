@@ -37,4 +37,11 @@ public class ClusterNode : BaseEntity<string>
     /// resident adapters, and on beats from before this was recorded.
     /// </summary>
     public string ResidentHealth { get; set; }
+
+    /// <summary>
+    /// Outbox messages this node published in the hour before its last beat. Published rows are
+    /// deleted now rather than kept, so this is where the queue health page counts them from. Null
+    /// on beats from nodes from before this was recorded.
+    /// </summary>
+    public int? OutboxPublishedLastHour { get; set; }
 }

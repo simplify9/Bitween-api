@@ -64,6 +64,7 @@ public class NodeHeartbeat(IServiceScopeFactory scopes, BitweenOptions options, 
         node.DataSources = options.BusProvidersEnabled;
         node.Runtimes = runtimes;
         node.ResidentHealth = ResidentHealthJson();
+        node.OutboxPublishedLastHour = services.GetService<OutboxAcknowledger>()?.PublishedLastHour;
         await db.SaveChangesAsync(cancellation);
 
         var forgotten = now - ForgetAfter;

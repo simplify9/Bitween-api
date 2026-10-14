@@ -18,9 +18,9 @@ using SW.Scheduler.PgSql;
 namespace SW.Bitween.PgSql
 {
 public class BitweenDbContext(DbContextOptions options, RequestContext requestContext, IPublish publish,
-        IInfolinkCache cache = null)
+        IInfolinkCache cache = null, OutboxAcknowledger outboxAcknowledger = null)
         : Bitween.BitweenDbContext(
-        options, requestContext, publish, cache)
+        options, requestContext, publish, cache, outboxAcknowledger)
     {
         public const string Schema = "infolink";
 
@@ -419,15 +419,6 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });
 
-            modelBuilder.Entity<XchangeDelivery>(b =>
-            {
-                //b.ToTable("XchangeDeliveries");
-                b.Property(p => p.Id).HasMaxLength(50);
-                b.HasIndex(i => i.DeliveredOn);
-                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeDelivery>(p => p.Id)
-                    .OnDelete(DeleteBehavior.Cascade);
-            });
-
             modelBuilder.Entity<XchangeRetryClaim>(b =>
             {
                 //b.ToTable("XchangeRetryClaims");
@@ -693,7 +684,9 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.Body).IsRequired();
                 b.Property(p => p.Headers).StoreAsJson();
                 b.Property(p => p.LastError).HasMaxLength(2000);
-                b.HasIndex(p => p.PublishedOn);
+                // What the dispatcher looks for: rows not yet published. Published rows are deleted
+                // now, so the rows it covers are the only ones there normally are.
+                b.HasIndex(p => p.CreatedOn).HasFilter("published_on IS NULL").IsCreatedConcurrently();
             });
 
             modelBuilder.Entity<AdapterDraft>(b =>

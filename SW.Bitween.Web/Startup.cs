@@ -146,6 +146,9 @@ namespace SW.Bitween.Web
             services.AddHostedService<SchedulerSeedService>();
             // Publishes what didn't go out straight after its commit; see OutboxMessage.
             services.AddHostedService<OutboxDispatcher>();
+            // Deletes published outbox rows in batches, off the exchange's path; see OutboxAcknowledger.
+            services.AddSingleton<OutboxAcknowledger>();
+            services.AddHostedService(sp => sp.GetRequiredService<OutboxAcknowledger>());
             // Encrypts credential columns written before encryption was on; see SecretColumnCipher.
             services.AddHostedService<SecretColumnEncryptionPass>();
 

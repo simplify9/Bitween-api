@@ -264,6 +264,9 @@ public sealed class BitweenFixture : IAsyncLifetime
                     });
 
                     services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
+                    // Published outbox rows are queued for deletion as in production, but tests flush the
+                    // queue by hand (OutboxAcknowledger.FlushAsync), so a row is there to look at until then.
+                    services.AddSingleton<OutboxAcknowledger>();
                     services.AddSingleton<INativeInfolinkReceiver, NativeTestReceiver>();
                     services.AddSingleton<INativeInfolinkReceiver, NativeFailingTestReceiver>();
                     services.AddSingleton<INativeInfolinkReceiver, NativePartlyFailingTestReceiver>();

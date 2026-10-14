@@ -6,7 +6,8 @@ using SW.Scheduler.SqlServer;
 namespace SW.Bitween.MsSql
 {
     public class BitweenDbContext(DbContextOptions options, RequestContext requestContext,
-        IPublish publish, IInfolinkCache cache = null) : Bitween.BitweenDbContext(options, requestContext, publish, cache)
+        IPublish publish, IInfolinkCache cache = null, OutboxAcknowledger outboxAcknowledger = null)
+        : Bitween.BitweenDbContext(options, requestContext, publish, cache, outboxAcknowledger)
     {
         /// <summary>Backs <see cref="Document"/> ids - see the note in OnModelCreating.</summary>
         public const string DocumentIdSequence = "DocumentIds";
@@ -23,6 +24,10 @@ namespace SW.Bitween.MsSql
             // hold against it. A sequence-backed default generates ids the same way with no table
             // rebuild. Postgres uses identity and MySQL AUTO_INCREMENT, which both alter in place.
             modelBuilder.Entity<Document>().Property(p => p.Id).UseSequence(DocumentIdSequence);
+
+            // What the outbox dispatcher looks for: rows not yet published. Published rows are
+            // deleted now, so the rows it covers are the only ones there normally are.
+            modelBuilder.Entity<OutboxMessage>().HasIndex(p => p.CreatedOn).HasFilter("[PublishedOn] IS NULL");
         }
     }
 }

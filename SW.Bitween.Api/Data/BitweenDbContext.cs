@@ -16,11 +16,12 @@ using SW.Bitween.JsonConverters;
 namespace SW.Bitween
 {
     public class BitweenDbContext(DbContextOptions options, RequestContext requestContext,
-        IPublish publish, IInfolinkCache cache = null) : DbContext(options)
+        IPublish publish, IInfolinkCache cache = null, OutboxAcknowledger outboxAcknowledger = null) : DbContext(options)
     {
         private readonly RequestContext requestContext = requestContext;
         private readonly IPublish publish = publish;
         private readonly IInfolinkCache cache = cache;
+        private readonly OutboxAcknowledger outboxAcknowledger = outboxAcknowledger;
 
         // Parsed as Unspecified kind, so the .ToUniversalTime() calls at every use site below used
         // to convert using whatever timezone the current machine happened to be in - deterministic
@@ -368,7 +369,8 @@ namespace SW.Bitween
                 b.Property(p => p.Body).IsRequired();
                 b.Property(p => p.Headers).StoreAsJson();
                 b.Property(p => p.LastError).HasMaxLength(2000);
-                b.HasIndex(p => p.PublishedOn);
+                // The dispatcher's index on unpublished rows differs by provider: see the SQL Server
+                // and MySQL contexts.
             });
 
             modelBuilder.Entity<OperatorAction>(b =>
@@ -591,15 +593,6 @@ namespace SW.Bitween
                 b.HasIndex(p => new { p.NotifierId, p.FinishedOn });
                 // And a channel's.
                 b.HasIndex(p => new { p.ChannelId, p.FinishedOn });
-            });
-
-            modelBuilder.Entity<XchangeDelivery>(b =>
-            {
-                b.ToTable("XchangeDeliveries");
-                b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
-                b.HasIndex(i => i.DeliveredOn);
-                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeDelivery>(p => p.Id)
-                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<XchangeRetryClaim>(b =>
@@ -941,7 +934,8 @@ namespace SW.Bitween
                 : new OutboxMessage(domainEvent.GetType().Name, JsonConvert.SerializeObject(domainEvent));
 
         /// <summary>
-        /// Publishes saved outbox rows and marks those the broker took. One that fails stays unpublished,
+        /// Publishes saved outbox rows and deletes those the broker took, through
+        /// <see cref="OutboxAcknowledger"/>, off this caller's path. One that fails stays unpublished,
         /// with the error on it, for <see cref="OutboxDispatcher"/>. Never throws: the change is
         /// committed, and failing the caller now would only make it try the change a second time.
         /// </summary>
@@ -982,17 +976,17 @@ namespace SW.Bitween
 
             if (published.Count == 0) return 0;
 
-            var now = DateTime.UtcNow;
+            // Deleted rather than marked, and in a batch a second later rather than here: marking
+            // was a round trip per save on every exchange, and a day of dead rows.
+            if (outboxAcknowledger?.Acknowledge(published) == true) return published.Count;
+
             try
             {
-                await Set<OutboxMessage>().Where(m => published.Contains(m.Id))
-                    .ExecuteUpdateAsync(u => u
-                        .SetProperty(m => m.PublishedOn, now)
-                        .SetProperty(m => m.Attempts, m => m.Attempts + 1), CancellationToken.None);
+                await OutboxAcknowledger.DeleteAsync(this, published, CancellationToken.None);
             }
             catch
             {
-                // Published but not marked: the dispatcher will publish them again. Consumers take a
+                // Published but not deleted: the dispatcher will publish them again. Consumers take a
                 // repeat - Process checks for an existing result before doing anything.
             }
 

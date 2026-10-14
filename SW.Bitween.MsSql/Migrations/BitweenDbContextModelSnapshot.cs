@@ -557,6 +557,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<DateTime>("LastSeenOn")
                         .HasColumnType("datetime2");
 
+                    b.Property<int?>("OutboxPublishedLastHour")
+                        .HasColumnType("int");
+
                     b.Property<string>("ResidentHealth")
                         .HasMaxLength(4000)
                         .HasColumnType("nvarchar(4000)");
@@ -1711,7 +1714,8 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("PublishedOn");
+                    b.HasIndex("CreatedOn")
+                        .HasFilter("[PublishedOn] IS NULL");
 
                     b.ToTable("OutboxMessages", (string)null);
                 });
@@ -2117,7 +2121,7 @@ namespace SW.Bitween.MsSql.Migrations
                         .IsUnique()
                         .HasFilter("[Code] IS NOT NULL");
 
-                    b.ToTable("SubscriptionCategory");
+                    b.ToTable("SubscriptionCategory", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.SubscriptionRevision", b =>
@@ -2175,7 +2179,7 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("WorkGroup");
+                    b.ToTable("WorkGroup", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Xchange", b =>
@@ -2302,23 +2306,6 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasIndex("AggregationXchangeId");
 
                     b.ToTable("XchangeAggregations", (string)null);
-                });
-
-            modelBuilder.Entity("SW.Bitween.Domain.XchangeDelivery", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(50)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<DateTime>("DeliveredOn")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DeliveredOn");
-
-                    b.ToTable("XchangeDeliveries", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.XchangeNotification", b =>
@@ -3316,15 +3303,6 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasOne("SW.Bitween.Domain.Xchange", null)
                         .WithOne()
                         .HasForeignKey("SW.Bitween.Domain.XchangeAggregation", "Id")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
-            modelBuilder.Entity("SW.Bitween.Domain.XchangeDelivery", b =>
-                {
-                    b.HasOne("SW.Bitween.Domain.Xchange", null)
-                        .WithOne()
-                        .HasForeignKey("SW.Bitween.Domain.XchangeDelivery", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

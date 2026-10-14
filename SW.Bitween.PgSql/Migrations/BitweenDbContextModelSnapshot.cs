@@ -671,6 +671,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("last_seen_on");
 
+                    b.Property<int?>("OutboxPublishedLastHour")
+                        .HasColumnType("integer")
+                        .HasColumnName("outbox_published_last_hour");
+
                     b.Property<string>("ResidentHealth")
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)")
@@ -2078,8 +2082,10 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasKey("Id")
                         .HasName("pk_outbox_message");
 
-                    b.HasIndex("PublishedOn")
-                        .HasDatabaseName("ix_outbox_message_published_on");
+                    b.HasIndex("CreatedOn")
+                        .HasDatabaseName("ix_outbox_message_created_on")
+                        .HasFilter("published_on IS NULL")
+                        .HasAnnotation("Npgsql:CreatedConcurrently", true);
 
                     b.ToTable("outbox_message", "infolink");
                 });
@@ -2798,26 +2804,6 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasDatabaseName("ix_xchange_aggregation_aggregation_xchange_id");
 
                     b.ToTable("xchange_aggregation", "infolink");
-                });
-
-            modelBuilder.Entity("SW.Bitween.Domain.XchangeDelivery", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(50)
-                        .HasColumnType("character varying(50)")
-                        .HasColumnName("id");
-
-                    b.Property<DateTime>("DeliveredOn")
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("delivered_on");
-
-                    b.HasKey("Id")
-                        .HasName("pk_xchange_delivery");
-
-                    b.HasIndex("DeliveredOn")
-                        .HasDatabaseName("ix_xchange_delivery_delivered_on");
-
-                    b.ToTable("xchange_delivery", "infolink");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.XchangeNotification", b =>
@@ -3901,16 +3887,6 @@ namespace SW.Bitween.PgSql.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired()
                         .HasConstraintName("fk_xchange_aggregation_xchange_id");
-                });
-
-            modelBuilder.Entity("SW.Bitween.Domain.XchangeDelivery", b =>
-                {
-                    b.HasOne("SW.Bitween.Domain.Xchange", null)
-                        .WithOne()
-                        .HasForeignKey("SW.Bitween.Domain.XchangeDelivery", "Id")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired()
-                        .HasConstraintName("fk_xchange_delivery_xchange_id");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.XchangePromotedProperties", b =>

@@ -83,7 +83,13 @@ public class Background(BitweenDbContext dbContext, RequestContext requestContex
                 Failing = await pending.CountAsync(m => m.Attempts > 0),
                 LastError = await pending.Where(m => m.LastError != null).OrderByDescending(m => m.CreatedOn)
                     .Select(m => m.LastError).FirstOrDefaultAsync(),
-                PublishedLastHour = await outbox.CountAsync(m => m.PublishedOn >= since),
+                // Each node counts what it published and says so on its heartbeat: published rows are
+                // deleted now. Rows still marked published are from nodes of an older version, during
+                // an upgrade, and are counted as before.
+                PublishedLastHour = await dbContext.Set<Domain.Cluster.ClusterNode>().AsNoTracking()
+                                        .Where(n => n.LastSeenOn >= since)
+                                        .SumAsync(n => n.OutboxPublishedLastHour ?? 0)
+                                    + await outbox.CountAsync(m => m.PublishedOn >= since),
             },
         };
     }
