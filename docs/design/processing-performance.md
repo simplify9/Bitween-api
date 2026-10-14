@@ -87,24 +87,31 @@ The cost of one sync gateway call, native handler, success, before and after:
   and succeeded", which no index serves. `Xchanges` has single-column indexes only.
 - **Why it hurts:** Dedupe, search and dashboard slow down every month; index maintenance costs
   more on every insert.
-- **Candidate fix:** Non-zero default retention; monthly partitioning on Postgres for the big
-  tables; composite indexes (subscription + started date, document + hash + started date,
-  result success + finished date).
-- **Expected effect:** flat query times over time; cheap removal of old months.
+- **Candidate fix:** Non-zero default retention; composite indexes (subscription + started
+  date, document + hash + started date, result success + finished date). Partitioning and
+  folding the 1:1 tables into `Xchanges` were ruled out with finding 4 (2026-10-14): the tables
+  stay as they are. Finding 4 already added `subscription_id` and an index on
+  (subscription_id, finished_on) to `XchangeResults` for auto-pause.
+- **Expected effect:** flat query times over time with retention on; the status and date
+  filters served by indexes.
 - **Decision:** (pending)
 
-### 10. No stage timings and no load test
+### 10. The load harness is not in CI
 
-- **Status:** to discuss
-- **Where:** `BitweenTelemetry`, `XchangeService.Process`; no harness in the repository
-- **What happens:** One `exchange.process` span and one duration histogram per exchange.
-  Nothing breaks the time down by stage, and nothing measures queue wait separately.
-- **Why it hurts:** Every estimate in this document is unverified, and no change above can be
-  proven to have paid off.
-- **Candidate fix:** A span and histogram per stage (queue wait, storage read, filter, mapper,
-  handler, save, publish); a k6 harness against the docker-compose stack run in CI with a
-  throughput and latency budget.
-- **Expected effect:** measured baseline before and after each change.
+- **Status:** to discuss; most of the original finding was done with finding 4
+- **Where:** `tests/load` (k6, docker-compose with a stub partner and SeaweedFS, `run.sh`,
+  `README.md`), `BitweenTelemetry`, `MetricsRecorder`
+- **What happens:** Finding 4's phase 0 added the per-exchange database command counter
+  (`ExchangeStats.DbCommands`, with `ExchangeCommandCountTests` guarding it), timings per stage
+  to OpenTelemetry, and the k6 harness, which measured findings 1 to 4. The harness runs by hand
+  only. It builds the image from a copy of the tree without the local `NuGet.config`, and it
+  needs disk on the Docker host.
+- **Why it hurts:** A regression in commands, storage calls or sync latency is only found when
+  someone runs it.
+- **Candidate fix:** A workflow that runs the harness on the branch (nightly, or on demand)
+  against a throughput and latency budget taken from the numbers in the Done table, and fails
+  on a regression; the ceiling run above 10/s as its first job.
+- **Expected effect:** the numbers in this file stay true without anyone remembering to check.
 - **Decision:** (pending)
 
 ## Plan
@@ -129,7 +136,7 @@ Findings 5, 6, 8, 9 and 10 are added here as they are decided. Before them: push
 
 ## Open questions
 
-- Which SW-Bus version runs in production, and does its consumer dispatch differ from master?
-- What payload sizes do the live deployments see (p50, p99)? Decides the inline-payload threshold.
+- What payload sizes do the live deployments see (p50, p95, p99 of `input_size`, `output_size`,
+  `response_size`)? Decides whether the 256 KB cap on `Bitween:MessagePayloadMaxBytes` is right.
 - Which deployments run sync gateways, and what response time do their partners expect?
 - How many subscriptions still run classic adapters?
