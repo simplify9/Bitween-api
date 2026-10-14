@@ -85,12 +85,28 @@ public class GoldenPayloadTests
             .Select(f => (Path.GetFileName(f), Encoding.UTF8.GetString(File.ReadAllBytes(f))))
             .ToList();
 
-    [TestMethod]
-    public async Task Every_consumer_reads_the_corpus_as_it_did_before_finding_6()
+    /// <summary>With each of finding 6's switches on, and off: either way, nothing may change.</summary>
+    [DataTestMethod]
+    [DataRow(true, DisplayName = "compiled templates kept")]
+    [DataRow(false, DisplayName = "compiled templates not kept")]
+    public async Task Every_consumer_reads_the_corpus_as_it_did_before_finding_6(bool cacheCompiledTemplates)
     {
         Assert.AreEqual(TimeSpan.FromHours(9), TimeZoneInfo.Local.BaseUtcOffset,
             "The fixtures hold local times in " + Zone + ", and this process did not take the zone.");
 
+        CompiledTemplates.Enabled = cacheCompiledTemplates;
+        try
+        {
+            await CheckTheCorpus();
+        }
+        finally
+        {
+            CompiledTemplates.Enabled = true;
+        }
+    }
+
+    private static async Task CheckTheCorpus()
+    {
         var write = Environment.GetEnvironmentVariable("BITWEEN_GOLDEN_WRITE") == "1";
         var corpus = Corpus();
         Assert.IsTrue(corpus.Count >= 40, $"The corpus has {corpus.Count} inputs.");

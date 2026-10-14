@@ -81,13 +81,28 @@ public class NativeMapper : INativeInfolinkMapper, IReceivesMappingContext
         });
     }
 
-    private static MappingRules ReadRules(IDictionary<string, string> settings)
+    internal static readonly CompiledCache<MappingRules> Rules = new(CompiledTemplates.Capacity);
+
+    /// <summary>
+    /// The rules, kept by their text unless <c>Bitween:CacheCompiledTemplates</c> is off. Rules that
+    /// cannot be read are not kept, so they fail on every call as before.
+    /// </summary>
+    /// <remarks>
+    /// One instance is handed to every exchange of the subscription, concurrently. That is safe only
+    /// because nothing in the mapper writes to its rules; <c>CompiledCacheTests</c> holds it to that.
+    /// </remarks>
+    internal static MappingRules ReadRules(IDictionary<string, string> settings)
     {
         if (!settings.TryGetValue(nameof(NativeMapperInput.MappingRules), out var json) ||
             string.IsNullOrWhiteSpace(json))
             throw new InvalidOperationException(
                 "This mapper has no mapping rules configured. Open it in the mapping editor and save.");
 
+        return CompiledTemplates.Enabled ? Rules.GetOrAdd(json, DeserializeRules) : DeserializeRules(json);
+    }
+
+    private static MappingRules DeserializeRules(string json)
+    {
         MappingRules? rules;
         try
         {

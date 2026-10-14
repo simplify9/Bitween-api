@@ -123,7 +123,7 @@ public static class ScribanJsonHelper
         context.PushGlobal(functions);
 
         // 5. Parse and render Scriban template
-        var template = Template.Parse(scribanTemplate);
+        var template = CompiledTemplate(scribanTemplate);
         if (template.HasErrors)
         {
             var errors = string.Join("; ", template.Messages.Select(m => m.Message));
@@ -140,6 +140,21 @@ public static class ScribanJsonHelper
                 $"The mapping template took longer than {RenderTimeout.TotalSeconds:0} seconds to render and was stopped.");
         }
     }
+
+    internal static readonly CompiledCache<Template> Templates = new(CompiledTemplates.Capacity);
+
+    /// <summary>
+    /// The template parsed, kept by its text unless <c>Bitween:CacheCompiledTemplates</c> is off. A
+    /// template with errors is not kept, so it is parsed, and refused, on every call as before.
+    /// </summary>
+    /// <remarks>
+    /// Shared by concurrent renders: a parsed template is its syntax tree, and every render gets a
+    /// context of its own above, which is where Scriban keeps the state of a run.
+    /// </remarks>
+    internal static Template CompiledTemplate(string scribanTemplate) =>
+        CompiledTemplates.Enabled
+            ? Templates.GetOrAdd(scribanTemplate, text => Template.Parse(text), template => !template.HasErrors)
+            : Template.Parse(scribanTemplate);
 
     /// <summary>Far beyond any real mapping; there only to stop a runaway one.</summary>
     internal static TimeSpan RenderTimeout { get; set; } = TimeSpan.FromSeconds(30);

@@ -124,6 +124,13 @@ namespace SW.Bitween
         public int MessagePayloadMaxBytes { get; set; } = 262144;
 
         /// <summary>
+        /// Whether the built-in mappers keep their compiled Scriban templates and mapping rules, by
+        /// their text, instead of compiling them on every exchange: on. Off compiles them per call, as
+        /// before. Read at startup.
+        /// </summary>
+        public bool CacheCompiledTemplates { get; set; } = true;
+
+        /// <summary>
         /// After a notifier sends for a subscription and outcome, further notifications for the same
         /// pair within this many minutes are recorded as suppressed rather than sent, and the next
         /// one sent says how many there were. An outage no longer means one email per failure.
