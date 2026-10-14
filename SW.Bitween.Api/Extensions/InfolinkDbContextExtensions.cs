@@ -45,9 +45,7 @@ namespace SW.Bitween
 
             // The database may compare without regard to case (SQL Server and MySQL often do), so
             // the row found can hold a key that only matches ignoring case. Keys are exact.
-            var credential = par.ApiCredentials
-                .SingleOrDefault(c => string.Equals(c.Key, hashedKey, StringComparison.Ordinal) ||
-                                      string.Equals(c.Key, plainKey, StringComparison.Ordinal));
+            var credential = ExactKey(par, hashedKey, plainKey);
             if (credential == null)
                 return (false, null, null);
             if (keyName != null && !string.Equals(keyName, credential.Name, StringComparison.OrdinalIgnoreCase))
@@ -55,6 +53,38 @@ namespace SW.Bitween
 
             return (true, par, credential.Name);
         }
+
+        /// <summary>
+        /// <see cref="CheckPartnerAuthorized(BitweenDbContext,RequestContext,string)"/> against the
+        /// partners in the cache, for the gateway, which checks a key on every call. The same rules;
+        /// a key removed or changed stops working once the save's revoke reaches the cache.
+        /// </summary>
+        public static async Task<(bool Authorized, Partner Partner, string KeyName)> CheckPartnerAuthorized(
+            this IInfolinkCache cache,
+            RequestContext requestContext,
+            string keyHeader)
+        {
+            var (partnerKey, keyName) = ReadPartnerKey(requestContext, keyHeader);
+            if (string.IsNullOrEmpty(partnerKey))
+                return (false, null, null);
+
+            var hashedKey = PartnerKeyHash.Of(partnerKey);
+            var plainKey = PartnerKeyHash.IsHashed(partnerKey) ? hashedKey : partnerKey;
+            foreach (var partner in await cache.ListPartnersAsync())
+            {
+                var credential = ExactKey(partner, hashedKey, plainKey);
+                if (credential == null) continue;
+                if (keyName != null && !string.Equals(keyName, credential.Name, StringComparison.OrdinalIgnoreCase))
+                    return (false, null, null);
+                return (true, partner, credential.Name);
+            }
+
+            return (false, null, null);
+        }
+
+        static ApiCredential ExactKey(Partner partner, string hashedKey, string plainKey) =>
+            partner.ApiCredentials?.SingleOrDefault(c => string.Equals(c.Key, hashedKey, StringComparison.Ordinal) ||
+                                                         string.Equals(c.Key, plainKey, StringComparison.Ordinal));
 
         /// <summary>
         /// The same key, from any of these places: the header named for keys, <c>partnerkey</c>

@@ -16,7 +16,7 @@ namespace SW.Bitween;
 /// pipeline did not, so a mapping previewed with a partner value and then failed in production. One
 /// factory means that cannot happen twice.
 /// </remarks>
-public class MappingContextFactory(BitweenDbContext dbContext, IInfolinkCache cache)
+public class MappingContextFactory(IInfolinkCache cache)
 {
     /// <param name="maskSecrets">
     /// Replace the partner and global values their owners declared secret with
@@ -28,8 +28,9 @@ public class MappingContextFactory(BitweenDbContext dbContext, IInfolinkCache ca
     public async Task<MappingContext> Build(int? partnerId, string? xchangeId = null,
         IReadOnlyDictionary<string, string>? sourceValues = null, bool maskSecrets = false)
     {
+        // From the cache, which a save to a partner revokes: this was a query per mapped exchange.
         var partner = partnerId.HasValue
-            ? await dbContext.FindAsync<Partner>(partnerId.Value)
+            ? await cache.PartnerByIdAsync(partnerId.Value)
             : null;
 
         var globals = new Dictionary<string, IReadOnlyDictionary<string, string>>();

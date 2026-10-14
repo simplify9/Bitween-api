@@ -71,17 +71,9 @@ public class GatewayController(
     {
         using var created = BitweenTelemetry.Stage("gateway.create");
         var globalAdapterValuesSet = await cache.ListGlobalAdapterValuesSetsAsync();
-        // The exact name first, which the unique index on UrlName answers. Lowering the column for
-        // every call made each one a scan of the table; it is kept as the fallback only, for rows
-        // saved before names had to be lowercase.
-        var apiGateway = await dbContext.Set<ApiGateway>()
-            .Include(ag => ag.Partners)
-            .ThenInclude(agp => agp.Partner)
-            .FirstOrDefaultAsync(ag => ag.UrlName == gatewayApiName)
-            ?? await dbContext.Set<ApiGateway>()
-                .Include(ag => ag.Partners)
-                .ThenInclude(agp => agp.Partner)
-                .FirstOrDefaultAsync(ag => ag.UrlName.ToLower() == gatewayApiName);
+        // From the cache, with its attachments and partners, as the subscriptions are: these were two
+        // queries on every call. A save to a gateway, an attachment, a partner or a key revokes it.
+        var apiGateway = await cache.ApiGatewayByUrlNameAsync(gatewayApiName);
 
         var address = HttpContext.Connection.RemoteIpAddress?.ToString();
         if (apiGateway == null)

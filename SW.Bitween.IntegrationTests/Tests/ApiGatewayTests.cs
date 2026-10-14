@@ -114,6 +114,42 @@ public class ApiGatewayTests(BitweenFixture fixture)
         return await controller.Post($"{urlName}/async");
     }
 
+    /// <summary>A call as a partner makes it, through whatever the cache holds: nothing is revoked first.</summary>
+    private async Task<IActionResult> CallGatewayAsItStands(string urlName, string key)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.ServiceProvider.GetRequiredService<RequestContext>().Set(
+            new ClaimsPrincipal(new ClaimsIdentity()),
+            [new RequestValue("partnerkey", key, RequestValueType.HttpHeader)]);
+
+        var controller = ActivatorUtilities.CreateInstance<GatewayController>(scope.ServiceProvider);
+        controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
+        controller.HttpContext.Request.Body = new MemoryStream(Encoding.UTF8.GetBytes("{}"));
+        return await controller.Post($"{urlName}/async");
+    }
+
+    /// <summary>
+    /// The gateway reads gateways, partners and keys from the cache. A key taken away has to stop
+    /// working on the next call, not when the cache next expires.
+    /// </summary>
+    [Fact]
+    public async Task A_key_taken_off_a_partner_stops_opening_the_gateway_on_the_next_call()
+    {
+        var (urlName, key) = await GatewayWithKey();
+        Assert.IsType<AcceptedResult>(await CallGatewayAsItStands(urlName, key));
+
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var stored = PartnerKeyHash.Stored(key);
+            var partner = await db.Set<Partner>().FirstAsync(p => p.ApiCredentials.Any(c => c.Key == stored));
+            partner.SetApiCredentials([]);
+            await db.SaveChangesAsync();
+        }
+
+        Assert.IsType<UnauthorizedResult>(await CallGatewayAsItStands(urlName, key));
+    }
+
     private static string Basic(string username, string password) =>
         "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes($"{username}:{password}"));
 

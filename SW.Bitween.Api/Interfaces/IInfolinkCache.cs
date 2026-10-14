@@ -25,4 +25,17 @@ public interface IInfolinkCache
     
     Task<GlobalAdapterValuesSet>  GlobalAdapterValuesSetById (string globalAdapterValuesSetId);
     Task<GlobalAdapterValuesSet[]> ListGlobalAdapterValuesSetsAsync();
+
+    Task<Document[]> ListDocumentsAsync();
+
+    /// <summary>
+    /// A partner with its API keys. Shared by every caller: read it, never change it or attach it to a
+    /// context.
+    /// </summary>
+    Task<Partner> PartnerByIdAsync(int partnerId);
+
+    Task<Partner[]> ListPartnersAsync();
+
+    /// <summary>An API gateway with its attachments and their partners, shared like a partner.</summary>
+    Task<ApiGateway> ApiGatewayByUrlNameAsync(string urlName);
 }

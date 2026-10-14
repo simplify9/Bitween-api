@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -18,7 +19,7 @@ namespace SW.Bitween;
 /// exchange's references all depend on having one.
 /// </summary>
 public class GatewayCallers(
-    BitweenDbContext dbContext,
+    IInfolinkCache cache,
     IGatewayIssuers issuers,
     BitweenOptions options,
     ILogger<GatewayCallers> logger)
@@ -41,7 +42,8 @@ public class GatewayCallers(
     {
         if (gateway.AuthMethod != GatewayAuthMethod.Jwt)
         {
-            var (authorized, keyHolder, keyName) = await dbContext.CheckPartnerAuthorized(requestContext,
+            // From the cache, like the gateway itself: this was a query on every call.
+            var (authorized, keyHolder, keyName) = await cache.CheckPartnerAuthorized(requestContext,
                 gateway.PartnerKeyHeader ?? options.PartnerKeyHeader);
             return (authorized, keyHolder, $"partnerkey: {keyName}", keyName);
         }
@@ -50,8 +52,14 @@ public class GatewayCallers(
         if (identity == null)
             return (false, null, null, null);
 
-        var partner = await dbContext.Set<Partner>().AsNoTracking()
-            .SingleOrDefaultAsync(p => p.LoginIdentity == identity);
+        // Compared as the database compared it when this was a query: exactly on PostgreSQL, and
+        // ignoring case under SQL Server's and MySQL's default collations. The unique index on the
+        // column is what keeps either comparison to one partner.
+        var comparison = string.Equals(options.DatabaseType, "PgSql", StringComparison.OrdinalIgnoreCase)
+            ? StringComparison.Ordinal
+            : StringComparison.OrdinalIgnoreCase;
+        var partner = (await cache.ListPartnersAsync())
+            .FirstOrDefault(p => p.LoginIdentity != null && string.Equals(p.LoginIdentity, identity, comparison));
         if (partner == null)
         {
             // A genuine token, so most likely a partner whose identity hasn't been set yet.

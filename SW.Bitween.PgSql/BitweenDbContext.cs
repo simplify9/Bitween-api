@@ -17,9 +17,10 @@ using SW.Scheduler.PgSql;
 
 namespace SW.Bitween.PgSql
 {
-public class BitweenDbContext(DbContextOptions options, RequestContext requestContext, IPublish publish)
+public class BitweenDbContext(DbContextOptions options, RequestContext requestContext, IPublish publish,
+        IInfolinkCache cache = null)
         : Bitween.BitweenDbContext(
-        options, requestContext, publish)
+        options, requestContext, publish, cache)
     {
         public const string Schema = "infolink";
 

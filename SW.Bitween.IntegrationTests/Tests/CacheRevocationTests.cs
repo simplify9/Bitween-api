@@ -124,5 +124,9 @@ public class CacheRevocationTests(BitweenFixture fixture)
         public Task<WorkGroup> WorkGroupBySubscriptionIdAsync(int subscriptionId) => throw new NotSupportedException();
         public Task<GlobalAdapterValuesSet> GlobalAdapterValuesSetById(string id) => throw new NotSupportedException();
         public Task<GlobalAdapterValuesSet[]> ListGlobalAdapterValuesSetsAsync() => throw new NotSupportedException();
+        public Task<Document[]> ListDocumentsAsync() => throw new NotSupportedException();
+        public Task<Partner> PartnerByIdAsync(int partnerId) => throw new NotSupportedException();
+        public Task<Partner[]> ListPartnersAsync() => throw new NotSupportedException();
+        public Task<Domain.Gateway.ApiGateway> ApiGatewayByUrlNameAsync(string urlName) => throw new NotSupportedException();
     }
 }

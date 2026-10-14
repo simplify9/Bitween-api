@@ -6,7 +6,7 @@ using SW.Scheduler.SqlServer;
 namespace SW.Bitween.MsSql
 {
     public class BitweenDbContext(DbContextOptions options, RequestContext requestContext,
-        IPublish publish) : Bitween.BitweenDbContext(options, requestContext, publish)
+        IPublish publish, IInfolinkCache cache = null) : Bitween.BitweenDbContext(options, requestContext, publish, cache)
     {
         /// <summary>Backs <see cref="Document"/> ids - see the note in OnModelCreating.</summary>
         public const string DocumentIdSequence = "DocumentIds";

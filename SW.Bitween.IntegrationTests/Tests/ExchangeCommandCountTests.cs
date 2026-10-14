@@ -39,9 +39,11 @@ public class ExchangeCommandCountTests(BitweenFixture fixture, ITestOutputHelper
 {
     /// <summary>
     /// The sync path with a native handler, no mapper, no notifications, no duplicate window, no
-    /// idempotency key, auto-pause off, caches warm.
+    /// idempotency key, auto-pause off, caches warm. 13 before finding 4; 9 once the gateway, its
+    /// partners and keys come from the cache, the exchange loads with its has-result flag and the
+    /// retry budget is asked only of policies that have one (phase 1).
     /// </summary>
-    private const int SyncCallBudget = 14;
+    private const int SyncCallBudget = 9;
 
     [Fact]
     public async Task A_sync_gateway_call_stays_within_its_database_command_budget()

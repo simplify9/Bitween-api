@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -54,7 +55,10 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
             using var scope = _ssf.CreateScope();
             var repo = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
             _logger.LogInformation("Loading documents and subscriptions to cache");
+            // With its retry policy, so a success can tell without a query whether there is a budget
+            // to give back (TryClearingRetryBudgetAfterSuccess).
             var cachedSubscriptions = await repo.Set<Subscription>().Include(s=>s.WorkGroup)
+                .Include(s => s.RetryPolicy)
                 .AsNoTracking().Where(i => !i.Inactive).ToArrayAsync();
             var cachedDocuments = await repo.Set<Document>().AsNoTracking().ToArrayAsync();
             var cachedNotifiers = await repo.Set<Notifier>().Where(i => !i.Inactive).AsNoTracking().ToArrayAsync();
@@ -62,6 +66,13 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
             var cachedWorkGroups = await repo.Set<WorkGroup>().AsNoTracking().ToArrayAsync();
             var cachedGlobalValues = await repo.Set<GlobalAdapterValuesSet>().AsNoTracking().ToArrayAsync();
             var cachedBusGateways = await repo.Set<BusGateway>().Include(g => g.Routes).AsNoTracking().ToArrayAsync();
+            // Partners with their keys, and API gateways with the partners attached to them: every
+            // gateway call and every exchange with a partner read these from the database.
+            var cachedPartners = await repo.Set<Partner>().AsNoTracking().ToArrayAsync();
+            var cachedApiGateways = await repo.Set<ApiGateway>().Include(g => g.Partners).AsNoTracking().ToArrayAsync();
+            var partnersById = cachedPartners.ToDictionary(p => p.Id);
+            foreach (var attachment in cachedApiGateways.SelectMany(g => g.Partners ?? []))
+                attachment.Partner = partnersById.GetValueOrDefault(attachment.PartnerId);
 
             if (Volatile.Read(ref _generation) != generation && attempt < MaxLoadAttempts - 1)
             {
@@ -78,6 +89,8 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
             _cache.Set(nameof(WorkGroup), cachedWorkGroups, span);
             _cache.Set(nameof(GlobalAdapterValuesSet), cachedGlobalValues, span);
             _cache.Set(nameof(BusGateway), cachedBusGateways, span);
+            _cache.Set(nameof(Partner), partnersById, span);
+            _cache.Set(nameof(ApiGateway), cachedApiGateways, span);
             return;
         }
     }
@@ -91,6 +104,32 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
         }
 
         return cachedSubscriptions.Where(sub => sub.DocumentId == documentId).ToArray();
+    }
+
+    /// <summary>A cached set, loading every set first when it has expired or been revoked.</summary>
+    private async Task<T> Cached<T>(string name)
+    {
+        if (_cache.TryGetValue(name, out T cached)) return cached;
+        await Load();
+        return _cache.Get<T>(name);
+    }
+
+    public async Task<Document[]> ListDocumentsAsync() => await Cached<Document[]>(nameof(Document));
+
+    public async Task<Partner> PartnerByIdAsync(int partnerId) =>
+        (await Cached<Dictionary<int, Partner>>(nameof(Partner)))
+        .GetValueOrDefault(partnerId);
+
+    public async Task<Partner[]> ListPartnersAsync() =>
+        (await Cached<Dictionary<int, Partner>>(nameof(Partner))).Values.ToArray();
+
+    public async Task<ApiGateway> ApiGatewayByUrlNameAsync(string urlName)
+    {
+        var gateways = await Cached<ApiGateway[]>(nameof(ApiGateway));
+        // The exact name first, as the unique index answered it; then ignoring case, for rows saved
+        // before names had to be lowercase.
+        return gateways.FirstOrDefault(g => g.UrlName == urlName)
+               ?? gateways.FirstOrDefault(g => string.Equals(g.UrlName, urlName, StringComparison.OrdinalIgnoreCase));
     }
 
     public async Task<BusGatewayRoute[]> ListBusGatewayRoutesByDocumentAsync(int documentId)
@@ -252,6 +291,8 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
         _cache.Remove(nameof(Document));
         _cache.Remove(nameof(WorkGroup));
         _cache.Remove(nameof(BusGateway));
+        _cache.Remove(nameof(Partner));
+        _cache.Remove(nameof(ApiGateway));
         // Load() caches this one too. Leaving it out here meant no write of any kind could
         // clear a global value: it sat for its full ten minutes regardless.
         _cache.Remove(nameof(GlobalAdapterValuesSet));

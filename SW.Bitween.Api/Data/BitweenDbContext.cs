@@ -16,10 +16,11 @@ using SW.Bitween.JsonConverters;
 namespace SW.Bitween
 {
     public class BitweenDbContext(DbContextOptions options, RequestContext requestContext,
-        IPublish publish) : DbContext(options)
+        IPublish publish, IInfolinkCache cache = null) : DbContext(options)
     {
         private readonly RequestContext requestContext = requestContext;
         private readonly IPublish publish = publish;
+        private readonly IInfolinkCache cache = cache;
 
         // Parsed as Unspecified kind, so the .ToUniversalTime() calls at every use site below used
         // to convert using whatever timezone the current machine happened to be in - deterministic
@@ -859,6 +860,10 @@ namespace SW.Bitween
                 .ToList();
             foreach (var message in fromEvents) Add(message);
 
+            var revokesCache = cache != null && ChangeTracker.Entries().Any(e =>
+                e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted &&
+                e.Entity is Partner or ApiCredential or ApiGateway or ApiGatewayPartner or RetryPolicy);
+
             // Plus any a caller queued itself, such as a delivery's response.
             var outgoing = ChangeTracker.Entries<OutboxMessage>()
                 .Where(e => e.State == EntityState.Added)
@@ -901,6 +906,15 @@ namespace SW.Bitween
             }
 
             foreach (var entity in raised) entity.Events.Clear();
+
+            if (revokesCache)
+            {
+                // Gateway calls and exchanges read these from the cache. Revoked here rather than by
+                // each handler, so no writer can forget: a key removed must stop opening the gateway.
+                // This instance at once, the others through the broadcast.
+                cache.Revoke();
+                await cache.BroadcastRevoke();
+            }
 
             // Published straight after the commit, as before; the outbox is for when that fails.
             // Inside a caller's transaction nothing is committed yet - announcing a row that may

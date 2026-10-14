@@ -104,7 +104,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         await EnsureNotAlreadyRetried(xchange.Id);
         if (xchange.DocumentId == Document.AggregationDocumentId) file = WithServedLinks(file);
         var partnerId = xchange.PartnerId ?? subscription.PartnerId;
-        var partner = partnerId.HasValue ? await dbContext.FindAsync<Partner>(partnerId.Value) : null;
+        var partner = partnerId.HasValue ? await BitweenCache.PartnerByIdAsync(partnerId.Value) : null;
         var globalAdapterValuesSets = await BitweenCache.ListGlobalAdapterValuesSetsAsync();
         var newXchange = new Xchange(subscription, xchange, file, partner, globalAdapterValuesSets,
             groupAttemptCounts, manualRetry);
@@ -182,7 +182,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         // the Xchange is attributed to either way (see PartnerId below), so filling from it
         // adds a resolution that was missing rather than changing whose exchange it is.
         gatewayPartner ??= subscription.PartnerId.HasValue
-            ? await dbContext.FindAsync<Partner>(subscription.PartnerId.Value)
+            ? await BitweenCache.PartnerByIdAsync(subscription.PartnerId.Value)
             : null;
 
         var xchange = new Xchange(subscription, file, references, correlationId, gatewayPartner,
@@ -324,7 +324,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             return null;
         }
 
-        var partner = partnerId.HasValue ? await dbContext.FindAsync<Partner>(partnerId.Value) : null;
+        var partner = partnerId.HasValue ? await BitweenCache.PartnerByIdAsync(partnerId.Value) : null;
         return await CreateXchange(target, responseFile, null, xchange.CorrelationId, partner, source: source);
     }
 
@@ -437,7 +437,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             {
                 if (xchange.PartnerId.HasValue)
                 {
-                    var partner = await dbContext.FindAsync<Partner>(xchange.PartnerId.Value);
+                    var partner = await BitweenCache.PartnerByIdAsync(xchange.PartnerId.Value);
                     if (partner?.AdapterProperties?.Count > 0)
                     {
                         jObjEnriched["__partner__"] = JObject.FromObject(partner.AdapterProperties);
@@ -710,14 +710,19 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         XchangeFile responseFile = null;
         WorkGroup workGroup = null;
         var commands = Services.Metrics.DbCommandTally.Open("process");
-        var xchange = await dbContext.FindAsync<Xchange>(message.Id);
+        // The exchange and whether it has a result, in one query: they were two.
+        var loaded = await dbContext.Set<Xchange>()
+            .Where(x => x.Id == message.Id)
+            .Select(x => new { Xchange = x, HasResult = dbContext.Set<XchangeResult>().Any(r => r.Id == x.Id) })
+            .FirstOrDefaultAsync();
+        var xchange = loaded?.Xchange;
 
         if (xchange == null) throw new BitweenException($"Xchange '{message.Id}' not found.");
 
         // A message is delivered at least once - after a crash between commit and ack, or when the
         // outbox publishes one whose first publish did go through. An exchange that already has a
         // result has been processed; running it again would deliver it to the partner twice.
-        if (await dbContext.Set<XchangeResult>().AsNoTracking().AnyAsync(r => r.Id == xchange.Id))
+        if (loaded.HasResult)
         {
             logger.LogInformation("Xchange {XchangeId} already has a result; ignoring a repeat delivery of it.", xchange.Id);
             return;
@@ -995,6 +1000,13 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     {
         if (xchange.SubscriptionId == null) return;
 
+        // Only a policy with a total budget has anything to give back, and most have none: asked of
+        // the cached subscription, so their successes skip the query. One the cache doesn't hold, a
+        // subscription switched off since this started, is asked the database as before.
+        var subscription = await BitweenCache.SubscriptionByIdAsync(xchange.SubscriptionId.Value);
+        if (subscription != null && !HasTotalBudget(subscription.CustomRetryPolicy ?? (IRetryPolicy)subscription.RetryPolicy))
+            return;
+
         try
         {
             // The exchange's own start time is the watermark: anything charged after this run began
@@ -1009,6 +1021,9 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 "it may still refuse retries until it is reset.", xchange.SubscriptionId.Value);
         }
     }
+
+    static bool HasTotalBudget(IRetryPolicy policy) =>
+        policy?.Groups?.Any(g => g.Budget is { MaxAttemptsTotal: > 0 }) == true;
 
     internal async Task TryScheduleAutoRetry(Xchange xchange, XchangeResultType resultType, string content,
         XchangeResult xchangeResult)
@@ -1194,7 +1209,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             }
 
             var partner = hit.PartnerId.HasValue
-                ? await dbContext.FindAsync<Partner>(hit.PartnerId.Value)
+                ? await BitweenCache.PartnerByIdAsync(hit.PartnerId.Value)
                 : null;
 
             // A route reads what it uses from the input of the exchange whose delivery got the
@@ -1320,7 +1335,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             .ToList();
         if (channelIds.Count == 0) return;
 
-        var partner = xchange.PartnerId is { } partnerId ? await dbContext.FindAsync<Partner>(partnerId) : null;
+        var partner = xchange.PartnerId is { } partnerId ? await BitweenCache.PartnerByIdAsync(partnerId) : null;
         foreach (var channelId in channelIds)
             await NotifyChannel(channelId, subscription, xchange, xchangeResult, partner);
     }
@@ -1502,7 +1517,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             {
                 var file = new XchangeFile(xchangeDetails.Data, xchangeDetails.FileName, xchangeDetails.BadData);
                 var partner = xchangeDetails.PartnerId.HasValue
-                    ? await dbContext.FindAsync<Partner>(xchangeDetails.PartnerId.Value)
+                    ? await BitweenCache.PartnerByIdAsync(xchangeDetails.PartnerId.Value)
                     : null;
                 await CreateXchange(subscription, file, xchangeDetails.References, xchangeDetails.CorrelationId, partner,
                     source: xchangeDetails.Source);

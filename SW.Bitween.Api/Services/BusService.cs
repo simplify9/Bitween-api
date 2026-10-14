@@ -7,10 +7,12 @@ using System.Threading.Tasks;
 
 namespace SW.Bitween
 {
-    public class BusService(XchangeService xchangeService, BitweenDbContext dbContext,
+    public class BusService(XchangeService xchangeService, IInfolinkCache cache,
         RequestContext requestContext) : IConsume
     {
         private const string MessageTypeNameToDocumentId = "MessageTypeNameToDocumentId";
+
+        private static readonly System.Func<Document, bool> BusEnabled = new BusEnabledDocuments().Criteria.Compile();
 
         public async Task<IEnumerable<string>> GetMessageTypeNames()
         {
@@ -33,10 +35,14 @@ namespace SW.Bitween
                 string.IsNullOrWhiteSpace(sourceXchangeId) ? null : new XchangeSource(sourceXchangeId));
         }
 
+        /// <summary>
+        /// From the cached documents, which every save to a document revokes: this was a query per
+        /// message on the bus.
+        /// </summary>
         private async Task<IReadOnlyDictionary<string, int>> GetMessageTypeNameToDocumentIdMap()
         {
-            return (await dbContext.ListAsync(new BusEnabledDocuments())).ToDictionary(k => k.BusMessageTypeName,
-                v => v.Id);
+            return (await cache.ListDocumentsAsync()).Where(BusEnabled)
+                .ToDictionary(k => k.BusMessageTypeName, v => v.Id);
         }
     }
 }
