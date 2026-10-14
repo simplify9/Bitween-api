@@ -157,6 +157,79 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
         Assert.NotEqual(before, after);
     }
 
+    /// <summary>
+    /// An adapter whose broker connection drops must be restarted: it leaves reconnecting to the
+    /// supervisor. The lab's broker came back after an outage and its data source stayed dead for
+    /// two hours, because the adapter answered every heartbeat and only the configuration was ever
+    /// compared.
+    /// </summary>
+    [Fact]
+    public async Task An_adapter_whose_connection_dropped_is_restarted()
+    {
+        var queue = Unique("sup-heal");
+        var dataSourceId = await CreateDataSourceAsync();
+        var documentId = await AddGatewayAsync(dataSourceId, queue);
+
+        var options = fixture.App.Services.GetRequiredService<BitweenOptions>();
+        var restartAfter = options.BusProviderUnhealthyRestartSeconds;
+        options.BusProviderUnhealthyRestartSeconds = 1;
+        try
+        {
+            await using var supervisor = Supervisor();
+            await supervisor.ReconcileAsync();
+            await WaitAsync(() => Task.FromResult(InstanceOf(dataSourceId) is { Connected: true }),
+                TimeSpan.FromSeconds(30), "the adapter never connected");
+            var before = InstanceOf(dataSourceId).ProcessId;
+
+            await fixture.CloseExternalRabbitConnectionsAsync();
+            await WaitAsync(() => Task.FromResult(InstanceOf(dataSourceId) is { Connected: false, ReportedState: "Disconnected" }),
+                TimeSpan.FromSeconds(30), "the adapter never reported its dropped connection");
+
+            // Unchanged, and only just unhealthy: left alone.
+            await supervisor.ReconcileAsync();
+            Assert.Equal(before, InstanceOf(dataSourceId)?.ProcessId);
+
+            await Task.Delay(TimeSpan.FromSeconds(1.5));
+            await supervisor.ReconcileAsync();
+            var after = InstanceOf(dataSourceId)?.ProcessId;
+            Assert.NotNull(after);
+            Assert.NotEqual(before, after);
+
+            Publish(queue, """{"from":"after the restart"}""");
+            Assert.NotNull(await WaitForXchangeAsync(documentId));
+        }
+        finally { options.BusProviderUnhealthyRestartSeconds = restartAfter; }
+    }
+
+    /// <summary>A healthy adapter is never restarted for being unhealthy, however often it's looked at.</summary>
+    [Fact]
+    public async Task A_connected_adapter_is_not_restarted_as_unhealthy()
+    {
+        var dataSourceId = await CreateDataSourceAsync();
+        await AddGatewayAsync(dataSourceId, Unique("sup-healthy"));
+
+        var options = fixture.App.Services.GetRequiredService<BitweenOptions>();
+        var restartAfter = options.BusProviderUnhealthyRestartSeconds;
+        options.BusProviderUnhealthyRestartSeconds = 1;
+        try
+        {
+            await using var supervisor = Supervisor();
+            await supervisor.ReconcileAsync();
+            await WaitAsync(() => Task.FromResult(InstanceOf(dataSourceId) is { Connected: true }),
+                TimeSpan.FromSeconds(30), "the adapter never connected");
+            var before = InstanceOf(dataSourceId).ProcessId;
+
+            for (var pass = 0; pass < 3; pass++)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1.2));
+                await supervisor.ReconcileAsync();
+            }
+
+            Assert.Equal(before, InstanceOf(dataSourceId)?.ProcessId);
+        }
+        finally { options.BusProviderUnhealthyRestartSeconds = restartAfter; }
+    }
+
     /// <summary>Deactivating is how an operator stops a connection without losing its configuration.</summary>
     [Fact]
     public async Task Deactivating_a_data_source_stops_its_adapter()

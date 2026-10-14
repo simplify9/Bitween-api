@@ -54,6 +54,12 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
     private const int StartFailuresBeforeYielding = 3;
     private static readonly TimeSpan YieldFor = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// Since when each running data source has looked unhealthy: disconnected, quarantined, or gone
+    /// from the host. Restarted once that has lasted <see cref="BitweenOptions.BusProviderUnhealthyRestartSeconds"/>.
+    /// </summary>
+    private readonly Dictionary<int, DateTime> _unhealthySince = new();
+
     private static string ResourceOf(DataSource dataSource) => $"datasource.{dataSource.Id}";
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -141,12 +147,18 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
 
             if (_running.TryGetValue(dataSource.Id, out var current))
             {
-                if (current == fingerprint) continue;
+                if (current == fingerprint)
+                {
+                    if (!RestartUnhealthy(dataSource)) continue;
+                }
+                else logger.LogInformation("Data source {Name} changed; restarting its adapter.", dataSource.Name);
 
-                logger.LogInformation("Data source {Name} changed; restarting its adapter.", dataSource.Name);
+                // Not drained when unhealthy: on a dead connection nothing in flight can be
+                // acknowledged, and the broker redelivers it to the new one.
                 await adapters.StopAsync(dataSource.AdapterId, dataSource.Id.ToString(),
-                    drain: true, cancellationToken);
+                    drain: current != fingerprint, cancellationToken);
                 _running.Remove(dataSource.Id);
+                _unhealthySince.Remove(dataSource.Id);
             }
 
             try
@@ -210,6 +222,47 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
         }
 
         await WriteBackHealthAsync(dbContext, cancellationToken);
+    }
+
+    /// <summary>
+    /// True when a running exclusive source has been unhealthy long enough to restart. A restart
+    /// that fails goes the way every failed start does: retried each pass, and handed to another
+    /// node after three.
+    /// </summary>
+    private bool RestartUnhealthy(DataSource dataSource)
+    {
+        var restartAfter = TimeSpan.FromSeconds(
+            serviceProvider.GetService<BitweenOptions>()?.BusProviderUnhealthyRestartSeconds ?? 120);
+        var reason = dataSource.Resolve() == DataSourcePlacement.PerNode ? null : UnhealthyReason(dataSource);
+        if (reason == null || restartAfter <= TimeSpan.Zero)
+        {
+            _unhealthySince.Remove(dataSource.Id);
+            return false;
+        }
+
+        if (!_unhealthySince.TryGetValue(dataSource.Id, out var since))
+            since = _unhealthySince[dataSource.Id] = DateTime.UtcNow;
+        if (DateTime.UtcNow - since < restartAfter) return false;
+
+        logger.LogWarning("Data source {Name} has been {Reason} since {Since:u}; restarting its adapter.",
+            dataSource.Name, reason, since);
+        return true;
+    }
+
+    // The states AdapterStatus documents for a connection that is down. Connected alone isn't
+    // enough: an adapter with no status of its own reports false with "Unknown", and isn't broken.
+    private static readonly HashSet<string> UnhealthyStates = new(StringComparer.OrdinalIgnoreCase) { "Disconnected", "Failed" };
+
+    private string UnhealthyReason(DataSource dataSource)
+    {
+        var health = adapters.Describe().FirstOrDefault(h =>
+            h.InstanceKey == dataSource.Id.ToString() &&
+            string.Equals(h.AdapterId, dataSource.AdapterId, StringComparison.OrdinalIgnoreCase));
+        if (health == null) return "gone from the adapter host";
+        if (health.Quarantined) return "quarantined";
+        if (!health.Connected && UnhealthyStates.Contains(health.ReportedState ?? ""))
+            return $"disconnected ({health.ReportedState})";
+        return null;
     }
 
     /// <summary>
@@ -278,6 +331,7 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
             await adapters.StopAsync(adapterId, dataSourceId.ToString(), drain, cancellationToken);
 
         _running.Remove(dataSourceId);
+        _unhealthySince.Remove(dataSourceId);
     }
 
     private async Task ReleaseAsync(int dataSourceId)

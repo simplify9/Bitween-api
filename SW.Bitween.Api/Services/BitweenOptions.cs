@@ -17,6 +17,7 @@ namespace SW.Bitween
             NativeAdapterTimeout = 900;
             BusProvidersEnabled = false;
             BusProviderMaxInFlight = 16;
+            BusProviderUnhealthyRestartSeconds = 120;
             InboundMessagePruneCron = "0 30 3 * * ?";
             ApiCallSubscriptionResponseAcceptedStatusCode = 202;
             StorageProvider = "S3";
@@ -218,6 +219,17 @@ namespace SW.Bitween
 
         /// <summary>Unacknowledged messages one bus adapter may have in flight with the host.</summary>
         public int BusProviderMaxInFlight { get; set; }
+
+        /// <summary>
+        /// Seconds a leased data source's adapter may report itself disconnected, or be quarantined
+        /// or missing, before the supervisor restarts it. 0 leaves it as it is.
+        /// </summary>
+        /// <remarks>
+        /// The RabbitMQ adapter leaves reconnecting to the supervisor, and the supervisor only ever
+        /// looked at whether the configuration changed. In the lab a broker that was down for 50
+        /// minutes left its data source dead for two hours after it came back, until a pod restart.
+        /// </remarks>
+        public int BusProviderUnhealthyRestartSeconds { get; set; }
 
         /// <summary>When to forget dedupe keys past their data source's window. Nightly by default.</summary>
         public string InboundMessagePruneCron { get; set; }

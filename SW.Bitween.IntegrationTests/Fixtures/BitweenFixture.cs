@@ -111,6 +111,16 @@ public sealed class BitweenFixture : IAsyncLifetime
 
     private Uri ExternalRabbitUri => new(_externalRabbitMq.GetConnectionString());
 
+    /// <summary>
+    /// What a broker restart does to the connections on it, without restarting the broker every
+    /// other test shares: the broker closes them all.
+    /// </summary>
+    public async Task CloseExternalRabbitConnectionsAsync()
+    {
+        var result = await _externalRabbitMq.ExecAsync(["rabbitmqctl", "close_all_connections", "broker restarting"]);
+        if (result.ExitCode != 0) throw new InvalidOperationException($"rabbitmqctl failed: {result.Stderr}");
+    }
+
     public string ExternalRabbitHost => ExternalRabbitUri.Host;
     public int ExternalRabbitPort => ExternalRabbitUri.Port;
     public string ExternalRabbitUser => ExternalRabbitUri.UserInfo.Split(':')[0];

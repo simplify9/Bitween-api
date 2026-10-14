@@ -62,6 +62,11 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
     private string _lastError;
     private volatile string _state = "Starting";
 
+    // Consuming can stop with the connection still open: the consume channel closed by the broker
+    // (an ack it refused, say), or a consumer cancelled by it (its queue deleted). Reported as
+    // disconnected, so the supervisor restarts the adapter as it does for a dropped connection.
+    private volatile bool _consumeBroken;
+
     // ---------------------------------------------------------------- lifecycle
 
     public async Task StartAsync(IAdapterContext context, CancellationToken cancellationToken)
@@ -109,6 +114,14 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
             cancellationToken);
         _consumeChannel = await _connection.CreateChannelAsync(cancellationToken: cancellationToken);
         await _consumeChannel.BasicQosAsync(0, _options.Prefetch, global: false, cancellationToken);
+        _consumeChannel.ChannelShutdownAsync += (_, e) =>
+        {
+            if (_stopping.IsCancellationRequested || e.Initiator == ShutdownInitiator.Application) return Task.CompletedTask;
+            _consumeBroken = true;
+            _lastError = $"consume channel closed: {e.ReplyCode} {e.ReplyText}";
+            logger.LogWarning("Consume channel on {Host} closed: {Reason}", _options.Host, e.ReplyText);
+            return Task.CompletedTask;
+        };
 
         await DeclareTopologyAsync(_consumeChannel, cancellationToken);
 
@@ -124,7 +137,12 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
 
         foreach (var endpoint in _endpoints)
         {
-            var consumer = new AsyncEventingBasicConsumer(_consumeChannel);
+            var consumer = new BrokerCancelledConsumer(_consumeChannel, () =>
+            {
+                _consumeBroken = true;
+                _lastError = $"the broker cancelled the consumer on {endpoint}";
+                logger.LogWarning("The broker cancelled the consumer on {Endpoint}.", endpoint);
+            });
             consumer.ReceivedAsync += (_, delivery) => HandleAsync(endpoint, delivery);
 
             // autoAck: false is what makes persist-then-ack possible at all.
@@ -198,8 +216,8 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
     {
         var status = new AdapterStatus
         {
-            Connected = _connection?.IsOpen == true,
-            State = _connection?.IsOpen != true ? "Disconnected"
+            Connected = _connection?.IsOpen == true && !_consumeBroken,
+            State = _connection?.IsOpen != true || _consumeBroken ? "Disconnected"
                   : _received == 0 ? "Idle" : _state,
             LastMessageOn = _lastMessageOn,
             LastError = _lastError,
@@ -579,5 +597,18 @@ public class RabbitBusHandler(IOptions<RabbitOptions> options, ILogger<RabbitBus
         public string MessageId { get; set; }
         public string ContentType { get; set; }
         public string Body { get; set; }
+    }
+
+    /// <summary>
+    /// Says when the broker cancels the consumer (its queue deleted, say). The client raises no
+    /// event for that: UnregisteredAsync is only for a cancel this side asked for.
+    /// </summary>
+    private sealed class BrokerCancelledConsumer(IChannel channel, Action cancelled) : AsyncEventingBasicConsumer(channel)
+    {
+        public override async Task HandleBasicCancelAsync(string consumerTag, CancellationToken cancellationToken = default)
+        {
+            cancelled();
+            await base.HandleBasicCancelAsync(consumerTag, cancellationToken);
+        }
     }
 }
