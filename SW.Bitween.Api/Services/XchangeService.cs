@@ -877,6 +877,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             await KeepResultEventOnlyIfHeard(xchange, xchangeResult);
             using (BitweenTelemetry.Stage("save"))
                 await dbContext.SaveChangesAsync();
+            await AnnounceResult(message, xchangeResult);
             outcome = responseFile?.BadData == true ? "bad_response" : "success";
         }
         catch (Exception ex)
@@ -898,6 +899,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.Error, ex.ToString(), xchangeResult);
             await KeepResultEventOnlyIfHeard(xchange, xchangeResult);
             await dbContext.SaveChangesAsync();
+            await AnnounceResult(message, xchangeResult);
             await TrackDeliveryHealth(xchange, xchangeResult, ex.ToString());
         }
         finally
@@ -919,6 +921,34 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 xchange.InputSize, (outputFile?.Data.Length ?? 0) + (responseFile?.Data.Length ?? 0),
                 failure?.Message);
             commands.Record(serviceProvider.GetService<SW.Bitween.Services.Metrics.MetricsRecorder>());
+        }
+    }
+
+    /// <summary>
+    /// Tells the synchronous call waiting for this result, if one is, that it is saved: by ringing the
+    /// bell when the call is on this node, by a broadcast to every node otherwise. Never throws: the
+    /// result is saved, and a call that isn't told finds it by its backstop poll.
+    /// </summary>
+    private async Task AnnounceResult(XchangeMessage message, XchangeResult result)
+    {
+        if (message.AwaitedOn == null) return;
+        try
+        {
+            var ready = XchangeResultReady.From(result, message.AwaitedOn);
+            var signals = serviceProvider.GetService<ResultSignals>();
+            if (signals?.Node == message.AwaitedOn)
+            {
+                signals.Complete(ready);
+                return;
+            }
+
+            if (serviceProvider.GetService<IBroadcast>() is { } broadcast)
+                await broadcast.Broadcast(ready);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Couldn't tell the call waiting on {Node} that xchange {XchangeId} has a result; it finds it by its backstop poll.",
+                message.AwaitedOn, message.Id);
         }
     }
 

@@ -45,7 +45,8 @@ public class ExchangeCommandCountTests(BitweenFixture fixture, ITestOutputHelper
     /// are deleted in batches off the exchange's path instead of updated inline (phase 2); 5 once the
     /// result lane only hears of results something notifies on (phase 3); 4 once the sync wait reads
     /// the result in the poll that finds it (phase 4). Promoted properties ride in the creation
-    /// batch, and cost no command of their own.
+    /// batch, and cost no command of their own. Finding 2's signal replaces the poll; the answer
+    /// still loads the exchange to read the response from storage, so 4.
     /// </summary>
     private const int SyncCallBudget = 4;
 
@@ -59,8 +60,11 @@ public class ExchangeCommandCountTests(BitweenFixture fixture, ITestOutputHelper
         var recorder = fixture.App.Services.GetRequiredService<MetricsRecorder>();
         recorder.Drain();
 
+        var clock = System.Diagnostics.Stopwatch.StartNew();
         var answer = await SyncCallAsync(urlName, key, subscriptionId);
         Assert.Equal(200, (answer as ContentResult)?.StatusCode);
+        // Rung by the worker, not found by the backstop poll, which first looks after two seconds.
+        Assert.True(clock.Elapsed < ResultWait.BackstopFirstCheck, $"answered after {clock.Elapsed}");
 
         var rows = recorder.Drain().Exchanges.Where(r => r.SubscriptionId == subscriptionId).ToList();
         var commands = rows.Sum(r => r.DbCommands);
@@ -87,7 +91,12 @@ public class ExchangeCommandCountTests(BitweenFixture fixture, ITestOutputHelper
         var xchangeId = await WaitForUnprocessedExchangeAsync(subscriptionId, call);
         if (xchangeId == null) return await call;
 
-        var message = JsonConvert.SerializeObject(new { Id = xchangeId });
+        // What the gateway's publish sends: the id, the input, and the node whose bell the worker rings.
+        var message = JsonConvert.SerializeObject(new
+        {
+            Id = xchangeId, Input = "{\"order\":1}",
+            AwaitedOn = fixture.App.Services.GetRequiredService<ResultSignals>().Node,
+        });
         await using (var worker = fixture.CreateScope())
             await worker.ServiceProvider.GetRequiredService<XchangeService>().Process("commands-test", message);
         // The result lane runs only when the worker queued it a message. The fixture leaves published

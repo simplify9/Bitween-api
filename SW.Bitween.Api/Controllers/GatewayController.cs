@@ -24,8 +24,12 @@ public class GatewayController(
     GatewayCallers callers,
     GatewayActivity activity,
     BitweenOptions options,
-    Services.Metrics.MetricsRecorder metrics) : ControllerBase
+    Services.Metrics.MetricsRecorder metrics,
+    ResultSignals signals) : ControllerBase
 {
+    /// <summary>A sync call's wait for its own exchange's result, from before it is published to the answer.</summary>
+    private ResultSignals.Wait signal;
+
     /// <summary>Answers a call whose payload the type dropped as a duplicate, naming the exchange it repeats.</summary>
     public const string DuplicateOfHeader = "Bitween-Duplicate-Of";
 
@@ -63,6 +67,7 @@ public class GatewayController(
         }
         finally
         {
+            signal?.Dispose();
             commands.Record(metrics);
         }
     }
@@ -151,6 +156,11 @@ public class GatewayController(
 
         var xchangeReferences = new List<string> { callerReference };
 
+        // The caller may ask for its own wait in Wait-Period; it is capped, see ResultWait.
+        var waitResponse = ResultWait.Clamp(
+            int.TryParse(Request.Headers["Wait-Period"].FirstOrDefault(), out var asked) ? asked : null,
+            options.MaxResponseWaitSeconds);
+
         // A repeat of a call the partner couldn't be sure arrived - same Idempotency-Key - gets the
         // exchange the first one made, not a second. Scoped to this gateway and this partner.
         var idempotencyKey = Request.Headers[IdempotencyGuard.Header].FirstOrDefault()?.Trim();
@@ -185,6 +195,15 @@ public class GatewayController(
             // The sets already read at the top of the request, from the cache.
             var xchange = await xchangeService.CreateXchange(subscription, xchangeFile, xchangeReferences.ToArray(),
                 Guid.NewGuid().ToString("N"), partner, globalAdapterValuesSet);
+            if (resultSync)
+            {
+                // Before the save publishes the exchange, so its result can't arrive unannounced. The
+                // created message names this node, and the worker rings the bell here once the result
+                // is saved.
+                signal = signals.Register(xchange.Id, TimeSpan.FromSeconds(waitResponse + 5));
+                dbContext.Handoff.AwaitedOn(xchange.Id, signals.Node);
+            }
+
             if (string.IsNullOrEmpty(idempotencyKey))
             {
                 await dbContext.SaveChangesAsync();
@@ -197,6 +216,13 @@ public class GatewayController(
                     await IdempotencyGuard.SaveAsync(dbContext, idempotencyScope, idempotencyKey, xchange.Id);
                 if (replayed) Response.Headers["Idempotent-Replay"] = "true";
             }
+
+            // Answered with an earlier call's exchange instead: this one was never published.
+            if (xchangeId != xchange.Id)
+            {
+                signal?.Dispose();
+                signal = null;
+            }
         }
 
         created.Dispose();
@@ -207,37 +233,44 @@ public class GatewayController(
 
         using var waited = BitweenTelemetry.Stage("gateway.wait");
 
-        // The caller may ask for its own wait in Wait-Period; it is capped, see ResultWait.
-        var waitResponse = ResultWait.Clamp(
-            int.TryParse(Request.Headers["Wait-Period"].FirstOrDefault(), out var asked) ? asked : null,
-            options.MaxResponseWaitSeconds);
-
-        // Each poll reads the result itself rather than asking whether there is one and then reading
+        // Each check reads the result itself rather than asking whether there is one and then reading
         // it: one query once it is there, where it was two.
-        XchangeResult xchangeResult = null;
-        var available = await ResultWait.UntilAsync(
-            async () => (xchangeResult = await dbContext.Set<XchangeResult>().AsNoTracking()
-                .FirstOrDefaultAsync(i => i.Id == xchangeId)) != null,
-            waitResponse, HttpContext.RequestAborted);
+        async Task<XchangeResultReady> ReadResultAsync() => XchangeResultReady.From(
+            await dbContext.Set<XchangeResult>().AsNoTracking().FirstOrDefaultAsync(i => i.Id == xchangeId));
 
-        if (available)
+        XchangeResultReady ready;
+        if (signal != null)
         {
+            // The worker's signal, with the database asked only as a backstop: a signal lost to a
+            // restart, or a worker on a version that sends none.
+            ready = await ResultWait.UntilAsync(signal.Result, ReadResultAsync, waitResponse, HttpContext.RequestAborted);
+        }
+        else
+        {
+            // A replayed or dropped call, answered with an exchange this call didn't create: usually
+            // finished already, so asked at once, then polled.
+            ready = await ReadResultAsync();
+            if (ready == null)
+                await ResultWait.UntilAsync(async () => (ready = await ReadResultAsync()) != null,
+                    waitResponse, HttpContext.RequestAborted);
+        }
 
-
-            switch (xchangeResult!.Success)
+        if (ready != null)
+        {
+            switch (ready.Success)
             {
-                case true when xchangeResult.ResponseSize == 0:
+                case true when ready.ResponseSize == 0:
                     {
                         return Ok(xchangeId);
                     }
-                case true when xchangeResult.ResponseSize != 0:
+                case true when ready.ResponseSize != 0:
                     {
                         var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
                         return new ContentResult
                         {
-                            StatusCode = xchangeResult.ResponseBad ? 400 : 200,
+                            StatusCode = ready.ResponseBad ? 400 : 200,
                             Content = response,
-                            ContentType = xchangeResult.ResponseContentType ?? MediaTypeNames.Application.Json,
+                            ContentType = ready.ResponseContentType ?? MediaTypeNames.Application.Json,
                         };
                     }
                 case false:
@@ -249,7 +282,7 @@ public class GatewayController(
                     var hasMapper = await dbContext.Set<Xchange>().AsNoTracking()
                         .Where(x => x.Id == xchangeId).Select(x => x.MapperId != null).FirstOrDefaultAsync();
                     var answer = GatewayFailureAnswers.For(apiGateway.FailureAnswer, xchangeId, hasMapper,
-                        mapped: xchangeResult.OutputSize > 0 || xchangeResult.OutputName != null, retryOn);
+                        mapped: ready.OutputSize > 0 || ready.OutputName != null, retryOn);
                     return new ObjectResult(answer.Body) { StatusCode = answer.Status };
                 }
             }

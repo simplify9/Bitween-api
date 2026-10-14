@@ -348,6 +348,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<ExchangeRetentionJob>();
                     services.AddScoped<GatewayCallers>();
                     services.AddSingleton<GatewayActivity>();
+                    services.AddSingleton<ResultSignals>();
                     // Recorded as in production; tests flush by hand (MetricsFlusher.FlushAsync) rather
                     // than run the minute-long loop, and the backfill is run by the tests that need it.
                     services.AddSingleton<Services.Metrics.MetricsRecorder>();

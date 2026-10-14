@@ -6,7 +6,8 @@ using System.Threading.Tasks;
 namespace SW.Bitween;
 
 /// <summary>
-/// Holds a synchronous gateway call open while its exchange is processed, polling for the result.
+/// Holds a synchronous gateway call open while its exchange is processed: waiting for the worker's
+/// signal with a poll of the database as the backstop, or, with no signal to wait on, polling.
 /// </summary>
 /// <remarks>
 /// The loops this replaced compared the polling step - capped at eight seconds - with the requested
@@ -52,5 +53,48 @@ public static class ResultWait
         }
 
         return false;
+    }
+
+    /// <summary>With a signal to wait on, the first check of the database comes this long after the call.</summary>
+    public static readonly TimeSpan BackstopFirstCheck = TimeSpan.FromSeconds(2);
+
+    /// <summary>With a signal to wait on, the later checks of the database come this far apart.</summary>
+    public static readonly TimeSpan BackstopInterval = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// Waits for <paramref name="signal"/> (see <see cref="ResultSignals"/>), asking <paramref name="check"/>
+    /// only as a backstop: after <see cref="BackstopFirstCheck"/>, then every <see cref="BackstopInterval"/>.
+    /// A signal that is cancelled leaves the backstop to carry on alone.
+    /// </summary>
+    /// <returns>What the signal or the check brought; null when the time is up or the caller left.</returns>
+    public static async Task<T> UntilAsync<T>(Task<T> signal, Func<Task<T>> check, int seconds,
+        CancellationToken cancellationToken, TimeSpan? firstCheck = null, TimeSpan? interval = null) where T : class
+    {
+        var deadline = TimeSpan.FromSeconds(seconds);
+        var clock = Stopwatch.StartNew();
+        var nextCheck = firstCheck ?? BackstopFirstCheck;
+
+        while (clock.Elapsed < deadline && !cancellationToken.IsCancellationRequested)
+        {
+            var untilCheck = nextCheck - clock.Elapsed;
+            var remaining = deadline - clock.Elapsed;
+            using var sleeping = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var sleep = Task.Delay(untilCheck < remaining ? untilCheck : remaining, sleeping.Token);
+            var woke = signal == null ? sleep : await Task.WhenAny(signal, sleep);
+
+            if (woke == signal)
+            {
+                sleeping.Cancel();
+                if (signal.IsCompletedSuccessfully && signal.Result != null) return signal.Result;
+                signal = null;
+                continue;
+            }
+
+            if (sleep.IsCanceled || clock.Elapsed < nextCheck) continue;
+            if (await check() is { } found) return found;
+            nextCheck = clock.Elapsed + (interval ?? BackstopInterval);
+        }
+
+        return null;
     }
 }

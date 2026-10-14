@@ -32,6 +32,7 @@ public sealed class XchangeHandoff
 {
     private readonly List<(string XchangeId, XchangeFileType Type, Task Write)> writes = [];
     private readonly Dictionary<string, string> inputs = new();
+    private readonly Dictionary<string, string> awaitedOn = new();
     private readonly Dictionary<OutboxMessage, string> created = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>A file write that has started; the next save waits for it.</summary>
@@ -76,6 +77,9 @@ public sealed class XchangeHandoff
     /// <summary>The input of a new exchange, as written to storage, for its created message to carry.</summary>
     public void Carry(string xchangeId, string input) => inputs[xchangeId] = input;
 
+    /// <summary>A synchronous call on <paramref name="node"/> waits for this exchange's result.</summary>
+    public void AwaitedOn(string xchangeId, string node) => awaitedOn[xchangeId] = node;
+
     /// <summary>
     /// Notes which exchange an outbox message announces, when it is an exchange's created message;
     /// the publish then adds what this unit of work holds for it. Returns the message.
@@ -94,8 +98,9 @@ public sealed class XchangeHandoff
     {
         if (!created.Remove(message, out var xchangeId)) return null;
         inputs.Remove(xchangeId, out var input);
-        if (input == null) return null;
+        awaitedOn.Remove(xchangeId, out var node);
+        if (input == null && node == null) return null;
 
-        return JsonConvert.SerializeObject(new XchangeMessage { Id = xchangeId, Input = input });
+        return JsonConvert.SerializeObject(new XchangeMessage { Id = xchangeId, Input = input, AwaitedOn = node });
     }
 }

@@ -18,6 +18,15 @@ namespace SW.Bitween.Domain
         /// </summary>
         [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
         public string Input { get; set; }
+
+        /// <summary>
+        /// The node holding the synchronous gateway call that waits for this exchange's result
+        /// (<see cref="ResultSignals.Node"/>), which the worker tells once the result is saved. Set by
+        /// the gateway's sync calls only, on the publish straight after the commit; a message without
+        /// it is answered by the call's backstop poll.
+        /// </summary>
+        [JsonProperty(NullValueHandling = NullValueHandling.Ignore)]
+        public string AwaitedOn { get; set; }
     }
     internal abstract class XchangeCreatedEvent : BaseDomainEvent,IHasWorkGroup
     {
