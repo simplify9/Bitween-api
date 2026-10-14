@@ -93,7 +93,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         await EnsureNotAlreadyRetried(xchange.Id);
         if (xchange.DocumentId == Document.AggregationDocumentId) file = WithServedLinks(file);
         var newXchange = new Xchange(xchange, file, workGroup, manualRetry);
-        await AddInputFile(newXchange, file);
+        AddInputFile(newXchange, file);
         dbContext.Add(newXchange);
         await AddPromotedProperties(newXchange, file);
         dbContext.Add(new XchangeRetryClaim(xchange.Id, newXchange.Id));
@@ -109,7 +109,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         var globalAdapterValuesSets = await BitweenCache.ListGlobalAdapterValuesSetsAsync();
         var newXchange = new Xchange(subscription, xchange, file, partner, globalAdapterValuesSets,
             groupAttemptCounts, manualRetry);
-        await AddInputFile(newXchange, file);
+        AddInputFile(newXchange, file);
         dbContext.Add(newXchange);
         await AddPromotedProperties(newXchange, file);
         dbContext.Add(new XchangeRetryClaim(xchange.Id, newXchange.Id));
@@ -160,7 +160,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     {
         var xchange = new Xchange(document.Id, workGroup, file, references, SubscriptionType.Internal, correlationId,
             source);
-        await AddInputFile(xchange, file);
+        AddInputFile(xchange, file);
         dbContext.Add(xchange);
         await AddPromotedProperties(xchange, file);
         BitweenTelemetry.ExchangesCreated.Add(1, new KeyValuePair<string, object>("kind", "routing"));
@@ -190,7 +190,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         var xchange = new Xchange(subscription, file, references, correlationId, gatewayPartner,
             globalAdapterValuesSets, source);
-        await AddInputFile(xchange, file);
+        AddInputFile(xchange, file);
         dbContext.Add(xchange);
         await AddPromotedProperties(xchange, file);
         BitweenTelemetry.ExchangesCreated.Add(1, new KeyValuePair<string, object>("kind", "subscription"));
@@ -485,8 +485,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         if (xchangeFile is null)
             throw new BitweenException(
                 $"Unexpected null return value after running mapping for exchange id: {xchange.Id}, adapter id: {xchange.MapperId}");
-        else
-            await AddFile(xchange, XchangeFileType.Output, xchangeFile);
+        // Written while the handler runs; the result's save waits for it.
+        WriteBeforeSave(xchange, XchangeFileType.Output, xchangeFile);
         return xchangeFile;
     }
 
@@ -515,8 +515,9 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 xchange.HandlerId, AdapterRole.Handler, nameof(IInfolinkHandler.Handle), xchangeFile,
                 handlerProperties, xchange.CorrelationId ?? xchange.Id);
 
+        // Written while the result is prepared; its save waits for it.
         if (xchangeFile != null)
-            await AddFile(xchange, XchangeFileType.Response, xchangeFile);
+            WriteBeforeSave(xchange, XchangeFileType.Response, xchangeFile);
         return xchangeFile;
     }
 
@@ -576,11 +577,20 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// Writes a new exchange's input under the document prefix in force now, and records that prefix on
     /// the exchange so its later files go next to it and a change of prefix never loses track of them.
     /// </summary>
-    private Task AddInputFile(Xchange xchange, XchangeFile file)
+    /// <remarks>
+    /// The write runs beside the rest of the creation - promoted properties, the caller's own checks -
+    /// and the save waits for it (see <see cref="XchangeHandoff"/>), so no caller can save the exchange
+    /// without its input.
+    /// </remarks>
+    private void AddInputFile(Xchange xchange, XchangeFile file)
     {
         xchange.StoreFilesUnder(BitweenSettings.DocumentPrefix);
-        return AddFile(xchange, XchangeFileType.Input, file);
+        WriteBeforeSave(xchange, XchangeFileType.Input, file);
     }
+
+    /// <summary>Starts writing an exchange file, for the next save to wait for.</summary>
+    private void WriteBeforeSave(Xchange xchange, XchangeFileType type, XchangeFile file) =>
+        dbContext.Handoff.Writing(xchange.Id, type, AddFile(xchange, type, file));
 
     /// <summary>
     /// Reads a new exchange's promoted properties out of its input while it is still in hand, and
@@ -864,7 +874,12 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         catch (Exception ex)
         {
             activity?.SetStatus(System.Diagnostics.ActivityStatusCode.Error, ex.GetType().Name);
-            DiscardUnsavedOutcome(xchange.Id, saveFailed: ex is DbUpdateException);
+            // The files still being written are waited for here, so the failure names only those that
+            // made it. A write that failed leaves its exchange out of this save, as a failed save does.
+            var unwritten = await dbContext.Handoff.SettleAsync();
+            if (unwritten.Contains((xchange.Id, XchangeFileType.Output))) outputFile = null;
+            if (unwritten.Contains((xchange.Id, XchangeFileType.Response))) responseFile = null;
+            DiscardUnsavedOutcome(xchange.Id, saveFailed: ex is DbUpdateException || unwritten.Count > 0);
             failure = ex;
             var xchangeResult = new XchangeResult(xchange.Id, workGroup, outputFile, responseFile,
                 responseXchange?.Id, ex.ToString());

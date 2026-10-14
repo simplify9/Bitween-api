@@ -35,6 +35,9 @@ namespace SW.Bitween
 
         public const string ConnectionString = "BitweenDb";
 
+        /// <summary>What this unit of work's exchanges hand to its save; see <see cref="XchangeHandoff"/>.</summary>
+        internal XchangeHandoff Handoff { get; } = new();
+
         /// <summary>
         /// Every provider's context counts its commands against the exchange stage running, so the
         /// round trips an exchange costs are measured rather than estimated (see DbCommandTally).
@@ -836,6 +839,10 @@ namespace SW.Bitween
         /// </remarks>
         async public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
+            // Exchange files written beside the work rather than before it: none of the rows that
+            // name them is saved until storage has them all. A write that failed fails the save.
+            await Handoff.WrittenAsync();
+
             var userId = requestContext.GetNameIdentifier();
             ChangeTracker.ApplyAuditValues(userId);
 
