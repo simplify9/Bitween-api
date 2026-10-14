@@ -928,12 +928,22 @@ Rebuilt from the decisions above once the findings have been discussed.
 | 5 | 4, phase 4 | Promoted properties at creation in the exchange's batch; optimistic idempotency insert (4j, 4k) | none | about 4 commands; one payload parse in the worker |
 | 6 | 1 and 7, part 1 | SW-Bus on RabbitMQ.Client 7: per-channel concurrency, channel per scope, publisher confirms, drain. **Done: 10.1.0 on nuget.org.** | none | 15 broker tests green; package published |
 | 7 | 1 and 7, part 2 | Bitween on SW-Bus 10.1: work group Parallel exchanges, direct client use ported, readiness on the bus status, shutdown grace, docs and upgrade notes. **Done locally, not pushed** (`259c98c4`, `f19f7123`). | none (options JSON field) | measured: a 500 ms lane from 2/s to the offered 10/s per node, sync p95 557 ms; the Parallel column and the partner's own count are the evidence, not Queue health's in-flight |
-| 8 | 3, phases 3.1 and 3.2 | Storage writes overlap the handler and the saves (3a, 3f) | none | storage write time no longer adds to stage times; gateway request about one PUT faster |
-| 9 | 3, phase 3.3 | Payload travels with the created message under the cap (3e) | none | storage read time zero for exchanges under the cap |
-| 10 | 3, phases 3.4 to 3.6 | Same-pod cache, response in the result signal (with finding 2), settings and docs | none | sync answer makes no storage call for small responses |
-| 11 | 2, phases 2.1 to 2.5 | Result signal: in-process bell, cross-pod broadcast, answer from the signal, poll as backstop (2a to 2d) | none | sync p50 for a 100 ms partner about 250 to 350 ms; zero database polls on success |
+| 8 | 3, phases 3.1 and 3.2 | Storage writes overlap the work before their save (3a, 3f). **Done locally** (183a1a6d). | none | the output write leaves the critical path; the input and response writes overlap only a few milliseconds, since overlapping the insert itself would need a transaction and its extra commit |
+| 9 | 3, phase 3.3 | Payload travels with the created message under the cap (3e). **Done locally** (233ed43e). | none | measured: storage reads per sync exchange 2 to 1 (the carried copy is used only when it matches the row's hash) |
+| 10 | 3, phases 3.5 and 3.6 | Response in the result signal, settings and docs. **Done locally** (25ec5f50). 3.4 skipped: nothing left for it to serve. | none | measured: storage calls per sync exchange 4 to 2 (2 PUT, 0 GET) |
+| 11 | 2, phases 2.1 to 2.5 | Result signal: in-process bell, cross-pod broadcast, answer from the signal, poll as backstop (2a to 2d). **Done locally** (6535a5c3, 25ec5f50). | none | measured: sync p50 1011 ms to 115 ms with a 100 ms partner (15 ms of Bitween); 8.5 ms with an instant partner; database commands per sync exchange 4.03 to 3.03 |
 
 Findings 5, 6, 8, 9 and 10 are added here as they are decided.
+
+## Follow-ups from the implemented findings
+
+| From | Follow-up | Status |
+|---|---|---|
+| 3.1 | A failed output write is now found after the handler has delivered, so the exchange fails and its retry policy may deliver again. Proposed instead: when the handler succeeded and only the output write failed, save the result as successful with no output file (`OutputSize` 0) and a warning on the result, since the delivery is the business fact and the rule "a saved row's files exist" still holds. | to decide |
+| 3.2 | Bulk retry, unpause and aggregation start their input writes in parallel, up to 500 at once for a bulk retry. Bound them with a small limit (for example 32 in flight) so a bulk retry cannot flood storage or the pod's sockets. | to decide |
+| 1 | Ceiling run above 10/s on the harness (expected about 24/s per node at 12 with a 500 ms partner), once Colima has disk. | owed |
+| 4 | The k6 harness into CI with a throughput and latency budget. | finding 10 |
+| 1 | The response and input writes still sit on the sync critical path (about two storage round trips on S3-class storage). Nothing cheaper than finding 3's rejected 3c removes them; accepted. | closed |
 
 ## Open questions
 
