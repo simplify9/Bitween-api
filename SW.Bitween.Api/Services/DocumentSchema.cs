@@ -123,6 +123,7 @@ public static class DocumentSchema
         JToken token;
         try
         {
+            NativeAdapters.PayloadParseTally.Parsed();
             token = JToken.Parse(data);
         }
         catch (JsonReaderException ex)

@@ -1468,6 +1468,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<int>("ManualRetries")
                         .HasColumnType("int");
 
+                    b.Property<long?>("PayloadParses")
+                        .HasColumnType("bigint");
+
                     b.Property<int>("Retries")
                         .HasColumnType("int");
 

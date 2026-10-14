@@ -14,19 +14,25 @@ namespace SW.Bitween.Services.Metrics;
 /// <remarks>
 /// The count is how the work on database round trips is measured (processing-performance.md,
 /// finding 4): summed per exchange into <c>ExchangeStats.DbCommands</c>, so commands per exchange is
-/// that column over <c>Total</c>, and exported as a histogram per stage.
+/// that column over <c>Total</c>, and exported as a histogram per stage. The stage's payload parses
+/// (finding 6) are opened, attributed and recorded with it, into <c>ExchangeStats.PayloadParses</c>.
 /// </remarks>
 public sealed class DbCommandTally
 {
     static readonly AsyncLocal<DbCommandTally> current = new();
 
     readonly string stage;
+    readonly NativeAdapters.PayloadParseTally parses;
     int count;
     DateTime startedOn;
     int? subscriptionId, partnerId;
     bool attributed;
 
-    DbCommandTally(string stage) => this.stage = stage;
+    DbCommandTally(string stage)
+    {
+        this.stage = stage;
+        parses = NativeAdapters.PayloadParseTally.Open();
+    }
 
     /// <summary>The tally of the stage running on this flow, if one was opened.</summary>
     public static DbCommandTally Current => current.Value;
@@ -44,6 +50,9 @@ public sealed class DbCommandTally
 
     public int Count => Volatile.Read(ref count);
 
+    /// <summary>The payload parses of the same stage.</summary>
+    public int Parses => parses.Count;
+
     internal void Increment() => Interlocked.Increment(ref count);
 
     /// <summary>Which exchange's row the count goes to, once the stage knows.</summary>
@@ -56,14 +65,17 @@ public sealed class DbCommandTally
     }
 
     /// <summary>
-    /// Adds the count to the exchange's hourly row and the histogram. Nothing for a stage that never
+    /// Adds the counts to the exchange's hourly row and the histograms. Nothing for a stage that never
     /// learned which exchange it was for, such as a gateway call refused before it found one.
     /// </summary>
     public void Record(MetricsRecorder recorder)
     {
         if (!attributed) return;
-        BitweenTelemetry.DbCommands.Record(Count, new KeyValuePair<string, object>("stage", stage));
+        var stageTag = new KeyValuePair<string, object>("stage", stage);
+        BitweenTelemetry.DbCommands.Record(Count, stageTag);
+        BitweenTelemetry.PayloadParses.Record(Parses, stageTag);
         recorder?.DbCommands(startedOn, subscriptionId, partnerId, Count);
+        recorder?.PayloadParses(startedOn, subscriptionId, partnerId, Parses);
     }
 }
 

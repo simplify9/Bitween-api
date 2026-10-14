@@ -107,6 +107,28 @@ public sealed class MetricsRecorder
         }
     }
 
+    /// <summary>
+    /// Adds the payload parses one stage of an exchange made to the exchange's row, without counting
+    /// the exchange again. A stage that parsed nothing still writes its 0, so the column reads as
+    /// counted rather than unknown.
+    /// </summary>
+    public void PayloadParses(DateTime startedOn, int? subscriptionId, int? partnerId, int parses)
+    {
+        if (parses < 0) return;
+        gate.EnterReadLock();
+        try
+        {
+            var row = current.Exchanges.GetOrAdd(
+                (HourOf(startedOn), subscriptionId ?? ExchangeStats.None, partnerId ?? ExchangeStats.None),
+                k => new ExchangeStats { Hour = k.Item1, Node = Node, SubscriptionId = k.Item2, PartnerId = k.Item3 });
+            lock (row) row.PayloadParses = (row.PayloadParses ?? 0) + parses;
+        }
+        finally
+        {
+            gate.ExitReadLock();
+        }
+    }
+
     public void AdapterCall(string adapterId, string version, string role, string runtime, long durationMs,
         AdapterFailure failure, string error)
     {

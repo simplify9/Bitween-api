@@ -12,6 +12,7 @@ public class XmlExchangePayloadReader : IExchangePayloadReader
 
     public XmlExchangePayloadReader(string data)
     {
+        NativeAdapters.PayloadParseTally.Parsed();
         var decodedData = HttpUtility.HtmlDecode((data));
         _doc = XDocument.Parse(RemoveInvalidXmlChars(decodedData));
     }

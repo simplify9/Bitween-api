@@ -23,6 +23,7 @@ public static class ScribanJsonHelper
         JToken renderedToken;
         try
         {
+            PayloadParseTally.Parsed();
             renderedToken = JToken.Parse(rendered);
         }
         catch (JsonException ex)
@@ -56,6 +57,7 @@ public static class ScribanJsonHelper
         if (payload.TrimStart()[0] is not ('{' or '[')) return false;
         try
         {
+            PayloadParseTally.Parsed();
             JToken.Parse(payload);
             return true;
         }
@@ -68,6 +70,7 @@ public static class ScribanJsonHelper
     public static string RenderText(string scribanTemplate, string inputJson)
     {
         // 1. Parse input JSON - handle both root object and root array
+        PayloadParseTally.Parsed();
         var rootToken = JToken.Parse(inputJson);
 
         // 2. Build top-level ScriptObject from input (recursive)

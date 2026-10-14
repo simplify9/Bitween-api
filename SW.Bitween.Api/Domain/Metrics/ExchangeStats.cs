@@ -45,6 +45,12 @@ public class ExchangeStats : TimedStats
     /// </summary>
     public long DbCommands { get; set; }
 
+    /// <summary>
+    /// Full parses of the exchanges' payloads into a tree, summed over the same stages. Over
+    /// <see cref="Total"/> it is parses per exchange. Null on rows written before it was counted.
+    /// </summary>
+    public long? PayloadParses { get; set; }
+
     public void Add(ExchangeStats other)
     {
         Total += other.Total;
@@ -58,6 +64,7 @@ public class ExchangeStats : TimedStats
         BytesIn += other.BytesIn;
         BytesOut += other.BytesOut;
         DbCommands += other.DbCommands;
+        if (other.PayloadParses is { } parses) PayloadParses = (PayloadParses ?? 0) + parses;
         AddTimes(other);
     }
 }

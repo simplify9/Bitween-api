@@ -40,6 +40,7 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits?
         if (!string.IsNullOrEmpty(xchangeFile.Data) && _options.Url.Contains("{{"))
         {
             Template parsedTemplate = Template.Parse(_options.Url);
+            PayloadParseTally.Parsed();
             IDictionary<string, object> obj =
                 JsonConvert.DeserializeObject<IDictionary<string, object>>(xchangeFile.Data,
                     new DictionaryConverter()) ?? new Dictionary<string, object>();

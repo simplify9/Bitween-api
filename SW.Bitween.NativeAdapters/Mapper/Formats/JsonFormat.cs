@@ -38,6 +38,7 @@ public class JsonFormat : IDocumentFormat
                 FloatParseHandling = FloatParseHandling.Decimal,
                 DateParseHandling = DateParseHandling.None,
             };
+            PayloadParseTally.Parsed();
             token = JToken.ReadFrom(reader);
 
             // ReadFrom stops at the end of the first value, so two documents concatenated would

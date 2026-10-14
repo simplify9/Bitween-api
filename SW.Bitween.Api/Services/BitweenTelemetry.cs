@@ -49,6 +49,14 @@ public static class BitweenTelemetry
             description: "Database commands per exchange, by stage");
 
     /// <summary>
+    /// Full parses of a payload into a tree that one stage of one exchange made, tagged <c>stage</c>
+    /// like <see cref="DbCommands"/> (processing-performance.md, finding 6).
+    /// </summary>
+    public static readonly Histogram<int> PayloadParses =
+        Meter.CreateHistogram<int>("bitween.exchanges.payload_parses", unit: "{parse}",
+            description: "Payload parses per exchange, by stage");
+
+    /// <summary>
     /// Time spent in one stage of an exchange, tagged <c>stage</c>: pickup (created to picked off the
     /// queue), storage.read, storage.write, filter, mapper, handler, save, publish, gateway.create,
     /// gateway.wait.

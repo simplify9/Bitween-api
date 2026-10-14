@@ -20,7 +20,11 @@ public static class MapperEnrichment
     /// The payload as the enrichment reads it: <c>JToken.Parse</c>, which throws on what is not JSON,
     /// and null for JSON that is not an object (a root array, a string), which is not enriched.
     /// </summary>
-    public static JObject Read(XchangeFile file) => JToken.Parse(file.Data) as JObject;
+    public static JObject Read(XchangeFile file)
+    {
+        NativeAdapters.PayloadParseTally.Parsed();
+        return JToken.Parse(file.Data) as JObject;
+    }
 
     /// <summary>
     /// The payload with the partner's adapter properties and every global values set written in, as

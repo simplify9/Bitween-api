@@ -287,6 +287,8 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<INativeAdapter, NativeSmtpHandler>();
                     services.AddScoped<INativeInfolinkHandler, NativeTestResponder>();
                     services.AddScoped<INativeAdapter, NativeTestResponder>();
+                    services.AddScoped<INativeInfolinkHandler, NativeParseCountHttpHandler>();
+                    services.AddScoped<INativeAdapter, NativeParseCountHttpHandler>();
                     services.AddScoped<INativeInfolinkHandler>(sp =>
                         new NativeEmailMessageHandler(sp.GetRequiredService<BitweenOptions>().MailServer));
                     services.AddScoped<INativeAdapter>(sp =>

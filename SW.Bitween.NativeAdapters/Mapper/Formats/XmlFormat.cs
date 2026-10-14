@@ -69,6 +69,7 @@ public class XmlFormat : IDocumentFormat
                 XmlResolver = null,
             };
             using var reader = XmlReader.Create(new StringReader(text), settings);
+            PayloadParseTally.Parsed();
             document = XDocument.Load(reader);
         }
         catch (XmlException ex)

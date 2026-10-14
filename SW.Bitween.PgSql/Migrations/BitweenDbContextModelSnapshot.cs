@@ -1775,6 +1775,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("manual_retries");
 
+                    b.Property<long?>("PayloadParses")
+                        .HasColumnType("bigint")
+                        .HasColumnName("payload_parses");
+
                     b.Property<int>("Retries")
                         .HasColumnType("integer")
                         .HasColumnName("retries");

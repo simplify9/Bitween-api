@@ -17,11 +17,13 @@ public class JsonExchangePayloadReader : IExchangePayloadReader
 
         if (data.StartsWith("["))
         {
+            NativeAdapters.PayloadParseTally.Parsed();
             _docArray = JArray.Parse(data);
         }
 
         if (data.StartsWith("{"))
         {
+            NativeAdapters.PayloadParseTally.Parsed();
             _doc = JObject.Parse(data);
         }
     }
