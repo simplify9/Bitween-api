@@ -51,7 +51,7 @@ The cost of one sync gateway call, native handler, success, before and after:
 
 ### 6. The payload is parsed several times
 
-- **Status:** to discuss
+- **Status:** decided 2026-10-14 (6a, 6b, 6c with safeguards; 6d deferred), to be implemented in a separate session. Remove once shipped.
 - **Where:** `FilterService` and the payload readers, `DocumentSchema`, `XchangeService.RunMapper`
   (enrichment), `NativeAdapters/Mapper` (`NativeMapper`, `JsonFormat`, `XmlFormat`),
   `NativeAdapters/JsonMapper/ScribanJsonHelper`, `NativeAdapters/HttpHandler/NativeHttpHandler`
@@ -158,7 +158,25 @@ The cost of one sync gateway call, native handler, success, before and after:
   trees, immutable, cloned before enrichment): none, and proven by the golden corpus and the
   kill switch. 6d: deferred.
 
-- **Decision:** (pending)
+- **Decision (2026-10-14):** 6a, 6b and 6c with the five safeguards. 6d deferred, 6e not taken.
+
+- **Implementation plan for the separate session.** Bitween-api only. No schema change, no
+  adapter contract change, no SW-Bus change. Phase 6.0 must be committed before any
+  behaviour changes, because its fixtures are the proof.
+
+  | Phase | Steps | Where | Done when |
+  |---|---|---|---|
+  | 6.0 | **Golden corpus, captured on the current code.** A fixtures folder of inputs: JSON with `1.10`, `1e5`, `12345678901234567890`, `-0`, `0.1`; dates `2026-10-14T10:00:00Z`, `2026-10-14T10:00:00+03:00`, `14/10/2026`, `2026-10-14`; unicode, `\u` escapes, embedded quotes and newlines; nested objects, root arrays, empty objects, duplicate keys, trailing whitespace, trailing content, a BOM; XML with entities, invalid characters, namespaces and CDATA. For each input run every consumer and store its output: promoted values and match results (`FilterService` with a document that promotes several paths and a match expression), schema errors (`DocumentSchema`), rules-mapper output (`NativeMapper` with a rule set covering numbers, dates, lists), Scriban output (`ScribanJsonHelper` with a template covering numbers, dates, loops, `__partner__`), the enriched payload text (`RunMapper`'s injection, made testable), the HTTP URL rendered from a templated URL (`NativeHttpHandler`). A test asserts byte-for-byte equality against the stored files. | `SW.Bitween.UnitTests/PayloadParsing/Golden/` | fixtures committed; the test is green on the unchanged code |
+  | 6.1 | **Parse counter.** Count tree builds per exchange (`JObject.Parse`, `JToken.Parse`, `JToken.ReadFrom`, `XDocument.Parse` and `Load` on the hot path) the way `DbCommands` is counted: a scoped counter, added to `MetricsRecorder` and `ExchangeStats` as `PayloadParses`, exported to OpenTelemetry; a test like `ExchangeCommandCountTests` records the baseline per path (rules mapper plus plain URL; Scriban mapper plus templated URL; with and without a schema). | `BitweenTelemetry`, `MetricsRecorder`, `ExchangeStats` (one nullable column, additive), `ExchangeParseCountTests` | baselines recorded: 2 and 6 |
+  | 6.2 | **6a: cache compiled Scriban templates and mapping rules.** Bounded caches (for example 512 entries, least recently used) keyed by a hash of the text, in `ScribanJsonHelper` and `NativeMapper`. Not the DotLiquid URL template. A test asserts a mapping run does not mutate the cached `MappingRules`; a test renders one cached template from 32 threads with different models and checks every output. `Bitween:CacheCompiledTemplates` (default on) bypasses the caches when off. | `ScribanJsonHelper`, `NativeMapper`, `BitweenOptions` | golden test green; the template parse no longer appears per call in a profile |
+  | 6.3 | **6b: one parse in the Scriban helper.** `LooksLikeJson` and `RenderText` share one parse; the rendered-output parse stays. | `ScribanJsonHelper` | golden green; Scriban path count drops by one |
+  | 6.4 | **6c: one cached tree per parse profile.** An internal `ParsedPayload` held by the pipeline for the input of the exchange being processed, with two lazy slots: `Defaults` (Newtonsoft defaults, as `JObject.Parse` does today) and `Exact` (`FloatParseHandling.Decimal`, `DateParseHandling.None`, trailing-content check, as `JsonFormat` does today), plus the XML pair (`XmlExchangePayloadReader`'s cleaned document and `XmlFormat`'s raw load). The cached trees are immutable by convention: the enrichment deep-clones `Defaults` before injecting. Consumers take the tree when offered and parse for themselves when not: `JsonExchangePayloadReader` and `XmlExchangePayloadReader`, `DocumentSchema.Check`, `RunMapper`'s enrichment, `JsonFormat.Read` and `XmlFormat` through `NativeMapper`, `ScribanJsonHelper.RenderText`, and the HTTP handler's URL model (build the dictionary from the `Defaults` tree with the same `DictionaryConverter` semantics, proven by the golden URL fixtures). Built-in adapters receive it through a `ParsedXchangeFile : XchangeFile` the native runtime passes; adapters out of process still get text. `Bitween:SharedPayloadParse` (default on) returns every consumer to its own parse when off. | `XchangeService`, `Services/ExchangePayloadReaders`, `DocumentSchema`, `NativeAdapterRuntime`, `NativeMapper`, `JsonFormat`, `XmlFormat`, `ScribanJsonHelper`, `NativeHttpHandler`, `BitweenOptions` | golden green with the switch on and off; parse counts 1 (rules path, no schema) and 2 (Scriban path); the kill switch restores the baseline counts |
+  | 6.5 | **Measure and document.** The harness at 20/s with a 100 KB and a 1 MB payload, rules mapper and Scriban mapper: CPU per exchange and allocated bytes per exchange from the runtime counters, p95, before (6.1 baseline commit) and after. Record the numbers here. `configuration.md` gains the two settings; `mapping.md` says nothing changes. | `tests/load`, docs | numbers recorded |
+
+  Out of scope: 6d (partner and global values as Scriban variables), 6e (System.Text.Json),
+  the DotLiquid URL template cache, anything that changes a stored value or an adapter's input.
+
+
 
 ### 8. Scaling is on the wrong signal and roles are not split
 
@@ -217,9 +235,9 @@ Rebuilt from the decisions above once the findings have been discussed.
 
 | Order | Finding | Change | Schema | Acceptance on the harness |
 |---|---|---|---|---|
-| | | | | |
+| 1 | 6, phases 6.0 to 6.5 | Golden corpus, parse counter, cached Scriban templates and rules, one Scriban parse, one cached tree per parse profile with a kill switch | one nullable column on `ExchangeStats` | golden fixtures byte-identical; parses per exchange 6 to 2 on the Scriban path and 2 to 1 on the rules path; CPU and allocations per exchange at 100 KB and 1 MB recorded |
 
-Findings 5, 6, 8, 9 and 10 are added here as they are decided. Before them: push the branch, release, and verify the done findings on staging.
+Findings 5, 8, 9 and 10 are added here as they are decided. Before them: push the branch, release, and verify the done findings on staging.
 
 ## Follow-ups from the implemented findings
 
