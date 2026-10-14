@@ -573,6 +573,9 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
         var xchange = await scope.ServiceProvider.GetRequiredService<XchangeService>()
             .CreateXchange(tracked, new XchangeFile(payload));
 
+        // Promoted properties are read when the exchange is created; these tests set their own.
+        foreach (var made in db.ChangeTracker.Entries<XchangePromotedProperties>().Where(e => e.Entity.Id == xchange.Id).ToList())
+            made.State = EntityState.Detached;
         var filtered = new FilterResult();
         foreach (var (name, value) in promoted) filtered.Properties[name] = value;
         db.Add(new XchangePromotedProperties(xchange.Id, filtered));
