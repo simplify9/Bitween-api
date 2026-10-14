@@ -1,0 +1,180 @@
+=== promoted-json
+id = N-1
+price = (null)
+orderedAt = (null)
+offset = (null)
+name = (null)
+sku = S1
+lines = [
+  {
+    "sku": "S1",
+    "qty": 2,
+    "price": 1.1,
+    "tags": [
+      "a",
+      "b"
+    ],
+    "meta": {
+      "x": true,
+      "y": null
+    }
+  },
+  {
+    "sku": "S2",
+    "qty": 0,
+    "price": 0
+  }
+]
+negzero = (null)
+exp = (null)
+dotted = (null)
+missing = (null)
+hits: 103, 104, 105
+gateway: 502/
+=== promoted-xml
+!System.Xml.XmlException: Data at the root level is invalid. Line 1, position 1.
+=== promoted-json-big
+big = (null)
+hits: 
+gateway: 
+=== schema-json
+(valid)
+=== schema-xml
+Not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== enriched
+{"id":"N-1","order":{"lines":[{"sku":"S1","qty":2,"price":1.1,"tags":["a","b"],"meta":{"x":true,"y":null}},{"sku":"S2","qty":0,"price":0}],"customer":{"name":"Acme Retail","address":{"city":"Riyadh"}}},"matrix":[[1,2],[3,[4,5]]],"flag":false,"__partner__":{"code":"P1","since":"2026-10-14T10:00:00Z","rate":"1.10","Upper":"U"},"__globals__":{"set1":{"region":"KSA","cutoff":"2026-10-14"}}}
+=== enriched-scriban
+{
+  "id": "N-1",
+  "price": null,
+  "priceText": "",
+  "priceFloat": null,
+  "orderedAt": null,
+  "orderedAtText": "",
+  "offset": null,
+  "ms": null,
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "name": null,
+  "firstItem": null,
+  "lines": [
+    {
+      "sku": "S1",
+      "qty": 2,
+      "price": 1.1
+    },
+    {
+      "sku": "S2",
+      "qty": 0,
+      "price": 0
+    }
+  ],
+  "lineCount": 2,
+  "partner": {
+    "code": {
+      "Value": "P1",
+      "IsReadOnly": false
+    },
+    "since": {
+      "Value": "2026-10-14T10:00:00Z",
+      "IsReadOnly": false
+    },
+    "rate": {
+      "Value": "1.10",
+      "IsReadOnly": false
+    },
+    "Upper": {
+      "Value": "U",
+      "IsReadOnly": false
+    },
+    "upper": {
+      "Value": "U",
+      "IsReadOnly": false
+    }
+  },
+  "partnerSince": "14 Oct 2026",
+  "partnerRate": "1.10",
+  "region": "KSA",
+  "orderId": null,
+  "upper": {
+    "name": null
+  }
+}
+=== scriban
+{
+  "id": "N-1",
+  "price": null,
+  "priceText": "",
+  "priceFloat": null,
+  "orderedAt": null,
+  "orderedAtText": "",
+  "offset": null,
+  "ms": null,
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "name": null,
+  "firstItem": null,
+  "lines": [
+    {
+      "sku": "S1",
+      "qty": 2,
+      "price": 1.1
+    },
+    {
+      "sku": "S2",
+      "qty": 0,
+      "price": 0
+    }
+  ],
+  "lineCount": 2,
+  "partner": null,
+  "partnerSince": "",
+  "partnerRate": null,
+  "region": null,
+  "orderId": null,
+  "upper": {
+    "name": null
+  }
+}
+=== rules-json
+{
+  "id": "N-1",
+  "price": null,
+  "priceNumber": null,
+  "priceText": null,
+  "priceRounded": null,
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "negzerof": null,
+  "tenthTimesThree": null,
+  "orderedAt": null,
+  "orderedAtFormatted": null,
+  "offset": null,
+  "dmy": null,
+  "name": null,
+  "flag": false,
+  "fixed": 1.1,
+  "lines": [
+    {
+      "sku": "S1",
+      "qty": 2,
+      "price": 1.10
+    },
+    {
+      "sku": "S2",
+      "qty": 0,
+      "price": 0
+    }
+  ]
+}
+content-type: application/json
+=== rules-xml
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== url
+https://partner.test/orders/N-1?price=&at=&name=&big=&sku=S1
+https://partner.test/orders/N-1?price=&at=&name=&big=&sku=S1
+=== fill
+order-N-1--.json

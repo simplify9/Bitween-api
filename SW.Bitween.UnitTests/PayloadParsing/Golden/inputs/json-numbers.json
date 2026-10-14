@@ -1,0 +1,1 @@
+{"id":"A-1","price":1.10,"exp":1e5,"big":12345678901234567890,"negzero":-0,"tenth":0.1,"negzerof":-0.0,"int":42,"order":{"lines":[{"sku":"S1","qty":2,"price":1.10},{"sku":"S2","qty":1,"price":0.1}]}}

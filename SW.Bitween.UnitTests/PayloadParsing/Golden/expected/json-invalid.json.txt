@@ -1,0 +1,24 @@
+=== promoted-json
+!Newtonsoft.Json.JsonReaderException: Unexpected end of content while loading JObject. Path 'id', line 1, position 7.
+=== promoted-xml
+!System.Xml.XmlException: Data at the root level is invalid. Line 1, position 1.
+=== promoted-json-big
+!Newtonsoft.Json.JsonReaderException: Unexpected end of content while loading JObject. Path 'id', line 1, position 7.
+=== schema-json
+Not valid JSON: Unexpected end of content while loading JObject. Path 'id', line 1, position 7.
+=== schema-xml
+Not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== enriched
+!Newtonsoft.Json.JsonReaderException: Unexpected end of content while loading JObject. Path 'id', line 1, position 7.
+=== enriched-scriban
+!Newtonsoft.Json.JsonReaderException: Unexpected end of content while loading JObject. Path 'id', line 1, position 7.
+=== scriban
+!Newtonsoft.Json.JsonReaderException: Unexpected end of content while loading JObject. Path 'id', line 1, position 7.
+=== rules-json
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid JSON: Unexpected end of content while loading JObject. Path 'id', line 1, position 7.
+=== rules-xml
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== url
+!Newtonsoft.Json.JsonSerializationException: Unexpected end when reading IDictionary<string, object>
+=== fill
+order-{{ id }}-{{ price }}-{{ orderedAt }}.json

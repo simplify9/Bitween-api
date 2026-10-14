@@ -1,0 +1,24 @@
+=== promoted-json
+!Newtonsoft.Json.JsonReaderException: Additional text encountered after finished reading JSON content: x. Path '', line 1, position 12.
+=== promoted-xml
+!System.Xml.XmlException: Data at the root level is invalid. Line 1, position 1.
+=== promoted-json-big
+!Newtonsoft.Json.JsonReaderException: Additional text encountered after finished reading JSON content: x. Path '', line 1, position 12.
+=== schema-json
+Not valid JSON: Additional text encountered after finished reading JSON content: x. Path '', line 1, position 12.
+=== schema-xml
+Not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== enriched
+!Newtonsoft.Json.JsonReaderException: Additional text encountered after finished reading JSON content: x. Path '', line 1, position 12.
+=== enriched-scriban
+!Newtonsoft.Json.JsonReaderException: Additional text encountered after finished reading JSON content: x. Path '', line 1, position 12.
+=== scriban
+!Newtonsoft.Json.JsonReaderException: Additional text encountered after finished reading JSON content: x. Path '', line 1, position 12.
+=== rules-json
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid JSON: Additional text encountered after finished reading JSON content: x. Path '', line 1, position 12.
+=== rules-xml
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== url
+!Newtonsoft.Json.JsonReaderException: Additional text encountered after finished reading JSON content: x. Path '', line 1, position 12.
+=== fill
+order-{{ id }}-{{ price }}-{{ orderedAt }}.json

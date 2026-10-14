@@ -1,0 +1,128 @@
+=== promoted-json
+id = D-1
+price = 5
+orderedAt = 10/14/2026 10:00:00
+offset = 10/14/2026 16:00:00
+name = (null)
+sku = (null)
+lines = (null)
+negzero = (null)
+exp = (null)
+dotted = (null)
+missing = (null)
+hits: 103, 104
+gateway: 502/
+=== promoted-xml
+!System.Xml.XmlException: Data at the root level is invalid. Line 1, position 1.
+=== promoted-json-big
+big = (null)
+hits: 
+gateway: 
+=== schema-json
+(valid)
+=== schema-xml
+Not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== enriched
+{"id":"D-1","orderedAt":"2026-10-14T10:00:00Z","offset":"2026-10-14T16:00:00+09:00","dmy":"14/10/2026","dateonly":"2026-10-14","local":"2026-10-14T10:00:00","frac":"2026-10-14T10:00:00.1234567Z","ms":"2025-10-14T10:00:00Z","price":5,"__partner__":{"code":"P1","since":"2026-10-14T10:00:00Z","rate":"1.10","Upper":"U"},"__globals__":{"set1":{"region":"KSA","cutoff":"2026-10-14"}}}
+=== enriched-scriban
+{
+  "id": "D-1",
+  "price": 5,
+  "priceText": "5",
+  "priceFloat": 5,
+  "orderedAt": "2026-10-14T10:00:00Z",
+  "orderedAtText": "14 Oct 2026",
+  "offset": "2026-10-14T16:00:00+09:00",
+  "ms": "2025-10-14T10:00:00Z",
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "name": null,
+  "firstItem": null,
+  "lines": [],
+  "lineCount": 0,
+  "partner": {
+    "code": {
+      "Value": "P1",
+      "IsReadOnly": false
+    },
+    "since": {
+      "Value": "2026-10-14T10:00:00Z",
+      "IsReadOnly": false
+    },
+    "rate": {
+      "Value": "1.10",
+      "IsReadOnly": false
+    },
+    "Upper": {
+      "Value": "U",
+      "IsReadOnly": false
+    },
+    "upper": {
+      "Value": "U",
+      "IsReadOnly": false
+    }
+  },
+  "partnerSince": "14 Oct 2026",
+  "partnerRate": "1.10",
+  "region": "KSA",
+  "orderId": null,
+  "upper": {
+    "name": null
+  }
+}
+=== scriban
+{
+  "id": "D-1",
+  "price": 5,
+  "priceText": "5",
+  "priceFloat": 5,
+  "orderedAt": "2026-10-14T10:00:00Z",
+  "orderedAtText": "14 Oct 2026",
+  "offset": "2026-10-14T16:00:00+09:00",
+  "ms": "2025-10-14T10:00:00Z",
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "name": null,
+  "firstItem": null,
+  "lines": [],
+  "lineCount": 0,
+  "partner": null,
+  "partnerSince": "",
+  "partnerRate": null,
+  "region": null,
+  "orderId": null,
+  "upper": {
+    "name": null
+  }
+}
+=== rules-json
+{
+  "id": "D-1",
+  "price": 5,
+  "priceNumber": 5,
+  "priceText": "5",
+  "priceRounded": 5,
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "negzerof": null,
+  "tenthTimesThree": null,
+  "orderedAt": "2026-10-14T10:00:00Z",
+  "orderedAtFormatted": "2026-10-14 10:00",
+  "offset": "2026-10-14T10:00:00+03:00",
+  "dmy": "14/10/2026",
+  "name": null,
+  "flag": null,
+  "fixed": 1.1,
+  "lines": []
+}
+content-type: application/json
+=== rules-xml
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== url
+https://partner.test/orders/D-1?price=5&at=10/14/2026 10:00:00&name=&big=&sku=
+https://partner.test/orders/D-1?price=5&at=10/14/2026%2010:00:00&name=&big=&sku=
+=== fill
+order-D-1-5-14 Oct 2026.json

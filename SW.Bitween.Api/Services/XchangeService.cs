@@ -434,36 +434,22 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             // can reference them as {{ __partner__?.propkey }}
             // Only applies when the data is a JSON object; skip enrichment for non-object payloads
             // (e.g. a receiver returning a JSON-encoded string).
-            var jObjEnriched = JToken.Parse(xchangeFile.Data) as JObject;
-            var enriched = false;
+            var jObjEnriched = MapperEnrichment.Read(xchangeFile);
 
             if (jObjEnriched != null)
             {
-                if (xchange.PartnerId.HasValue)
-                {
-                    var partner = await BitweenCache.PartnerByIdAsync(xchange.PartnerId.Value);
-                    if (partner?.AdapterProperties?.Count > 0)
-                    {
-                        jObjEnriched["__partner__"] = JObject.FromObject(partner.AdapterProperties);
-                        enriched = true;
-                    }
-                }
+                var partner = xchange.PartnerId.HasValue
+                    ? await BitweenCache.PartnerByIdAsync(xchange.PartnerId.Value)
+                    : null;
 
                 // Inject __globals__ - all global adapter values sets
                 // so templates can use {{ __globals__?.setId?.key }}
                 // From the cache, which every change to a set revokes: this ran a query per exchange.
                 var globalSets = await BitweenCache.ListGlobalAdapterValuesSetsAsync();
-                if (globalSets.Any(s => s.Values?.Count > 0))
-                {
-                    var globalsObj = new JObject();
-                    foreach (var set in globalSets.Where(s => s.Values?.Count > 0))
-                        globalsObj[set.Id] = JObject.FromObject(set.Values);
-                    jObjEnriched["__globals__"] = globalsObj;
-                    enriched = true;
-                }
 
-                if (enriched)
-                    xchangeFile = new XchangeFile(jObjEnriched.ToString(Formatting.None), xchangeFile.Filename);
+                var enriched = MapperEnrichment.Enrich(jObjEnriched, partner?.AdapterProperties, globalSets);
+                if (enriched != null)
+                    xchangeFile = new XchangeFile(enriched, xchangeFile.Filename);
             }
         }
 

@@ -1,0 +1,170 @@
+=== promoted-json
+id = A-1
+price = 1.1
+orderedAt = (null)
+offset = (null)
+name = (null)
+sku = S1
+lines = [
+  {
+    "sku": "S1",
+    "qty": 2,
+    "price": 1.1
+  },
+  {
+    "sku": "S2",
+    "qty": 1,
+    "price": 0.1
+  }
+]
+negzero = 0
+exp = 100000
+dotted = (null)
+missing = (null)
+hits: 101, 103, 104, 105, 106
+gateway: 501/7, 502/
+=== promoted-xml
+!System.Xml.XmlException: Data at the root level is invalid. Line 1, position 1.
+=== promoted-json-big
+!System.InvalidCastException: Object must implement IConvertible.
+=== schema-json
+(valid)
+=== schema-xml
+Not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== enriched
+{"id":"A-1","price":1.1,"exp":100000.0,"big":12345678901234567890,"negzero":0,"tenth":0.1,"negzerof":-0.0,"int":42,"order":{"lines":[{"sku":"S1","qty":2,"price":1.1},{"sku":"S2","qty":1,"price":0.1}]},"__partner__":{"code":"P1","since":"2026-10-14T10:00:00Z","rate":"1.10","Upper":"U"},"__globals__":{"set1":{"region":"KSA","cutoff":"2026-10-14"}}}
+=== enriched-scriban
+{
+  "id": "A-1",
+  "price": 1.1,
+  "priceText": "1.1",
+  "priceFloat": 1.1,
+  "orderedAt": null,
+  "orderedAtText": "",
+  "offset": null,
+  "ms": null,
+  "big": 12345678901234567890,
+  "exp": 100000,
+  "negzero": 0,
+  "name": null,
+  "firstItem": null,
+  "lines": [
+    {
+      "sku": "S1",
+      "qty": 2,
+      "price": 1.1
+    },
+    {
+      "sku": "S2",
+      "qty": 1,
+      "price": 0.1
+    }
+  ],
+  "lineCount": 2,
+  "partner": {
+    "code": {
+      "Value": "P1",
+      "IsReadOnly": false
+    },
+    "since": {
+      "Value": "2026-10-14T10:00:00Z",
+      "IsReadOnly": false
+    },
+    "rate": {
+      "Value": "1.10",
+      "IsReadOnly": false
+    },
+    "Upper": {
+      "Value": "U",
+      "IsReadOnly": false
+    },
+    "upper": {
+      "Value": "U",
+      "IsReadOnly": false
+    }
+  },
+  "partnerSince": "14 Oct 2026",
+  "partnerRate": "1.10",
+  "region": "KSA",
+  "orderId": null,
+  "upper": {
+    "name": null
+  }
+}
+=== scriban
+{
+  "id": "A-1",
+  "price": 1.1,
+  "priceText": "1.1",
+  "priceFloat": 1.1,
+  "orderedAt": null,
+  "orderedAtText": "",
+  "offset": null,
+  "ms": null,
+  "big": 12345678901234567890,
+  "exp": 100000,
+  "negzero": 0,
+  "name": null,
+  "firstItem": null,
+  "lines": [
+    {
+      "sku": "S1",
+      "qty": 2,
+      "price": 1.1
+    },
+    {
+      "sku": "S2",
+      "qty": 1,
+      "price": 0.1
+    }
+  ],
+  "lineCount": 2,
+  "partner": null,
+  "partnerSince": "",
+  "partnerRate": null,
+  "region": null,
+  "orderId": null,
+  "upper": {
+    "name": null
+  }
+}
+=== rules-json
+{
+  "id": "A-1",
+  "price": 1.10,
+  "priceNumber": 1.10,
+  "priceText": "1.1",
+  "priceRounded": 1.1,
+  "big": 12345678901234567890.0,
+  "exp": 100000,
+  "negzero": 0,
+  "negzerof": 0,
+  "tenthTimesThree": 0.3,
+  "orderedAt": null,
+  "orderedAtFormatted": null,
+  "offset": null,
+  "dmy": null,
+  "name": null,
+  "flag": null,
+  "fixed": 1.1,
+  "lines": [
+    {
+      "sku": "S1",
+      "qty": 2,
+      "price": 1.10
+    },
+    {
+      "sku": "S2",
+      "qty": 1,
+      "price": 0.1
+    }
+  ]
+}
+content-type: application/json
+=== rules-xml
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== url
+https://partner.test/orders/A-1?price=1.1&at=&name=&big=Liquid syntax error: Object '12345678901234567890' is invalid because it is neither a built-in type nor implements ILiquidizable&sku=S1
+https://partner.test/orders/A-1?price=1.1&at=&name=&big=Liquid%20syntax%20error:%20Object%20'12345678901234567890'%20is%20invalid%20because%20it%20is%20neither%20a%20built-in%20type%20nor%20implements%20ILiquidizable&sku=S1
+=== fill
+order-A-1-1.1-.json

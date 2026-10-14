@@ -1,0 +1,27 @@
+=== promoted-json
+hits: 
+gateway: 
+=== promoted-xml
+!System.Xml.XmlException: Root element is missing.
+=== promoted-json-big
+hits: 
+gateway: 
+=== schema-json
+Not valid JSON: Error reading JToken from JsonReader. Path '', line 0, position 0.
+=== schema-xml
+Not valid XML: Root element is missing.
+=== enriched
+!Newtonsoft.Json.JsonReaderException: Error reading JToken from JsonReader. Path '', line 0, position 0.
+=== enriched-scriban
+!Newtonsoft.Json.JsonReaderException: Error reading JToken from JsonReader. Path '', line 0, position 0.
+=== scriban
+!Newtonsoft.Json.JsonReaderException: Error reading JToken from JsonReader. Path '', line 0, position 0.
+=== rules-json
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is empty, so there is nothing to map.
+=== rules-xml
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is empty, so there is nothing to map.
+=== url
+https://partner.test/orders/{{ id }}?price={{ price }}&at={{ orderedAt }}&name={{ name }}&big={{ big }}&sku={{ order.lines[0].sku }}
+https://partner.test/orders/%7B%7B%20id%20%7D%7D?price=%7B%7B%20price%20%7D%7D&at=%7B%7B%20orderedAt%20%7D%7D&name=%7B%7B%20name%20%7D%7D&big=%7B%7B%20big%20%7D%7D&sku=%7B%7B%20order.lines[0].sku%20%7D%7D
+=== fill
+order-{{ id }}-{{ price }}-{{ orderedAt }}.json

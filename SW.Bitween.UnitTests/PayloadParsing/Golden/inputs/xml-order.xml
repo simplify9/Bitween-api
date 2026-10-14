@@ -1,0 +1,1 @@
+<?xml version="1.0" encoding="utf-8"?><order xmlns="urn:o" xmlns:p="urn:p"><id>X-1</id><p:price currency="SAR">1.10</p:price><when>2026-10-14T10:00:00+03:00</when><name>Acme</name><lines><line><sku>S1</sku><qty>2</qty></line><line><sku>S2</sku><qty>1</qty></line></lines></order>
