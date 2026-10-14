@@ -71,7 +71,7 @@ export function LiveQueueStats({ groupId }: { groupId: number }) {
         )}
         <code className="font-mono text-[11px] text-ink-500">{consumer.queueName}</code>
       </div>
-      <dl className="grid grid-cols-3 gap-x-4 gap-y-3 @sm:grid-cols-5 @2xl:grid-cols-9">
+      <dl className="grid grid-cols-3 gap-x-4 gap-y-3 @sm:grid-cols-5 @2xl:grid-cols-10">
         <LiveStat label="Nodes" value={consumer.totalNodes} />
         <LiveStat label="In flight" value={consumer.processingCount} />
         <LiveStat label="Queued" value={consumer.queueCount} />
@@ -82,6 +82,7 @@ export function LiveQueueStats({ groupId }: { groupId: number }) {
           tone={consumer.failedCount > 0 ? "danger" : undefined}
         />
         <LiveStat label="Prefetch" value={consumer.prefetch} />
+        <LiveStat label="Parallel exchanges" value={consumer.concurrency} />
         <LiveStat label="Priority" value={consumer.priority} />
         <LiveStat label="Incoming" value={`${consumer.incomingRate}/s`} />
         <LiveStat label="Acked" value={`${consumer.ackRate}/s`} />

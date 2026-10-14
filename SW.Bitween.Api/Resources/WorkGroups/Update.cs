@@ -30,7 +30,8 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
             RabbitMqOptions = new ConsumerSettings
             {
                 Prefetch = request.Options?.RabbitMqOptions?.Prefetch,
-                Priority = request.Options?.RabbitMqOptions?.Priority
+                Priority = request.Options?.RabbitMqOptions?.Priority,
+                Concurrency = request.Options?.RabbitMqOptions?.Concurrency
             }
         };
         

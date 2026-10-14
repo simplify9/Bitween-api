@@ -242,6 +242,9 @@ export function QueueHealthPage() {
                 <th className="px-2 py-2 text-right">Retrying</th>
                 <th className="px-2 py-2 text-right">Dead</th>
                 <th className="px-2 py-2 text-right">Prefetch</th>
+                <th className="px-2 py-2 text-right" title="Parallel exchanges: how many run at once on each node">
+                  Parallel
+                </th>
                 <th className="px-2 py-2 text-right">In/s</th>
                 <th className="px-2 py-2 text-right">Ack/s</th>
                 <th className="px-2 py-2">Health</th>
@@ -250,7 +253,7 @@ export function QueueHealthPage() {
             <tbody className="tabular-nums">
               {LANE_ORDER.filter((lane) => byLane.get(lane)?.length).flatMap((lane) => [
                 <tr key={`h-${lane}`} className="border-b border-ink-100 bg-ink-50/60">
-                  <td colSpan={11} className="px-2 py-1.5">
+                  <td colSpan={12} className="px-2 py-1.5">
                     <span className="text-[11px] font-semibold tracking-wide text-ink-500 uppercase">
                       {LANES[lane].label}
                     </span>
@@ -287,6 +290,7 @@ export function QueueHealthPage() {
                       {c.failedCount}
                     </td>
                     <td className="px-2 py-2 text-right text-ink-500">{c.prefetch}</td>
+                    <td className="px-2 py-2 text-right text-ink-500">{c.concurrency}</td>
                     <td className="px-2 py-2 text-right text-ink-700">{c.incomingRate}</td>
                     <td className="px-2 py-2 text-right text-ink-700">{c.ackRate}</td>
                     <td className="px-2 py-2">

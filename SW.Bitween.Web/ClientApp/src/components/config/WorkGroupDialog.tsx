@@ -21,6 +21,8 @@ export interface WorkGroupDraft {
   busMessageName: string;
   prefetch: number;
   priority: number;
+  /** Parallel exchanges per node; null takes the prefetch. */
+  concurrency: number | null;
 }
 
 export function WorkGroupFields({
@@ -82,7 +84,7 @@ export function WorkGroupFields({
           />
         </Field>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Prefetch" htmlFor={`${idPrefix}-prefetch`} hint="Messages pulled per consumer at once.">
           <TextInput
             id={`${idPrefix}-prefetch`}
@@ -91,6 +93,23 @@ export function WorkGroupFields({
             value={draft.prefetch}
             disabled={!canEdit}
             onChange={(e) => set("prefetch", Math.max(1, Number(e.target.value)))}
+          />
+        </Field>
+        <Field
+          label="Parallel exchanges"
+          htmlFor={`${idPrefix}-concurrency`}
+          hint="Run at once on each node, up to the prefetch. 1 keeps their order and limits a partner to one call at a time per node. Empty takes the prefetch."
+        >
+          <TextInput
+            id={`${idPrefix}-concurrency`}
+            type="number"
+            min={1}
+            value={draft.concurrency ?? ""}
+            placeholder={`${draft.prefetch}`}
+            disabled={!canEdit}
+            onChange={(e) =>
+              set("concurrency", e.target.value === "" ? null : Math.max(1, Number(e.target.value)))
+            }
           />
         </Field>
         <Field label="Priority" htmlFor={`${idPrefix}-priority`} hint="Higher runs before lower.">
@@ -157,7 +176,7 @@ export function BusRenameConfirm({
   );
 }
 
-const EMPTY: WorkGroupDraft = { name: "", busMessageName: "", prefetch: 10, priority: 5 };
+const EMPTY: WorkGroupDraft = { name: "", busMessageName: "", prefetch: 10, priority: 5, concurrency: null };
 
 /** A work group, created or edited in place - reached from a subscription's lane picker. */
 export function WorkGroupDialog({

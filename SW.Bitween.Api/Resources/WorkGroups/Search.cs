@@ -79,7 +79,8 @@ public class Search(
                         RabbitMqOptions = new ConsumerSettings
                         {
                             Prefetch = workGroup.Options?.RabbitMqOptions?.Prefetch,
-                            Priority = workGroup.Options?.RabbitMqOptions?.Priority
+                            Priority = workGroup.Options?.RabbitMqOptions?.Priority,
+                            Concurrency = workGroup.Options?.RabbitMqOptions?.Concurrency
                         }
                     },
                     ProcessorAckRate = processorsCounts?.AckRate,

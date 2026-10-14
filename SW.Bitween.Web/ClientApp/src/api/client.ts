@@ -452,10 +452,11 @@ export interface ApiClient {
     busMessageName: string;
     prefetch: number;
     priority: number;
+    concurrency: number | null;
   }): Promise<WorkGroup>;
   updateWorkGroup(
     id: number,
-    changes: { name: string; busMessageName: string; prefetch: number; priority: number },
+    changes: { name: string; busMessageName: string; prefetch: number; priority: number; concurrency: number | null },
   ): Promise<WorkGroup>;
   deleteWorkGroup(id: number): Promise<void>;
 

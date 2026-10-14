@@ -103,7 +103,9 @@ What a failure answers is set per gateway, under **When a delivery fails** (`fai
 
 Gateways created before the setting existed answer `Legacy`, as they always did; new ones answer `Accurate` unless created with `Legacy`. Legacy tells the caller its request was wrong even when the destination was down and Bitween will deliver the message by retry minutes later, so a caller that acts on the 400 (cancels the order, sends a corrected one) and then sees the message delivered anyway is working from a false answer. With `Accurate`, a `202` means Bitween has the message and will deliver it again: sending it again would make a second one.
 
-The `Wait-Period` header is meant to limit the wait. Bitween checks for the result after 1, 1, 2, 3 and 5 seconds, then every 8 seconds. The loop compares the current step, not the elapsed time, with the header value. Since the step never exceeds 8 seconds, a `Wait-Period` of 8 or more keeps the request open until the exchange has a result. That includes the default of 120. Only values below 8 can end with a `202`. Always set a timeout on the client or proxy.
+The call is answered as soon as the exchange's result is saved: the worker that saved it tells the node holding the call, directly or by a broadcast over RabbitMQ, and the answer comes from that signal. As a backstop, for a signal lost to a restart or a worker on an earlier version that sends none, Bitween also checks the database 2 seconds after the call and every 5 seconds after that. A call that repeats an earlier one, by its `Idempotency-Key` or as a dropped duplicate, gets that exchange's result, checked at once and then polled after 1, 1, 2, 3 and 5 seconds, then every 8.
+
+`Wait-Period` sets the longest wait in seconds: 120 when absent, and never more than `Bitween:MaxResponseWaitSeconds` (300). When it ends first, the answer is `202` with the exchange id.
 
 ## Bus gateways
 
@@ -174,7 +176,7 @@ curl -X POST "https://bitween.example.com/api/xchanges/purchase-order" \
 - The partner may have at most one subscription for the information type.
 - When the key belongs to the SYSTEM partner and no subscription exists, the document goes to the filter as if it had arrived on the bus.
 
-Without a `waitresponse` header, the call returns `200` with the exchange id at once. With one, it waits using the same checking loop as a sync gateway, with the same caveat about long waits.
+Without a `waitresponse` header, the call returns `200` with the exchange id at once. With one, it waits up to that many seconds, never more than `Bitween:MaxResponseWaitSeconds`, checking the database after 1, 1, 2, 3 and 5 seconds, then every 8. It gets no signal from the worker.
 
 | Outcome | Response |
 |---|---|

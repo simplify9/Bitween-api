@@ -136,6 +136,8 @@ Exchange files are written as private text objects under this key.
 
 The default prefix is `temp30/Bitweendocs`. The storage libraries keep delete rules for `temp1/`, `temp7/`, `temp30/` and `temp365/` on the bucket, so the default keeps files for 30 days. They're read back through `ICloudFilesLifecycle` for the Settings page and to explain a missing file.
 
+Every file is written, and storage is the record of every payload; the database holds none. Writes run beside the work they belong to, and the save of the exchange or result that names a file waits for its write, so a saved row always has its files. On the way through, a payload no larger than `Bitween:MessagePayloadMaxBytes` (256 KB) also travels with the bus message: the input with the exchange's created message, and the response with the signal to a waiting sync call. Those are copies for the trip, used instead of a storage read; a message without one, such as one the outbox publishes again, is served from storage.
+
 Readers without a Bitween login get links Bitween serves itself: an aggregation's handler, a partner reading its exchange result, an API client reading the exchange list. A link is `{address}/api/files/{seal}/{storage key}`, where the address is the public address the chart sets from its host name, else the one the request came in on, else (a scheduled job) the instance's own, such as `http://localhost:8080`. The seal is an HMAC of the storage key with a key derived from `Token:Key`, so a link opens its own file and no other, and nothing is stored per link. Custom adapter packages live under `Bitween:AdapterPath`.
 
 ## Caching
@@ -146,7 +148,7 @@ Inactive subscriptions are not cached, so no entry point can start them.
 
 ## Running more than one replica
 
-Replicas share the database and RabbitMQ. Exchange processing scales out by adding replicas and tuning prefetch per work group. These points need care.
+Replicas share the database and RabbitMQ. Exchange processing scales out by adding replicas and tuning prefetch and parallel exchanges per work group. These points need care.
 
 - Quartz runs clustered on every database provider: each replica gets its own scheduler instance id, and a fire is claimed through row locks in the Quartz tables, so each fire runs on one replica only. Which replica runs a job is up to Quartz, and one replica often runs them all. If it stops, another picks the jobs up within about 30 seconds, Quartz's idle wait; a replica that dies without stopping misses its 10-second check-ins, and about 20 seconds later the others release what it had claimed. Retry, retention, cleanup, pruning and queue snapshot jobs each have one schedule, run one at a time across the cluster, and need nothing more.
 - Each schedule of a receiver or aggregation, and each **Receive now** or **Aggregate now**, is a separate Quartz job, so two runs of one subscription can overlap, on one replica or two. Both claim the subscription's database running flag first, and the second one skips.

@@ -167,6 +167,7 @@ namespace SW.Bitween.Web
             {
                 config.ApplicationName = bitweenOptions.QueuePrefix;
                 config.DefaultQueuePrefetch = bitweenOptions.BusDefaultQueuePrefetch!.Value;
+                config.DefaultConsumerConcurrency = bitweenOptions.ResolvedBusDefaultConcurrency;
                 config.PublisherConfirms = bitweenOptions.BusPublisherConfirms;
                 config.ManagementUrl = bitweenOptions.RabbitMqManagementUrl;
                 config.ManagementUsername = bitweenOptions.RabbitMqManagementUsername;
@@ -175,6 +176,9 @@ namespace SW.Bitween.Web
             });
             services.AddBusPublish();
             services.AddBusConsume(typeof(BitweenDbContext).Assembly);
+            // A stop lets running exchanges finish for up to the bus's drain (30 s). The host's own
+            // 30 s default would cut that short, so the host waits 45; the chart gives the pod 60.
+            services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(45));
 
             var serializer = new JsonSerializer();
             serializer.Converters.Add(new PropertyMatchSpecificationJsonConverter());

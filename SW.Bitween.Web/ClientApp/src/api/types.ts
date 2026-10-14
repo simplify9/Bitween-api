@@ -1011,6 +1011,8 @@ export interface WorkGroupOptions {
     consumerSettings: {
       prefetch: number;
       priority: number;
+      /** Parallel exchanges per node; null takes the prefetch. */
+      concurrency: number | null;
     };
   };
 }
@@ -1660,6 +1662,8 @@ export interface ConsumerHealth {
   failedCount: number;
   priority: number;
   prefetch: number;
+  /** How many of the lane's messages run at once on a node: parallel exchanges, capped by prefetch. */
+  concurrency: number;
   incomingRate: number;
   ackRate: number;
   isBackpressured: boolean;

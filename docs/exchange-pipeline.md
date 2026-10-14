@@ -13,22 +13,23 @@ sequenceDiagram
   participant X as XchangeService
   participant A as Adapters
   E->>E: Validator (API entry points only)
-  E->>S: Write input file
-  E->>DB: Save exchange
-  DB-->>Q: Publish exchange id after commit
+  E->>S: Write input file, beside the rest of creation
+  E->>DB: Save exchange, once storage has the input
+  DB-->>Q: Publish exchange id after commit, with the input when small
   Q->>X: Deliver
-  X->>S: Read input
+  X->>S: Read input, only when the message didn't carry it
   X->>X: Filter and extract promoted properties
   alt Exchange has a subscription
     X->>A: Mapper, if configured
-    X->>S: Write output
+    X->>S: Write output, while the handler runs
     X->>A: Handler, if configured
-    X->>S: Write response
+    X->>S: Write response, while the result is prepared
     X->>Q: Publish response under its message type, if set
   else Document-level exchange
     X->>DB: Create exchanges for matching subscriptions and routes
   end
-  X->>DB: Save result and any scheduled retry
+  X->>DB: Save result and any scheduled retry, once storage has their files
+  X-->>E: Tell a waiting sync call, with the response when small
   DB-->>Q: Publish result id on the -Result lane
   Q->>X: Send notifications
 ```
@@ -37,7 +38,7 @@ Every stage runs its adapter through the same invoker, whether the adapter is na
 
 ## 1. Creation
 
-Every entry point ends the same way. The input is written to storage, the exchange row is added and the save commits. After the commit, an event carrying only the exchange id goes to the lane of the subscription's work group.
+Every entry point ends the same way. The input's write to storage starts, the exchange row is added while it runs, and the save commits only once storage has the input, so a saved exchange always has its file. A write that fails fails the save. After the commit, an event goes to the lane of the subscription's work group. It carries the exchange id and, when the input is no larger than `Bitween:MessagePayloadMaxBytes` (256 KB), the input itself, so the worker doesn't read it back from storage. The outbox row keeps the id alone: a message the outbox publishes again later, after a failed publish, has no input, and the worker reads storage. Storage is written for every input either way and stays the record; the copy in the message is used only when it matches the hash stored on the exchange.
 
 When an exchange is created for a subscription, Bitween resolves `{{partner.KEY}}` and `{{globals.SET.KEY}}` tokens in the mapper and handler properties and stores the result on the exchange. The partner is the one the entry point supplies, such as the calling partner or a bus gateway route's partner. Otherwise it is the subscription's own partner. Tokens that cannot be resolved are left as written.
 
@@ -131,6 +132,10 @@ Bitween saves the result.
 
 Retry evaluation can never cost the result. If evaluation itself fails, the error is logged and the result is still saved.
 
+The output and response files are written while the handler runs and the result is prepared, and the result is saved only once storage has them. When a write fails the exchange fails, and the failure result names only the files that were written.
+
+When a [sync gateway call](entry-points.md#async-and-sync) waits for the exchange, the worker tells it as soon as the result is saved, on success and on failure. On the node holding the call it does so directly; otherwise it broadcasts to every node, and the one holding the call takes it. The signal carries what the answer needs, including the response when it is no larger than `Bitween:MessagePayloadMaxBytes` (always, on the same node), so a successful call is answered without reading the database or storage.
+
 ## 8. Notifications
 
 Saving the result publishes its id on the work group's `-Result` lane. There, each of the subscription's notifications whose outcome matches sends through its channel, and so does each active legacy notifier watching the subscription. See [Subscription notifications](retries-and-alerts.md#subscription-notifications).
@@ -166,4 +171,5 @@ Exchange lists return a link and a storage key for each file that has content. T
 | Request body size | 50 MB |
 | Exchanges counted by one search | 10,000 |
 | Exchanges collected per aggregation run | 10,000 |
-| Concurrent exchanges per consumer | The work group's prefetch, 12 by default |
+| Exchanges buffered per lane per node | The work group's prefetch, 12 by default |
+| Concurrent exchanges per lane per node | The work group's parallel exchanges, capped by its prefetch; empty takes the prefetch. The Ungrouped lane takes `Bitween:BusDefaultConcurrency`. A results lane runs one at a time |

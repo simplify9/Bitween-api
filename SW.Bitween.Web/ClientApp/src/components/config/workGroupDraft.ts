@@ -10,6 +10,7 @@ export const workGroupDraftOf = (g: WorkGroup): WorkGroupDraft => ({
   busMessageName: g.busMessageName,
   prefetch: g.options.rabbitMqOptions.consumerSettings.prefetch,
   priority: g.options.rabbitMqOptions.consumerSettings.priority,
+  concurrency: g.options.rabbitMqOptions.consumerSettings.concurrency,
 });
 
 /**

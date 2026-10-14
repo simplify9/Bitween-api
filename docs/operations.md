@@ -158,7 +158,7 @@ Exchange rows can outlive their files. Opening such a file says it was deleted b
 |---|---|
 | The Microsoft sign-in popup fails with `user_cancelled` | The redirect URI does not point at `/blank.html` |
 | Changing appsettings or Helm values does not change a setting | The setting is already stored in the database, which wins |
-| Every subscription slows down while one partner is slow | Subscriptions without a work group share one lane, and a slow partner's calls hold its processing slots for up to `Bitween:NativeAdapterTimeout`. Give that partner's subscriptions a [work group](concepts.md#work-group) of their own, with a small prefetch, so it only slows itself. The **Work groups** page says how many subscriptions share the default lane. |
+| Every subscription slows down while one partner is slow | Subscriptions without a work group share one lane. A slow partner's calls each hold one of the lane's parallel exchanges for up to `Bitween:NativeAdapterTimeout`, and once they hold them all the lane waits. Give that partner's subscriptions a [work group](concepts.md#work-group) of their own, so it only slows itself: a small **Parallel exchanges** caps how many calls it gets at once, and 1 sends it one call at a time per node. The **Work groups** page says how many subscriptions share the default lane; **Queue health** shows each lane's parallel exchanges and how many are in flight. |
 | Queue health says RabbitMQ management isn't configured | One of the three management keys is missing |
 | Rebex adapters are missing from the pickers | No Rebex license key is saved, or nothing uses that one any more: it [moved to the marketplace](adapters.md#moved-to-the-marketplace) |
 | An API gateway returns 404 at the right URL | The attached subscription is inactive |
@@ -169,7 +169,8 @@ Exchange rows can outlive their files. Opening such a file says it was deleted b
 | A response exchange fails with *the handler can't be filled in* | The original document had no value at that `{{source.PATH}}`. Open the exchange it is a response to, from the drawer's *Response to* link, and check the path against its input |
 | A bus gateway exchange fails with *its message wasn't published as a Bitween delivery's response* | Its handler uses `{{source.PATH}}`, and the message came from somewhere else |
 | A bus gateway exchange fails with *the original document … couldn't be read* | Its message came from a delivery in another Bitween on the same bus, or that exchange's input file is gone |
-| Sync gateway calls hang | The sync wait never times out for a `Wait-Period` of 8 or more, including the default |
+| Sync gateway calls take about 2 seconds more than their exchanges | The calls are answered by the backstop check, not the worker's signal. On a node of an earlier version during an upgrade this is expected. Otherwise the nodes aren't receiving each other's broadcasts on RabbitMQ: check that every node is connected to the same broker and that cache changes reach the other nodes, which travel the same way |
+| Sync gateway calls answer `202` | The exchange had no result within `Wait-Period` (120 seconds when absent, at most `Bitween:MaxResponseWaitSeconds`). Look for it under **Exchanges**: still queued means its lane is behind, see **Queue health** |
 | Retry is refused with `ALREADY_RETRIED` | That exchange was already retried. Retry its newest attempt. |
 | A data source shows no live data, or statements save as *not checked* | The request reached a node that does not run the adapter, or `Bitween__BusProvidersEnabled` is off |
 | A delivery fails with *not running on this node* | Data sources are not enabled on the node processing the exchange |

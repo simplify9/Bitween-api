@@ -31,6 +31,9 @@ spec:
       annotations:
         buildID: {{ .Values.buildID | default "" | quote }}
     spec:
+      # Above the host's 45 s shutdown timeout, which is above the bus's 30 s drain, so exchanges
+      # running when a pod stops finish and acknowledge before Kubernetes kills it.
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default 60 }}
       {{- with .Values.serviceAccount.name }}
       serviceAccountName: {{ . | quote }}
       {{- end }}
@@ -99,6 +102,12 @@ spec:
 
             - name: Bitween__BusDefaultQueuePrefetch
               value: "{{ .Values.busDefaultQueuePrefetch }}"
+            {{- if .Values.busDefaultConcurrency }}
+
+            # Parallel exchanges for the ungrouped lane and the other bus consumers; unset, the prefetch.
+            - name: Bitween__BusDefaultConcurrency
+              value: "{{ .Values.busDefaultConcurrency }}"
+            {{- end }}
 
             - name: Bitween__RabbitMqManagementUrl
               value: {{ .Values.environmentVariables.Bitween__RabbitMqManagementUrl | quote }}

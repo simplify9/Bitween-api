@@ -186,6 +186,13 @@ serverlessCommandTimeout: ''
 documentPrefix: 'temp30/infolinkdocs'
 storageProvider: ''
 busDefaultQueuePrefetch: '12'
+# How many exchanges of the ungrouped lane (and the bus's other consumers) run at once on each pod.
+# Empty takes busDefaultQueuePrefetch. '1' runs them one at a time, in order, as before 10.1.
+busDefaultConcurrency: ''
+
+# How long a stopping pod has before it is killed. Must stay above the app's 45 s shutdown, which
+# lets running exchanges finish for up to 30 s.
+terminationGracePeriodSeconds: 60
 
 global:
 

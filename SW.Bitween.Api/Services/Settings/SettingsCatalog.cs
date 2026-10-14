@@ -396,6 +396,10 @@ public static class SettingsCatalog
             "How many messages a consumer may hold unacknowledged by default. A work group can override it for its own queue.",
             SettingKind.Number, t => t.Bitween.BusDefaultQueuePrefetch?.ToString(CultureInfo.InvariantCulture)),
 
+        View("Bitween.BusDefaultConcurrency", "Messaging", "Default parallel exchanges",
+            "How many messages of a lane run at once on each node when nothing more specific says: the ungrouped lane and the bus's other consumers. A work group sets its own. Unset, it is the default prefetch.",
+            SettingKind.Number, t => t.Bitween.ResolvedBusDefaultConcurrency.ToString(CultureInfo.InvariantCulture)),
+
         View("Bitween.ConsumeLegacyEventMessages", "Messaging", "Consume legacy event messages",
             "Whether this instance also drains the five queues named after exchange events, which an older Bitween published to before work groups existed. Nothing publishes to them today, so this is only for finishing off messages left behind by an upgrade.",
             SettingKind.Boolean, t => Str(t.Bitween.ConsumeLegacyEventMessages)),

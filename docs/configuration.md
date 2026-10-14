@@ -86,6 +86,7 @@ applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
 | `InboundMessagePruneCron` | `0 30 3 * * ?` | Quartz cron for deleting expired broker deduplication keys. |
 | `QueuePrefix` | `bitween` | Part of every queue name. Give each deployment sharing a broker its own value. |
 | `BusDefaultQueuePrefetch` | `12` | Default number of unacknowledged messages per consumer. Work groups can override it. |
+| `BusDefaultConcurrency` | the prefetch | How many messages of a lane run at once on a node, for the Ungrouped lane and the bus's other consumers (bus-enabled information types, retry and auto-pause alerts). A work group sets its own with **Parallel exchanges**. `1` runs them one at a time, in order, as before. |
 | `RabbitMqManagementUrl`, `RabbitMqManagementUsername`, `RabbitMqManagementPassword` | | RabbitMQ management API, needed for queue health. |
 | `ConsumeLegacyEventMessages` | `false` | Also drain the queues that versions before work groups published to. |
 | `CorsOrigins` | empty | Browser origins allowed to call the API with credentials. Set as `Bitween__CorsOrigins__0`, `Bitween__CorsOrigins__1` and so on. |
@@ -106,6 +107,8 @@ applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
 | `RegistryInstanceId`, `RegistryInstanceToken`, `RegistryUsageReports` | empty, empty, `false` | First values of the registration settings: set by **Register** under Settings, Marketplace rather than by hand. See [Paid connectors and licences](adapters.md#paid-connectors-and-licences). |
 | `RetryJobCron` | `0 * * * * ?` | First value of the runtime setting. |
 | `MaxRetryAfterSeconds` | `21600` | First value of the runtime setting: the longest an adapter's [try again after](retries-and-alerts.md#when-an-adapter-says-when-to-try-again) can push back a retry. |
+| `MaxResponseWaitSeconds` | `300` | The longest a [sync gateway call](entry-points.md#async-and-sync) waits for its exchange's result, whatever `Wait-Period` asks. After it the caller gets `202`. |
+| `MessagePayloadMaxBytes` | `262144` | The largest input, in bytes, an exchange's created message carries beside its id, so the worker doesn't read it back from storage; and the largest response a sync call's result signal carries to another node. Larger ones are read from storage. Every file is written to storage either way. `0` sends none. |
 
 ## `Theme` section
 
@@ -174,7 +177,7 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.MailServer.Password` | Mail server | Yes, secret | empty |
 | `Bitween.MaxRetryAfterSeconds` | Reliability & jobs | Yes | `21600`, six hours |
 | `Bitween.RetryJobCron` | Reliability & jobs | Yes | `0 * * * * ?` |
-| `Bitween.QueuePrefix`, `BusDefaultQueuePrefetch`, `ConsumeLegacyEventMessages` | Messaging | Read-only | |
+| `Bitween.QueuePrefix`, `BusDefaultQueuePrefetch`, `BusDefaultConcurrency`, `ConsumeLegacyEventMessages` | Messaging | Read-only | |
 | `Bitween.RabbitMqManagementUrl`, `Username`, `Password` | Messaging | Shows whether set | |
 | `Bitween.UseAzureManagedIdentity` | Database | Read-only | `false` |
 | `Bitween.AzureManagedIdentityClientId` | Database | Shows whether set | |
@@ -209,6 +212,8 @@ The chart in `charts/default` maps values to environment variables. Values marke
 | `storageProvider` | `Bitween__StorageProvider` |
 | `ingress.hosts`, or `gateway.hostnames` with `gateway.enabled` | `Bitween__PublicUrl`: the first host, `https` unless the Ingress has no TLS for it |
 | `busDefaultQueuePrefetch` | `Bitween__BusDefaultQueuePrefetch` |
+| `busDefaultConcurrency` | `Bitween__BusDefaultConcurrency`, only when set |
+| `terminationGracePeriodSeconds` | The pod's `terminationGracePeriodSeconds`, `60` by default |
 | `serverlessCommandTimeout` | `Bitween__ServerlessCommandTimeout` |
 | `msalClientId`, `msalRedirectUri`, `msalTenantId` | `Bitween__MsalClientId`, `Bitween__MsalRedirectUri`, `Bitween__MsalTenantId` |
 | `environmentVariables.*` | Passed through under their own names, such as the RabbitMQ management values |

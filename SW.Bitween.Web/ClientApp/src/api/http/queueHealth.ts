@@ -38,6 +38,8 @@ interface RawConsumer {
   failedCount: number;
   priority: number;
   prefetch: number;
+  /** Older servers don't send it. */
+  concurrency?: number;
   incomingRate: number;
   ackRate: number;
   isBackpressured: boolean;
@@ -120,6 +122,8 @@ export const queueHealthMethods = {
         failedCount: c.failedCount,
         priority: c.priority,
         prefetch: c.prefetch,
+        // A server from before parallel exchanges ran every lane one at a time.
+        concurrency: c.concurrency ?? 1,
         incomingRate: c.incomingRate,
         ackRate: c.ackRate,
         isBackpressured: c.isBackpressured,

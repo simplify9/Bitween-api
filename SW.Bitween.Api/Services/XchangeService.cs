@@ -1756,19 +1756,26 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         var workgroups = await dbContext.Set<WorkGroup>().ToListAsync();
         workgroups.Add(WorkGroup.None);
         var messageTypeNamesWithOptions = new Dictionary<string, ConsumerOptions>();
+        var defaultPrefetch = BitweenSettings.BusDefaultQueuePrefetch ?? 12;
         foreach (var workGroup in workgroups)
         {
             var messageTypeName = workGroup.GetBusMessageName();
             messageTypeNamesWithOptions[messageTypeName] = new ConsumerOptions()
             {
                 Prefetch = workGroup.Options?.RabbitMqOptions?.Prefetch,
-                Priority = workGroup.Options?.RabbitMqOptions?.Priority
+                Priority = workGroup.Options?.RabbitMqOptions?.Priority,
+                Concurrency = workGroup.Id == WorkGroup.None.Id
+                    ? BitweenSettings.ResolvedBusDefaultConcurrency
+                    : workGroup.WorkLaneConcurrency(defaultPrefetch)
             };
+            // Notifications run one at a time: they are quick, and a notifier's partner sees the
+            // results of a group in the order they finished.
             var messageTypeNameForResponse = $"{messageTypeName}{ResultQueueSuffix}";
             messageTypeNamesWithOptions[messageTypeNameForResponse] = new ConsumerOptions()
             {
                 Prefetch = workGroup.Options?.RabbitMqOptions?.Prefetch,
-                Priority = workGroup.Options?.RabbitMqOptions?.Priority
+                Priority = workGroup.Options?.RabbitMqOptions?.Priority,
+                Concurrency = 1
             };
         }
 

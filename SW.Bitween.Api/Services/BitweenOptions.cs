@@ -32,6 +32,17 @@ namespace SW.Bitween
         public ushort? BusDefaultQueuePrefetch { get; set; }
 
         /// <summary>
+        /// How many messages of a lane run at once on a node when nothing more specific says: the
+        /// ungrouped lane, and Bitween's other bus consumers. A work group sets its own lane's.
+        /// Unset, it is the default prefetch, which is what the docs always said a lane did.
+        /// </summary>
+        public ushort? BusDefaultConcurrency { get; set; }
+
+        /// <summary><see cref="BusDefaultConcurrency"/>, or the default prefetch when it is unset.</summary>
+        public ushort ResolvedBusDefaultConcurrency =>
+            BusDefaultConcurrency ?? BusDefaultQueuePrefetch ?? 12;
+
+        /// <summary>
         /// Whether a publish on Bitween's own bus waits for the broker to confirm it, and fails if
         /// it doesn't. On, SW.Bus's default since 10.1: the outbox removes a row only once its message
         /// is on the broker. Off is how 10.0 published, for a deployment that can't afford the wait.

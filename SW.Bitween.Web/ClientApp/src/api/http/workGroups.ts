@@ -17,7 +17,9 @@ interface RawWorkGroup {
   id: number;
   name: string;
   busMessageName: string;
-  options: { rabbitMqOptions: { prefetch: number | null; priority: number | null } | null } | null;
+  options: {
+    rabbitMqOptions: { prefetch: number | null; priority: number | null; concurrency?: number | null } | null;
+  } | null;
   processorNodeCount: number | null;
   /** Counted by the backend - see WorkGroupModel.UsedByCount. */
   usedByCount: number;
@@ -69,6 +71,7 @@ const toWorkGroup = (w: RawWorkGroup): WorkGroup => ({
       consumerSettings: {
         prefetch: w.options?.rabbitMqOptions?.prefetch ?? 0,
         priority: w.options?.rabbitMqOptions?.priority ?? 0,
+        concurrency: w.options?.rabbitMqOptions?.concurrency ?? null,
       },
     },
   },
@@ -140,37 +143,38 @@ export const workGroupMethods = {
     busMessageName: string;
     prefetch: number;
     priority: number;
+    concurrency: number | null;
   }): Promise<WorkGroup> {
+    const settings = { prefetch: input.prefetch, priority: input.priority, concurrency: input.concurrency };
     const created = await post<{ id: number }>("/workgroups", {
       name: input.name,
       busMessageName: input.busMessageName,
-      options: { rabbitMqOptions: { prefetch: input.prefetch, priority: input.priority } },
+      options: { rabbitMqOptions: settings },
     });
     return {
       id: created.id,
       name: input.name,
       busMessageName: input.busMessageName,
-      options: { rabbitMqOptions: { consumerSettings: { prefetch: input.prefetch, priority: input.priority } } },
+      options: { rabbitMqOptions: { consumerSettings: settings } },
       createdOn: "",
     };
   },
 
   async updateWorkGroup(
     id: number,
-    changes: { name: string; busMessageName: string; prefetch: number; priority: number },
+    changes: { name: string; busMessageName: string; prefetch: number; priority: number; concurrency: number | null },
   ): Promise<WorkGroup> {
+    const settings = { prefetch: changes.prefetch, priority: changes.priority, concurrency: changes.concurrency };
     await post(`/workgroups/${id}`, {
       name: changes.name,
       busMessageName: changes.busMessageName,
-      options: { rabbitMqOptions: { prefetch: changes.prefetch, priority: changes.priority } },
+      options: { rabbitMqOptions: settings },
     });
     return {
       id,
       name: changes.name,
       busMessageName: changes.busMessageName,
-      options: {
-        rabbitMqOptions: { consumerSettings: { prefetch: changes.prefetch, priority: changes.priority } },
-      },
+      options: { rabbitMqOptions: { consumerSettings: settings } },
       createdOn: "",
     };
   },

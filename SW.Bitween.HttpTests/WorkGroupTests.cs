@@ -81,6 +81,49 @@ public class WorkGroupTests(HttpFixture fixture)
     }
 
     [Fact]
+    public async Task Parallel_exchanges_are_saved_with_the_group_and_attached_to_its_work_lane_but_not_its_results_lane()
+    {
+        var admin = await fixture.AdminAsync();
+        var busName = $"Parallel{Guid.NewGuid():N}"[..16];
+
+        var zero = await admin.PostAsJsonAsync("/api/workgroups", new
+        {
+            name = Api.Unique("Parallel"), busMessageName = busName,
+            options = new { rabbitMqOptions = new { prefetch = 6, concurrency = 0 } }
+        });
+        Assert.False(zero.IsSuccessStatusCode);
+
+        var groupId = (int)(await Api.Json(await admin.PostAsJsonAsync("/api/workgroups", new
+        {
+            name = Api.Unique("Parallel"), busMessageName = busName,
+            options = new { rabbitMqOptions = new { prefetch = 6, concurrency = 3 } }
+        })))["id"]!;
+
+        var saved = (await Api.Json(await admin.GetAsync("/api/workgroups?offset=0&limit=1000")))["result"]!.AsArray()
+            .Single(g => (int)g!["id"]! == groupId)!;
+        Assert.Equal(3, (int)saved["options"]!["rabbitMqOptions"]!["concurrency"]!);
+
+        // Queue health reads the broker, which shows the lanes once the refresh has attached them.
+        var lane = Lane(groupId, busName);
+        Assert.True(await EventuallyAsync(q => q.Contains(lane) && q.Contains($"{lane}-result")), $"no lanes {lane}");
+        System.Text.Json.Nodes.JsonArray rows = null!;
+        var clock = Stopwatch.StartNew();
+        while (clock.Elapsed < TimeSpan.FromSeconds(30))
+        {
+            rows = (await Api.Json(await admin.GetAsync("/api/ops/consumers"))).AsArray();
+            if (rows.Count(r => (int?)r!["workGroupId"] == groupId) == 2) break;
+            await Task.Delay(500);
+        }
+        var work = rows.Single(r => (int?)r!["workGroupId"] == groupId && (string)r!["lane"]! == "Work")!;
+        var results = rows.Single(r => (int?)r!["workGroupId"] == groupId && (string)r!["lane"]! == "Notifications")!;
+        Assert.Equal(3, (int)work["concurrency"]!);
+        Assert.Equal(1, (int)results["concurrency"]!);
+
+        await Api.Json(await admin.PostAsJsonAsync($"/api/workgroups/{groupId}/delete", new { }));
+        admin.Dispose();
+    }
+
+    [Fact]
     public async Task A_second_work_group_with_a_name_already_taken_is_refused_and_so_is_a_rename_onto_one()
     {
         // Two applies running at once each made one; their subscriptions ended up split between the two.

@@ -55,7 +55,8 @@ Things to know about the chart:
 - The image tag is the chart version, so a chart must be packaged with the version of an image that exists.
 - The Service forwards port 80 to container port 8080.
 - The Ingress exposes `/api`, `/swagger` and `/` by default, so the admin UI and `/blank.html` are served from the same host as the API. A deployment that overrides `ingress.paths` replaces the whole list, so it has to include `/` itself.
-- Probes are on by default: a startup probe and a liveness probe on `/health/live`, which only checks that the process answers, and a readiness probe on `/health/ready`, which also checks the database and RabbitMQ. The startup probe allows five minutes for migrations (`probes.startupFailureThreshold`).
+- Probes are on by default: a startup probe and a liveness probe on `/health/live`, which only checks that the process answers, and a readiness probe on `/health/ready`, which also checks the database and that the bus is connected to RabbitMQ. A pod whose broker is down starts and stays not ready until the bus connects; it does not restart. The startup probe allows five minutes for migrations (`probes.startupFailureThreshold`).
+- A stopping pod lets the exchanges it is running finish for up to 30 seconds before it closes its queues, so they are acknowledged instead of run again elsewhere. The app waits up to 45 seconds to stop, and the chart gives the pod 60 (`terminationGracePeriodSeconds`); keep that value above 45.
 - The `rabbitmq` values are not used by any template.
 - `charts/default/README.md` explains the two routing modes.
 
@@ -116,13 +117,25 @@ See [Data sources](data-sources.md).
 
 ## Scaling
 
-Run several replicas behind a load balancer for throughput and availability, and tune prefetch and priority per work group. Read the [replica notes](architecture.md#running-more-than-one-replica) about the scheduler first.
+Run several replicas behind a load balancer for throughput and availability, and tune prefetch, parallel exchanges and priority per work group. Read the [replica notes](architecture.md#running-more-than-one-replica) about the scheduler first.
 
 ## Upgrading
 
 - Migrations apply at startup, so back up the database before deploying a new version.
 - Values already in the `Settings` table are not replaced by new configuration. Change them on the Settings page.
 - When upgrading from a version without work groups, set `Bitween__ConsumeLegacyEventMessages=true` until the old event queues are empty.
+
+### Upgrading to parallel exchanges
+
+Before this version every lane ran one exchange at a time per node, whatever its prefetch. Now a lane runs up to its **Parallel exchanges** at once, and a lane that leaves it empty takes its prefetch: 12 by default. That is what the documentation always described, but not what deployments saw, so on upgrade:
+
+- **Partners receive concurrent calls.** A partner that got one call at a time from each node can get up to the lane's parallel exchanges at once. One that limits its callers answers 429 and the circuit breaker opens, which is handled, but it is new for that partner.
+- **Order within a lane is not kept above 1.** Two exchanges for the same order sent close together, a create and an update, can now run in either order on one node. Order was never kept across nodes.
+- **More of everything at once.** Each running exchange can hold a database connection and its payload in memory; five lanes at 12 is 60 at once per node, against Npgsql's default pool of 100. Lanes that use classic (non-resident) adapters start that many processes.
+
+To keep a lane as it was, set it to 1 **before** upgrading: on the Work groups page, set the group's **Parallel exchanges** to 1 and save (the field is stored with the group and ignored by older versions), or for the Ungrouped lane set `Bitween__BusDefaultConcurrency=1` (`busDefaultConcurrency: '1'` in the chart). The results lane of every group runs one at a time either way.
+
+Also in this version: a publish waits for the broker to confirm it (`Bitween__BusPublisherConfirms=false` publishes as before), a pod whose broker is down at boot starts and becomes ready when the bus connects, and a stopping pod drains its running exchanges.
 
 ## CI/CD
 

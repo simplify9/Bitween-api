@@ -42,7 +42,7 @@ public record LaneIdentity(QueueLane Lane, string Title, int? WorkGroupId, int? 
 /// Decodes the message-type half of a queue name into the thing it belongs to. One database
 /// read for all rows, so callers should resolve a whole snapshot at once.
 /// </summary>
-public class LaneResolver(BitweenDbContext dbContext)
+public class LaneResolver(BitweenDbContext dbContext, BitweenOptions options)
 {
     /// <summary><see cref="XchangeService"/>'s non-lane message types.</summary>
     private static readonly Dictionary<string, string> Control = new(System.StringComparer.OrdinalIgnoreCase)
@@ -109,5 +109,21 @@ public class LaneResolver(BitweenDbContext dbContext)
             string.Equals(wg.GetBusMessageName(), groupName, System.StringComparison.OrdinalIgnoreCase));
 
         return new LaneIdentity(lane, workGroup?.Name ?? messageName, workGroup?.Id, null);
+    }
+
+    /// <summary>
+    /// The parallel exchanges a queue was attached with, by the rule
+    /// <see cref="XchangeService.GetMessageTypeNamesWithOptions"/> applies: a work lane its group's,
+    /// a notifications lane 1, everything else the default. Not capped by prefetch.
+    /// </summary>
+    public ushort Concurrency(LaneIdentity identity)
+    {
+        if (identity.Lane == QueueLane.Notifications) return 1;
+        if (identity.Lane == QueueLane.Work && identity.WorkGroupId is { } id)
+        {
+            var workGroup = workGroups.FirstOrDefault(wg => wg.Id == id);
+            if (workGroup != null) return workGroup.WorkLaneConcurrency(options.BusDefaultQueuePrefetch ?? 12);
+        }
+        return options.ResolvedBusDefaultConcurrency;
     }
 }

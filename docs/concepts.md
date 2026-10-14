@@ -100,7 +100,9 @@ A result also records which retry group matched, the attempt number and, when no
 
 ## Work group
 
-A work group is a processing lane. Each work group gets one RabbitMQ queue for exchanges and another for results, with its own prefetch and priority. Subscriptions without a work group share the *Ungrouped* lane. Use work groups to stop a slow or busy integration from delaying the others.
+A work group is a processing lane. Each work group gets one RabbitMQ queue for exchanges and another for results, with its own prefetch, priority and parallel exchanges. Subscriptions without a work group share the *Ungrouped* lane. Use work groups to stop a slow or busy integration from delaying the others.
+
+**Parallel exchanges** is how many of the lane's exchanges run at once on each node. Empty, it is the prefetch, which caps it in any case: a node never holds more than prefetch messages of a lane. At 1 the lane runs one exchange at a time, in the order they arrive, so a partner gets one call at a time per node; above 1 the order within the lane is not kept. Prefetch is the buffer, parallel exchanges the concurrency. The results lane always runs one at a time. The Ungrouped lane takes `Bitween:BusDefaultConcurrency`.
 
 The queue name is built from the work group's id and its bus message name. Changing the bus message name moves the lane to a new queue.
 

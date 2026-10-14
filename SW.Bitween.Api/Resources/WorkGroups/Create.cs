@@ -24,7 +24,8 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext,II
                 RabbitMqOptions = new ConsumerSettings
                 {
                     Prefetch = request.Options?.RabbitMqOptions?.Prefetch,
-                    Priority = request.Options?.RabbitMqOptions?.Priority
+                    Priority = request.Options?.RabbitMqOptions?.Priority,
+                    Concurrency = request.Options?.RabbitMqOptions?.Concurrency
                 }
             }
         };
@@ -59,6 +60,10 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext,II
                 .Matches("^\\S+$")
                 .When(i => !string.IsNullOrEmpty(i.BusMessageName))
                 .WithMessage("Bus message name cannot contain spaces.");
+            RuleFor(i => i.Options.RabbitMqOptions.Concurrency)
+                .GreaterThan((ushort)0)
+                .When(i => i.Options?.RabbitMqOptions?.Concurrency != null)
+                .WithMessage("Parallel exchanges must be at least 1.");
         }
     }
 }

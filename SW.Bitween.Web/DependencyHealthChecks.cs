@@ -1,10 +1,9 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
-using RabbitMQ.Client;
+using SW.Bus.RabbitMqExtensions;
 
 namespace SW.Bitween.Web
 {
@@ -37,58 +36,18 @@ namespace SW.Bitween.Web
     }
 
     /// <summary>
-    /// Opens and closes a connection, at most every ten seconds whatever the probe interval, so a
-    /// tight readiness probe on many replicas doesn't churn connections on the broker.
+    /// Asks the bus whether it is connected, rather than opening a connection of its own: the bus
+    /// connects in the background after start and reconnects on its own after an outage, so a pod
+    /// whose broker is down boots and is simply not ready until the bus has its connections and
+    /// exchanges. Costs the broker nothing however tight the probe is.
     /// </summary>
-    internal sealed class RabbitMqHealthCheck(IConfiguration configuration) : IHealthCheck
+    internal sealed class RabbitMqHealthCheck(IBusConnectionStatus bus) : IHealthCheck
     {
-        private static readonly TimeSpan CacheFor = TimeSpan.FromSeconds(10);
-        private static readonly SemaphoreSlim Gate = new(1, 1);
-        private static (DateTime At, HealthCheckResult Result)? _last;
-
-        public async Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context,
-            CancellationToken cancellationToken = default)
-        {
-            if (_last is { } cached && DateTime.UtcNow - cached.At < CacheFor) return cached.Result;
-
-            await Gate.WaitAsync(cancellationToken);
-            try
-            {
-                if (_last is { } fresh && DateTime.UtcNow - fresh.At < CacheFor) return fresh.Result;
-
-                var result = await ProbeAsync(cancellationToken);
-                _last = (DateTime.UtcNow, result);
-                return result;
-            }
-            finally
-            {
-                Gate.Release();
-            }
-        }
-
-        private async Task<HealthCheckResult> ProbeAsync(CancellationToken cancellationToken)
-        {
-            var connectionString = configuration.GetConnectionString("RabbitMQ");
-            if (string.IsNullOrWhiteSpace(connectionString))
-                return HealthCheckResult.Unhealthy("No RabbitMQ connection string is configured.");
-
-            try
-            {
-                var factory = new ConnectionFactory
-                {
-                    Uri = new Uri(connectionString),
-                    AutomaticRecoveryEnabled = false,
-                    RequestedConnectionTimeout = TimeSpan.FromSeconds(5),
-                };
-                await using var connection = await factory.CreateConnectionAsync("bitween-health", cancellationToken);
-                await connection.CloseAsync(cancellationToken);
-                return HealthCheckResult.Healthy();
-            }
-            catch (Exception ex)
-            {
-                // The exception type only: its message can carry the broker address and user.
-                return HealthCheckResult.Unhealthy($"RabbitMQ is not reachable ({ex.GetType().Name}).");
-            }
-        }
+        public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(bus.IsConnected
+                ? HealthCheckResult.Healthy()
+                // Not LastError: its message can carry the broker address and user.
+                : HealthCheckResult.Unhealthy("The bus is not connected to RabbitMQ."));
     }
 }
