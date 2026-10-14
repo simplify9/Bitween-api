@@ -49,18 +49,61 @@ The cost of one sync gateway call, native handler, success, before and after:
 - **Expected effect:** hundreds of milliseconds per adapter call removed for custom adapters.
 - **Decision:** (pending)
 
-### 6. The payload is parsed three to four times
+### 6. The payload is parsed several times
 
 - **Status:** to discuss
-- **Where:** `DocumentSchema.Enforce`, `FilterService.Filter` (JSON and XML readers),
-  `XchangeService.RunMapper` enrichment (`JToken.Parse`), the mapper itself;
-  `NativeHttpHandler` re-parses the URL template on every call
-- **What happens:** The same document is parsed into a full Newtonsoft object tree by each step.
-- **Why it hurts:** CPU and garbage collection at hundreds of exchanges per second. A 1 MB
-  payload is 4 MB of allocations per exchange.
-- **Candidate fix:** Parse once and pass the parsed document along; move the hot path to
-  System.Text.Json; cache parsed URL templates.
-- **Expected effect:** lower CPU per exchange and fewer GC pauses; matters above 100 per second.
+- **Where:** `FilterService` and the payload readers, `DocumentSchema`, `XchangeService.RunMapper`
+  (enrichment), `NativeAdapters/Mapper` (`NativeMapper`, `JsonFormat`, `XmlFormat`),
+  `NativeAdapters/JsonMapper/ScribanJsonHelper`, `NativeAdapters/HttpHandler/NativeHttpHandler`
+- **What happens now**, after findings 3 and 4 moved the promoted-property read to creation.
+  Each line is one full parse of the input into a Newtonsoft object tree (or an `XDocument`):
+
+  | # | Parse | When | Always? |
+  |---|---|---|---|
+  | 1 | `JObject.Parse` for promoted properties and routing (`JsonExchangePayloadReader`) | creation | yes |
+  | 2 | `JToken.Parse` for the schema check (`DocumentSchema.Check`) | worker | only when the type has a schema |
+  | 3 | `JToken.Parse`, inject `__partner__` and `__globals__`, serialize back (`RunMapper`) | worker | every mapper except the rules-based one |
+  | 4 | `JToken.Parse` just to see whether the payload is JSON (`ScribanJsonHelper.LooksLikeJson`) | worker | Scriban mapper |
+  | 5 | `JToken.Parse` to build the template model (`ScribanJsonHelper.RenderText`) | worker | Scriban mapper |
+  | 6 | `JToken.Parse` of the rendered output to tidy it | worker | Scriban mapper |
+  | 7 | `JToken.ReadFrom` with decimal handling (`JsonFormat`) | worker | rules-based mapper |
+  | 8 | `JsonConvert.DeserializeObject` of the whole payload into a dictionary for a URL with `{{ }}` (`NativeHttpHandler`) | worker | HTTP handler with a templated URL |
+  | 9 | `Template.Parse` of the Scriban template, of the DotLiquid URL template, and `DeserializeObject<MappingRules>` of the rules JSON | worker | every call, none cached |
+
+  A Scriban mapper with an HTTP handler on a templated URL parses the input six times (1, 3, 4,
+  5, 8 plus the output in 6) and re-parses its template every call. The rules-based mapper
+  with a plain URL parses it twice (1 and 7). XML goes the same way with `XDocument`: once at
+  creation and once in the mapper.
+
+- **Why it hurts:** each parse allocates a full tree; a 1 MB document parsed six times is
+  about 6 MB of allocations per exchange, and the garbage collector pauses the whole pod to
+  reclaim them. Template parsing is CPU on every call for a result that never changes. None of
+  this shows at 5 KB payloads and 5 per second; all of it shows at 100 KB and 50 per second,
+  where it sets the CPU ceiling per node rather than the latency of one exchange.
+
+- **Options, from safest to largest.**
+
+  | Id | Change | Removes | Risk and compatibility |
+  |---|---|---|---|
+  | 6a | Cache compiled templates and rules by their text: Scriban `Template.Parse`, DotLiquid URL `Template.Parse`, `MappingRules` deserialization, in bounded in-memory caches keyed by a hash of the text | row 9, every call | none; the same text gives the same template |
+  | 6b | Drop the parses that only re-check: `LooksLikeJson` parses the whole payload to answer yes or no, then `RenderText` parses it again; parse once and pass the tree. The rendered-output tidy (6) can work on the writer's tree instead of re-parsing text. | rows 4 and 6 | none |
+  | 6c | Parse once in the pipeline and hand the tree along: an internal `ParsedXchangeFile` (a subclass of `XchangeFile`, which lives in the SimplyWorks package and cannot change) with a lazy, cached `JToken` or `XDocument`. The filter, the schema check, the enrichment and the built-in adapters (`JsonFormat`, `XmlFormat`, `ScribanJsonHelper`, the HTTP handler's URL model) use the cached tree when they are given one. Adapters that run out of process receive text over the wire and parse it themselves, as they must. | rows 2, 5, 7 and 8 share one parse with row 1 (for exchanges created on the same pod; otherwise one parse in the worker) | internal only; the adapter contract does not change |
+  | 6d | For the Scriban mapper, give `__partner__` and `__globals__` to the template as variables instead of writing them into the payload and serializing it back. The enrichment stays as it is for mappers that run out of process, which read them out of the payload. | row 3 and its serialize for the built-in Scriban mapper | a template that iterates the payload's keys stops seeing `__partner__` among them; property access `{{ __partner__.key }}` is unchanged. Needs a note in `mapping.md`. |
+  | 6e | Move the mapping engine from Newtonsoft to System.Text.Json | about half the cost of each remaining parse | the rules engine is built on `JToken` with decimal number handling and no date parsing, and the Scriban model is built from `JToken`; a rewrite with subtle number and ordering semantics to preserve. Not worth it while 6a to 6d are undone. |
+
+- **Expected effect:** with 6a to 6d, the worst case drops from six input parses to one or
+  two and no template parsing per call; allocations per exchange fall by roughly the payload
+  size times four. Latency per exchange barely moves at small payloads; the per-node CPU
+  ceiling and GC pauses at large payloads are what improve.
+
+- **How it is measured.** A parse counter per exchange, like finding 4's command counter
+  (count the tree builds, enforced by a test), plus the harness at 20/s with a 100 KB and a
+  1 MB payload: CPU per exchange and allocated bytes per exchange from the runtime counters,
+  p95 before and after.
+
+- **Backward compatibility.** 6a, 6b, 6c: none; same input, same output, same adapter
+  contract. 6d: the one behaviour change above, for the built-in Scriban mapper only.
+
 - **Decision:** (pending)
 
 ### 8. Scaling is on the wrong signal and roles are not split
