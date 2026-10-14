@@ -86,6 +86,27 @@ public sealed class MetricsRecorder
         }
     }
 
+    /// <summary>
+    /// Adds the database commands one stage of an exchange sent to the exchange's row, without
+    /// counting the exchange again; see <see cref="DbCommandTally"/>.
+    /// </summary>
+    public void DbCommands(DateTime startedOn, int? subscriptionId, int? partnerId, int commands)
+    {
+        if (commands <= 0) return;
+        gate.EnterReadLock();
+        try
+        {
+            var row = current.Exchanges.GetOrAdd(
+                (HourOf(startedOn), subscriptionId ?? ExchangeStats.None, partnerId ?? ExchangeStats.None),
+                k => new ExchangeStats { Hour = k.Item1, Node = Node, SubscriptionId = k.Item2, PartnerId = k.Item3 });
+            lock (row) row.DbCommands += commands;
+        }
+        finally
+        {
+            gate.ExitReadLock();
+        }
+    }
+
     public void AdapterCall(string adapterId, string version, string role, string runtime, long durationMs,
         AdapterFailure failure, string error)
     {

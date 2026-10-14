@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
 
@@ -37,4 +39,51 @@ public static class BitweenTelemetry
     public static readonly Counter<long> SubscriptionsAutoPaused =
         Meter.CreateCounter<long>("bitween.subscriptions.auto_paused",
             description: "Subscriptions paused after failing too many deliveries in a row");
+
+    /// <summary>
+    /// Database commands one stage of one exchange sent, tagged <c>stage</c>: gateway (creation and
+    /// the sync wait), process, result.
+    /// </summary>
+    public static readonly Histogram<int> DbCommands =
+        Meter.CreateHistogram<int>("bitween.exchanges.db_commands", unit: "{command}",
+            description: "Database commands per exchange, by stage");
+
+    /// <summary>
+    /// Time spent in one stage of an exchange, tagged <c>stage</c>: pickup (created to picked off the
+    /// queue), storage.read, storage.write, filter, mapper, handler, save, publish, gateway.create,
+    /// gateway.wait.
+    /// </summary>
+    public static readonly Histogram<double> StageDuration =
+        Meter.CreateHistogram<double>("bitween.exchanges.stage.duration", unit: "s",
+            description: "Time spent in one stage of an exchange");
+
+    /// <summary>
+    /// Times a stage until disposed: a span under the current one and a <see cref="StageDuration"/>
+    /// value. <c>using (BitweenTelemetry.Stage("filter")) { ... }</c>
+    /// </summary>
+    public static StageTimer Stage(string stage) => new(stage);
+
+    /// <summary>Ends once, however many times it is disposed.</summary>
+    public sealed class StageTimer : IDisposable
+    {
+        readonly string stage;
+        readonly long started;
+        readonly Activity activity;
+        int ended;
+
+        internal StageTimer(string stage)
+        {
+            this.stage = stage;
+            started = Stopwatch.GetTimestamp();
+            activity = ActivitySource.StartActivity("exchange." + stage);
+        }
+
+        public void Dispose()
+        {
+            if (System.Threading.Interlocked.Exchange(ref ended, 1) == 1) return;
+            StageDuration.Record(Stopwatch.GetElapsedTime(started).TotalSeconds,
+                new KeyValuePair<string, object>("stage", stage));
+            activity?.Dispose();
+        }
+    }
 }

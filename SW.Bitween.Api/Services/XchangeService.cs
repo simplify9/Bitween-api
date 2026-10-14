@@ -473,9 +473,10 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         // No branching on the adapter's kind: the invoker decides which of the three runtimes
         // owns this id - in-process, spawned, or a rented resident instance - and the pipeline
         // only says what it wants run.
-        xchangeFile = await adapterInvoker.InvokeAsync<XchangeFile>(
-            xchange.MapperId, AdapterRole.Mapper, nameof(IInfolinkHandler.Handle), xchangeFile,
-            mapperProperties, xchange.CorrelationId ?? xchange.Id);
+        using (BitweenTelemetry.Stage("mapper"))
+            xchangeFile = await adapterInvoker.InvokeAsync<XchangeFile>(
+                xchange.MapperId, AdapterRole.Mapper, nameof(IInfolinkHandler.Handle), xchangeFile,
+                mapperProperties, xchange.CorrelationId ?? xchange.Id);
 
         if (xchangeFile is null)
             throw new BitweenException(
@@ -505,9 +506,10 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         var handlerProperties = xchange.HandlerProperties.ToDictionary();
         handlerProperties["xchangeid"] = xchange.Id;
 
-        xchangeFile = await adapterInvoker.InvokeAsync<XchangeFile>(
-            xchange.HandlerId, AdapterRole.Handler, nameof(IInfolinkHandler.Handle), xchangeFile,
-            handlerProperties, xchange.CorrelationId ?? xchange.Id);
+        using (BitweenTelemetry.Stage("handler"))
+            xchangeFile = await adapterInvoker.InvokeAsync<XchangeFile>(
+                xchange.HandlerId, AdapterRole.Handler, nameof(IInfolinkHandler.Handle), xchangeFile,
+                handlerProperties, xchange.CorrelationId ?? xchange.Id);
 
         if (xchangeFile != null)
             await AddFile(xchange, XchangeFileType.Response, xchangeFile);
@@ -579,6 +581,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     private async Task AddFile(Xchange xchange, XchangeFileType type, XchangeFile file)
     {
         var key = FileKey(xchange, type);
+        using var stage = BitweenTelemetry.Stage("storage.write");
         try
         {
             // Always private. Readers without a Bitween login get a sealed link from FileLinks instead
@@ -706,6 +709,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         XchangeFile outputFile = null;
         XchangeFile responseFile = null;
         WorkGroup workGroup = null;
+        var commands = Services.Metrics.DbCommandTally.Open("process");
         var xchange = await dbContext.FindAsync<Xchange>(message.Id);
 
         if (xchange == null) throw new BitweenException($"Xchange '{message.Id}' not found.");
@@ -723,6 +727,10 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         activity?.SetTag("bitween.exchange.id", xchange.Id);
         activity?.SetTag("bitween.document.id", xchange.DocumentId);
         activity?.SetTag("bitween.subscription.id", xchange.SubscriptionId);
+        commands.AttributeTo(xchange.StartedOn, xchange.SubscriptionId, xchange.PartnerId);
+        // From creation to being picked up here: the queue, and the commit and publish before it.
+        BitweenTelemetry.StageDuration.Record(Math.Max(0, (DateTime.UtcNow - xchange.StartedOn).TotalSeconds),
+            new KeyValuePair<string, object>("stage", "pickup"));
         var clock = System.Diagnostics.Stopwatch.StartNew();
         var outcome = "error";
         // For the metrics: which adapter a failure came from, and the failure itself.
@@ -731,11 +739,17 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         try
         {
-            var inputFile = new XchangeFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
+            XchangeFile inputFile;
+            using (BitweenTelemetry.Stage("storage.read"))
+                inputFile = new XchangeFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
             // Whatever way it arrived - bus, receiver, response - input that doesn't match its
             // type's schema fails here, with what is wrong, before anything acts on it.
-            await DocumentSchema.Enforce(await BitweenCache.DocumentByIdAsync(xchange.DocumentId), inputFile.Data);
-            var result = await filterService.Filter(xchange.DocumentId, inputFile);
+            FilterResult result;
+            using (BitweenTelemetry.Stage("filter"))
+            {
+                await DocumentSchema.Enforce(await BitweenCache.DocumentByIdAsync(xchange.DocumentId), inputFile.Data);
+                result = await filterService.Filter(xchange.DocumentId, inputFile);
+            }
 
             // Stored cut, so worth a line saying so: whoever set up the path most likely meant a
             // short value and picked up a notes field or a whole object instead.
@@ -787,7 +801,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                     xchangeResult);
             else
                 await TryClearingRetryBudgetAfterSuccess(xchange);
-            await dbContext.SaveChangesAsync();
+            using (BitweenTelemetry.Stage("save"))
+                await dbContext.SaveChangesAsync();
             outcome = responseFile?.BadData == true ? "bad_response" : "success";
             // A bad response still means the target answered: the run of failures is over.
             await TrackDeliveryHealth(xchange, null);
@@ -823,6 +838,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 (long)(DateTime.UtcNow - xchange.StartedOn).TotalMilliseconds,
                 xchange.InputSize, (outputFile?.Data.Length ?? 0) + (responseFile?.Data.Length ?? 0),
                 failure?.Message);
+            commands.Record(serviceProvider.GetService<SW.Bitween.Services.Metrics.MetricsRecorder>());
         }
     }
 
@@ -1241,6 +1257,19 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
     private async Task ProcessResult(XchangeMessage message)
     {
+        var commands = Services.Metrics.DbCommandTally.Open("result");
+        try
+        {
+            await NotifyResult(message);
+        }
+        finally
+        {
+            commands.Record(serviceProvider.GetService<SW.Bitween.Services.Metrics.MetricsRecorder>());
+        }
+    }
+
+    private async Task NotifyResult(XchangeMessage message)
+    {
         var notifiers = await BitweenCache.ListNotifiersAsync();
 
         var xchangeResult = await dbContext.FindAsync<XchangeResult>(message.Id);
@@ -1249,6 +1278,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         var xchange = await dbContext.FindAsync<Xchange>(message.Id);
         if (xchange == null)
             throw new BitweenException($"Xchange '{message.Id}' not found.");
+        Services.Metrics.DbCommandTally.Current?.AttributeTo(xchange.StartedOn, xchange.SubscriptionId, xchange.PartnerId);
 
         foreach (var notifier in notifiers)
         {

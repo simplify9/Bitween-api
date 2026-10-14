@@ -1743,6 +1743,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("d9");
 
+                    b.Property<long>("DbCommands")
+                        .HasColumnType("bigint")
+                        .HasColumnName("db_commands");
+
                     b.Property<long>("DurationMaxMs")
                         .HasColumnType("bigint")
                         .HasColumnName("duration_max_ms");

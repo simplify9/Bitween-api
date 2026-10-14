@@ -1444,6 +1444,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<int>("D9")
                         .HasColumnType("int");
 
+                    b.Property<long>("DbCommands")
+                        .HasColumnType("bigint");
+
                     b.Property<long>("DurationMaxMs")
                         .HasColumnType("bigint");
 

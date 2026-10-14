@@ -33,6 +33,16 @@ namespace SW.Bitween
 
         public const string ConnectionString = "BitweenDb";
 
+        /// <summary>
+        /// Every provider's context counts its commands against the exchange stage running, so the
+        /// round trips an exchange costs are measured rather than estimated (see DbCommandTally).
+        /// </summary>
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            base.OnConfiguring(optionsBuilder);
+            optionsBuilder.AddInterceptors(Services.Metrics.DbCommandCounter.Instance);
+        }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -925,6 +935,7 @@ namespace SW.Bitween
         internal async Task<int> PublishOutboxAsync(IReadOnlyCollection<OutboxMessage> messages,
             CancellationToken cancellationToken = default)
         {
+            using var stage = BitweenTelemetry.Stage("publish");
             var published = new List<long>();
             foreach (var message in messages)
             {

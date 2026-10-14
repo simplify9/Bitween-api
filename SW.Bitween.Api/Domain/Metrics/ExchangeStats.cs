@@ -39,6 +39,12 @@ public class ExchangeStats : TimedStats
     public long BytesIn { get; set; }
     public long BytesOut { get; set; }
 
+    /// <summary>
+    /// Database commands the exchanges sent, summed over their stages: creation, processing, the
+    /// result lane and a gateway's sync wait. Over <see cref="Total"/> it is commands per exchange.
+    /// </summary>
+    public long DbCommands { get; set; }
+
     public void Add(ExchangeStats other)
     {
         Total += other.Total;
@@ -51,6 +57,7 @@ public class ExchangeStats : TimedStats
         ManualRetries += other.ManualRetries;
         BytesIn += other.BytesIn;
         BytesOut += other.BytesOut;
+        DbCommands += other.DbCommands;
         AddTimes(other);
     }
 }

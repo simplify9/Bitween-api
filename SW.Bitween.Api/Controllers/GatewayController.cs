@@ -23,7 +23,8 @@ public class GatewayController(
     XchangeService xchangeService,
     GatewayCallers callers,
     GatewayActivity activity,
-    BitweenOptions options) : ControllerBase
+    BitweenOptions options,
+    Services.Metrics.MetricsRecorder metrics) : ControllerBase
 {
     /// <summary>Answers a call whose payload the type dropped as a duplicate, naming the exchange it repeats.</summary>
     public const string DuplicateOfHeader = "Bitween-Duplicate-Of";
@@ -54,6 +55,21 @@ public class GatewayController(
 
     private async Task<IActionResult> ProcessAsync(string gatewayApiName, bool resultSync)
     {
+        // Creation and the sync wait, counted together; see DbCommandTally.
+        var commands = Services.Metrics.DbCommandTally.Open("gateway");
+        try
+        {
+            return await ProcessCallAsync(gatewayApiName, resultSync);
+        }
+        finally
+        {
+            commands.Record(metrics);
+        }
+    }
+
+    private async Task<IActionResult> ProcessCallAsync(string gatewayApiName, bool resultSync)
+    {
+        using var created = BitweenTelemetry.Stage("gateway.create");
         var globalAdapterValuesSet = await cache.ListGlobalAdapterValuesSetsAsync();
         // The exact name first, which the unique index on UrlName answers. Lowering the column for
         // every call made each one a scan of the table; it is kept as the fallback only, for rows
@@ -91,6 +107,7 @@ public class GatewayController(
             return Unauthorized();
         }
         await activity.KeyUsedAsync(partner.Id, keyName);
+        Services.Metrics.DbCommandTally.Current?.AttributeTo(DateTime.UtcNow, apiGatewayPartner.SubscriptionId, partner.Id);
 
         // After authorisation on purpose: whether a gateway exists and is switched off is
         // something only an attached partner should learn - checking it earlier would
@@ -193,10 +210,13 @@ public class GatewayController(
             }
         }
 
+        created.Dispose();
         if (!resultSync)
         {
             return Accepted(xchangeId);
         }
+
+        using var waited = BitweenTelemetry.Stage("gateway.wait");
 
         // The caller may ask for its own wait in Wait-Period; it is capped, see ResultWait.
         var waitResponse = ResultWait.Clamp(
