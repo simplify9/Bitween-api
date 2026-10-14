@@ -35,7 +35,7 @@ permissions:
   security-events: read
 
 jobs:
-  build-publish-deploy:
+  Dev:
     # Develop: build, publish bitween-develop, deploy to bitween-dev.
     if: ${{ github.ref_name == 'releases/r10.0-develop' }}
     uses: simplify9/.github/.github/workflows/reusable-service-cicd.yml@main
@@ -47,6 +47,11 @@ jobs:
       dockerfile-path: './Dockerfile'
       docker-context: '.'
       docker-platforms: 'linux/amd64'
+      # The version computed for this run and its commit, stamped on the image's assemblies: a container
+      # says which release it is (10.0.94+<commit>) wherever it runs, with nothing to configure.
+      docker-version-build-arg: 'BITWEEN_VERSION'
+      docker-build-args: |
+        BITWEEN_COMMIT=${{ github.sha }}
 
       # The production chart, published as bitween-develop: rename-chart sets Chart.yaml's name
       # at package time, so develop and production ship from one chart directory and cannot drift.
@@ -134,7 +139,7 @@ jobs:
       # (openssl rand -base64 48). Changing it signs out everyone holding an older token.
       helm-set-secret-values: 'global.token.key=${{ secrets.TokenKey }},db=${{ secrets.dbConnection }},global.bus.rabbitUrl=${{ secrets.rabbitUrl }},global.cloudFiles.secretAccessKey=${{ secrets.SecretAccessKey }},global.cloudFiles.accessKeyId=${{ secrets.AccessKeyId }},global.cloudFiles.serviceUrl=${{ secrets.ServiceUrl }},global.cloudFiles.bucketName=${{ secrets.BucketName }},environmentVariables.Bitween__RabbitMqManagementUrl=${{ secrets.RabbitMqManagementUrl }},environmentVariables.Bitween__RabbitMqManagementPassword=${{ secrets.RabbitMqManagementPassword }},environmentVariables.Bitween__RabbitMqManagementUsername=${{ secrets.RabbitMqManagementUsername }}'
 
-  publish-release:
+  Prod:
     # Release: build and publish for clients, deploy production. releases/r10.0 is the
     # repository's default branch, so the reusable workflow treats it as a release: a clean
     # 10.0.<patch> git tag, and the critical Dependabot gate runs first.
@@ -148,6 +153,11 @@ jobs:
       dockerfile-path: './Dockerfile'
       docker-context: '.'
       docker-platforms: 'linux/amd64'
+      # The version computed for this run and its commit, stamped on the image's assemblies: a container
+      # says which release it is (10.0.94+<commit>) wherever it runs, with nothing to configure.
+      docker-version-build-arg: 'BITWEEN_VERSION'
+      docker-build-args: |
+        BITWEEN_COMMIT=${{ github.sha }}
 
       chart-name: 'bitween'
       chart-path: './charts/default'
@@ -159,7 +169,10 @@ jobs:
       container-registry: 'docker.io'
       image-name: 'simplify9/bitween'
 
-      nuget-projects: 'SW.Bitween.Sdk/SW.Bitween.Sdk.csproj'
+      # The SDK and the adapter contract package (SimplyWorks.Bitween.Adapters) adapters reference.
+      nuget-projects: >-
+        SW.Bitween.Sdk/SW.Bitween.Sdk.csproj
+        SW.Bitween.Adapters/SW.Bitween.Adapters.csproj
       run-tests: 'true'
       # Integration tests run against real Postgres/RabbitMQ/MailHog via
       # Testcontainers - self-contained, no extra CI services needed, since
@@ -211,3 +224,30 @@ jobs:
       # Production's own configuration, the same settings as the develop job's above. PROD_TOKENKEY
       # is its own random string (openssl rand -base64 48), never the develop key.
       helm-set-secret-values: 'global.token.key=${{ secrets.PROD_TOKENKEY }},db=${{ secrets.PROD_DBCONNECTION }},global.bus.rabbitUrl=${{ secrets.PROD_RABBITURL }},global.cloudFiles.secretAccessKey=${{ secrets.PROD_SECRETACCESSKEY }},global.cloudFiles.accessKeyId=${{ secrets.PROD_ACCESSKEYID }},global.cloudFiles.serviceUrl=${{ secrets.PROD_SERVICEURL }},global.cloudFiles.bucketName=${{ secrets.PROD_BUCKETNAME }},environmentVariables.Bitween__RabbitMqManagementUrl=${{ secrets.PROD_RABBITMQMANAGEMENTURL }},environmentVariables.Bitween__RabbitMqManagementPassword=${{ secrets.PROD_RABBITMQMANAGEMENTPASSWORD }},environmentVariables.Bitween__RabbitMqManagementUsername=${{ secrets.PROD_RABBITMQMANAGEMENTUSERNAME }}'
+
+  # The bitween CLI and the SDKs carry the version the run above computed, so nothing is tagged by
+  # hand. A develop build releases the CLI as a pre-release, cli-v<x.y.z>-dev.<run>; the release
+  # from releases/r10.0 releases it as the latest, cli-v<x.y.z>, and publishes the SDKs. Each runs
+  # only when the job it needs ran, so the branch is decided above.
+  cli-develop:
+    needs: build-publish-deploy
+    uses: ./.github/workflows/cli-release.yml
+    with:
+      version: ${{ needs.build-publish-deploy.outputs.version }}
+      prerelease: true
+      run-number: ${{ github.run_number }}
+
+  cli-release:
+    needs: publish-release
+    uses: ./.github/workflows/cli-release.yml
+    with:
+      version: ${{ needs.publish-release.outputs.version }}
+
+  sdk-release:
+    needs: publish-release
+    permissions:
+      contents: read
+    uses: ./.github/workflows/sdk-release.yml
+    with:
+      version: ${{ needs.publish-release.outputs.version }}
+    secrets: inherit
