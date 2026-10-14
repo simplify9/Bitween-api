@@ -48,7 +48,7 @@ export interface FlowGraph {
   nodes: FlowNode[];
   edges: FlowEdge[];
   /** Subscriptions with no place on the map: no gateway runs them, no response leaves them. */
-  omitted: number;
+  omitted: SubscriptionInfo[];
 }
 
 const JOB_TYPES = new Set(["Receiving", "Aggregation"]);
@@ -198,7 +198,7 @@ export function buildFlowGraph({
 
   const omitted = subscriptions.filter(
     (i) => !runBy.has(i.id) && !nodes.has(`int:${i.id}`) && !nodes.has(`job:${i.id}`),
-  ).length;
+  );
 
   return { nodes: [...nodes.values()], edges, omitted };
 }

@@ -5,3 +5,13 @@ export function niceMax(max: number): number {
   for (const step of [1, 2, 5, 10]) if (step * power >= max) return step * power;
   return 10 * power;
 }
+
+/**
+ * Whether a pointer event is someone moving over the chart, rather than the page appearing
+ * under a mouse that was already resting there. The browser reports that as the pointer
+ * entering (and, in some, as a move that went nowhere), which pinned a tooltip to one bar on
+ * first paint before anyone had touched the chart. A touch or pen always counts.
+ */
+export function handMoved(e: { pointerType: string; movementX: number; movementY: number }): boolean {
+  return e.pointerType !== "mouse" || e.movementX !== 0 || e.movementY !== 0;
+}

@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Layers, Play, Plus } from "lucide-react";
+import { Layers, Play, Plus, TriangleAlert } from "lucide-react";
 import { api, type SubscriptionRow, type ScheduleHealth } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
-import { Select } from "../../components/ui/forms";
+import { ExceptionLine } from "../../components/ui/Exception";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { AGGREGATION_TARGET_LABEL } from "../../components/config/aggregationTargets";
@@ -21,6 +21,7 @@ import { useListParams } from "../../lib/listParams";
 import { NONE } from "../../lib/none";
 import { subscriptionPath } from "../../lib/subscriptionPaths";
 import { SearchBox } from "../../components/ui/SearchBox";
+import { FilterSelect } from "../../components/ui/SearchSelect";
 
 function AggregateNowButton({ job }: { job: SubscriptionRow }) {
   const queryClient = useQueryClient();
@@ -138,16 +139,36 @@ export function AggregationsPage() {
         title="Aggregations"
         description="Collect a subscription's exchanges on a schedule into one exchange listing links to their files. The files are not combined - a mapper or delivery does that."
         actions={createAction}
+        help={{
+          title: "How aggregations work",
+          body: (
+            <>
+              <p>
+                Each run collects the source subscription's <strong>successful</strong> exchanges and
+                creates one exchange whose payload is a JSON list of links. That exchange goes down the
+                aggregation's own pipeline, so its delivery can reach a partner like any other.
+              </p>
+              <p>
+                <strong>Rolls up</strong> is the source subscription, fixed when the aggregation is created.{" "}
+                <strong>Collects</strong> is which file of each exchange gets linked: what came in, what the
+                mapper produced, or what the destination replied.
+              </p>
+              <p>
+                An exchange is collected once, so a later run won't include it again. That holds for{" "}
+                <strong>Roll up now</strong> too, which runs straight away, outside the schedule.
+              </p>
+            </>
+          ),
+        }}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <SearchBox value={searchText} onChange={setSearchText} label="Search aggregations" />
         <div className="w-40">
-          <Select
+          <FilterSelect
             aria-label="Filter by status"
-            className="!h-8 text-[13px]"
             value={inactiveParam ?? ""}
-            onChange={(e) => setParam("inactive", e.target.value || null)}
+            onChange={(v) => setParam("inactive", v || null)}
             options={STATUS_OPTIONS}
           />
         </div>
@@ -161,7 +182,7 @@ export function AggregationsPage() {
         <EmptyState icon={<Layers />} title={q || inactive !== null ? "No aggregations match" : "No aggregations yet"} action={q || inactive !== null ? undefined : createAction}>
           {q || inactive !== null
             ? "Try a different search or filter."
-            : "Create one here, or open the subscription you want summarised and choose “Roll these up”."}
+            : "Create one here, or open the subscription you want summarised and choose “Create an aggregation of this” from its More actions menu."}
         </EmptyState>
       ) : (
         <Table
@@ -198,7 +219,7 @@ export function AggregationsPage() {
                   <Link
                     to={`/subscriptions/${r.aggregationForId}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:link"
                   >
                     {name}
                   </Link>
@@ -209,7 +230,7 @@ export function AggregationsPage() {
             },
             {
               header: "Collects",
-              headerTitle: "Which file of each collected exchange the roll-up links to. Links only \u2014 the files are not combined.",
+              headerTitle: "Which file of each collected exchange the roll-up links to. Links only: the files are not combined.",
               wrap: true,
               cell: (r) => (
                 <span className="block text-[13px] text-ink-600">
@@ -234,8 +255,9 @@ export function AggregationsPage() {
                   <>
                     <span className="text-[13px] font-medium text-ink-800">{timeAgo(run.startedOn)}</span>
                     <span
-                      className={`block text-xs ${run.success === false ? "text-danger-700" : "text-ink-500"}`}
+                      className={`flex items-center gap-1 text-xs ${run.success === false ? "text-danger-700" : "text-ink-500"}`}
                     >
+                      {run.success === false && <TriangleAlert className="size-3 shrink-0" aria-hidden />}
                       {running
                         ? "running…"
                         : [
@@ -251,7 +273,7 @@ export function AggregationsPage() {
               },
             },
             {
-              header: "Reliability",
+              header: "Recent runs OK",
               headerTitle: "How many of the last runs succeeded, from the scheduler\u2019s own history (about 30 days). 3/10 means 3 of the last 10 finished runs worked.",
               className: "whitespace-nowrap",
               cell: (r) => {
@@ -286,7 +308,7 @@ export function AggregationsPage() {
             },
             {
               header: "Partner",
-              headerTitle: "Who the roll-up exchange belongs to. Not the partners of the exchanges it collected \u2014 one roll-up can cover many.",
+              headerTitle: "Who the roll-up exchange belongs to. Not the partners of the exchanges it collected, since one roll-up can cover many.",
               wrap: true,
               cell: (r) => (
                 <LinkListCell
@@ -301,7 +323,7 @@ export function AggregationsPage() {
             },
             {
               header: "Work group",
-              headerTitle: "Which queue lane the roll-up runs in \u2014 the difference between idle and queued behind other work.",
+              headerTitle: "Which queue lane the roll-up runs in: the difference between idle and queued behind other work.",
               wrap: true,
               cell: (r) => {
                 const id = setupById.get(r.id)?.workGroupId ?? null;
@@ -311,7 +333,7 @@ export function AggregationsPage() {
                   <Link
                     to={`/work-groups/${id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:link"
                   >
                     {name}
                   </Link>
@@ -332,7 +354,7 @@ export function AggregationsPage() {
                   <Link
                     to={`/retry-policies/${id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:link"
                   >
                     {name}
                   </Link>
@@ -358,12 +380,7 @@ export function AggregationsPage() {
               truncate: true,
               cell: (r) =>
                 r.lastException ? (
-                  <span
-                    className="block truncate font-mono text-[11px] text-danger-700"
-                    title={r.lastException}
-                  >
-                    {r.lastException}
-                  </span>
+                  <ExceptionLine text={r.lastException} icon className="font-mono text-[11px] text-danger-700" />
                 ) : (
                   <span className="text-ink-500">-</span>
                 ),

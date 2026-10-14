@@ -215,7 +215,7 @@ function HopChain({
                 className="flex w-52 shrink-0 flex-col justify-center rounded-xl border border-dashed border-ink-300 bg-ink-50/60 px-4 py-3.5 hover:border-ink-400"
               >
                 <span className="text-[13px] font-medium text-ink-700">The chain continues</span>
-                <span className="mt-1 inline-flex items-center gap-1 text-[12px] text-crimson-700">
+                <span className="mt-1 inline-flex items-center gap-1 text-[12px] link">
                   Open the next subscription <ArrowUpRight className="size-3" />
                 </span>
               </Link>
@@ -372,7 +372,7 @@ function CollapsedHop({ hop, label, onOpen }: { hop: Hop; label: string; onOpen:
             className={`h-1 w-7 rounded-full ${s.set ? "bg-ink-500" : "bg-ink-200"}`}
           />
         ))}
-        <span className="ml-1 text-[11px] text-crimson-700">Configure</span>
+        <span className="ml-1 text-[11px] link">Configure</span>
       </span>
     </button>
   );

@@ -1,4 +1,5 @@
 import { summarizeException } from "../../lib/exceptionSummary";
+import { TriangleAlert } from "lucide-react";
 import { CopyButton } from "./CopyButton";
 
 /**
@@ -27,12 +28,22 @@ export function ExceptionBlock({ text, title = "What went wrong" }: { text: stri
   );
 }
 
-/** One line of a failure for a list or a card; the whole text is on hover. */
-export function ExceptionLine({ text, className = "" }: { text: string; className?: string }) {
+/**
+ * One line of a failure for a list or a card; the whole text is on hover. Pass `icon` wherever the
+ * line is colored as a problem, so it never reads as bare red text (red is also the brand).
+ */
+export function ExceptionLine({ text, className = "", icon = false }: { text: string; className?: string; icon?: boolean }) {
   const { summary } = summarizeException(text);
+  if (!icon)
+    return (
+      <span className={`block min-w-0 truncate ${className}`} title={text}>
+        {summary}
+      </span>
+    );
   return (
-    <span className={`block min-w-0 truncate ${className}`} title={text}>
-      {summary}
+    <span className={`flex min-w-0 items-center gap-1 ${className}`} title={text}>
+      <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
+      <span className="min-w-0 truncate">{summary}</span>
     </span>
   );
 }

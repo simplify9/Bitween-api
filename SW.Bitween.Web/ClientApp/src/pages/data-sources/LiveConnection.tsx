@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
-import { Badge, LoadingBlock } from "../../components/ui/basics";
+import { Badge, LoadingBlock, ProblemText } from "../../components/ui/basics";
 import { keys } from "../../api/queryKeys";
 
 /**
@@ -147,7 +147,7 @@ export function LiveConnection({
           )}
 
           {t.lastError && t.lastError !== knownError && (
-            <p className="text-sm text-danger-800">{t.lastError}</p>
+            <ProblemText>{t.lastError}</ProblemText>
           )}
         </div>
       )}

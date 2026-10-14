@@ -95,7 +95,8 @@ test("a custom role given to an existing member in the drawer lets them create a
   const partnerId = await api.idOf("partners", partnerName);
   await page.goto(`partners/${partnerId}`);
   await expect(page.getByRole("heading", { level: 1 })).toContainText(partnerName);
-  await expect(page.getByRole("button", { name: "Delete partner" })).toHaveCount(0);
+  // Delete lives in the "More actions" menu, which a session with nothing to offer there doesn't get.
+  await expect(page.getByRole("button", { name: "More actions" })).toHaveCount(0);
   const token = await sessionToken(page);
   const del = await page.request.delete(`${API}/partners/${partnerId}`, {
     headers: { Authorization: `Bearer ${token}` },

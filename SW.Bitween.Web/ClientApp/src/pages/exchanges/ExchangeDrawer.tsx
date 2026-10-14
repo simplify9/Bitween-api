@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, FileText, Loader2, Play, RotateCcw } from "lucide-react";
 import { api, ApiRequestError, type ExchangeDocStage, type ExchangeRow } from "../../api";
 import { useSessionCan } from "../../auth/useSessionCan";
-import { Badge, Button } from "../../components/ui/basics";
+import { Badge, Button, ProblemText } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { HighlightedDocument } from "../../components/ui/HighlightedDocument";
 import { CopyButton } from "../../components/ui/CopyButton";
@@ -140,7 +140,7 @@ function DocumentPreview({
               </button>
             )}
             <CopyButton value={full} label="document" className={dark} />
-            <button onClick={download} title="Download this document" className={dark}>
+            <button onClick={download} aria-label="Download this document" title="Download this document" className={dark}>
               <Download className="size-3.5" />
             </button>
           </div>
@@ -342,7 +342,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
               <Link
                 to={`/exchanges?correlationId=${encodeURIComponent(x.correlationId)}`}
                 title="Show every exchange with this correlation id"
-                className="font-mono text-xs break-all text-ink-700 hover:text-crimson-700 hover:underline"
+                className="font-mono text-xs break-all text-ink-700 hover:link"
               >
                 {x.correlationId}
               </Link>
@@ -355,7 +355,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
         <MetaItem label="Related">
           <Link
             to={`/exchanges?ids=${encodeURIComponent(x.id)}`}
-            className="text-[13px] font-medium text-ink-700 hover:text-crimson-700 hover:underline"
+            className="text-[13px] font-medium text-ink-700 hover:link"
           >
             Retries &amp; aggregation family
           </Link>
@@ -368,7 +368,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
             <Link
               to={`/exchanges?ids=${encodeURIComponent(x.id)}`}
               title="Every exchange rolled up into this one, listed beside it."
-              className="text-[13px] font-medium text-ink-700 hover:text-crimson-700 hover:underline"
+              className="text-[13px] font-medium text-ink-700 hover:link"
             >
               The exchanges this collected
             </Link>
@@ -378,7 +378,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
           <MetaItem label="Aggregated into">
             <Link
               to={`/exchanges?ids=${encodeURIComponent(x.aggregationXchangeId)}`}
-              className="font-mono text-xs text-ink-700 hover:text-crimson-700 hover:underline"
+              className="font-mono text-xs text-ink-700 hover:link"
             >
               {x.aggregationXchangeId}
             </Link>
@@ -400,7 +400,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
             <Link
               to={`/exchanges?ids=${encodeURIComponent(x.sourceXchangeId)}`}
               title="The exchange whose delivery got the response this one runs on. Its input is the original document the source values were read from."
-              className="font-mono text-xs text-ink-700 hover:text-crimson-700 hover:underline"
+              className="font-mono text-xs text-ink-700 hover:link"
             >
               {x.sourceXchangeId}
             </Link>
@@ -452,7 +452,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
                 {newest && newest.id !== x.id && (
                   <Link
                     to={`/exchanges?ids=${encodeURIComponent(newest.id)}`}
-                    className="text-[13px] font-medium text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="text-[13px] font-medium text-ink-700 hover:link"
                   >
                     Open the newest attempt to retry from there
                   </Link>
@@ -465,7 +465,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
               </Button>
             ))
           )}
-          {actionError && <p className="text-[13px] text-danger-700">{actionError}</p>}
+          {actionError && <ProblemText>{actionError}</ProblemText>}
         </div>
       )}
 

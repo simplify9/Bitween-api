@@ -1,19 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Trash2 } from "lucide-react";
 import { api, type NotificationEntry, type Notifier } from "../../api";
-import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { isNotFound } from "../../components/ui/isNotFound";
 import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { ConfirmDialog } from "../../components/ui/overlays";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import { MiniTable } from "../../components/ui/Table";
 import { AdapterPicker } from "../../components/config/AdapterPicker";
 import { useAdapterCatalog } from "../../components/config/adapterCatalog";
+import { propertyLabel } from "../../components/config/propertyLabels";
+import { SettingHint } from "../../components/config/SettingsSections";
 import { useSubscriptionsCache } from "../../components/config/lookups";
 import { timeAgo } from "../../lib/dates";
 import { BackLink } from "../../components/ui/BackLink";
@@ -39,7 +41,7 @@ function NotificationsList({ items }: { items: NotificationEntry[] }) {
           cell: (n) => (
             <Link
               to={`/exchanges?ids=${encodeURIComponent(n.xchangeId)}`}
-              className="block font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+              className="block font-mono text-xs text-ink-600 hover:link"
             >
               {n.xchangeId}
             </Link>
@@ -54,7 +56,7 @@ function NotificationsList({ items }: { items: NotificationEntry[] }) {
           truncate: true,
           cell: (n) =>
             n.exception ? (
-              <ExceptionLine text={n.exception} className="text-[12px] text-danger-700" />
+              <ExceptionLine text={n.exception} icon className="text-[12px] text-danger-700" />
             ) : (
               <span className="text-ink-500">-</span>
             ),
@@ -76,6 +78,7 @@ export function NotifierPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const canEdit = useSessionCan("notifiers.edit");
+  const canDelete = useSessionCan("notifiers.delete");
 
   const notifier = useQuery({
     queryKey: keys.notifiers.detail(notifierId),
@@ -122,7 +125,7 @@ export function NotifierPage() {
   if (notifier.isError)
     return (
       <EmptyState title="This notifier no longer exists">
-        <Link to="/notifiers" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/notifiers" className="font-medium link">
           Back to notifiers
         </Link>
       </EmptyState>
@@ -182,11 +185,17 @@ export function NotifierPage() {
           </h1>
         </div>
 
-        <Can permission="notifiers.delete">
-          <Button variant="danger" onClick={() => setDeleting(true)}>
-            Delete
-          </Button>
-        </Can>
+        <MoreActionsMenu
+          actions={[
+            {
+              label: "Delete",
+              icon: <Trash2 className="size-4" />,
+              danger: true,
+              onSelect: () => setDeleting(true),
+              hidden: !canDelete,
+            },
+          ]}
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -246,9 +255,15 @@ export function NotifierPage() {
                     {channel.props.map((prop) => (
                       <Field
                         key={prop.key}
-                        label={prop.optional ? prop.key : `${prop.key} *`}
+                        label={prop.optional ? propertyLabel(prop.key, prop.displayName) : `${propertyLabel(prop.key, prop.displayName)} *`}
                         htmlFor={`nf-prop-${prop.key}`}
-                        hint={prop.description}
+                        hint={
+                          <SettingHint
+                            rawKey={prop.key}
+                            label={propertyLabel(prop.key, prop.displayName)}
+                            help={prop.description}
+                          />
+                        }
                       >
                         <TextInput
                           id={`nf-prop-${prop.key}`}

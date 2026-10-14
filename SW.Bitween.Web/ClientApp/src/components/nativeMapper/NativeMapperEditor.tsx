@@ -717,7 +717,7 @@ function FixedWidthControls({
         </tbody>
       </table>
       <div className="flex items-center gap-3">
-        <button type="button" className="text-[11px] font-medium text-crimson-700 hover:underline" onClick={add}>
+        <button type="button" className="text-[11px] font-medium link" onClick={add}>
           + Column
         </button>
         {side === "source" && (

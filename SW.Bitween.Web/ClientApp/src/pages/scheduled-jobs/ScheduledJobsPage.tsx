@@ -1,14 +1,13 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, DownloadCloud, Plus } from "lucide-react";
+import { CalendarClock, DownloadCloud, Plus, TriangleAlert } from "lucide-react";
 import { api, type SubscriptionRow, type ScheduleHealth } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
-import { Select } from "../../components/ui/forms";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { HealthBadge, SubscriptionStatusBadges, LinkListCell } from "../../components/config/shared";
@@ -21,6 +20,7 @@ import { useListParams } from "../../lib/listParams";
 import { NONE } from "../../lib/none";
 import { subscriptionPath } from "../../lib/subscriptionPaths";
 import { SearchBox } from "../../components/ui/SearchBox";
+import { FilterSelect } from "../../components/ui/SearchSelect";
 
 function ReceiveNowButton({ job }: { job: SubscriptionRow }) {
   const queryClient = useQueryClient();
@@ -139,16 +139,37 @@ export function ScheduledJobsPage() {
         title="Scheduled jobs"
         description="Subscriptions that pull documents in on a schedule - from an FTP folder, a mailbox, an API."
         actions={createAction}
+        help={{
+          title: "How scheduled jobs work",
+          body: (
+            <>
+              <p>
+                A scheduled job is a <strong>receiving subscription</strong>: each run checks its source,
+                and anything found becomes new exchanges. <strong>Receive now</strong> runs one straight
+                away, outside the schedule. Jobs also appear on the Subscriptions page.
+              </p>
+              <p>
+                <strong>Last run</strong> and <strong>Recent runs OK</strong> come from the scheduler's own
+                history (about 30 days), and <code>manual</code> marks a run someone started by hand.{" "}
+                <strong>Runs</strong> shows the schedule and when it fires next.
+              </p>
+              <p>
+                A job can read Active and still not run: <strong>Not scheduled</strong>,{" "}
+                <strong>Stuck</strong> or <strong>Trigger error</strong> in Status means the scheduler won't
+                run it. <strong>Paused</strong> holds a job without disabling it.
+              </p>
+            </>
+          ),
+        }}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <SearchBox value={searchText} onChange={setSearchText} label="Search scheduled jobs" placeholder="Search jobs" />
         <div className="w-40">
-          <Select
+          <FilterSelect
             aria-label="Filter by status"
-            className="!h-8 text-[13px]"
             value={inactiveParam ?? ""}
-            onChange={(e) => setParam("inactive", e.target.value || null)}
+            onChange={(v) => setParam("inactive", v || null)}
             options={STATUS_OPTIONS}
           />
         </div>
@@ -168,6 +189,49 @@ export function ScheduledJobsPage() {
           rowKey={(r) => r.id}
           minWidth="min-w-270"
           onRowClick={(r) => navigate(subscriptionPath(r.id, "Receiving"))}
+          // On a phone: what is wrong, when it last ran, when it runs next, and the one thing
+          // people reach for away from a desk - pulling the source now.
+          card={(r) => {
+            const run = lastRunById.get(r.id);
+            return {
+              title: r.name,
+              status: (
+                <>
+                  <ScheduleFault health={healthById.get(r.id)} />
+                  <SubscriptionStatusBadges enabled={r.enabled} paused={r.paused} />
+                  <HealthBadge isRunning={r.isRunning} consecutiveFailures={r.consecutiveFailures} />
+                </>
+              ),
+              technical: r.informationTypeCode,
+              facts: [
+                {
+                  label: "Last run",
+                  value: run ? (run.success === null ? "running…" : timeAgo(run.startedOn)) : "-",
+                  tone: run?.success === false ? "danger" : run ? undefined : "muted",
+                },
+                {
+                  label: "Next run",
+                  value: r.nextReceiveOn ? timeUntil(r.nextReceiveOn) : "-",
+                  tone: r.nextReceiveOn ? undefined : "muted",
+                },
+                {
+                  label: "Recent runs OK",
+                  value: run && run.recentTotal > 0 ? `${run.recentSucceeded}/${run.recentTotal}` : "-",
+                  tone: run && run.recentTotal > run.recentSucceeded ? "danger" : undefined,
+                },
+              ],
+              footer: (r.lastException || canOperate) && (
+                <div className="flex flex-col gap-2">
+                  {r.lastException && <ExceptionLine text={r.lastException} className="text-[12px] text-danger-700" />}
+                  {canOperate && (
+                    <span>
+                      <ReceiveNowButton job={r} />
+                    </span>
+                  )}
+                </div>
+              ),
+            };
+          }}
           footer={
             <Pagination
               offset={offset}
@@ -191,7 +255,7 @@ export function ScheduledJobsPage() {
                   <Link
                     to={`/information-types/${r.informationTypeId}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+                    className="font-mono text-xs text-ink-600 hover:link"
                   >
                     {r.informationTypeCode}
                   </Link>
@@ -217,8 +281,9 @@ export function ScheduledJobsPage() {
                   <>
                     <span className="text-[13px] font-medium text-ink-800">{timeAgo(run.startedOn)}</span>
                     <span
-                      className={`block text-xs ${run.success === false ? "text-danger-700" : "text-ink-500"}`}
+                      className={`flex items-center gap-1 text-xs ${run.success === false ? "text-danger-700" : "text-ink-500"}`}
                     >
+                      {run.success === false && <TriangleAlert className="size-3 shrink-0" aria-hidden />}
                       {running
                         ? "running…"
                         : [
@@ -236,7 +301,8 @@ export function ScheduledJobsPage() {
             {
               // A single failure is noise; a job that has been failing half its
               // runs is the one to look at, and the health badge can't say that.
-              header: "Reliability",
+              header: "Recent runs OK",
+              headerTitle: "How many of the last finished runs succeeded. 3/10 means 3 of the last 10 worked.",
               className: "whitespace-nowrap",
               cell: (r) => {
                 const run = lastRunById.get(r.id);
@@ -303,7 +369,7 @@ export function ScheduledJobsPage() {
                   <Link
                     to={`/work-groups/${id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:link"
                   >
                     {name}
                   </Link>
@@ -323,7 +389,7 @@ export function ScheduledJobsPage() {
                   <Link
                     to={`/retry-policies/${id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:link"
                   >
                     {name}
                   </Link>
@@ -347,7 +413,7 @@ export function ScheduledJobsPage() {
               truncate: true,
               cell: (r) =>
                 r.lastException ? (
-                  <ExceptionLine text={r.lastException} className="text-[12px] text-danger-700" />
+                  <ExceptionLine text={r.lastException} icon className="text-[12px] text-danger-700" />
                 ) : (
                   <span className="text-ink-500">-</span>
                 ),

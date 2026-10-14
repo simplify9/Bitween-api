@@ -6,9 +6,10 @@ import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { isNotFound } from "../../components/ui/isNotFound";
-import { ConfirmDialog } from "../../components/ui/overlays";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import {
   BusRenameConfirm,
   QueuedMessagesWarning,
@@ -36,7 +37,7 @@ function LiveQueuePanel({ groupId }: { groupId: number }) {
       action={
         <Link
           to="/queue-health"
-          className="inline-flex items-center gap-1 text-[13px] font-medium text-crimson-700 hover:underline"
+          className="inline-flex items-center gap-1 text-[13px] font-medium link"
         >
           Queue health <ArrowUpRight className="size-3.5" aria-hidden />
         </Link>
@@ -53,6 +54,7 @@ export function WorkGroupPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("workgroups.edit");
+  const canDelete = useSessionCan("workgroups.delete");
 
   const group = useQuery({
     queryKey: keys.workGroups.detail(groupId),
@@ -95,7 +97,7 @@ export function WorkGroupPage() {
   if (group.isError)
     return (
       <EmptyState title="This work group no longer exists">
-        <Link to="/work-groups" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/work-groups" className="font-medium link">
           Back to work groups
         </Link>
       </EmptyState>
@@ -114,11 +116,17 @@ export function WorkGroupPage() {
             <EditableTitle value={draft?.name ?? g.name} onChange={(name) => setDraft((d) => (d ? { ...d, name } : d))} disabled={!canEdit} placeholder="Work group name" />
           </h1>
         </div>
-        <Can permission="workgroups.delete">
-          <Button variant="danger" onClick={() => setDeleting(true)}>
-            <Trash2 className="size-4" /> Delete
-          </Button>
-        </Can>
+        <MoreActionsMenu
+          actions={[
+            {
+              label: "Delete",
+              icon: <Trash2 className="size-4" />,
+              danger: true,
+              onSelect: () => setDeleting(true),
+              hidden: !canDelete,
+            },
+          ]}
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -152,8 +160,10 @@ export function WorkGroupPage() {
       )}
 
       {deleting && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this work group?"
+          name={g.name}
+          blockers={[counted(g.subscriptions.length, "subscription assigned to it", "subscriptions assigned to it")]}
           body={
             <div className="space-y-2">
               <p>

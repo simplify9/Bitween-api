@@ -86,3 +86,93 @@ describe("AdapterConfig source values", () => {
     expect(screen.queryByText(/original document/i)).not.toBeInTheDocument();
   });
 });
+
+/** An HTTP-like handler: one required setting and a spread of optional ones, one with long help. */
+const busyCatalog = json("/adapters/Catalog", [
+  {
+    key: "NativeHttpHandler",
+    native: true,
+    versions: [],
+    startupValues: {
+      Url: { optional: false, default: null, private: false, description: null },
+      Verb: { optional: true, default: "post", private: false, description: null },
+      ContentType: { optional: true, default: "application/json", private: false, description: null },
+      Headers: { optional: true, default: null, private: true, description: null },
+      ApiKey: { optional: true, default: null, private: true, description: null },
+      LoginBody: {
+        optional: true,
+        default: null,
+        private: false,
+        description:
+          "The body posted to the login URL to get a token. It can reference partner properties and global values, and is sent as JSON unless the content type says otherwise. Leave it empty when the API takes a key instead.",
+      },
+      TimeoutSeconds: { optional: true, default: "100", private: false, description: null },
+    },
+  },
+]);
+
+const showBusy = (properties: Record<string, string>) => {
+  server.use(
+    busyCatalog,
+    json("/globaladaptervaluessets", { result: [], totalCount: 0 }),
+    json("/partners", { result: [], totalCount: 0 }),
+  );
+  return render(
+    <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+      <AdapterConfig
+        kind="handler"
+        adapterId="NativeHttpHandler"
+        properties={properties}
+        onChange={() => {}}
+        disabled={false}
+      />
+    </QueryClientProvider>,
+  );
+};
+
+describe("AdapterConfig settings layout", () => {
+  it("labels settings in words, keeps the key beside them, and folds optional ones into closed sections", async () => {
+    showBusy({ Url: "https://host/orders" });
+
+    // Required, always on screen, humanised, with its key kept quietly beside it.
+    expect(await screen.findByLabelText("URL *")).toHaveValue("https://host/orders");
+    expect(screen.getByText("Url")).toBeInTheDocument();
+
+    // Nothing optional is set, so every section is closed and says so.
+    const request = screen.getByRole("button", { name: /^Request/ });
+    expect(request).toHaveAttribute("aria-expanded", "false");
+    expect(request).toHaveTextContent("none set");
+    expect(screen.getByRole("button", { name: /^Authentication/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /^Advanced/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByLabelText("Content type")).not.toBeInTheDocument();
+
+    await userEvent.click(request);
+    expect(screen.getByLabelText("Content type")).toBeInTheDocument();
+    expect(screen.getByText("ContentType")).toBeInTheDocument();
+  });
+
+  it("opens a section that has a value, and names what is set in one that stays closed", async () => {
+    showBusy({ Url: "https://host", Verb: "put", ContentType: "application/xml", ApiKey: "__private__" });
+
+    expect(await screen.findByRole("button", { name: /^Request/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByLabelText("Verb")).toHaveValue("put");
+    const auth = screen.getByRole("button", { name: /^Authentication/ });
+    expect(auth).toHaveAttribute("aria-expanded", "true");
+
+    // Closed again by hand: the header now carries the summary, with the secret named, not shown.
+    await userEvent.click(auth);
+    expect(auth).toHaveTextContent("API key set");
+    await userEvent.click(screen.getByRole("button", { name: /^Request/ }));
+    expect(screen.getByRole("button", { name: /^Request/ })).toHaveTextContent("put, application/xml");
+  });
+
+  it("clamps long help to a couple of lines with a way to read the rest", async () => {
+    showBusy({ Url: "https://host" });
+    await userEvent.click(await screen.findByRole("button", { name: /^Authentication/ }));
+
+    const more = screen.getByRole("button", { name: "more" });
+    expect(more).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(more);
+    expect(screen.getByRole("button", { name: "less" })).toHaveAttribute("aria-expanded", "true");
+  });
+});

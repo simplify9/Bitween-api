@@ -51,7 +51,7 @@ export function OidcCallbackPage() {
       {error ? (
         <div className="mt-4 space-y-4">
           <FormError>{error}</FormError>
-          <Link to="/login" className="text-sm font-medium text-crimson-700 hover:underline">
+          <Link to="/login" className="text-sm font-medium link">
             Back to sign in
           </Link>
         </div>

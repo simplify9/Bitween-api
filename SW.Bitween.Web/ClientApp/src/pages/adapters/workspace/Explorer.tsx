@@ -9,6 +9,7 @@ import {
   ListCollapse,
   Pencil,
   Trash2,
+  TriangleAlert,
 } from "lucide-react";
 import { baseName, buildTree, pathProblem, type FolderNode } from "./fileTree";
 import { fileTint, PALETTE, type WorkspaceTheme } from "./palette";
@@ -85,7 +86,13 @@ export function Explorer({
         onBlur={() => !name.trim() && setNaming(null)}
         className={`h-7 w-full rounded border px-2 font-mono text-[12px] focus:border-crimson-500 focus:outline-none ${c.input}`}
       />
-      {error && <p className="mt-1 text-[11.5px] text-crimson-400">{error}</p>}
+      {/* The status red with an icon, not the brand ramp: the accent is customer-set and can be any color. */}
+      {error && (
+        <p className={`mt-1 flex items-start gap-1 text-[11.5px] ${c.problem}`}>
+          <TriangleAlert className="mt-px size-3.5 shrink-0" aria-hidden />
+          <span>{error}</span>
+        </p>
+      )}
     </form>
   );
 

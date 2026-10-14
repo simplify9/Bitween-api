@@ -172,9 +172,10 @@ test("the subscription list's search, type, partner and status filters each narr
   await page.getByRole("heading", { name: "Subscriptions", level: 1 }).click();
   await pickOption(page, "Filter by partner", "Any partner");
   await shown(acme, other, job);
-  await page.getByRole("combobox", { name: "Filter by status" }).selectOption("true");
+  await pickOption(page, "Filter by status", "Disabled");
   await shown(other, job);
-  await page.getByRole("combobox", { name: "Filter by status" }).selectOption("false");
+  await page.getByRole("heading", { name: "Subscriptions", level: 1 }).click();
+  await pickOption(page, "Filter by status", /^Active$/);
   await shown(acme);
 
   // The filters live in the URL, so a reload - or a link sent to someone - shows the same rows.

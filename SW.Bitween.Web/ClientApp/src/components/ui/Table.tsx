@@ -2,6 +2,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import { clickableRow, clickableRowClass } from "./clickableRow";
 import { Search } from "lucide-react";
 import { Button } from "./basics";
+import { CardList, type RowCardSpec } from "./RowCard";
+import { usePhone } from "../../lib/useMediaQuery";
 
 export interface Column<T> {
   /** Header text. Empty string for action/icon columns. */
@@ -80,6 +82,7 @@ export function Table<T>({
   onRowClick,
   minWidth = "min-w-160",
   footer,
+  card,
 }: {
   columns: Column<T>[];
   rows: T[];
@@ -89,7 +92,17 @@ export function Table<T>({
   minWidth?: string;
   /** Rendered under the table inside the same card, e.g. pagination. */
   footer?: ReactNode;
+  /**
+   * The row as a card, for a phone. Without one the table keeps its columns there too and
+   * scrolls sideways, which is fine for a short list of short names; a list whose names are long
+   * squeezed every name one syllable to a line instead, and a 40-row page ran to metres.
+   */
+  card?: (row: T) => RowCardSpec;
 }) {
+  const phone = usePhone();
+  if (card && phone)
+    return <CardList rows={rows} rowKey={rowKey} card={card} onRowClick={onRowClick} footer={footer} />;
+
   return (
     <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
       <table className={`w-full ${minWidth} text-left text-sm`}>

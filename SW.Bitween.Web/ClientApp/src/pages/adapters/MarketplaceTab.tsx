@@ -4,9 +4,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { BadgeCheck, FileArchive, KeyRound, Package, ShieldCheck, Store } from "lucide-react";
 import { api, type BundleInstall, type KitRun, type LicenceState, type MarketplaceCard, type MarketplaceInstalled, type RegistryLicenceSummary, type RegistryTier } from "../../api";
 import { keys } from "../../api/queryKeys";
-import { Badge, Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, FormError, LoadError, LoadingBlock, ProblemText } from "../../components/ui/basics";
 import { Checkbox, Field, PasswordInput, Select, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
+import { groupSettings, propertyLabel, sectionSummary } from "../../components/config/propertyLabels";
+import { SettingHint, SettingsSection } from "../../components/config/SettingsSections";
 import { SearchBox } from "../../components/ui/SearchBox";
 import { Can } from "../../auth/guards";
 import { formatDate } from "../../lib/dates";
@@ -80,7 +82,7 @@ export function MarketplaceTab() {
         action={
           <div className="flex flex-wrap items-center justify-center gap-3">
             <Can permission="settings.view">
-              <Link to="/settings" className="text-sm font-medium text-crimson-700 hover:underline">
+              <Link to="/settings" className="text-sm font-medium link">
                 Open Settings
               </Link>
             </Can>
@@ -334,14 +336,14 @@ function ConnectorDialog({ id, onClose }: { id: string; onClose: () => void }) {
                   {licences.data?.registered ? (
                     <>
                       {LICENCE_BADGE[licenceStateOf(licences.data, card)].hint}{" "}
-                      <Link to="/settings?section=Marketplace" className="text-crimson-700 hover:underline">
+                      <Link to="/settings?section=Marketplace" className="link">
                         Licences
                       </Link>
                     </>
                   ) : (
                     <>
                       This Bitween isn't registered yet:{" "}
-                      <Link to="/settings?section=Marketplace" className="text-crimson-700 hover:underline">
+                      <Link to="/settings?section=Marketplace" className="link">
                         register it under Settings, Marketplace
                       </Link>{" "}
                       with the code Simplify9 gave.
@@ -400,7 +402,11 @@ function ConnectorDialog({ id, onClose }: { id: string; onClose: () => void }) {
                         </Button>
                       </Can>
                     )}
-                    {v.revokeReason && <p className="w-full text-xs text-danger-700">{v.revokeReason}</p>}
+                    {v.revokeReason && (
+                      <p className="w-full">
+                        <ProblemText plain>{v.revokeReason}</ProblemText>
+                      </p>
+                    )}
                   </li>
                 ))}
               </ul>
@@ -547,22 +553,60 @@ function KitDialog({ card, onClose }: { card: MarketplaceCard; onClose: () => vo
             {kit.data.description && <p className="whitespace-pre-line text-sm text-ink-700">{kit.data.description}</p>}
 
             <div className="space-y-4">
-              {kit.data.parameters.map((p) => {
-                const id = `kit-${p.name}`;
-                const props = {
-                  id,
-                  value: values[p.name] ?? p.default ?? "",
-                  placeholder: p.example ?? "",
-                  required: p.required && p.default == null,
-                  autoComplete: "off",
-                  onChange: (e: React.ChangeEvent<HTMLInputElement>) => setValues({ ...values, [p.name]: e.target.value }),
+              {/* Named and arranged as an adapter's settings are: the parameter's own name is what
+                  the kit reads, and stays on screen beside its label. */}
+              {(() => {
+                const params = kit.data.parameters.map((p) => ({ ...p, key: p.name }));
+                const renderParam = (p: (typeof params)[number]) => {
+                  const id = `kit-${p.name}`;
+                  const props = {
+                    id,
+                    value: values[p.name] ?? p.default ?? "",
+                    placeholder: p.example ?? "",
+                    required: p.required && p.default == null,
+                    autoComplete: "off",
+                    onChange: (e: React.ChangeEvent<HTMLInputElement>) => setValues({ ...values, [p.name]: e.target.value }),
+                  };
+                  const label = propertyLabel(p.name);
+                  return (
+                    <Field
+                      key={p.name}
+                      label={label}
+                      htmlFor={id}
+                      hint={
+                        label !== p.name || p.description ? (
+                          <SettingHint rawKey={p.name} label={label} help={p.description} />
+                        ) : undefined
+                      }
+                    >
+                      {p.secret ? <PasswordInput {...props} /> : <TextInput {...props} />}
+                    </Field>
+                  );
                 };
+                const sections = groupSettings(params.filter((p) => !p.required));
                 return (
-                  <Field key={p.name} label={p.name} htmlFor={id} hint={p.description ?? undefined}>
-                    {p.secret ? <PasswordInput {...props} /> : <TextInput {...props} />}
-                  </Field>
+                  <>
+                    {params.filter((p) => p.required).map(renderParam)}
+                    {sections.map((section) => (
+                      <SettingsSection
+                        key={section.name}
+                        title={section.name}
+                        count={section.items.length}
+                        hasValue={section.items.some((p) => !!(values[p.name] ?? p.default))}
+                        summary={sectionSummary(
+                          section.items.map((p) => ({
+                            label: propertyLabel(p.name),
+                            value: values[p.name] ?? p.default ?? "",
+                            secret: p.secret,
+                          })),
+                        )}
+                      >
+                        <div className="space-y-4">{section.items.map(renderParam)}</div>
+                      </SettingsSection>
+                    ))}
+                  </>
                 );
-              })}
+              })()}
               <Field label="Install as" htmlFor="kit-name" hint={`Leave empty to install it as ${card.id}. Another name installs it a second time, as for a second org.`}>
                 <TextInput id="kit-name" value={name} placeholder={card.id} onChange={(e) => setName(e.target.value)} />
               </Field>

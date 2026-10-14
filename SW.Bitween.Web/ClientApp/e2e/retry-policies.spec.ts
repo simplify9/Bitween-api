@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { signInAsAdmin } from "./helpers";
+import { signInAsAdmin, moreAction } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await signInAsAdmin(page);
@@ -23,7 +23,7 @@ test("retry policy create, add group with fixed delay, dry-run, list, delete", a
   await expect(page).toHaveURL(/\/retry-policies\/\d+\/groups\/new/);
   // The URL changes a moment before the page does; the policy page has a Name field of its own.
   await expect(page.getByRole("button", { name: "Add condition" })).toBeVisible();
-  await page.getByLabel("Name").fill(groupName);
+  await page.getByLabel("Group name").fill(groupName);
   await page.getByRole("button", { name: "Add condition" }).click();
   await page.getByLabel("Text to find").fill("timeout");
   // Fixed delay in seconds - the backend stores this in milliseconds, so this
@@ -61,7 +61,7 @@ test("retry policy create, add group with fixed delay, dry-run, list, delete", a
   await expect(row.locator("td").nth(1)).toHaveText("1"); // Groups column
 
   await row.click();
-  await page.getByRole("button", { name: "Delete" }).click();
+  await moreAction(page, "Delete");
   await page.getByRole("button", { name: "Delete policy" }).click();
   await expect(page).toHaveURL(/\/retry-policies$/);
   await expect(page.getByText(name)).toHaveCount(0);

@@ -84,7 +84,7 @@ describe("a retry group's page", () => {
     const { written, handlers } = server();
     const { user, router } = renderApp("/retry-policies/3/groups/new?return=%2Felsewhere", { handlers });
 
-    await user.type(await screen.findByLabelText("Name"), "Refusals");
+    await user.type(await screen.findByLabelText("Group name"), "Refusals");
     await user.click(screen.getByRole("button", { name: "Add condition" }));
     await user.type(screen.getByLabelText("Text to find"), "refused");
     await user.click(screen.getByRole("button", { name: "Add group" }));
@@ -93,14 +93,30 @@ describe("a retry group's page", () => {
     expect(written[0].groups.map((g) => g.name)).toEqual(["Timeouts", "Refusals"]);
   });
 
-  it("says what is missing instead of writing a group the server would refuse", async () => {
+  it("says what is missing, at the field, instead of writing a group the server would refuse", async () => {
     const { written, handlers } = server();
     const { user } = renderApp("/retry-policies/3/groups/new", { handlers });
 
-    await user.type(await screen.findByLabelText("Name"), "No conditions");
+    // The name is a labelled field; the heading only shows what has been typed into it.
+    const name = await screen.findByLabelText("Group name");
+    expect(screen.getByRole("heading", { level: 1, name: "New retry group" })).toBeVisible();
+    expect(screen.getByText("Still needs a name and at least one condition.")).toBeVisible();
+
+    // Add group can be pressed with nothing filled in: each missing field is marked, the first takes focus.
+    await user.click(screen.getByRole("button", { name: "Add group" }));
+    expect(screen.getByText("Give the group a name, e.g. Timeouts.")).toBeVisible();
+    expect(screen.getByText("Add a condition, e.g. Error contains timeout.")).toBeVisible();
+    expect(name).toHaveFocus();
+    expect(name).toHaveAttribute("aria-invalid", "true");
+
+    // A mark goes as soon as its field is put right.
+    await user.type(name, "No conditions");
+    expect(screen.queryByText("Give the group a name, e.g. Timeouts.")).toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "No conditions" })).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Add group" }));
 
-    expect(await screen.findByText("Still needs at least one condition.")).toBeVisible();
+    expect(screen.getByText("Add a condition, e.g. Error contains timeout.")).toBeVisible();
+    expect(screen.getByText("Still needs at least one condition.")).toBeVisible();
     expect(written).toHaveLength(0);
   });
 });

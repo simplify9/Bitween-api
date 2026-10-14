@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUp, Download, Pause, Play, Plus, RefreshCw, RotateCcw, X } from "lucide-react";
+import { ArrowUp, Download, Pause, Play, Plus, RefreshCw, RotateCcw, TriangleAlert, X } from "lucide-react";
 import {
   api,
   type BulkRetrySelection,
@@ -359,6 +359,29 @@ export function ExchangesPage() {
       <PageHeader
         title="Exchanges"
         description="Every message that flows through Bitween. Open one to follow its journey and read its documents."
+        help={{
+          title: "What's on this page?",
+          body: (
+            <>
+              <p>
+                Each row is one <strong>exchange</strong>: a document run through a subscription. Retrying
+                one creates a new exchange in the same <strong>chain</strong>, so one piece of work can show
+                up as several rows. <strong>Latest attempt only</strong> hides the attempts that have since
+                been retried, leaving what is still to deal with.
+              </p>
+              <p>
+                The status buttons count exchanges under every other filter. Counts stop at 10,000; narrow
+                the filters for an exact number. Drag across the volume chart, or click a bar, to zoom the
+                list to that stretch of time.
+              </p>
+              <p>
+                Select rows, or everything matching the filter, to <strong>retry</strong> them in bulk or{" "}
+                <strong>export their files</strong> as a zip. Exchanges older than storage keeps files come
+                without them.
+              </p>
+            </>
+          ),
+        }}
         actions={
           <>
             <LiveControl
@@ -572,8 +595,9 @@ export function ExchangesPage() {
                 </div>
 
                 {(checkExport.error ?? exportFiles.error ?? nothingToExport) && (
-                  <p role="alert" className="text-[13px] text-danger-300">
-                    {(checkExport.error ?? exportFiles.error)?.message ?? nothingToExport}
+                  <p role="alert" className="flex items-start gap-1 text-[13px] text-danger-300">
+                    <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+                    <span>{(checkExport.error ?? exportFiles.error)?.message ?? nothingToExport}</span>
                   </p>
                 )}
 
@@ -590,7 +614,7 @@ export function ExchangesPage() {
                         setSelected(new Set());
                         setExcluded(new Set());
                       }}
-                      className="font-medium text-crimson-300 hover:underline"
+                      className="font-medium text-white underline decoration-ink-400 underline-offset-3 hover:decoration-crimson-300"
                     >
                       Select all {totalIsCapped ? `${COUNT_CAP.toLocaleString()}+` : total.toLocaleString()} matching this filter
                     </button>

@@ -78,7 +78,7 @@ export function faceOf(stageId: StageId, input: FaceInput): StageFace {
           title: d.matchExpression ? "Message filter" : "Every document",
           state: d.matchExpression ? "set" : "none",
         };
-      if (type === "ApiCall") return { id: stageId, dirty, title: "Called by id", state: "none" };
+      if (type === "ApiCall") return { id: stageId, dirty, title: "Direct, called by id", state: "none" };
       if (type === "Response")
         return {
           id: stageId,

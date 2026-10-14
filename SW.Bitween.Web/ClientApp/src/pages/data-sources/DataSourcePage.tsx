@@ -13,10 +13,11 @@ import {
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, FormError, LoadError, LoadingBlock, ProblemText } from "../../components/ui/basics";
 import { isNotFound } from "../../components/ui/isNotFound";
 import { Checkbox, Field, PasswordInput, Select, TextInput } from "../../components/ui/forms";
-import { ConfirmDialog } from "../../components/ui/overlays";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import { BackLink } from "../../components/ui/BackLink";
 import { UnsavedBar } from "../../components/ui/Panel";
 import { keys } from "../../api/queryKeys";
@@ -52,6 +53,7 @@ export function DataSourcePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("data-sources.edit");
+  const canDelete = useSessionCan("data-sources.delete");
 
   const providers = useDataSourceProviders();
   const source = useQuery({
@@ -212,17 +214,21 @@ export function DataSourcePage() {
     <div className={canEdit && dirty ? "pb-24" : undefined}>
       {leaveDialog}
       {removing && (
-        <ConfirmDialog
+        <DeleteDialog
           title={`Delete "${d.name}"?`}
+          name={d.name}
           confirmLabel="Delete"
           onClose={() => setRemoving(false)}
           onConfirm={() => remove.mutateAsync()}
+          blockers={[
+            counted(d.gatewayCount, "bus gateway reading from it", "bus gateways reading from it"),
+            counted(d.subscriptionCount, "subscription running on it", "subscriptions running on it"),
+          ]}
           body={
-            d.gatewayCount > 0
-              ? `${d.gatewayCount} bus gateway(s) still read from this connection, so deleting will be refused until they are moved off it.`
-              : d.subscriptionCount > 0
-                ? `${d.subscriptionCount} subscription(s) still run on this connection, so deleting will be refused until they are moved off it.`
-                : relational
+            // In use, the list of what holds it says it all; what the delete would do is moot.
+            d.gatewayCount > 0 || d.subscriptionCount > 0
+              ? null
+              : relational
                   ? exclusive
                     ? "The node holding it closes its connection to this database."
                     : "Every node closes its connection to this database."
@@ -255,11 +261,17 @@ export function DataSourcePage() {
             <Button onClick={() => ask.mutate("GetStats")} disabled={ask.isPending}>
               <Gauge className="size-4" /> Stats
             </Button>
-            <Can permission="data-sources.delete">
-              <Button onClick={() => setRemoving(true)}>
-                <Trash2 className="size-4" /> Delete
-              </Button>
-            </Can>
+            <MoreActionsMenu
+              actions={[
+                {
+                  label: "Delete",
+                  icon: <Trash2 className="size-4" />,
+                  danger: true,
+                  onSelect: () => setRemoving(true),
+                  hidden: !canDelete,
+                },
+              ]}
+            />
           </div>
         }
       />
@@ -324,11 +336,11 @@ export function DataSourcePage() {
               reported against that statement, and repeating it underneath reads as a second,
               different problem. */}
           {!result.succeeded && result.error && failedStatements.length === 0 && (
-            <p className="mt-2 whitespace-pre-wrap text-sm text-danger-800">{result.error}</p>
+            <ProblemText className="mt-2 whitespace-pre-wrap">{result.error}</ProblemText>
           )}
 
           {failedStatements.length > 0 && (
-            <p className="mt-2 text-[12px] text-danger-800">
+            <p className="mt-2 text-[12px] text-ink-600">
               Statements are prepared against the live schema, never run. Fix them on this page -
               a statement is refused when it is saved now, so these predate that check or the
               schema moved underneath them.
@@ -367,7 +379,7 @@ export function DataSourcePage() {
                 <Row label="Subscriptions using this">{String(d.subscriptionCount)}</Row>
               ) : (
                 <Row label="Bus gateways reading this">
-                  <Link to="/bus-gateways" className="text-crimson-700 hover:underline">
+                  <Link to="/bus-gateways" className="link">
                     {d.gatewayCount}
                   </Link>
                 </Row>
@@ -376,7 +388,7 @@ export function DataSourcePage() {
                 <div className="sm:col-span-2">
                   <dt className="text-ink-500">Last error</dt>
                   <dd className="min-w-0 text-danger-700">
-                    <ExceptionLine text={d.lastException} />
+                    <ExceptionLine text={d.lastException} icon />
                   </dd>
                 </div>
               )}
@@ -609,6 +621,7 @@ export function DataSourcePage() {
                         <button
                           type="button"
                           title={`Remove ${key}`}
+                          aria-label={`Remove ${key}`}
                           onClick={() => removeProperty(key)}
                           className="mt-7 rounded-lg p-1.5 text-ink-500 hover:bg-ink-100 hover:text-danger-700"
                         >
@@ -706,17 +719,17 @@ export function DataSourcePage() {
               {draft.softMemoryLimitMb > 0 &&
                 draft.hardMemoryLimitMb > 0 &&
                 draft.softMemoryLimitMb > draft.hardMemoryLimitMb && (
-                  <p className="mt-2 text-[12px] text-danger-700">
+                  <ProblemText className="mt-2">
                     A soft limit above the hard one can never be reached - the runtime fails the
                     allocation first, so the recycle never happens.
-                  </p>
+                  </ProblemText>
                 )}
 
               {draft.cpuPercentLimit > 100 ? (
-                <p className="mt-2 text-[12px] text-danger-700">
+                <ProblemText className="mt-2">
                   Above 100% can never be reached - the figure is a share of the whole node, so 100%
                   is every core at once.
-                </p>
+                </ProblemText>
               ) : (
                 draft.cpuPercentLimit > 0 && (
                   <p className="mt-2 text-[12px] text-ink-500">

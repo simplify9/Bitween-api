@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { signInAsAdmin } from "./helpers";
+import { signInAsAdmin, moreAction } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await signInAsAdmin(page);
@@ -44,7 +44,7 @@ test("work group create, edit queue settings, list, delete", async ({ page }) =>
 
   await row.getByRole("button", { name: `Open ${name}` }).click();
   await expect(page).toHaveURL(/\/work-groups\/\d+$/);
-  await page.getByRole("button", { name: "Delete" }).click();
+  await moreAction(page, "Delete");
   await page.getByRole("button", { name: "Delete work group" }).click();
   await expect(page).toHaveURL(/\/work-groups$/);
   await expect(page.getByText(name)).toHaveCount(0);

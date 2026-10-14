@@ -280,7 +280,7 @@ export function DashboardPage() {
                 <li key={s.subscriptionId} className="flex items-center gap-2.5 text-sm">
                   <Link
                     to={subscriptionPath(s.subscriptionId)}
-                    className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                    className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:link"
                   >
                     {s.name}
                   </Link>
@@ -304,7 +304,7 @@ export function DashboardPage() {
                   <li key={`${s.paused ? "p" : "f"}-${s.id}`} className="flex items-center gap-2.5 text-sm">
                     <Link
                       to={subscriptionPath(s.id)}
-                      className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                      className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:link"
                     >
                       {s.name}
                     </Link>
@@ -323,7 +323,7 @@ export function DashboardPage() {
                   <span className="text-ink-500 tabular-nums" title="Failing subscriptions first, then paused ones.">
                     {healthStart + 1}-{Math.min(healthStart + HEALTH_PAGE_SIZE, unhealthy.length)} of {unhealthy.length}
                   </span>
-                  <span className="flex gap-4 font-medium text-crimson-700">
+                  <span className="flex gap-4 font-medium text-ink-800">
                     <button
                       type="button"
                       className="hover:underline disabled:text-ink-300 disabled:no-underline"
@@ -362,7 +362,7 @@ export function DashboardPage() {
                     {f.subscriptionName && (
                       <Link
                         to={subscriptionPath(f.subscriptionId!)}
-                        className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                        className="font-medium text-ink-800 hover:link"
                       >
                         {f.subscriptionName}
                       </Link>
@@ -376,7 +376,7 @@ export function DashboardPage() {
           )}
           <Link
             to="/exchanges?status=failed"
-            className="mt-3 inline-block text-[13px] font-medium text-crimson-700 hover:underline"
+            className="mt-3 inline-block text-[13px] font-medium link"
           >
             All failed exchanges →
           </Link>
@@ -415,7 +415,7 @@ export function DashboardPage() {
                     {c.subscriptionName && (
                       <Link
                         to={subscriptionPath(c.subscriptionId!)}
-                        className="text-ink-600 hover:text-crimson-700 hover:underline"
+                        className="text-ink-600 hover:link"
                       >
                         {c.subscriptionName}
                       </Link>
@@ -429,7 +429,7 @@ export function DashboardPage() {
           )}
           <Link
             to="/exchanges?status=failed&latest=1"
-            className="mt-3 inline-block text-[13px] font-medium text-crimson-700 hover:underline"
+            className="mt-3 inline-block text-[13px] font-medium link"
           >
             All failures to act on →
           </Link>
@@ -472,7 +472,7 @@ export function DashboardPage() {
                   {canSeeAdapters ? (
                     <Link
                       to={`/adapters?tab=${a.adapterId.startsWith("native") ? "built-in" : "installed"}`}
-                      className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-ink-800 hover:text-crimson-700 hover:underline"
+                      className="min-w-0 flex-1 truncate font-mono text-[12.5px] text-ink-800 hover:link"
                     >
                       {a.adapterId}
                     </Link>
@@ -529,7 +529,7 @@ export function DashboardPage() {
                   <p className="text-[13px] text-ink-500">{i.detail}</p>
                   <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-[13px]">
                     {i.items.map((item) => (
-                      <Link key={item.href + item.label} to={item.href} className="text-crimson-700 hover:underline">
+                      <Link key={item.href + item.label} to={item.href} className="link">
                         {item.label}
                       </Link>
                     ))}
@@ -566,7 +566,7 @@ function RankedBars({
             {r.to ? (
               <Link
                 to={r.to}
-                className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:link"
                 title={r.name}
               >
                 {r.name}

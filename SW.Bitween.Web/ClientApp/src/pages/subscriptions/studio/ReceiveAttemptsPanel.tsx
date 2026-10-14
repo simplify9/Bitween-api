@@ -90,6 +90,7 @@ function CopyErrorButton({ text }: { text: string }) {
         setTimeout(() => setCopied(false), 1400);
       }}
       title="Copy full error"
+      aria-label={copied ? "Copied" : "Copy full error"}
       className="shrink-0 rounded p-0.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
     >
       {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
@@ -191,7 +192,7 @@ function AttemptExchanges({
         <Link
           to={`/exchanges?receiveAttemptId=${attemptId}`}
           onClick={(e) => e.stopPropagation()}
-          className="flex items-center gap-1 text-[11px] font-medium text-crimson-700 hover:underline"
+          className="flex items-center gap-1 text-[11px] font-medium link"
         >
           View all {exchanges.length} in Exchanges
           <ArrowUpRight className="size-3" />

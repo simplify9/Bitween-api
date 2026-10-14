@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
 import { keys } from "../../api/queryKeys";
-import { Badge, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, LoadError, LoadingBlock, ProblemText } from "../../components/ui/basics";
 import { formatDateTime } from "../../lib/dates";
 
 function Group({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
@@ -66,7 +66,9 @@ export function AboutPanel() {
             <Badge tone={h.status === "Healthy" ? "ok" : h.status === "Degraded" ? "warn" : "danger"}>{h.status}</Badge>
             <span className="ml-1.5 text-[12px] text-ink-500">{h.durationMs} ms</span>
             {(h.error || (h.status !== "Healthy" && h.description)) && (
-              <p className="mt-0.5 text-[12px] text-danger-700">{h.error ?? h.description}</p>
+              <p className="mt-0.5">
+                <ProblemText plain>{h.error ?? h.description}</ProblemText>
+              </p>
             )}
           </Item>
         ))}

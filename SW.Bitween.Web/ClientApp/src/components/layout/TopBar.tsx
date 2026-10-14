@@ -11,23 +11,27 @@ import type { Branding } from "../../lib/branding";
  *
  * The trail comes from the page registry: each page names its parent, so a page three levels
  * down (an API gateway → attaching a partner → a new subscription for it) shows the way back to
- * each level rather than one "Back". The last crumb is the thing itself when the page has said
- * what it is (`usePageTitle`).
+ * each level rather than one "Back". A crumb is the thing itself once its page has said what it
+ * is (`usePageTitle`, or `useCrumbTitle` from the page below it): "Orders inbound", not "API
+ * gateway".
  */
 export function TopBar({
   page,
   title,
+  names = {},
   branding,
   onSearch,
 }: {
   page: PageId | null;
   title: string | null;
+  /** Names pages have given themselves, by address, for the crumbs above this one. */
+  names?: Record<string, string>;
   branding: Branding;
   onSearch: () => void;
 }) {
   return (
     <div className="sticky top-0 z-20 hidden h-12 shrink-0 items-center gap-4 border-b border-ink-100 bg-canvas/90 px-6 backdrop-blur lg:flex">
-      <div className="min-w-0 flex-1">{page && <Breadcrumbs page={page} title={title} />}</div>
+      <div className="min-w-0 flex-1">{page && <Breadcrumbs page={page} title={title} names={names} />}</div>
       <button
         onClick={onSearch}
         className="flex h-8 w-64 shrink-0 items-center gap-2 rounded-lg border border-ink-200 bg-white px-2.5 text-[13px] text-ink-500 hover:border-ink-300"
@@ -41,7 +45,7 @@ export function TopBar({
   );
 }
 
-function Breadcrumbs({ page, title }: { page: PageId; title: string | null }) {
+function Breadcrumbs({ page, title, names }: { page: PageId; title: string | null; names: Record<string, string> }) {
   const matches = useMatches();
   const params = matches[matches.length - 1]?.params ?? {};
   const trail = pageTrail(page);
@@ -53,8 +57,8 @@ function Breadcrumbs({ page, title }: { page: PageId; title: string | null }) {
         {group && <li className="shrink-0">{group}</li>}
         {trail.map((id, i) => {
           const last = i === trail.length - 1;
-          const label = last ? (title ?? PAGES[id].title) : PAGES[id].title;
           const href = pathOf(id, params);
+          const label = last ? (title ?? PAGES[id].title) : ((href && names[href]) ?? PAGES[id].title);
           return (
             <li key={id} className={`flex min-w-0 items-center gap-1.5 ${last ? "" : "shrink-0"}`}>
               {(i > 0 || group) && <ChevronRight className="size-3.5 shrink-0 text-ink-300" aria-hidden />}
@@ -66,7 +70,7 @@ function Breadcrumbs({ page, title }: { page: PageId; title: string | null }) {
                   {label}
                 </span>
               ) : (
-                <Link to={href} className="hover:text-ink-800 hover:underline">
+                <Link to={href} className="block max-w-56 truncate hover:text-ink-800 hover:underline" title={label}>
                   {label}
                 </Link>
               )}

@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -89,7 +89,8 @@ function AppFooter({ branding }: { branding: Branding }) {
                 href={l.href}
                 target="_blank"
                 rel="noreferrer"
-                className="font-medium text-ink-500 hover:text-crimson-700 hover:underline"
+                // A line of 12px text is a small thing to hit with a thumb.
+                className="touch-target relative font-medium text-ink-500 hover:link"
               >
                 {l.label}
               </a>
@@ -104,20 +105,65 @@ function AppFooter({ branding }: { branding: Branding }) {
 const COLLAPSED_KEY = "bitween-nav-collapsed";
 
 /**
- * Folded until someone opens it: visited least, and with it open the sidebar ran past the bottom
- * of a 900px-tall laptop screen. A group holding the current page is always open, and once
- * someone has folded or opened anything their choice is what's kept.
+ * Below this many pixels of window height even the tight list can't fit Administration as well,
+ * so there it starts folded, as it used to everywhere.
  */
-const FOLDED_AT_FIRST = ["Administration"];
+const SHORT_WINDOW = 640;
+
+/**
+ * Every group starts open. Administration used to start folded, because with it open the sidebar
+ * ran past the bottom of a 900px-tall laptop screen; that meant an administrator's first visit
+ * never showed Members or Settings. The rows are tighter now and the list says when it scrolls,
+ * so it stays folded only on a window too short for it. Anyone without an Administration
+ * permission never sees the group at all (`visibleGroups`). A group holding the current page is
+ * always open, and once someone has folded or opened anything their choice is what's kept.
+ */
+const foldedAtFirst = (): string[] =>
+  typeof window !== "undefined" && window.innerHeight < SHORT_WINDOW ? ["Administration"] : [];
 
 const loadCollapsed = (): string[] => {
   try {
     const stored = localStorage.getItem(COLLAPSED_KEY);
-    return stored === null ? FOLDED_AT_FIRST : (JSON.parse(stored) as string[]);
+    return stored === null ? foldedAtFirst() : (JSON.parse(stored) as string[]);
   } catch {
-    return FOLDED_AT_FIRST;
+    return foldedAtFirst();
   }
 };
+
+/**
+ * Whether a scrolling box has more above or below what shows. The account block sits right under
+ * the nav, so a list cut off at the bottom looked like a list that ended: Roles, Settings, Nodes
+ * and Audit trail were below the fold with nothing saying so.
+ */
+function useScrollEdges(
+  /** Changes whenever the list's contents might have: measured again then. */
+  contents: string,
+) {
+  const ref = useRef<HTMLElement>(null);
+  const [edges, setEdges] = useState({ above: false, below: false });
+  const measure = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const above = el.scrollTop > 1;
+    const below = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+    setEdges((was) => (was.above === above && was.below === below ? was : { above, below }));
+  }, []);
+  useEffect(() => {
+    measure();
+    window.addEventListener("resize", measure);
+    // The list grows and shrinks as groups open and close, without the window changing.
+    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    if (ref.current && observer) {
+      observer.observe(ref.current);
+      for (const child of Array.from(ref.current.children)) observer.observe(child);
+    }
+    return () => {
+      window.removeEventListener("resize", measure);
+      observer?.disconnect();
+    };
+  }, [measure, contents]);
+  return { ref, edges, measure };
+}
 
 function SidebarContent({
   onNavigate,
@@ -148,6 +194,7 @@ function SidebarContent({
     setTip({ label, top: r.top + r.height / 2 });
   };
   const hideTip = () => setTip(null);
+  const scroll = useScrollEdges(`${collapsed.join()}|${railed}|${session?.permissions.length ?? 0}`);
   if (!session) return null;
 
   const groups = visibleGroups(session.permissions);
@@ -155,13 +202,17 @@ function SidebarContent({
   const toggleGroup = (label: string) =>
     setCollapsed((prev) => {
       const next = prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label];
-      localStorage.setItem(COLLAPSED_KEY, JSON.stringify(next));
+      try {
+        localStorage.setItem(COLLAPSED_KEY, JSON.stringify(next));
+      } catch {
+        // Storage refused (a private window): the choice still holds until the page reloads.
+      }
       return next;
     });
 
   return (
     <div className="flex h-full flex-col">
-      <div className={`flex items-center gap-2 pt-5 pb-3 ${railed ? "flex-col px-2" : "px-5"}`}>
+      <div className={`flex items-center gap-2 pt-4 pb-2 ${railed ? "flex-col px-2" : "px-5"}`}>
         <Link to="/dashboard" className="min-w-0 flex-1">
           <img
             src={
@@ -185,77 +236,99 @@ function SidebarContent({
         )}
       </div>
 
-      <nav aria-label="Main" className={`flex-1 space-y-3 overflow-y-auto py-2 ${railed ? "px-2" : "px-3"}`}>
-        {groups.map((group) => {
-          // never hide the page the user is on
-          const containsActive = group.items.some((item) => pathname.startsWith(item.path));
-          const isCollapsed = collapsed.includes(group.label) && !containsActive;
-          return (
-            <div key={group.label}>
-              {railed ? (
-                // The group label has nowhere to go in a 4rem rail, but the
-                // grouping still carries meaning - keep it as a rule.
-                <div className="mx-2 mb-1.5 border-t border-ink-900" aria-hidden />
-              ) : (
-                <button
-                  onClick={() => toggleGroup(group.label)}
-                  aria-expanded={!isCollapsed}
-                  className="flex w-full items-center justify-between rounded-md px-2.5 pb-1.5 text-left hover:text-ink-300"
-                >
-                  <span className="text-[11px] font-semibold tracking-widest text-ink-400 uppercase">
-                    {group.label}
-                  </span>
-                  {isCollapsed ? (
-                    <ChevronRight className="size-3 text-ink-600" aria-hidden />
-                  ) : (
-                    <ChevronDown className="size-3 text-ink-600" aria-hidden />
-                  )}
-                </button>
-              )}
-              {(railed || !isCollapsed) && (
-                <ul className="space-y-0.5">
-                  {group.items.map((item) => (
-                    <li key={item.path}>
-                      <NavLink
-                        to={item.path}
-                        onClick={onNavigate}
-                        aria-label={railed ? item.label : undefined}
-                        onMouseEnter={railed ? (e) => showTip(e.currentTarget, item.label) : undefined}
-                        onMouseLeave={railed ? hideTip : undefined}
-                        onFocus={railed ? (e) => showTip(e.currentTarget, item.label) : undefined}
-                        onBlur={railed ? hideTip : undefined}
-                        className={({ isActive }) =>
-                          `group relative flex items-center rounded-lg py-[5px] text-sm transition-colors ${
-                            railed ? "justify-center px-2" : "gap-2.5 px-2.5"
-                          } ${
-                            isActive
-                              ? "bg-ink-800 font-medium text-white"
-                              : "text-ink-300 hover:bg-ink-900 hover:text-ink-100"
-                          }`
-                        }
-                      >
-                        {({ isActive }) => (
-                          <>
-                            {isActive && (
-                              <span
-                                className={`absolute inset-y-1 w-1 rounded-r-full bg-crimson-500 ${
-                                  railed ? "-left-2" : "-left-3"
-                                }`}
-                              />
-                            )}
-                            <item.icon className="size-4 shrink-0" aria-hidden />
-                            {!railed && <span className="truncate">{item.label}</span>}
-                          </>
-                        )}
-                      </NavLink>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          );
-        })}
-      </nav>
+      {/* Rows of 26px and 8px between groups: all four groups, Administration included, fit a
+          900px laptop screen with the browser's own bars taken off. Shorter windows scroll, and
+          the fades at either end say there is more. */}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <nav
+          ref={scroll.ref}
+          onScroll={scroll.measure}
+          aria-label="Main"
+          className={`min-h-0 flex-1 space-y-2 overflow-y-auto py-1 ${railed ? "px-2" : "px-3"}`}
+        >
+          {groups.map((group) => {
+            // never hide the page the user is on
+            const containsActive = group.items.some((item) => pathname.startsWith(item.path));
+            const isCollapsed = collapsed.includes(group.label) && !containsActive;
+            return (
+              <div key={group.label}>
+                {railed ? (
+                  // The group label has nowhere to go in a 4rem rail, but the
+                  // grouping still carries meaning - keep it as a rule.
+                  <div className="mx-2 mb-1.5 border-t border-ink-900" aria-hidden />
+                ) : (
+                  <button
+                    onClick={() => toggleGroup(group.label)}
+                    aria-expanded={!isCollapsed}
+                    className="flex w-full items-center justify-between rounded-md px-2.5 pt-0.5 pb-1 text-left hover:text-ink-300"
+                  >
+                    <span className="text-[11px] leading-4 font-semibold tracking-widest text-ink-400 uppercase">
+                      {group.label}
+                    </span>
+                    {isCollapsed ? (
+                      <ChevronRight className="size-3 text-ink-600" aria-hidden />
+                    ) : (
+                      <ChevronDown className="size-3 text-ink-600" aria-hidden />
+                    )}
+                  </button>
+                )}
+                {(railed || !isCollapsed) && (
+                  <ul>
+                    {group.items.map((item) => (
+                      <li key={item.path}>
+                        <NavLink
+                          to={item.path}
+                          onClick={onNavigate}
+                          aria-label={railed ? item.label : undefined}
+                          onMouseEnter={railed ? (e) => showTip(e.currentTarget, item.label) : undefined}
+                          onMouseLeave={railed ? hideTip : undefined}
+                          onFocus={railed ? (e) => showTip(e.currentTarget, item.label) : undefined}
+                          onBlur={railed ? hideTip : undefined}
+                          className={({ isActive }) =>
+                            `group relative flex items-center rounded-lg py-[3px] text-sm transition-colors ${
+                              railed ? "justify-center px-2" : "gap-2.5 px-2.5"
+                            } ${
+                              isActive
+                                ? "bg-ink-800 font-medium text-white"
+                                : "text-ink-300 hover:bg-ink-900 hover:text-ink-100"
+                            }`
+                          }
+                        >
+                          {({ isActive }) => (
+                            <>
+                              {isActive && (
+                                <span
+                                  className={`absolute inset-y-1 w-1 rounded-r-full bg-crimson-500 ${
+                                    railed ? "-left-2" : "-left-3"
+                                  }`}
+                                />
+                              )}
+                              <item.icon className="size-4 shrink-0" aria-hidden />
+                              {!railed && <span className="truncate">{item.label}</span>}
+                            </>
+                          )}
+                        </NavLink>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })}
+        </nav>
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute inset-x-0 top-0 h-6 bg-linear-to-b from-ink-950 to-transparent transition-opacity ${
+            scroll.edges.above ? "opacity-100" : "opacity-0"
+          }`}
+        />
+        <div
+          aria-hidden
+          className={`pointer-events-none absolute inset-x-0 bottom-0 h-8 bg-linear-to-t from-ink-950 to-transparent transition-opacity ${
+            scroll.edges.below ? "opacity-100" : "opacity-0"
+          }`}
+        />
+      </div>
 
       {railed && tip && (
         <div
@@ -311,11 +384,16 @@ export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [railed, setRailed] = useState(() => localStorage.getItem(RAILED_KEY) === "1");
   const { pathname } = useLocation();
-  // The page's own name, once it has loaded what it shows (see `usePageTitle`). Kept with the
-  // address it was given for, so the next page never wears the last one's name.
-  const [named, setNamed] = useState<NamedPage | null>(null);
+  // Pages' own names, once they have loaded what they show (see `usePageTitle`). Kept by the
+  // address each was given for, so the next page never wears the last one's name, and a crumb
+  // leading back up can still say which gateway or policy it leads to.
+  const [names, setNames] = useState<Record<string, string>>({});
+  const setNamed = useCallback(
+    ({ path, title }: NamedPage) => setNames((was) => (was[path] === title ? was : { ...was, [path]: title })),
+    [],
+  );
   const current = useCurrentPage();
-  const title = named?.path === pathname ? named.title : null;
+  const title = names[pathname] ?? null;
   // "Orders inbound · API gateways" on a page about one thing, "API gateways" on the list.
   const parent = current ? PAGES[current].parent : undefined;
   const tabTitle = current
@@ -385,11 +463,13 @@ export function AppShell() {
       className="min-h-screen lg:grid lg:grid-cols-[var(--sidebar-w)_1fr]"
     >
       {/* mobile top bar */}
-      <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-ink-100 bg-white px-4 py-2.5 lg:hidden">
+      {/* The two buttons are 44px, the touch guideline, and the bar's padding gives way so the
+          bar itself stays about as tall as it was: at 30px they were easy to miss with a thumb. */}
+      <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-ink-100 bg-white px-2 py-0.5 lg:hidden">
         <button
           onClick={() => setMobileOpen(true)}
           aria-label="Open navigation"
-          className="rounded-md p-1.5 text-ink-600 hover:bg-ink-100"
+          className="inline-flex size-11 items-center justify-center rounded-md text-ink-600 hover:bg-ink-100"
         >
           <MenuIcon className="size-5" />
         </button>
@@ -411,7 +491,7 @@ export function AppShell() {
           <button
             onClick={() => setPaletteOpen(true)}
             aria-label="Search"
-            className="rounded-md p-1.5 text-ink-600 hover:bg-ink-100"
+            className="inline-flex size-11 items-center justify-center rounded-md text-ink-600 hover:bg-ink-100"
           >
             <SearchIcon className="size-5" />
           </button>
@@ -427,7 +507,7 @@ export function AppShell() {
             <button
               onClick={() => setMobileOpen(false)}
               aria-label="Close navigation"
-              className="absolute top-4 right-3 rounded-md p-1 text-ink-400 hover:text-white"
+              className="absolute top-1.5 right-1 inline-flex size-11 items-center justify-center rounded-md text-ink-400 hover:text-white"
             >
               <X className="size-5" />
             </button>
@@ -452,7 +532,7 @@ export function AppShell() {
           Below `lg` it stays a normal stacking page - a three-pane studio on a
           phone is not a thing worth building. */}
       <main className={`flex min-w-0 flex-col ${fullBleed ? "lg:h-screen lg:overflow-hidden" : ""}`}>
-        <TopBar page={current} title={title} branding={branding} onSearch={() => setPaletteOpen(true)} />
+        <TopBar page={current} title={title} names={names} branding={branding} onSearch={() => setPaletteOpen(true)} />
         <PageTitleContext.Provider value={setNamed}>
         {fullBleed ? (
           <>

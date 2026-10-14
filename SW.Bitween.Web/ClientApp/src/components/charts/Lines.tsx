@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { compact } from "../../lib/numbers";
-import { niceMax } from "./scale";
+import { handMoved, niceMax } from "./scale";
 
 export interface LineSeries {
   key: string;
@@ -39,7 +39,7 @@ export function Lines({
 
   const onMove = (e: React.PointerEvent) => {
     const r = box.current?.getBoundingClientRect();
-    if (!r || points.length === 0) return;
+    if (!r || points.length === 0 || !handMoved(e)) return;
     setHover(Math.max(0, Math.min(points.length - 1, Math.round(((e.clientX - r.left) / r.width) * n))));
   };
 

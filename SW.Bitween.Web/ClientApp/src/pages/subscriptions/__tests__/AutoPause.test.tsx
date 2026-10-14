@@ -127,8 +127,8 @@ describe("auto-pause", () => {
     const { handlers, saves } = backend([sub({ autoPauseAfterFailures: 3 })]);
     const { user } = renderApp("/subscriptions/10", { handlers });
 
-    await user.click(await screen.findByRole("button", { name: "Disable" }));
-    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Disable" }));
+    await user.click(await screen.findByRole("radio", { name: "Off" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Turn off" }));
 
     await waitFor(() => expect(saves).toHaveLength(1));
     expect(saves[0].inactive).toBe(true);

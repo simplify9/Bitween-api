@@ -132,6 +132,7 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
         onClick={() => dispatch(undo())}
         disabled={past.length === 0}
         className="p-1.5 rounded hover:bg-ink-100 disabled:opacity-30 transition text-ink-600"
+        aria-label="Undo"
         title="Undo (Ctrl+Z)"
       >
         <Undo2 size={16} />
@@ -140,6 +141,7 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
         onClick={() => dispatch(redo())}
         disabled={future.length === 0}
         className="p-1.5 rounded hover:bg-ink-100 disabled:opacity-30 transition text-ink-600"
+        aria-label="Redo"
         title="Redo (Ctrl+Y)"
       >
         <Redo2 size={16} />

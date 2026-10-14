@@ -4,6 +4,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { apiPath, renderApp } from "../../../__tests__/support/renderApp";
+import { onAPhone } from "../../../__tests__/support/phone";
 
 /**
  * The catalog GET /permissions serves, read out of PermissionCatalog.Areas in the C# rather than
@@ -113,7 +114,9 @@ describe("the role editor", () => {
 
     expect(await screen.findByText(/This role is built in/)).toBeVisible();
     expect(box("Partners: View")).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "Delete role" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "More actions" }));
+    expect(await screen.findByRole("menuitem", { name: "Duplicate" })).toBeVisible();
+    expect(screen.queryByRole("menuitem", { name: "Delete" })).not.toBeInTheDocument();
     // Name and description aren't even rendered for a built-in.
     expect(document.querySelector("#role-name")).not.toBeInTheDocument();
   });
@@ -123,7 +126,8 @@ describe("the role editor", () => {
     const { user, router } = renderApp("/team/roles", { handlers });
 
     await user.click(await screen.findByRole("link", { name: /Operator/ }));
-    await user.click(await screen.findByRole("button", { name: "Duplicate" }));
+    await user.click(await screen.findByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Duplicate" }));
 
     const name = await screen.findByDisplayValue("Copy of Operator");
     expect(name).toHaveAttribute("id", "role-name");
@@ -137,5 +141,22 @@ describe("the role editor", () => {
     // A new role in its own right, carrying the source's grants - not an edit of the source.
     expect(created).toEqual([{ name: "Night operator", description: "", permissions: ["partners.view", "partners.edit"] }]);
     expect(await screen.findByRole("link", { name: /Night operator/ })).toBeVisible();
+  });
+});
+
+describe("the role editor on a phone", () => {
+  onAPhone();
+
+  it("stacks each area's boxes under its name instead of a matrix", async () => {
+    const { user } = renderApp("/team/roles/new", { handlers: roles().handlers });
+
+    const edit = await screen.findByRole("checkbox", { name: "Partners: Edit" });
+    // No column headers to read the boxes from, so each box carries its action's name.
+    expect(screen.queryByRole("table")).not.toBeInTheDocument();
+    expect(edit.closest("label")).toHaveTextContent("Edit");
+
+    // Same rules as the matrix: an action brings View with it.
+    await user.click(edit);
+    expect(box("Partners: View")).toBeChecked();
   });
 });

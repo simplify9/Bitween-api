@@ -6,13 +6,13 @@ import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
-import { Select } from "../../components/ui/forms";
 import { Table } from "../../components/ui/Table";
 import { keys } from "../../api/queryKeys";
 import { LinkListCell, WiredHealthBadge } from "../../components/config/shared";
 import { useSubscriptionRowsById } from "../../components/config/lookups";
 import { useListParams } from "../../lib/listParams";
 import { SearchBox } from "../../components/ui/SearchBox";
+import { FilterSelect } from "../../components/ui/SearchSelect";
 
 /**
  * API gateways - the entry point partners push documents into. One row per
@@ -61,16 +61,37 @@ export function ApiGatewaysPage() {
         title="API gateways"
         description="URLs partners call to push documents in. Each attached partner is routed to one subscription."
         actions={createAction}
+        help={{
+          title: "How API gateways work",
+          body: (
+            <>
+              <p>
+                A gateway is one <strong>URL</strong>, <code>{"/api/gateway/<url name>"}</code>. Partners
+                are <strong>attached</strong> to it, each with the subscription that runs on what that
+                partner sends.
+              </p>
+              <p>
+                The caller is identified by its <strong>API key</strong> (or by a token from a login
+                server, if the gateway is set to JWT), and that decides which attached partner the
+                exchange runs as. Keys are issued on the partner's page.
+              </p>
+              <p>
+                <strong>Health</strong> is the worst case across the subscriptions behind the gateway:
+                failing, paused or disabled. A deactivated gateway feeds nothing, so it shows{" "}
+                <strong>Off</strong> beside its name instead.
+              </p>
+            </>
+          ),
+        }}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <SearchBox value={searchText} onChange={setSearchText} label="Search API gateways" placeholder="Search gateways" />
         <div className="w-40">
-          <Select
+          <FilterSelect
             aria-label="Filter by status"
-            className="!h-8 text-[13px]"
             value={inactiveParam ?? ""}
-            onChange={(e) => setParam("inactive", e.target.value || null)}
+            onChange={(v) => setParam("inactive", v || null)}
             options={STATUS_OPTIONS}
           />
         </div>

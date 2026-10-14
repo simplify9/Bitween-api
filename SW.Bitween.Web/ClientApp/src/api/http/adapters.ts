@@ -7,6 +7,9 @@ interface RawStartupValue {
   default: string | null;
   private: boolean;
   description: string | null;
+  // A manifest declares both, but no server sends them yet: read if one ever does.
+  displayName?: string | null;
+  group?: string | null;
 }
 interface RawCatalogAdapter {
   key: string;
@@ -66,6 +69,8 @@ function toProps(values: Record<string, RawStartupValue> | null): AdapterProp[] 
     default: v.default ?? undefined,
     secret: v.private,
     description: v.description ?? undefined,
+    displayName: v.displayName ?? undefined,
+    group: v.group ?? undefined,
   }));
 }
 

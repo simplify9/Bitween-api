@@ -88,6 +88,44 @@
   --color-danger-800: #9e2416;
 }
 
+/*
+  A secondary link: ink with an underline, crimson only on hover. Crimson was the link colour,
+  the brand colour and (on the default brand) the error colour at once, so a row of "+ New"
+  links beside an error read as four problems. Crimson now stays for primary buttons and the
+  brand; red stays for what is wrong.
+*/
+@utility link {
+  color: var(--color-ink-800);
+  text-decoration-line: underline;
+  text-decoration-color: var(--color-ink-300);
+  text-underline-offset: 3px;
+  cursor: pointer;
+  &:hover {
+    color: var(--color-ink-900);
+    text-decoration-color: var(--color-crimson-600);
+  }
+}
+
+/*
+  A small icon-only control that a finger can still hit. On a touch screen the hit area grows to
+  the 44px guideline through an invisible box centred on the control, so nothing around it moves
+  and a mouse user sees no change at all. The control has to be positioned (`relative`, or the
+  `absolute` it already has) for the box to centre on it.
+*/
+@utility touch-target {
+  @media (pointer: coarse) {
+    &::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+
 @layer base {
   html {
     @apply bg-canvas text-ink-900 antialiased;

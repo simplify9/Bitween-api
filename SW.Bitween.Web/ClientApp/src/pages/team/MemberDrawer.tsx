@@ -286,7 +286,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                 about a person is usually the other one, which the trail can also answer. */}
             <Link
               to={`/audit?userId=${userId}`}
-              className="mt-2 inline-block text-[13px] font-medium text-crimson-700 hover:underline"
+              className="mt-2 inline-block text-[13px] font-medium link"
             >
               What this member changed
             </Link>

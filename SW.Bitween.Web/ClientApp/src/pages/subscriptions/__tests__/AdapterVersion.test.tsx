@@ -63,8 +63,8 @@ describe("pinning an adapter version", () => {
     const { handlers, saves } = backend([sub({ handlerVersion: "1.0.0" })]);
     const { user } = renderApp("/subscriptions/10", { handlers });
 
-    await user.click(await screen.findByRole("button", { name: "Disable" }));
-    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Disable" }));
+    await user.click(await screen.findByRole("radio", { name: "Off" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Turn off" }));
 
     await waitFor(() => expect(saves).toHaveLength(1));
     expect(saves[0].handlerVersion).toBe("1.0.0");
@@ -84,8 +84,8 @@ describe("a retry policy set on the subscription through the API", () => {
 
     expect(await screen.findByText(/Retries by 1 rule group set on this subscription through the API/)).toBeVisible();
 
-    await user.click(await screen.findByRole("button", { name: "Disable" }));
-    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Disable" }));
+    await user.click(await screen.findByRole("radio", { name: "Off" }));
+    await user.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Turn off" }));
 
     await waitFor(() => expect(saves).toHaveLength(1));
     expect(saves[0].customRetryPolicy).toEqual(inline);
@@ -149,7 +149,7 @@ describe("a version the registry has revoked", () => {
   it("isn't named when the subscription runs another version", async () => {
     const { handlers } = backend([sub({ handlerVersion: "1.1.0" })]);
     renderApp("/subscriptions/10", { handlers: [updates("1.0.0"), ...handlers] });
-    expect(await screen.findByRole("button", { name: "Disable" })).toBeVisible();
+    expect(await screen.findByRole("radio", { name: "Off" })).toBeVisible();
     expect(screen.queryByText(/which the registry has revoked/)).not.toBeInTheDocument();
   });
 });

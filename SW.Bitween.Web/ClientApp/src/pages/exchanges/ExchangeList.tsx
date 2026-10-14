@@ -121,7 +121,7 @@ export function ExchangeList({
                 {x.subscriptionName ?? "No subscription"}
                 {x.partnerName && <span className="text-ink-500"> · {x.partnerName}</span>}
               </span>
-              {x.exception && <ExceptionLine text={x.exception} className={`font-mono text-[11.5px] ${errorTone(x)}`} />}
+              {x.exception && <ExceptionLine text={x.exception} icon className={`font-mono text-[11.5px] ${errorTone(x)}`} />}
             </div>
           </li>
         ))}
@@ -187,7 +187,7 @@ export function ExchangeList({
                       <Link
                         to={`/information-types/${x.informationTypeId}`}
                         onClick={(e) => e.stopPropagation()}
-                        className="font-mono text-[11px] text-ink-600 hover:text-crimson-700 hover:underline"
+                        className="font-mono text-[11px] text-ink-600 hover:link"
                       >
                         {x.informationTypeCode}
                       </Link>
@@ -201,7 +201,7 @@ export function ExchangeList({
                       )}
                     </span>
                     {x.exception && (
-                      <ExceptionLine text={x.exception} className={`max-w-full font-mono text-[11.5px] ${errorTone(x)}`} />
+                      <ExceptionLine text={x.exception} icon className={`max-w-full font-mono text-[11.5px] ${errorTone(x)}`} />
                     )}
                   </div>
                 </td>
@@ -231,7 +231,7 @@ export function ExchangeList({
                         <Link
                           to={`/subscriptions/${x.subscriptionId}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                          className="font-medium text-ink-800 hover:link"
                         >
                           {x.subscriptionName}
                         </Link>
@@ -242,7 +242,7 @@ export function ExchangeList({
                         <Link
                           to={`/partners/${x.partnerId}`}
                           onClick={(e) => e.stopPropagation()}
-                          className="text-xs text-ink-500 hover:text-crimson-700 hover:underline"
+                          className="text-xs text-ink-500 hover:link"
                         >
                           {x.partnerName}
                         </Link>

@@ -6,7 +6,7 @@ import { api, ApiRequestError, type AdapterDraft, type DraftBuild, type DraftRun
 import { keys } from "../../api/queryKeys";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { BackLink } from "../../components/ui/BackLink";
-import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, FormError, LoadingBlock, ProblemText } from "../../components/ui/basics";
 import { Field, Select, TextInput } from "../../components/ui/forms";
 import { checkFindings, type EditorProblem } from "../../components/code/problems";
 import { Explorer } from "./workspace/Explorer";
@@ -17,6 +17,9 @@ import { languageLabel } from "../../components/code/languages";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { usePageTitle } from "../../lib/pageTitle";
+import { useTooNarrowForEditor } from "../../lib/useMediaQuery";
+import { DeskOnlyCard } from "../../components/ui/WiderScreenNote";
+import { timeAgo } from "../../lib/dates";
 
 const LANGUAGE_LABEL = { python: "Python", node: "JavaScript", typescript: "TypeScript" } as const;
 
@@ -52,9 +55,28 @@ export default function AdapterEditorPage() {
   const draftId = Number(id);
   const draft = useQuery({ queryKey: keys.adapterDraft(draftId), queryFn: () => api.getAdapterDraft(draftId) });
   usePageTitle(draft.data?.adapterId);
+  const narrow = useTooNarrowForEditor();
 
   if (draft.isPending) return <LoadingBlock label="Opening the draft…" />;
-  if (draft.isError) return <p className="text-sm text-danger-700">{draft.error.message}</p>;
+  if (draft.isError) return <ProblemText>{draft.error.message}</ProblemText>;
+  // A file tree, a code editor and a results panel side by side: there is no phone version of
+  // that worth having, so a phone gets what the draft is and the way back.
+  if (narrow) {
+    const d = draft.data;
+    return (
+      <DeskOnlyCard
+        title={d.adapterId}
+        what="The adapter editor"
+        status={<Badge>{d.baseVersion ? `from ${d.baseVersion}` : "Not published"}</Badge>}
+        facts={[
+          { label: "Language", value: d.language },
+          { label: "Kind", value: d.kind ?? "-", tone: d.kind ? undefined : "muted" },
+          { label: "Changed", value: timeAgo(d.modifiedOn ?? d.createdOn) },
+        ]}
+        back={{ to: "/adapters", label: "Adapters" }}
+      />
+    );
+  }
   return <Editor key={draft.data.id} draft={draft.data} />;
 }
 
@@ -507,8 +529,16 @@ function BuildReport({ build }: { build: DraftBuild }) {
         </p>
       ))}
       {build.succeeded && (
-        <p className={build.conforms ? "font-medium text-ok-800" : "font-medium text-danger-700"}>
-          {build.checks.length === 0 ? "Builds." : build.conforms ? "Builds and conforms." : "Builds, but doesn't conform."}
+        <p className={build.conforms ? "font-medium text-ok-800" : undefined}>
+          {build.checks.length === 0 ? (
+            "Builds."
+          ) : build.conforms ? (
+            "Builds and conforms."
+          ) : (
+            <ProblemText plain className="font-medium">
+              Builds, but doesn't conform.
+            </ProblemText>
+          )}
         </p>
       )}
       <ul className="space-y-1">

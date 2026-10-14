@@ -109,7 +109,8 @@ describe("leaving an editor with unsaved changes", () => {
     });
     await editPrefetch(user);
 
-    await user.click(screen.getByRole("button", { name: "Delete" }));
+    await user.click(await screen.findByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
     await user.click(screen.getByRole("button", { name: "Delete work group" }));
 
     await expect.poll(() => router.state.location.pathname).toBe("/work-groups");

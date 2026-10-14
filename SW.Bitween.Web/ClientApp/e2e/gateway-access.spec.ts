@@ -289,13 +289,13 @@ test("deactivating a gateway on its page makes partner calls answer 503 until it
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Deactivate" }).click();
-  await page.getByRole("dialog", { name: /^Deactivate / }).getByRole("button", { name: "Deactivate" }).click();
+  await page.getByRole("radio", { name: "Off" }).click();
+  await page.getByRole("dialog", { name: /^Turn .* off\?$/ }).getByRole("button", { name: "Turn off" }).click();
   await expect(page.getByText("Deactivated", { exact: true })).toBeVisible();
   expect(await callGateway(request, g.urlName, { "X-Acme-Key": key })).toBe(503);
 
-  await page.getByRole("button", { name: "Activate" }).click();
-  await page.getByRole("dialog", { name: /^Activate / }).getByRole("button", { name: "Activate" }).click();
+  await page.getByRole("radio", { name: "Running" }).click();
+  await page.getByRole("dialog", { name: /^Turn .* on\?$/ }).getByRole("button", { name: "Turn on" }).click();
   await expect(page.getByText("Deactivated", { exact: true })).toHaveCount(0);
   expect(await callGateway(request, g.urlName, { "X-Acme-Key": key })).toBe(202);
 

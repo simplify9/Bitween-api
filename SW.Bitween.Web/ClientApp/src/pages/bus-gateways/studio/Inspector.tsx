@@ -460,7 +460,7 @@ function PanelLinks({
   return (
     <div className="mt-1 flex items-center gap-3">
       {view && (
-        <Link to={view} className="text-[13px] font-medium text-crimson-700 hover:underline">
+        <Link to={view} className="text-[13px] font-medium link">
           View
         </Link>
       )}
@@ -468,7 +468,7 @@ function PanelLinks({
         <button
           type="button"
           onClick={onEdit}
-          className="text-[13px] font-medium text-crimson-700 hover:underline"
+          className="text-[13px] font-medium link"
         >
           {editLabel}
         </button>
@@ -477,7 +477,7 @@ function PanelLinks({
         <button
           type="button"
           onClick={onCreate}
-          className="inline-flex items-center gap-1 text-[13px] font-medium text-crimson-700 hover:underline"
+          className="inline-flex items-center gap-1 text-[13px] font-medium link"
         >
           <Plus className="size-3" /> {createLabel}
         </button>

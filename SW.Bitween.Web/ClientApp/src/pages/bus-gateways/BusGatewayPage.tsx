@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pause, PanelLeftClose, PanelLeftOpen, Play, Trash2 } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen, Trash2 } from "lucide-react";
 import { api, type BusGatewayDetail, type InlineSubscriptionDraft, type SubscriptionDetail } from "../../api";
-import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { Badge, Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { isNotFound } from "../../components/ui/isNotFound";
 import { ConfirmDialog } from "../../components/ui/overlays";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu, RunStateControl, type RunStateOption } from "../../components/layout/HeaderActions";
 import { dialogsOpen } from "../../components/ui/dialogStack";
 import { CodeBadge, EditableTitle } from "../../components/ui/Panel";
 import { SearchSelect } from "../../components/ui/SearchSelect";
@@ -33,6 +34,8 @@ import {
 } from "./studio/Inspector";
 import { PartnerDialog } from "../../components/config/PartnerDialog";
 import { RouteList, type Selection } from "./studio/RouteList";
+import { RouteCards } from "./studio/RouteCards";
+import { useTooNarrowForEditor } from "../../lib/useMediaQuery";
 import { SourceDialog } from "./SourceDialog";
 import { ConnectionBadge } from "../data-sources/ConnectionBadge";
 import { BackLink } from "../../components/ui/BackLink";
@@ -54,6 +57,16 @@ import {
 import { usePageTitle } from "../../lib/pageTitle";
 
 const LIST_KEY = "bitween-bus-studio-list";
+
+// No Paused for a bus gateway: switched off, it is not listening, so there is nothing to hold.
+const busGatewayRunStates: RunStateOption<"running" | "off">[] = [
+  { value: "running", label: "Running", caption: "Running: offers its messages to its routes." },
+  {
+    value: "off",
+    label: "Off",
+    caption: "Off: messages stop reaching its routes. Anything published meanwhile is gone.",
+  },
+];
 
 /** Which record is being edited, with the snapshot the save bar compares against. */
 interface RouteEdit {
@@ -99,7 +112,9 @@ function BusGatewayStudio() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("bus-gateways.edit");
+  const canDelete = useSessionCan("bus-gateways.delete");
   const canEditSubscription = useSessionCan("subscriptions.edit");
+  const narrow = useTooNarrowForEditor();
   const [params, setParams] = useSearchParams();
 
   const gateway = useQuery({
@@ -464,7 +479,7 @@ function BusGatewayStudio() {
   if (gateway.isError || !g)
     return (
       <EmptyState title="This bus gateway no longer exists">
-        <Link to="/bus-gateways" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/bus-gateways" className="font-medium link">
           Back to bus gateways
         </Link>
       </EmptyState>
@@ -791,28 +806,33 @@ function BusGatewayStudio() {
             <Trash2 className="size-3.5" /> Remove route
           </Button>
         )}
-        {canEdit && (
-          <Button
-            size="sm"
-            onClick={() => setConfirmingActive(true)}
-            title={
-              g.inactive
-                ? "Start offering this gateway's messages to its routes again."
-                : "Stop messages reaching its routes, without deleting them."
-            }
-          >
-            {g.inactive ? <Play className="size-3.5" /> : <Pause className="size-3.5" />}
-            {g.inactive ? "Activate" : "Deactivate"}
-          </Button>
-        )}
-        <Can permission="bus-gateways.delete">
-          <Button size="sm" variant="danger" onClick={() => setDeletingGateway(true)}>
-            <Trash2 className="size-3.5" /> Delete gateway
-          </Button>
-        </Can>
+        {/* Compact: this header is one toolbar line over the canvas, with no room for
+            a caption under the control. */}
+        <RunStateControl
+          compact
+          label="Running state"
+          options={busGatewayRunStates}
+          value={g.inactive ? "off" : "running"}
+          onChange={() => setConfirmingActive(true)}
+          disabled={!canEdit}
+        />
+        <MoreActionsMenu
+          actions={[
+            {
+              label: "Delete",
+              icon: <Trash2 className="size-4" />,
+              danger: true,
+              onSelect: () => setDeletingGateway(true),
+              hidden: !canDelete,
+            },
+          ]}
+        />
       </div>
 
       {/* --- workspace --- */}
+      {narrow ? (
+        <RouteCards routes={g.routes} rowsById={rowsById} />
+      ) : (
       <div className="flex min-h-0 flex-1 flex-col">
         <div className="relative flex min-h-0 flex-1 flex-col">
           {/* Over the canvas rather than beside it: the panel is as tall as its
@@ -910,6 +930,7 @@ function BusGatewayStudio() {
           )}
         </div>
       </div>
+      )}
 
       {/* --- dialogs --- */}
       {partnerDialog !== undefined && (
@@ -977,13 +998,13 @@ function BusGatewayStudio() {
 
       {confirmingActive && (
         <ConfirmDialog
-          title={g.inactive ? `Activate ${g.name}?` : `Deactivate ${g.name}?`}
+          title={g.inactive ? `Turn ${g.name} on?` : `Turn ${g.name} off?`}
           body={
             g.inactive
               ? `${g.informationTypeName} messages reach its ${g.routes.length} route${g.routes.length === 1 ? "" : "s"} again. Anything published while it was off is gone - the message was offered and this gateway wasn't listening.`
               : `${g.informationTypeName} messages stop reaching its ${g.routes.length} route${g.routes.length === 1 ? "" : "s"}. Other gateways bound to the same message are unaffected, and the routes themselves are kept.`
           }
-          confirmLabel={g.inactive ? "Activate" : "Deactivate"}
+          confirmLabel={g.inactive ? "Turn on" : "Turn off"}
           onConfirm={async () => {
             await api.updateBusGateway(gatewayId, { name: g.name, inactive: !g.inactive });
             await queryClient.invalidateQueries({ queryKey: keys.busGateways.all });
@@ -993,8 +1014,10 @@ function BusGatewayStudio() {
       )}
 
       {deletingGateway && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this bus gateway?"
+          name={g.name}
+          impact={[counted(g.routes.length, "route")]}
           body={
             <>
               <strong className="font-medium text-ink-800">{g.name}</strong> stops listening and all its

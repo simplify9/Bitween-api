@@ -6,7 +6,7 @@ import { api, resetAppConfig, type SettingRow } from "../../api";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, LoadingBlock, ProblemText } from "../../components/ui/basics";
 import { Checkbox, TextInput } from "../../components/ui/forms";
 import { UnsavedBar } from "../../components/ui/Panel";
 import { ConfirmDialog } from "../../components/ui/overlays";
@@ -192,7 +192,7 @@ function SettingRowEditor({
                   setReplacing(true);
                   setDraft("");
                 }}
-                className="text-[13px] font-medium text-crimson-700 hover:underline"
+                className="text-[13px] font-medium link"
               >
                 Replace
               </button>
@@ -238,7 +238,7 @@ function SettingRowEditor({
           <button
             type="button"
             onClick={() => stage(null)}
-            className="text-[13px] font-medium whitespace-nowrap text-crimson-700 hover:underline"
+            className="text-[13px] font-medium whitespace-nowrap link"
           >
             Reset to default
           </button>
@@ -435,7 +435,13 @@ export function SettingsPage() {
           "who changed anything here", and that is the whole table rather than a slice of it. */}
       {canView && (
         <div className="mt-5">
-          <HistoryCard entityName="Setting" description="Recent changes to instance settings." />
+          {/* Each line names its setting as the form above labels it; a key the catalog no longer
+              lists (a retired setting) still shows, as its key. */}
+          <HistoryCard
+            entityName="Setting"
+            description="Recent changes to instance settings."
+            subjectOf={(e) => rows?.find((r) => r.key === e.entityKey)?.label ?? e.entityKey}
+          />
         </div>
       )}
 
@@ -457,7 +463,7 @@ export function SettingsPage() {
             <div className="space-y-3">
               <p>This is what the new settings will do once they're saved:</p>
               {retention.error ? (
-                <p className="text-danger-700">Couldn't work out what they'd do: {retention.error.message}</p>
+                <ProblemText>Couldn't work out what they'd do: {retention.error.message}</ProblemText>
               ) : retention.previewing && retention.status && !retention.loading ? (
                 <NoticeList notices={retention.status.notices} />
               ) : (

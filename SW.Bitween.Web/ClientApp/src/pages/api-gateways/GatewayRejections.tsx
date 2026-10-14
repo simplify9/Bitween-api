@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../../api";
+import { api, type GatewayRejections as Rejections } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { Badge } from "../../components/ui/basics";
 import { Panel } from "../../components/ui/Panel";
@@ -42,6 +42,7 @@ export function GatewayRejections({ gatewayId }: { gatewayId: number }) {
   const r = rejections.data;
   const reasons = Object.entries(r.counts).sort((a, b) => b[1] - a[1]);
   const week = Object.entries(r.lastSevenDays ?? {}).sort((a, b) => b[1] - a[1]);
+  const recent = groupRecent(r.recent);
 
   return (
     <Panel
@@ -78,13 +79,25 @@ export function GatewayRejections({ gatewayId }: { gatewayId: number }) {
           <div>
             <h4 className="mb-1 text-[12px] font-semibold tracking-wide text-ink-500 uppercase">Most recent</h4>
             <ul className="divide-y divide-ink-100 text-[12.5px]">
-              {r.recent.map((x, i) => (
-                <li key={i} className="flex flex-wrap justify-between gap-2 py-1">
-                  <span className="text-ink-800">
-                    {REASON[x.reason]?.label ?? x.reason} <span className="text-ink-500">· {x.status}</span>
+              {recent.map((x) => (
+                <li key={`${x.reason} ${x.status} ${x.address}`} className="flex flex-wrap items-baseline justify-between gap-2 py-1">
+                  <span className="flex items-baseline gap-2 text-ink-800">
+                    <Badge tone="neutral" title={`${x.count} of the most recent calls`}>
+                      {x.count}
+                    </Badge>
+                    <span>
+                      {REASON[x.reason]?.label ?? x.reason} <span className="text-ink-500">· {x.status}</span>
+                    </span>
                   </span>
-                  <span className="text-ink-500" title={formatDateTime(x.on)}>
-                    {x.address ?? "unknown address"} · {timeAgo(x.on)}
+                  <span className="text-ink-500">
+                    from {x.address ?? "an unknown address"} ·{" "}
+                    <span title={formatDateTime(x.last)}>last {timeAgo(x.last)}</span>
+                    {x.count > 1 && (
+                      <>
+                        {" "}
+                        · <span title={formatDateTime(x.first)}>first {timeAgo(x.first)}</span>
+                      </>
+                    )}
                   </span>
                 </li>
               ))}
@@ -94,4 +107,24 @@ export function GatewayRejections({ gatewayId }: { gatewayId: number }) {
       )}
     </Panel>
   );
+}
+
+/**
+ * The most recent refusals, one row per reason and caller: a partner retrying with a wrong key
+ * is one problem, and twelve identical rows under a heading that already says 12 buried any
+ * second caller below them. Newest first.
+ */
+function groupRecent(recent: Rejections["recent"]) {
+  const groups = new Map<string, { reason: string; status: number; address: string | null; count: number; first: string; last: string }>();
+  for (const x of recent) {
+    const key = `${x.reason}|${x.status}|${x.address ?? ""}`;
+    const g = groups.get(key);
+    if (!g) groups.set(key, { reason: x.reason, status: x.status, address: x.address, count: 1, first: x.on, last: x.on });
+    else {
+      g.count++;
+      if (x.on < g.first) g.first = x.on;
+      if (x.on > g.last) g.last = x.on;
+    }
+  }
+  return [...groups.values()].sort((a, b) => (a.last < b.last ? 1 : a.last > b.last ? -1 : 0));
 }

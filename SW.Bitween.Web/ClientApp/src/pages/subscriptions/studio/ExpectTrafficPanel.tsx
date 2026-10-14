@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { ExpectTraffic } from "../../../api";
+import { ProblemText } from "../../../components/ui/basics";
 import { Panel } from "../../../components/ui/Panel";
 import { Checkbox, Field, TextInput } from "../../../components/ui/forms";
 
@@ -156,8 +157,8 @@ export function ExpectTrafficPanel({
                 </label>
               </div>
               {issues.window ? (
-                <p role="alert" className="text-[13px] text-danger-700">
-                  {issues.window}
+                <p role="alert">
+                  <ProblemText>{issues.window}</ProblemText>
                 </p>
               ) : (
                 <p className="text-[13px] text-ink-500">Leave From and To empty to watch all day.</p>

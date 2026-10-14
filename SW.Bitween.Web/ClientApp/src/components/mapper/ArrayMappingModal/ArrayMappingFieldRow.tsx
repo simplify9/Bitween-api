@@ -218,6 +218,8 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
         )}
 
         <button
+          aria-label="Remove this field"
+          title="Remove this field"
           className="flex-shrink-0 text-ink-300 hover:text-crimson-500 transition"
           onClick={onRemove}
         >

@@ -131,6 +131,8 @@ export const NormalLeaf: React.FC<NormalLeafProps> = ({
 
         {mapping && (
           <button
+            aria-label="Remove this mapping"
+            title="Remove this mapping"
             className="flex-shrink-0 text-ink-300 hover:text-crimson-500 transition"
             onClick={(e) => { e.stopPropagation(); removeMapping(); }}
           >

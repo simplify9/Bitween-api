@@ -68,7 +68,7 @@ export function RetryBudget({ subscriptionId, canEdit }: { subscriptionId: numbe
           )}
           <Link
             to={`/exchanges?subscriptionId=${subscriptionId}&status=failed`}
-            className="font-medium text-crimson-700 hover:underline"
+            className="font-medium link"
           >
             See failures
           </Link>

@@ -89,7 +89,7 @@ export function SubscriptionMultiFilter({
             <button
               type="button"
               onClick={() => onChange([])}
-              className="mb-1 block w-full rounded-md px-2 py-1 text-left text-[12.5px] font-medium text-crimson-700 hover:bg-crimson-50"
+              className="mb-1 block w-full rounded-md px-2 py-1 text-left text-[12.5px] font-medium text-ink-700 hover:bg-ink-100"
             >
               Clear {selectedNames.length} selected
             </button>

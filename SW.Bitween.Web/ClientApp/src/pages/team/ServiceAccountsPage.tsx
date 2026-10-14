@@ -12,6 +12,7 @@ import { Dialog } from "../../components/ui/overlays";
 import { timeAgo, timeUntil } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
 import { ServiceAccountDrawer } from "./ServiceAccountDrawer";
+import { usePageTitle } from "../../lib/pageTitle";
 
 export const SERVICE_ACCOUNTS_PATH = "/team/service-accounts";
 
@@ -23,6 +24,8 @@ export function ServiceAccountsPage() {
   const [adding, setAdding] = useState(false);
 
   const accounts = useQuery({ queryKey: keys.serviceAccounts.all, queryFn: () => api.listServiceAccounts() });
+  // The open account's drawer has its own address, so the breadcrumb names it.
+  usePageTitle(openId ? accounts.data?.find((a) => String(a.id) === openId)?.name : null);
 
   return (
     <div>

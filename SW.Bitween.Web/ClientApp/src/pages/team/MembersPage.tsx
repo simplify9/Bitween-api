@@ -15,6 +15,9 @@ import { keys } from "../../api/queryKeys";
 import { useSearchText } from "../../lib/useSearchText";
 import { statusBadge } from "./memberStatus";
 import { SearchBox } from "../../components/ui/SearchBox";
+import { CardList } from "../../components/ui/RowCard";
+import { usePhone } from "../../lib/useMediaQuery";
+import { usePageTitle } from "../../lib/pageTitle";
 
 const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "all", label: "All" },
@@ -33,6 +36,9 @@ export function MembersPage() {
 
   const users = useQuery({ queryKey: keys.users.list, queryFn: () => api.listUsers() });
   const roles = useQuery({ queryKey: keys.roles.list, queryFn: () => api.listRoles() });
+  const phone = usePhone();
+  // The open member's drawer has its own address, so the breadcrumb names them.
+  usePageTitle(openMemberId ? users.data?.find((u) => u.id === openMemberId)?.displayName : null);
 
   const setParam = (key: string, value: string | null) => {
     setSearchParams(
@@ -136,6 +142,33 @@ export function MembersPage() {
             ? "Try a different search or filter."
             : "Add the first person to your team."}
         </EmptyState>
+      ) : phone ? (
+        <CardList
+          rows={filtered}
+          rowKey={(u) => u.id}
+          label="Members"
+          onRowClick={openMember}
+          card={(user) => ({
+            title: (
+              <span className="flex items-center gap-2.5">
+                <Avatar name={user.displayName} dimmed={user.status === "disabled"} />
+                <span className={user.status === "disabled" ? "text-ink-500" : undefined}>{user.displayName}</span>
+              </span>
+            ),
+            status: statusBadge(user.status, user.lockedUntil),
+            technical: user.email,
+            subtitle: (
+              <span className="flex flex-wrap items-center gap-1">
+                {user.roleIds.map((rid) => (
+                  <Badge key={rid}>{roleName(rid)}</Badge>
+                ))}
+                <span className="text-[12px] text-ink-500">
+                  {user.lastActiveOn ? `signed in ${timeAgo(user.lastActiveOn)}` : "never signed in"}
+                </span>
+              </span>
+            ),
+          })}
+        />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
           <table className="w-full min-w-160 text-sm">

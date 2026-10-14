@@ -44,7 +44,7 @@ export function AggregationFields({
           <p className="flex h-9.5 items-center text-sm">
             <Link
               to={`/subscriptions/${source.id}`}
-              className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+              className="font-medium text-ink-800 hover:link"
             >
               {source.name}
             </Link>

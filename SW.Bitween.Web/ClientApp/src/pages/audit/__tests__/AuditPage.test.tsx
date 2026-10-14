@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { apiPath, renderApp } from "../../../__tests__/support/renderApp";
@@ -42,6 +42,30 @@ describe("the audit trail page", () => {
     await user.click(screen.getByRole("button", { name: "Clear filters" }));
     expect(router.state.location.pathname).toBe("/audit");
     expect(router.state.location.search).toBe("");
+  });
+
+  it("says what happened in people's words, and folds the scheduler's repeats", async () => {
+    const nextRun = (i: number) =>
+      auditRow({
+        entityName: "Subscription",
+        entityKey: "16",
+        correlationId: `tick-${i}`,
+        state: "Modified",
+        userId: "scheduled-job",
+        userDisplayName: null,
+        changes: { ReceiveOn: { old: null, new: `2026-09-20T1${i}:00:00Z` } },
+      });
+    const trail = auditTrail([nextRun(3), nextRun(2), nextRun(1), ...ROWS]);
+    const { user } = renderApp("/audit", { handlers: [trail.handler, members] });
+
+    const run = await screen.findByRole("row", { name: /Scheduler, 3 times/ });
+    expect(run).toHaveTextContent("Changed");
+    expect(run).toHaveTextContent("Next run");
+    expect(screen.getAllByRole("row", { name: /Created/ })).toHaveLength(ROWS.length);
+    expect(screen.queryByText("Added")).not.toBeInTheDocument();
+
+    await user.click(within(run).getByRole("button", { name: "Show each" }));
+    expect(screen.getAllByRole("row", { name: /Next run/ })).toHaveLength(4);
   });
 
   // Number("bad") is NaN, which used to go out on the wire as offset=NaN.

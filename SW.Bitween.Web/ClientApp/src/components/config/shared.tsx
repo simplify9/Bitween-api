@@ -14,14 +14,30 @@ import { Badge } from "../ui/basics";
 import { Popover } from "../ui/Popover";
 import { MiniTable } from "../ui/Table";
 import { formatDate, timeAgo } from "../../lib/dates";
-import { isBookkeeping, propertyLabel } from "../../lib/auditLabels";
-import { SUBSCRIPTION_TYPE_LABELS, isLegacyType, namesSomething } from "./subscriptionLabels";
+import { propertyLabel } from "../../lib/auditLabels";
+import {
+  ACTION_LABEL,
+  ACTION_TONE,
+  actorName,
+  collapseMachineRuns,
+  isRun,
+  summarizeChange,
+  type MachineRun,
+} from "../../lib/auditSummary";
+import { DIRECT_TRIGGER, SUBSCRIPTION_TYPE_LABELS, namesSomething } from "./subscriptionLabels";
 
+/**
+ * A subscription's type. The two direct types read "Direct" with a quiet note on how they
+ * are called, rather than the warning-yellow "Legacy" they used to carry beside a healthy
+ * row: nothing is wrong with them, they just have no gateway in front.
+ */
 export function TypeBadge({ type }: { type: SubscriptionType }) {
+  const how = DIRECT_TRIGGER[type];
+  if (!how) return <Badge>{SUBSCRIPTION_TYPE_LABELS[type]}</Badge>;
   return (
-    <span className="inline-flex items-center gap-1">
-      <Badge>{SUBSCRIPTION_TYPE_LABELS[type]}</Badge>
-      {isLegacyType(type) && <Badge tone="warn">Legacy</Badge>}
+    <span className="inline-flex items-center gap-1 whitespace-nowrap">
+      <Badge title="Runs when something calls it directly, not through a gateway or a schedule.">Direct</Badge>
+      <span className="text-[11px] text-ink-500">{how}</span>
     </span>
   );
 }
@@ -341,7 +357,7 @@ export function SetupList({ items }: { items: SubscriptionSetupRef[] }) {
           cell: (s) => (
             <Link
               to={`/subscriptions/${s.id}`}
-              className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+              className="block font-medium text-ink-800 hover:link"
             >
               {s.name}
             </Link>
@@ -445,7 +461,7 @@ export function LinkListCell({
         to={only.href}
         onClick={(e) => e.stopPropagation()}
         title={only.name}
-        className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+        className="block text-[13px] text-ink-700 hover:link"
       >
         {only.name}
       </Link>
@@ -501,7 +517,7 @@ export function UsedByCell({ items }: { items: SubscriptionInfo[] }) {
         key: s.id,
         name: s.name,
         href: `/subscriptions/${s.id}`,
-        note: <Badge>{SUBSCRIPTION_TYPE_LABELS[s.type]}</Badge>,
+        note: <TypeBadge type={s.type} />,
       }))}
     />
   );
@@ -517,25 +533,41 @@ const showValue = (v: unknown) =>
  * A created row is recorded as a full snapshot rather than a diff, so its list runs to every
  * column the entity has - unreadable as a cell. The values used to live in a `title`, which
  * only a mouse can reach; this is a real control, so it works from the keyboard and on touch.
+ *
+ * `subject` names the row itself, for a list that mixes rows of one kind: the settings history
+ * was eight lines of "Added, Value, System" that never said which setting.
  */
-export function ChangedCell({ changes: all, entity }: { changes: AuditChange[]; entity?: string }) {
+export function ChangedCell({
+  changes: all,
+  entity,
+  action = "Modified",
+  subject,
+}: {
+  changes: AuditChange[];
+  entity?: string;
+  action?: TrailEntry["action"];
+  subject?: string;
+}) {
   // Ids and timestamps the database keeps for itself are not what anyone changed: a new row used
-  // to read "Id, CreatedBy, CreatedOn +3 more".
-  const changes = all.filter((c) => !isBookkeeping(c.property));
-  if (changes.length === 0) return <span className="text-ink-500">-</span>;
+  // to read "Id, CreatedBy, CreatedOn +3 more". A creation also leaves out the columns left empty.
+  const { changes, shown, more } = summarizeChange(entity, action, all);
+  if (changes.length === 0 && !subject) return <span className="text-ink-500">-</span>;
+  if (changes.length === 0) return <span className="block text-[13px] font-medium text-ink-800">{subject}</span>;
 
   const label = (c: AuditChange) => propertyLabel(entity, c.property);
-  const shown = changes.slice(0, 3).map(label);
-  const rest = changes.length - shown.length;
+  // A setting is one value, so its name already says what changed; "Value" after it adds nothing.
+  const fields = subject && changes.every((c) => c.property === "Value") ? [] : shown;
 
   return (
     <Popover
-      label={`Show what changed: ${changes.map(label).join(", ")}`}
+      label={`Show what changed${subject ? ` in ${subject}` : ""}: ${changes.map(label).join(", ")}`}
       width="w-96"
       button={
         <span className="block text-left text-[13px] text-ink-600">
-          {shown.join(", ")}
-          {rest > 0 && <span className="text-ink-500"> +{rest} more</span>}
+          {subject && <span className="font-medium text-ink-800">{subject}</span>}
+          {subject && fields.length > 0 && ": "}
+          {fields.join(", ")}
+          {more > 0 && fields.length > 0 && <span className="text-ink-500"> +{more} more</span>}
         </span>
       }
     >
@@ -556,17 +588,36 @@ export function ChangedCell({ changes: all, entity }: { changes: AuditChange[]; 
   );
 }
 
-const ACTION_STYLE: Record<TrailEntry["action"], string> = {
-  Added: "bg-emerald-50 text-emerald-700",
-  Modified: "bg-amber-50 text-amber-700",
-  Deleted: "bg-rose-50 text-rose-700",
-};
-
 const ACTION_TITLE: Record<TrailEntry["action"], string> = {
   Added: "This row was created.",
   Modified: "Some of this row's fields were changed.",
   Deleted: "This row was deleted. The values shown are what it held.",
 };
+
+/** Created, Changed or Deleted, as a chip in the app's own tones. Shared with the audit trail page. */
+export function ActionBadge({ action }: { action: TrailEntry["action"] }) {
+  return (
+    <Badge tone={ACTION_TONE[action]} title={ACTION_TITLE[action]}>
+      {ACTION_LABEL[action]}
+    </Badge>
+  );
+}
+
+/** Who saved a change: a link to the member, or the machine's name in plain text. */
+function Actor({ entry }: { entry: TrailEntry }) {
+  return entry.byUserId ? (
+    <Link to={`/team/members/${entry.byUserId}`} className="block text-ink-600 hover:link">
+      {entry.by}
+    </Link>
+  ) : (
+    <span className="block text-ink-600" title="No signed-in user - a scheduled job or a bus consumer.">
+      {actorName(entry)}
+    </span>
+  );
+}
+
+/** One line of the table: an entry, a folded run of machine writes, or an entry shown from an opened run. */
+type TrailLine = { entry: TrailEntry; run?: MachineRun; inRun?: boolean };
 
 /**
  * Audit trail for an entity, newest first. Shared by every hub page that has one.
@@ -574,55 +625,89 @@ const ACTION_TITLE: Record<TrailEntry["action"], string> = {
  * Every column is derived from the change tracker rather than written by hand at each
  * call site, which is why deletions appear here at all - the trails this replaced only
  * ever recorded creates and updates.
+ *
+ * Back-to-back identical writes by a machine (the scheduler noting a job's next run) fold into
+ * one line with a count, opened on request; four of them used to fill half the card.
  */
-export function TrailTable({ entries }: { entries: TrailEntry[] }) {
+export function TrailTable({
+  entries,
+  subjectOf,
+}: {
+  entries: TrailEntry[];
+  /** Names the row each entry is about, where the list covers a whole kind (see `ChangedCell`). */
+  subjectOf?: (entry: TrailEntry) => string | undefined;
+}) {
+  const [opened, setOpened] = useState<string[]>([]);
+  const toggle = (id: string) =>
+    setOpened((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  const lines: TrailLine[] = collapseMachineRuns(entries).flatMap((row) =>
+    isRun(row)
+      ? [
+          { entry: row.entries[0], run: row },
+          ...(opened.includes(row.id) ? row.entries.map((entry) => ({ entry, inRun: true })) : []),
+        ]
+      : [{ entry: row }],
+  );
+
   return (
     <MiniTable
-      rows={entries}
-      rowKey={(e) => e.id}
+      rows={lines}
+      rowKey={(l) => (l.run ? `run:${l.run.id}` : l.entry.id)}
       empty="Nothing recorded yet."
       columns={[
         {
           header: "Action",
           headerTitle: "Whether the row was created, changed or deleted.",
-          cell: (e) => (
-            <span
-              title={ACTION_TITLE[e.action]}
-              className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${ACTION_STYLE[e.action]}`}
-            >
-              {e.action}
-            </span>
-          ),
+          // An entry shown from an opened run hangs off the run's line rather than repeating its chip.
+          cell: ({ entry, inRun }) =>
+            inRun ? (
+              <span aria-hidden className="ml-3 block h-4 border-l-2 border-ink-200" />
+            ) : (
+              <ActionBadge action={entry.action} />
+            ),
         },
         {
           header: "Changed",
           headerTitle: "The fields this change touched. Open one to see the values.",
           wrap: true,
-          cell: (e) => <ChangedCell changes={e.changes} entity={e.entityName} />,
+          cell: ({ entry }) => (
+            <ChangedCell
+              changes={entry.changes}
+              entity={entry.entityName}
+              action={entry.action}
+              subject={subjectOf?.(entry)}
+            />
+          ),
         },
         {
           header: "By",
           wrap: true,
-          cell: (e) =>
-            e.byUserId ? (
-              <Link
-                to={`/team/members/${e.byUserId}`}
-                className="block text-ink-600 hover:text-crimson-700 hover:underline"
-              >
-                {e.by}
-              </Link>
-            ) : (
-              <span className="block text-ink-600" title="No signed-in user - a scheduled job or a bus consumer.">
-                {e.by}
+          cell: ({ entry, run }) =>
+            run ? (
+              <span className="block text-ink-600">
+                {actorName(entry)}, {run.entries.length} times{" "}
+                <button
+                  type="button"
+                  onClick={() => toggle(run.id)}
+                  aria-expanded={opened.includes(run.id)}
+                  className="text-xs link"
+                >
+                  {opened.includes(run.id) ? "Hide" : "Show each"}
+                </button>
               </span>
+            ) : (
+              <Actor entry={entry} />
             ),
         },
         {
           header: "When",
           align: "right",
           className: "whitespace-nowrap",
-          cell: (e) => (
-            <span className="text-xs text-ink-500">{formatDate(e.on)}</span>
+          cell: ({ entry, run }) => (
+            <span className="text-xs text-ink-500" title={run ? formatDate(entry.on) : undefined}>
+              {run ? `last ${timeAgo(entry.on)}` : formatDate(entry.on)}
+            </span>
           ),
         },
       ]}
@@ -651,7 +736,7 @@ export function SubscriptionMiniList({
           cell: (s) => (
             <Link
               to={`/subscriptions/${s.id}`}
-              className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+              className="block font-medium text-ink-800 hover:link"
             >
               {s.name}
             </Link>
@@ -660,7 +745,7 @@ export function SubscriptionMiniList({
         {
           header: "Type",
           align: "right",
-          cell: (s) => <Badge>{SUBSCRIPTION_TYPE_LABELS[s.type]}</Badge>,
+          cell: (s) => <TypeBadge type={s.type} />,
         },
       ]}
     />

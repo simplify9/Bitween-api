@@ -96,6 +96,29 @@ export function PartnersPage() {
         title="Partners"
         description="The external parties you exchange data with - their connection properties and API keys."
         actions={createAction}
+        help={{
+          title: "What's on this page?",
+          body: (
+            <>
+              <p>
+                A partner's <strong>properties</strong> are named values adapters can reference, so a
+                subscription can run with that partner's own settings. The Properties column lists their
+                names; the values are on the partner's page.
+              </p>
+              <p>
+                Most subscriptions reach a partner through a gateway: an <strong>API gateway</strong>{" "}
+                attachment or a <strong>bus gateway</strong> route. <strong>Used by</strong> lists those
+                subscriptions. A partner's <strong>API keys</strong> are what it sends to an API gateway,
+                and the key decides which partner the call runs as.
+              </p>
+              <p>
+                <strong>Exchanges, 7 days</strong> counts the last week's exchanges with the share that
+                succeeded. <strong>Built-in</strong> partners are provided by the system and can't be
+                edited or deleted.
+              </p>
+            </>
+          ),
+        }}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -169,7 +192,7 @@ export function PartnersPage() {
               cell: (p) => <span className="tabular-nums text-ink-600">{p.credentialCount || "-"}</span>,
             },
             {
-              header: "7 days",
+              header: "Exchanges, 7 days",
               align: "right",
               headerTitle: "Exchanges with this partner over the last week, and the share that succeeded.",
               cell: (p) => {
@@ -180,7 +203,7 @@ export function PartnersPage() {
                     {compact(u.exchanges)}
                     <span className={u.successRate !== null && u.successRate < 99 ? " text-danger-700" : " text-ink-500"}>
                       {" "}
-                      · {percent(u.successRate)}
+                      · {percent(u.successRate)} OK
                     </span>
                   </span>
                 );

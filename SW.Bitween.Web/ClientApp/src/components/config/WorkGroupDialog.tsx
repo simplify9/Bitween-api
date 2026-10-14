@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
 import { useSessionCan } from "../../auth/useSessionCan";
-import { Button, FormError, LoadingBlock } from "../ui/basics";
+import { Button, FormError, LoadingBlock, ProblemText } from "../ui/basics";
 import { Field, TextInput } from "../ui/forms";
 import { ConfirmDialog, Dialog } from "../ui/overlays";
 import { suggestSlug } from "../../lib/identifiers";
@@ -134,13 +134,12 @@ export function WorkGroupFields({
 export function QueuedMessagesWarning({ groupId }: { groupId: number }) {
   const queued = useQueuedMessages(groupId);
   if (queued === 0) return null;
+  const caveat = "The exchanges behind them stay in Bitween and can be retried from Exchanges.";
+  if (queued === null) return <p>Any messages still in them are deleted too. {caveat}</p>;
   return (
-    <p className={queued === null ? undefined : "font-medium text-danger-700"}>
-      {queued === null
-        ? "Any messages still in them are deleted too."
-        : `${queued === 1 ? "1 message is" : `${queued} messages are`} still in them and will be deleted.`}{" "}
-      The exchanges behind them stay in Bitween and can be retried from Exchanges.
-    </p>
+    <ProblemText className="font-medium">
+      {queued === 1 ? "1 message is" : `${queued} messages are`} still in them and will be deleted. {caveat}
+    </ProblemText>
   );
 }
 

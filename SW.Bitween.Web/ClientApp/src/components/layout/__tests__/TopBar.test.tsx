@@ -75,6 +75,22 @@ describe("the top bar", () => {
     await waitFor(() => expect(document.title).toBe("Priority lane · Work groups · Bitween"));
   });
 
+  it("names the thing a crumb leads back to, not just its kind", async () => {
+    renderApp("/retry-policies/3/groups/new", {
+      handlers: [
+        ...handlers,
+        http.get(apiPath("/retrypolicies/3"), () =>
+          HttpResponse.json({ id: 3, name: "Patient partners", groups: [], createdOn: "2026-09-01T00:00:00Z", alertChannelId: null, subscriptions: [] }),
+        ),
+        http.get(apiPath("/notificationchannels"), () => HttpResponse.json([])),
+      ],
+    });
+
+    const crumbs = within(await screen.findByRole("navigation", { name: "Breadcrumb" }));
+    expect(await crumbs.findByRole("link", { name: "Patient partners" })).toHaveAttribute("href", "/retry-policies/3");
+    expect(crumbs.queryByText("Retry policy")).not.toBeInTheDocument();
+  });
+
   it("shows which environment this is, once one is named", async () => {
     renderApp("/work-groups", {
       handlers,

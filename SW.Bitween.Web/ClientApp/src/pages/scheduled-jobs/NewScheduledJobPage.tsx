@@ -17,6 +17,7 @@ import { adapterIncomplete, faceOf } from "../subscriptions/studio/faces";
 import { ResponseFields } from "../subscriptions/studio/ResponseFields";
 import type { Draft as StudioDraft } from "../subscriptions/studio/model";
 import { BackLink } from "../../components/ui/BackLink";
+import { FieldProblem, StillNeeds, useFormCheck } from "../../components/ui/formCheck";
 import { DataSourceBinding } from "../subscriptions/studio/DataSourceBinding";
 import { LaneAndRetry } from "../subscriptions/studio/LaneAndRetry";
 import { useBindsToDataSource } from "../data-sources/providers";
@@ -181,21 +182,82 @@ export function NewScheduledJobPage() {
 
   // Deliberately strict: a job created without a source, a schedule or a
   // delivery would sit in the list looking active and never do anything.
-  const unfilled = [
-    adapterIncomplete(receivers, draft.receiverId, draft.receiverProperties) && "source",
-    adapterIncomplete(mappers, draft.mapperId, draft.mapperProperties) && "transformation",
-    adapterIncomplete(handlers, draft.handlerId, draft.handlerProperties) && "delivery",
-  ].filter((m): m is string => typeof m === "string");
+  const incomplete = {
+    source: adapterIncomplete(receivers, draft.receiverId, draft.receiverProperties),
+    transformation: adapterIncomplete(mappers, draft.mapperId, draft.mapperProperties),
+    delivery: adapterIncomplete(handlers, draft.handlerId, draft.handlerProperties),
+  };
+  const unfilled = (Object.keys(incomplete) as (keyof typeof incomplete)[]).filter((k) => incomplete[k]);
+  // One phrase for every step with fields left, so the sentence names them together.
+  const unfilledNeeds = `the required fields on ${unfilled.join(" and ")}`;
+  /** A pipeline step's problem: opens the step, and the cursor goes to the line saying what's wrong. */
+  const inStage = (id: StageId) => ({ focus: `nj-${id}-problem`, reveal: () => setStage(id) });
 
-  const missing = [
-    draft.name.trim().length < 2 && "a name",
-    draft.informationTypeId === null && "an information type",
-    draft.receiverId === null && "a source",
-    draft.schedules.length === 0 && "a schedule",
-    draft.handlerId === null && "a delivery",
-    unfilled.length > 0 && `the required fields on ${unfilled.join(" and ")}`,
-    notificationsIncomplete(draft.notifications) && "a channel and an outcome on every notification",
-  ].filter((m): m is string => typeof m === "string");
+  const check = useFormCheck([
+    {
+      field: "name",
+      failing: draft.name.trim().length < 2,
+      needs: "a name",
+      message: draft.name.trim()
+        ? "A name needs at least two characters."
+        : "Give the job a name, e.g. Acme purchase-order intake.",
+      focus: "nj-name",
+    },
+    {
+      field: "type",
+      failing: draft.informationTypeId === null,
+      needs: "an information type",
+      message: "Pick the information type this job pulls in.",
+      focus: "nj-type",
+    },
+    {
+      field: "source",
+      failing: draft.receiverId === null,
+      needs: "a source",
+      message: "Pick where the job pulls documents from.",
+      ...inStage("source"),
+    },
+    {
+      field: "schedule",
+      failing: draft.schedules.length === 0,
+      needs: "a schedule",
+      message: "Add at least one schedule, or the job never runs.",
+      ...inStage("schedule"),
+    },
+    {
+      field: "delivery",
+      failing: draft.handlerId === null,
+      needs: "a delivery",
+      message: "Pick where the documents are delivered.",
+      ...inStage("delivery"),
+    },
+    ...unfilled.map((id) => ({
+      field: id,
+      failing: true,
+      needs: unfilledNeeds,
+      message: "Fill in the required fields below.",
+      ...inStage(id),
+    })),
+    {
+      field: "notifications",
+      failing: notificationsIncomplete(draft.notifications),
+      needs: "a channel and an outcome on every notification",
+      message: "Give every notification a channel and at least one outcome.",
+      focus: "nj-notifications-problem",
+    },
+  ]);
+
+  /** The step's problem, once Create has been pressed, at the top of its panel. */
+  const stageProblem = (id: StageId) => {
+    const message = check.errors[id as keyof typeof check.errors];
+    return (
+      message && (
+        <div className="mb-3">
+          <FieldProblem id={`nj-${id}-problem`}>{message}</FieldProblem>
+        </div>
+      )
+    );
+  };
 
   const renderStage = (stageId: StageId) => {
     const { label, description } = STAGES[stageId];
@@ -203,6 +265,7 @@ export function NewScheduledJobPage() {
       case "source":
         return (
           <Panel title={label} description={description}>
+            {stageProblem("source")}
             <AdapterConfig
               kind="receiver"
               adapterId={draft.receiverId}
@@ -232,6 +295,7 @@ export function NewScheduledJobPage() {
       case "schedule":
         return (
           <Panel title={label} description={description}>
+            {stageProblem("schedule")}
             <ScheduleEditor
               schedules={draft.schedules}
               onChange={(schedules) => update({ schedules })}
@@ -242,6 +306,7 @@ export function NewScheduledJobPage() {
       case "transformation":
         return (
           <Panel title={label} description={description}>
+            {stageProblem("transformation")}
             <AdapterConfig
               kind="mapper"
               adapterId={draft.mapperId}
@@ -288,6 +353,7 @@ export function NewScheduledJobPage() {
       case "delivery":
         return (
           <Panel title={label} description={description}>
+            {stageProblem("delivery")}
             <AdapterConfig
               kind="handler"
               adapterId={draft.handlerId}
@@ -330,7 +396,7 @@ export function NewScheduledJobPage() {
 
       <div className="mb-5 flex flex-wrap gap-5">
         <div className="w-80">
-          <Field label="Name" htmlFor="nj-name">
+          <Field label="Name" htmlFor="nj-name" error={check.errors.name}>
             <TextInput
               id="nj-name"
               value={draft.name}
@@ -341,7 +407,7 @@ export function NewScheduledJobPage() {
           </Field>
         </div>
         <div className="w-80">
-          <Field label="Carries" htmlFor="nj-type" hint="The information type this job pulls in.">
+          <Field label="Carries" htmlFor="nj-type" hint="The information type this job pulls in." error={check.errors.type}>
             <InfoTypePicker
               id="nj-type"
               value={draft.informationTypeId}
@@ -383,6 +449,11 @@ export function NewScheduledJobPage() {
       )}
 
       <div className="mt-5">
+        {check.errors.notifications && (
+          <div className="mb-2">
+            <FieldProblem id="nj-notifications-problem">{check.errors.notifications}</FieldProblem>
+          </div>
+        )}
         <NotificationsPanel
           value={draft.notifications}
           onChange={(notifications) => update({ notifications })}
@@ -400,20 +471,9 @@ export function NewScheduledJobPage() {
           onChange={(e) => update({ enable: e.target.checked })}
         />
         <div className="flex items-center gap-3">
-          {missing.length > 0 && (
-            <p className="text-[13px] text-ink-500">
-              Still needs {missing.slice(0, -1).join(", ")}
-              {missing.length > 1 ? " and " : ""}
-              {missing.at(-1)}.
-            </p>
-          )}
+          <StillNeeds missing={check.missing} />
           <Button onClick={() => navigate("/scheduled-jobs", { replace: true })}>Cancel</Button>
-          <Button
-            variant="primary"
-            busy={create.isPending}
-            disabled={missing.length > 0}
-            onClick={() => create.mutate()}
-          >
+          <Button variant="primary" busy={create.isPending} onClick={() => check.submit(() => create.mutate())}>
             Create job
           </Button>
         </div>

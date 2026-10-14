@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { compact } from "../../lib/numbers";
-import { niceMax } from "./scale";
+import { handMoved, niceMax } from "./scale";
 
 export interface BarSeries {
   key: string;
@@ -84,7 +84,10 @@ export function TimeBars({
             <div
               key={p.at}
               className="relative flex h-full min-w-0 flex-1 flex-col items-center justify-end"
-              onPointerEnter={() => setHover(i)}
+              // A move, not an enter: entering is also what the browser reports when the chart
+              // is drawn under a resting mouse.
+              onPointerMove={(e) => hover !== i && handMoved(e) && setHover(i)}
+              onPointerDown={() => setHover(i)}
             >
               {hover === i && (
                 <div

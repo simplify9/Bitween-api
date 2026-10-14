@@ -108,7 +108,7 @@ export function SourceDialog({
         {available.length === 0 && (
           <InlineNotice>
             No broker data sources exist yet, so there is nothing to point at.{" "}
-            <Link to="/data-sources/new" className="font-medium text-crimson-700 hover:underline">
+            <Link to="/data-sources/new" className="font-medium link">
               Add one first
             </Link>
             .
@@ -135,7 +135,7 @@ export function SourceDialog({
                 <ConnectionBadge state={selected.lastKnownState} failures={selected.consecutiveFailures} />
                 <Link
                   to={`/data-sources/${selected.id}`}
-                  className="text-[12px] text-crimson-700 hover:underline"
+                  className="text-[12px] link"
                 >
                   open
                 </Link>

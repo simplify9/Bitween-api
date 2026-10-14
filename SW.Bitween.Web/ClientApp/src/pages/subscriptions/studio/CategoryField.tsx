@@ -38,7 +38,7 @@ export function CategoryField({
         <button
           type="button"
           onClick={() => setCreating(true)}
-          className="mt-1 text-[12px] font-medium text-crimson-700 hover:underline"
+          className="mt-1 text-[12px] font-medium link"
         >
           + New
         </button>

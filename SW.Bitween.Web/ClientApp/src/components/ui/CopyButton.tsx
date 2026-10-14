@@ -21,7 +21,9 @@ export function CopyButton({
         setTimeout(() => setCopied(false), 1400);
       }}
       title={`Copy ${label}`}
-      className={className}
+      aria-label={copied ? "Copied" : `Copy ${label}`}
+      // `relative` for the touch-sized hit area; every caller's own classes leave it in flow.
+      className={`touch-target relative ${className}`}
     >
       {copied ? <Check className="size-3.5 text-ok-600" /> : <Copy className="size-3.5" />}
     </button>

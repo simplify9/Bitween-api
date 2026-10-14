@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DownloadCloud, FileStack, Pause, Play, Power, PowerOff, Trash2, X } from "lucide-react";
+import { DownloadCloud, FileStack, Play, Trash2, X } from "lucide-react";
 import { api } from "../../api";
-import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
-import { Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, FormError, LoadError, LoadingBlock, ProblemText } from "../../components/ui/basics";
 import { isNotFound } from "../../components/ui/isNotFound";
 import { ConfirmDialog } from "../../components/ui/overlays";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu, RunStateControl, type RunStateOption } from "../../components/layout/HeaderActions";
 import { dialogsOpen } from "../../components/ui/dialogStack";
 import { CodeBadge, EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { AdapterConfig } from "../../components/config/AdapterConfig";
@@ -40,6 +41,24 @@ import { SUBSCRIPTION_PAGE, SUBSCRIPTION_PAGES, subscriptionPath } from "../../l
 import { PAGES, pathOf } from "../../pages";
 import { usePageTitle } from "../../lib/pageTitle";
 
+type RunState = "running" | "paused" | "off";
+
+// Paused and Off as the server treats them: a paused subscription is still matched and its
+// exchanges are kept on hold; a disabled one is neither matched nor scheduled.
+const runStates: RunStateOption<RunState>[] = [
+  { value: "running", label: "Running", caption: "Running: accepts work and delivers it." },
+  {
+    value: "paused",
+    label: "Paused",
+    caption: "Paused: keeps accepting work and holds every exchange until you resume.",
+  },
+  {
+    value: "off",
+    label: "Off",
+    caption: "Off: not matched or scheduled. Work that arrives meanwhile is not kept.",
+  },
+];
+
 /**
  * Keyed by id. Going from one subscription's page straight to another's - down a response
  * chain, say - keeps the same route mounted, and without a key the draft of the one you left
@@ -58,6 +77,8 @@ function SubscriptionStudio() {
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("subscriptions.edit");
   const canOperate = useSessionCan("subscriptions.operate");
+  const canCreate = useSessionCan("subscriptions.create");
+  const canDelete = useSessionCan("subscriptions.delete");
   const [params, setParams] = useSearchParams();
 
   const subscription = useQuery({
@@ -101,11 +122,10 @@ function SubscriptionStudio() {
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [confirmingPause, setConfirmingPause] = useState(false);
   // The state being asked for, not a flag: the dialog then confirms and writes the
-  // action the operator actually opened it for, rather than re-deriving it from a
+  // move the operator actually opened it for, rather than re-deriving it from a
   // `s.enabled` that a refetch could have flipped underneath the open dialog.
-  const [enabling, setEnabling] = useState<boolean | null>(null);
+  const [moving, setMoving] = useState<RunState | null>(null);
   const [confirmingReceive, setConfirmingReceive] = useState(false);
   const [confirmingAggregate, setConfirmingAggregate] = useState(false);
   /** The response subscription asked to be opened while this page had unsaved changes. */
@@ -261,7 +281,7 @@ function SubscriptionStudio() {
   if (subscription.isError)
     return (
       <EmptyState title="This subscription no longer exists">
-        <Link to="/subscriptions" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/subscriptions" className="font-medium link">
           Back to subscriptions
         </Link>
       </EmptyState>
@@ -279,6 +299,9 @@ function SubscriptionStudio() {
   const aggregationSource =
     allSubscriptions.data?.find((x) => x.id === s.aggregationForId) ?? null;
   const paused = s.pausedOn !== null;
+  // Off wins over Paused: a disabled subscription is not matched at all, so whether
+  // it would hold work is moot until it is turned back on.
+  const runState: RunState = !s.enabled ? "off" : paused ? "paused" : "running";
   // A response subscription has no gateway of its own; what feeds it is the subscriptions
   // that hand it their response.
   const entryPoints = isResponse ? feedersOf(s.id, allSubscriptions.data) : entryPointsOf(s);
@@ -298,9 +321,13 @@ function SubscriptionStudio() {
       { replace: true },
     );
 
-  const triggerEmpty = isApiCall
-    ? "Invoked directly by id (legacy) - nothing to configure here."
-    : "Not wired into any gateway yet - it never runs.";
+  // A direct subscription with no gateway is normal: something calls it by id. Only a
+  // gateway type with nothing in front of it is a real fault, so only that reads as one.
+  const triggerEmpty = isApiCall ? (
+    "Called directly by id, so there is nothing to configure here."
+  ) : (
+    <ProblemText plain>Not wired into any gateway yet, so nothing runs it.</ProblemText>
+  );
 
   const saved = draftOf(s);
   const health = scheduleHealth.data?.find((h) => h.subscriptionId === s.id);
@@ -354,6 +381,14 @@ function SubscriptionStudio() {
               />
             ) : (
               <EntryPointsTable rows={entryPoints} empty={triggerEmpty} />
+            )}
+            {/* Said once, quietly, where the trigger is edited: the history behind the type,
+                not a warning about it. */}
+            {(isInternal || isApiCall) && (
+              <p className="mt-3 text-[12.5px] text-ink-500">
+                A direct subscription. This type predates gateways and keeps working as it is; new
+                subscriptions are fed through a gateway or a scheduled job instead.
+              </p>
             )}
           </Panel>
         );
@@ -594,7 +629,7 @@ function SubscriptionStudio() {
               placeholder="Subscription name"
             />
             <TypeBadge type={s.type} />
-            {/* Status is reported here and changed from the buttons on the right.
+            {/* Status is reported here and changed from the running-state control on the right.
                 It used to be a clickable chip, indistinguishable from the Paused
                 badge beside it, that only edited the draft - so the lossy switch
                 saved later and quietly, while Pause, which keeps the work, asked
@@ -615,7 +650,7 @@ function SubscriptionStudio() {
                   {entryPoints.map((e, i) => (
                     <span key={e.key}>
                       {i > 0 && (i === entryPoints.length - 1 ? " and " : ", ")}
-                      <Link to={e.href} className="font-medium text-ink-700 hover:text-crimson-700 hover:underline">
+                      <Link to={e.href} className="font-medium text-ink-700 hover:link">
                         {e.name}
                       </Link>
                     </span>
@@ -654,50 +689,39 @@ function SubscriptionStudio() {
                 <Play className="size-4" /> Roll up now
               </Button>
             )}
-            {/* Creating the aggregation from here rather than from a type picker: the
-                thing being rolled up is the page you are standing on, so it can never
-                be the wrong one. Not offered on an aggregation - roll-ups of roll-ups
-                are not a shape anyone has asked for, and the picker refuses them too. */}
-            {!isAggregation && (
-              <Can permission="subscriptions.create">
-                <Button
-                  onClick={() => navigate(`/aggregations/new?source=${s.id}`)}
-                  title="Create an aggregation that collects this subscription's exchanges on a schedule into one summary exchange."
-                >
-                  <FileStack className="size-4" /> Roll these up
-                </Button>
-              </Can>
-            )}
-            {canOperate && (
-              <Button
-                onClick={() => setConfirmingPause(true)}
-                title={paused ? "Release held work and resume." : "Keep accepting work but hold it for later release."}
-              >
-                {paused ? <Play className="size-4" /> : <Pause className="size-4" />}
-                {paused ? "Resume" : "Pause"}
-              </Button>
-            )}
-            {/* Beside Pause, because the two questions an operator actually has
-                are the same shape - stop it, or hold it - and the answer differs
-                only in whether the work survives. */}
-            {canEdit && (
-              <Button
-                onClick={() => setEnabling(!s.enabled)}
-                title={
-                  s.enabled
-                    ? "Stop it running at all. Work that arrives while it is off is not kept - pause instead to hold it."
-                    : "Let it match and run again."
-                }
-              >
-                {s.enabled ? <PowerOff className="size-4" /> : <Power className="size-4" />}
-                {s.enabled ? "Disable" : "Enable"}
-              </Button>
-            )}
-            <Can permission="subscriptions.delete">
-              <Button variant="danger" onClick={() => setDeleting(true)}>
-                <Trash2 className="size-4" /> Delete
-              </Button>
-            </Can>
+            {/* Pause and Disable as one control: the two questions an operator has
+                are the same shape - stop it, or hold it - and the answer differs only
+                in whether the work survives, which the caption says for the state it
+                is in. Shown read-only to a session that can change neither. */}
+            <RunStateControl
+              label="Running state"
+              options={runStates}
+              value={runState}
+              onChange={setMoving}
+              disabled={!canOperate && !canEdit}
+            />
+            <MoreActionsMenu
+              actions={[
+                // Creating the aggregation from here rather than from a type picker: the
+                // thing being rolled up is the page you are standing on, so it can never
+                // be the wrong one. Not offered on an aggregation - roll-ups of roll-ups
+                // are not a shape anyone has asked for, and the picker refuses them too.
+                {
+                  label: "Create an aggregation of this",
+                  icon: <FileStack className="size-4" />,
+                  title: "Create an aggregation that collects this subscription's exchanges on a schedule into one summary exchange.",
+                  onSelect: () => navigate(`/aggregations/new?source=${s.id}`),
+                  hidden: isAggregation || !canCreate,
+                },
+                {
+                  label: "Delete",
+                  icon: <Trash2 className="size-4" />,
+                  danger: true,
+                  onSelect: () => setDeleting(true),
+                  hidden: !canDelete,
+                },
+              ]}
+            />
           </div>
           <FormError>{receive.error?.message ?? aggregate.error?.message}</FormError>
         </div>
@@ -762,42 +786,58 @@ function SubscriptionStudio() {
         />
       )}
 
-      {confirmingPause && (
+      {/* Within the enabled states, moving is the pause toggle alone. */}
+      {moving !== null && moving !== "off" && runState !== "off" && (
         <ConfirmDialog
-          title={paused ? "Resume this subscription?" : "Pause this subscription?"}
+          title={moving === "running" ? "Resume this subscription?" : "Pause this subscription?"}
           body={
-            paused
+            moving === "running"
               ? `${s.name} releases its held exchanges and starts processing again.`
               : `${s.name} keeps accepting work but holds every exchange until you resume it.`
           }
-          confirmLabel={paused ? "Resume" : "Pause"}
+          confirmLabel={moving === "running" ? "Resume" : "Pause"}
+          confirmDisabled={!canOperate}
           onConfirm={async () => {
             await pause.mutateAsync();
           }}
-          onClose={() => setConfirmingPause(false)}
+          onClose={() => setMoving(null)}
         />
       )}
 
-      {enabling !== null && (
+      {/* Into or out of Off is the enabled switch, with the pause toggled alongside
+          when the state asked for needs it: Off to Running releases anything still
+          held from before, Off to Paused holds first so nothing slips through between
+          the two writes. */}
+      {moving !== null && (moving === "off" || runState === "off") && (
         <ConfirmDialog
-          title={enabling ? "Enable this subscription?" : "Disable this subscription?"}
+          title={moving === "off" ? "Turn this subscription off?" : moving === "paused" ? "Turn this subscription on, paused?" : "Turn this subscription on?"}
           body={
-            enabling ? (
-              `${s.name} starts being matched and scheduled again.`
-            ) : (
+            moving === "off" ? (
               <>
                 <strong className="font-medium text-ink-800">{s.name}</strong> stops being matched
                 and stops being scheduled. Anything that arrives for it while it is off is{" "}
                 <strong className="font-medium text-ink-800">not kept</strong> - pause it instead to
                 hold that work and release it later.
               </>
+            ) : moving === "paused" ? (
+              `${s.name} starts being matched and scheduled again, and holds every exchange until you resume it.`
+            ) : (
+              `${s.name} starts being matched and scheduled again.`
             )
           }
-          confirmLabel={enabling ? "Enable" : "Disable"}
+          confirmLabel={moving === "off" ? "Turn off" : "Turn on"}
+          // Paused on either side of the switch also takes the pause toggle.
+          confirmDisabled={!canEdit || (moving !== "off" && paused !== (moving === "paused") && !canOperate)}
           onConfirm={async () => {
-            await setEnabled.mutateAsync(enabling);
+            if (moving === "off") {
+              await setEnabled.mutateAsync(false);
+              return;
+            }
+            if (moving === "paused" && !paused) await pause.mutateAsync();
+            await setEnabled.mutateAsync(true);
+            if (moving === "running" && paused) await pause.mutateAsync();
           }}
-          onClose={() => setEnabling(null)}
+          onClose={() => setMoving(null)}
         />
       )}
 
@@ -848,8 +888,17 @@ function SubscriptionStudio() {
       )}
 
       {deleting && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this subscription?"
+          name={s.name}
+          // What the server refuses the delete over, as far as this page can see it. Aggregations
+          // rolling it up are refused too, but the list data does not say which source each has;
+          // the server's answer names them.
+          blockers={[
+            isResponse
+              ? counted(entryPoints.length, "subscription handing it its response", "subscriptions handing it their response")
+              : counted(entryPoints.length, "gateway route or attachment", "gateway routes and attachments"),
+          ]}
           body={
             <>
               <strong className="font-medium text-ink-800">{s.name}</strong> and its configuration

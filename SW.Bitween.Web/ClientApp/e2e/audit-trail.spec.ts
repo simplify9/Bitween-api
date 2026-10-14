@@ -8,6 +8,7 @@ import {
   removeMember,
   signIn,
   signInAsAdmin,
+  moreAction,
   signOut,
   sessionToken,
 } from "./helpers";
@@ -66,7 +67,8 @@ test.describe("audit trail", () => {
     // - the create shows on the partner's own page -
     const panel = historyPanel(page);
     await expect(panel).toBeVisible();
-    await expect(panel.getByRole("row").filter({ hasText: "Added" })).toBeVisible();
+    // "Created", not the change tracker's "Added", and named by what was filled in.
+    await expect(panel.getByRole("row").filter({ hasText: "Created" }).filter({ hasText: "Name" })).toBeVisible();
 
     // - renaming records both sides of the change -
     await page.getByRole("textbox", { name: "Name", exact: true }).fill(renamed);
@@ -75,7 +77,7 @@ test.describe("audit trail", () => {
 
     // Deliberately no reload: the card sits on the same page as the form that just wrote to it,
     // so it has to catch up on its own. It used to need a manual refresh.
-    await expect(panel.getByRole("row").filter({ hasText: "Modified" })).toBeVisible();
+    await expect(panel.getByRole("row").filter({ hasText: "Changed" })).toBeVisible();
 
     // The before/after values are reachable without a mouse - they used to be in a title,
     // which keyboard and touch users can't get at.
@@ -89,8 +91,8 @@ test.describe("audit trail", () => {
     expect(modified?.changes.Name).toEqual({ old: name, new: renamed });
 
     // - the deletion is recorded, which the trails this replaced never did -
-    await page.getByRole("button", { name: "Delete partner" }).first().click();
-    await page.getByRole("button", { name: "Delete partner" }).last().click();
+    await moreAction(page, "Delete");
+    await page.getByRole("button", { name: "Delete partner" }).click();
     await expect(page).toHaveURL(/\/partners$/);
 
     const afterDelete = await audit(page, `entityName=Partner&entityKey=${id}`);

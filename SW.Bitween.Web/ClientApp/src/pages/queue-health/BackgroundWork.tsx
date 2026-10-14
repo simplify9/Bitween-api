@@ -61,7 +61,7 @@ export function BackgroundWorkPanel() {
         </p>
         {outbox.lastError && (
           <p className="mt-1 text-[12px] text-danger-700">
-            <ExceptionLine text={outbox.lastError} />
+            <ExceptionLine text={outbox.lastError} icon />
           </p>
         )}
       </div>

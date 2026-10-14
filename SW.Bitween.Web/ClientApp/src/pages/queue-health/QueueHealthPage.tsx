@@ -12,7 +12,7 @@ import {
   type UnattendedQueue,
 } from "../../api";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadingBlock, ProblemText } from "../../components/ui/basics";
 import { queueHealthTitle } from "../../components/config/subscriptionLabels";
 import { Panel } from "../../components/ui/Panel";
 import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
@@ -22,6 +22,8 @@ import { keys } from "../../api/queryKeys";
 import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
 import { ExceptionBlock } from "../../components/ui/Exception";
 import { BackgroundWorkPanel } from "./BackgroundWork";
+import { CardList, type RowCardSpec } from "../../components/ui/RowCard";
+import { usePhone } from "../../lib/useMediaQuery";
 
 const POLL_MS = 5_000;
 
@@ -87,6 +89,53 @@ function HealthBadge({ health }: { health: QueueSeverity }) {
   return <Badge tone="ok" title={queueHealthTitle("healthy")}>Healthy</Badge>;
 }
 
+function LaneName({ c }: { c: ConsumerHealth }) {
+  const to = linkFor(c);
+  return to !== null ? (
+    <Link to={to} className="font-medium text-ink-800 hover:link">
+      {c.title}
+    </Link>
+  ) : (
+    <span className="font-medium text-ink-800">{c.title}</span>
+  );
+}
+
+function LaneBadges({ c }: { c: ConsumerHealth }) {
+  return (
+    <>
+      <HealthBadge health={c.health} />
+      {c.isBackpressured && (
+        <Badge
+          tone="warn"
+          title="Queue depth has passed its configured threshold - messages are arriving faster than they're being consumed."
+        >
+          Backpressure
+        </Badge>
+      )}
+    </>
+  );
+}
+
+/**
+ * A lane as a card on a phone. Twelve columns at 390px squeezed every queue name one syllable
+ * to a line; a card gives the name the whole width and keeps the counts people check when paged:
+ * how much is waiting, running, retrying and dead.
+ */
+const laneCard = (c: ConsumerHealth): RowCardSpec => ({
+  title: <LaneName c={c} />,
+  status: <LaneBadges c={c} />,
+  subtitle: roleOf(c),
+  technical: c.queueName,
+  facts: [
+    { label: "Queued", value: c.queueCount },
+    { label: "In flight", value: c.processingCount },
+    { label: "Retrying", value: c.retryCount, tone: c.retryCount > 0 ? "warn" : undefined },
+    { label: "Dead", value: c.failedCount, tone: c.failedCount > 0 ? "danger" : undefined },
+    { label: "Nodes", value: c.totalNodes, tone: "muted" },
+    { label: "Prefetch", value: c.prefetch, tone: "muted" },
+  ],
+});
+
 function StatTile({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
     <div className="rounded-xl border border-ink-200 bg-white px-4 py-3">
@@ -104,6 +153,7 @@ function StatTile({ label, value, sub }: { label: string; value: ReactNode; sub?
  */
 export function QueueHealthPage() {
   const rabbitMqConfigured = useRabbitMqManagementConfigured();
+  const phone = usePhone();
   const { data, isLoading, isError, dataUpdatedAt } = useQuery({
     queryKey: keys.queueHealth,
     queryFn: () => api.getQueueHealth(),
@@ -157,6 +207,31 @@ export function QueueHealthPage() {
       <PageHeader
         title="Queue health"
         description="Live throughput and backlog for every queue this instance consumes."
+        help={{
+          title: "What this page shows",
+          body: (
+            <>
+              <p>
+                Live figures from RabbitMQ, refreshed every few seconds. Queues are grouped into{" "}
+                <strong>lanes</strong> in the order a message travels: a <strong>front door</strong> per
+                information type on the bus turns arriving messages into exchanges, a{" "}
+                <strong>work</strong> lane per work group runs the subscriptions, and a{" "}
+                <strong>notifications</strong> lane per work group checks notifiers against the results.
+              </p>
+              <p>
+                <strong>Queued</strong> is waiting, <strong>In flight</strong> is being processed,{" "}
+                <strong>Retrying</strong> is waiting for another attempt, and <strong>Dead</strong> has used
+                up its retries. <strong>Backpressure</strong> means a queue's depth has passed its configured
+                threshold.
+              </p>
+              <p>
+                <strong>Nobody is reading these</strong>, when it appears, lists queues RabbitMQ still has
+                that nothing here consumes, such as ones left behind when a work group was deleted or
+                renamed. They show up nowhere else on the page.
+              </p>
+            </>
+          ),
+        }}
         actions={
           <span className="flex items-center gap-1.5 text-[13px] text-ink-500">
             <span className="inline-block size-1.5 animate-pulse rounded-full bg-ok-600" aria-hidden />
@@ -189,7 +264,9 @@ export function QueueHealthPage() {
           value={summary.totalDeadLetterBacklog}
           sub={
             summary.totalDeadLetterBacklog > 0 ? (
-              <span className="font-medium text-danger-700">need attention</span>
+              <ProblemText plain className="font-medium">
+                need attention
+              </ProblemText>
             ) : (
               "empty"
             )
@@ -230,6 +307,18 @@ export function QueueHealthPage() {
         description="Every queue this instance consumes, grouped by what it is for."
         className="mb-4"
       >
+        {phone ? (
+          <div className="-mx-1 space-y-3">
+            {LANE_ORDER.filter((lane) => byLane.get(lane)?.length).map((lane) => (
+              <section key={lane} aria-label={LANES[lane].label}>
+                <h3 className="rounded-md bg-ink-50/60 px-2 py-1.5 text-[11px] font-semibold tracking-wide text-ink-500 uppercase">
+                  {LANES[lane].label}
+                </h3>
+                <CardList bare rows={byLane.get(lane)!} rowKey={(c) => c.queueName} card={laneCard} />
+              </section>
+            ))}
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
@@ -265,16 +354,7 @@ export function QueueHealthPage() {
                   // repeats across every work-group lane.
                   <tr key={c.queueName} className="border-b border-ink-50 last:border-0">
                     <td className="py-2 pr-2">
-                      {linkFor(c) !== null ? (
-                        <Link
-                          to={linkFor(c)!}
-                          className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-                        >
-                          {c.title}
-                        </Link>
-                      ) : (
-                        <span className="font-medium text-ink-800">{c.title}</span>
-                      )}
+                      <LaneName c={c} />
                       <span className="block text-xs text-ink-500">{roleOf(c)}</span>
                     </td>
                     <td className="px-2 py-2">
@@ -295,15 +375,7 @@ export function QueueHealthPage() {
                     <td className="px-2 py-2 text-right text-ink-700">{c.ackRate}</td>
                     <td className="px-2 py-2">
                       <span className="inline-flex items-center gap-1">
-                        <HealthBadge health={c.health} />
-                        {c.isBackpressured && (
-                          <Badge
-                            tone="warn"
-                            title="Queue depth has passed its configured threshold - messages are arriving faster than they're being consumed."
-                          >
-                            Backpressure
-                          </Badge>
-                        )}
+                        <LaneBadges c={c} />
                       </span>
                     </td>
                   </tr>
@@ -312,6 +384,7 @@ export function QueueHealthPage() {
             </tbody>
           </table>
         </div>
+        )}
       </Panel>
 
       {/* - queues nothing declares - */}
@@ -560,10 +633,10 @@ function UnattendedPanel({ unattended }: { unattended: UnattendedQueue[] }) {
                 will be deleted from RabbitMQ.
               </p>
               {selectedMessages > 0 ? (
-                <p className="font-medium text-danger-700">
+                <ProblemText className="font-medium">
                   {selectedMessages === 1 ? "They still hold 1 message" : `They still hold ${selectedMessages} messages`} (
                   {messageBreakdown(totals)}), which will be deleted with them.
-                </p>
+                </ProblemText>
               ) : (
                 <p>{selected.length === 1 ? "They're empty." : "They're all empty."}</p>
               )}
@@ -674,8 +747,8 @@ function DeadLetterMessages({ row, onClose }: { row: DeadLetterRow; onClose: () 
       {messages.isPending ? (
         <LoadingBlock label="Reading the queue…" />
       ) : messages.isError ? (
-        <p role="alert" className="text-[13px] text-danger-700">
-          {messages.error.message}
+        <p role="alert">
+          <ProblemText>{messages.error.message}</ProblemText>
         </p>
       ) : messages.data.length === 0 ? (
         <EmptyState title="Empty">Nothing is waiting in this queue now.</EmptyState>

@@ -8,8 +8,7 @@ import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
-import { SearchSelect } from "../../components/ui/SearchSelect";
-import { Select } from "../../components/ui/forms";
+import { FilterSelect, SearchSelect } from "../../components/ui/SearchSelect";
 import { Table } from "../../components/ui/Table";
 import { keys } from "../../api/queryKeys";
 import { ExceptionLine } from "../../components/ui/Exception";
@@ -139,7 +138,8 @@ export function SubscriptionsPage() {
             <>
               <p>
                 A subscription is one <strong>pipeline</strong>: it receives a document, optionally
-                maps it, and hands it on. Every type is listed here, including legacy ones.
+                maps it, and hands it on. Every type is listed here, including the direct ones
+                that something calls by id or by sending a document, with no gateway in front.
               </p>
               <p>
                 The <strong>entry points</strong> live on their own pages - API gateways (partners
@@ -162,7 +162,7 @@ export function SubscriptionsPage() {
           description={HEALTH[healthFilter].explain}
           className="mb-4"
           action={
-            <button type="button" onClick={() => setParam("health", null)} className="text-[13px] font-medium text-crimson-700 hover:underline">
+            <button type="button" onClick={() => setParam("health", null)} className="text-[13px] font-medium link">
               Show all
             </button>
           }
@@ -175,7 +175,7 @@ export function SubscriptionsPage() {
                 .filter((h) => h.status === healthFilter)
                 .map((h) => (
                   <li key={h.subscriptionId} className="flex items-center gap-2.5 text-sm">
-                    <Link to={subscriptionPath(h.subscriptionId)} className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:text-crimson-700 hover:underline">
+                    <Link to={subscriptionPath(h.subscriptionId)} className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:link">
                       {h.name}
                     </Link>
                     <span className="text-xs text-ink-500">
@@ -244,11 +244,10 @@ export function SubscriptionsPage() {
           onChange={(v) => setParam("categoryId", v || null)}
           options={categories.map((c) => ({ value: String(c.id), label: c.code }))}
         />
-        <Select
+        <FilterSelect
           aria-label="Filter by status"
-          className="!h-8 text-[13px]"
           value={inactiveParam ?? ""}
-          onChange={(e) => setParam("inactive", e.target.value || null)}
+          onChange={(v) => setParam("inactive", v || null)}
           options={STATUS_OPTIONS}
         />
       </div>
@@ -288,6 +287,34 @@ export function SubscriptionsPage() {
           rowKey={(r) => r.id}
           minWidth="min-w-220"
           onRowClick={(r) => navigate(subscriptionPath(r.id, r.type))}
+          card={(r) => {
+            const h = healthById.get(r.id);
+            const partnerNames = partnersFor(r).map((p) => p.name).join(", ");
+            return {
+              title: r.name,
+              status: (
+                <>
+                  <SubscriptionStatusBadges enabled={r.enabled} paused={r.paused} />
+                  <HealthBadge isRunning={r.isRunning} consecutiveFailures={r.consecutiveFailures} />
+                </>
+              ),
+              subtitle: (
+                <span className="inline-flex flex-wrap items-center gap-1.5">
+                  <TypeBadge type={r.type} />
+                  {partnerNames && <span>{partnerNames}</span>}
+                </span>
+              ),
+              technical: r.informationTypeCode,
+              facts: h
+                ? [
+                    { label: "7 days", value: <HealthStatusBadge status={h.status} /> },
+                    { label: "Succeeded", value: h.total > 0 ? percent(h.successRate) : "-", tone: h.total > 0 ? undefined : "muted" },
+                    { label: "Exchanges", value: h.total },
+                  ]
+                : undefined,
+              footer: r.lastException && <ExceptionLine text={r.lastException} className="text-[12px] text-danger-700" />,
+            };
+          }}
           footer={
             <Pagination
               offset={offset}
@@ -310,7 +337,7 @@ export function SubscriptionsPage() {
                   <Link
                     to={`/information-types/${r.informationTypeId}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+                    className="font-mono text-xs text-ink-600 hover:link"
                   >
                     {r.informationTypeCode}
                   </Link>
@@ -361,7 +388,7 @@ export function SubscriptionsPage() {
               truncate: true,
               cell: (r) =>
                 r.lastException ? (
-                  <ExceptionLine text={r.lastException} className="text-[12px] text-danger-700" />
+                  <ExceptionLine text={r.lastException} icon className="text-[12px] text-danger-700" />
                 ) : (
                   <span className="text-ink-500">-</span>
                 ),

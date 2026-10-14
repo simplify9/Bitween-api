@@ -6,9 +6,10 @@ import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { isNotFound } from "../../components/ui/isNotFound";
-import { ConfirmDialog } from "../../components/ui/overlays";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { ExchangesList, SetupList } from "../../components/config/shared";
@@ -26,6 +27,7 @@ export function PartnerPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("partners.edit");
+  const canDelete = useSessionCan("partners.delete");
 
   const partner = useQuery({
     queryKey: keys.partners.detail(partnerId),
@@ -71,7 +73,7 @@ export function PartnerPage() {
   if (partner.isError)
     return (
       <EmptyState title="This partner no longer exists">
-        <Link to="/partners" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/partners" className="font-medium link">
           Back to partners
         </Link>
       </EmptyState>
@@ -120,13 +122,17 @@ export function PartnerPage() {
             </p>
           )}
         </div>
-        {!p.isSystem && (
-          <Can permission="partners.delete">
-            <Button variant="danger" onClick={() => setDeleting(true)}>
-              <Trash2 className="size-4" /> Delete partner
-            </Button>
-          </Can>
-        )}
+        <MoreActionsMenu
+          actions={[
+            {
+              label: "Delete",
+              icon: <Trash2 className="size-4" />,
+              danger: true,
+              onSelect: () => setDeleting(true),
+              hidden: p.isSystem || !canDelete,
+            },
+          ]}
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -164,7 +170,7 @@ export function PartnerPage() {
                         cell: (g) => (
                           <Link
                             to={g.href}
-                            className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                            className="block font-medium text-ink-800 hover:link"
                           >
                             {g.name}
                           </Link>
@@ -205,8 +211,14 @@ export function PartnerPage() {
       )}
 
       {deleting && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this partner?"
+          name={p.name}
+          blockers={[
+            counted((partnerSubscriptions.get(partnerId) ?? []).length, "subscription"),
+            counted(p.apiGateways.length, "API gateway attachment"),
+            counted(p.busGatewayRoutes.length, "bus gateway route"),
+          ]}
           body={
             <>
               <strong className="font-medium text-ink-800">{p.name}</strong>, its properties and its

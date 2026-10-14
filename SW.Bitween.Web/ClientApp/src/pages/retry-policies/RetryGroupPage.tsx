@@ -6,11 +6,13 @@ import { api, type RetryAlertConfig, type RetryDelay, type RetryGroup, type Retr
 import { keys } from "../../api/queryKeys";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
-import { usePageTitle } from "../../lib/pageTitle";
+import { useCrumbTitle, usePageTitle } from "../../lib/pageTitle";
 import { BackLink } from "../../components/ui/BackLink";
+import { FieldProblem, StillNeeds, useFormCheck, type FormNeed } from "../../components/ui/formCheck";
 import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, Field, Select, TextInput } from "../../components/ui/forms";
-import { ConfirmDialog } from "../../components/ui/overlays";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import { EditableTitle, Panel } from "../../components/ui/Panel";
 import { safeReturn, useDetour } from "../../lib/detour";
 import { useNotificationChannelNames } from "../../lib/notificationChannels";
@@ -199,17 +201,45 @@ const draftOf = (group: RetryGroup | undefined): GroupDraft => ({
   alert: { alertMode: group?.alertMode ?? "Inherit", alertChannelId: group?.alertChannelId ?? null },
 });
 
+type GroupField = "name" | "appliesTo" | "conditions" | "alert";
+
 /** Why the server would refuse this group, caught here so the save isn't a round trip to find out. */
-const problemWith = (d: GroupDraft): string | null => {
-  if (!d.name.trim()) return "a name";
-  if (d.appliesTo.length === 0) return "at least one kind of failure it applies to";
-  // Groups stored without conditions - from before the rule existed - still match every failure,
-  // which is why the policy's table can describe one that way while this refuses to make another.
-  if (d.matchers.length === 0) return "at least one condition";
-  if (d.action === "Allow" && !d.noTotal && d.alert.alertMode === "Send" && d.alert.alertChannelId === null)
-    return "the channel the budget-exhausted alert goes through, or Inherit";
-  return null;
-};
+const needsOf = (d: GroupDraft | null, isNew: boolean): FormNeed<GroupField>[] =>
+  d === null
+    ? []
+    : [
+        {
+          field: "name",
+          failing: !d.name.trim(),
+          needs: "a name",
+          message: "Give the group a name, e.g. Timeouts.",
+          // A new group's name is a field of the form; a saved one's is edited in the heading.
+          focus: isNew ? "rg-name" : "rg-name-problem",
+        },
+        {
+          field: "appliesTo",
+          failing: d.appliesTo.length === 0,
+          needs: "at least one kind of failure it applies to",
+          message: "Tick errors, bad results, or both.",
+          focus: "rg-applies-problem",
+        },
+        // Groups stored without conditions - from before the rule existed - still match every failure,
+        // which is why the policy's table can describe one that way while this refuses to make another.
+        {
+          field: "conditions",
+          failing: d.matchers.length === 0,
+          needs: "at least one condition",
+          message: "Add a condition, e.g. Error contains timeout.",
+          focus: "rg-conditions-problem",
+        },
+        {
+          field: "alert",
+          failing: d.action === "Allow" && !d.noTotal && d.alert.alertMode === "Send" && d.alert.alertChannelId === null,
+          needs: "the channel the budget-exhausted alert goes through, or Inherit",
+          message: "Pick the channel the alert goes through, or Inherit.",
+          focus: "rg-alert-problem",
+        },
+      ];
 
 const groupOf = (d: GroupDraft, id: string): RetryGroup => ({
   id,
@@ -253,7 +283,7 @@ export function RetryGroupPage({ isNew = false }: { isNew?: boolean }) {
 
   const [draft, setDraft] = useState<GroupDraft | null>(null);
   const [removing, setRemoving] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
+  const check = useFormCheck(needsOf(draft, isNew));
 
   useEffect(() => {
     if (draft !== null || !policy.data || (!isNew && !stored)) return;
@@ -268,6 +298,7 @@ export function RetryGroupPage({ isNew = false }: { isNew?: boolean }) {
   const changed = draft !== null && JSON.stringify(draft) !== JSON.stringify(draftOf(stored));
   const { leave, dialog: leaveDialog } = useLeaveGuard(changed);
   usePageTitle(isNew ? null : stored?.name);
+  useCrumbTitle("retryPolicy", policy.data?.name);
 
   /** Writes the policy with `change` applied to its groups as they are on the server now. */
   const write = useMutation({
@@ -291,7 +322,7 @@ export function RetryGroupPage({ isNew = false }: { isNew?: boolean }) {
   if (policy.isError || (!isNew && !stored))
     return (
       <EmptyState title={policy.isError ? "This retry policy no longer exists" : "This group no longer exists"}>
-        <Link to={policy.isError ? "/retry-policies" : `/retry-policies/${policyId}`} className="font-medium text-crimson-700 hover:underline">
+        <Link to={policy.isError ? "/retry-policies" : `/retry-policies/${policyId}`} className="font-medium link">
           Back to {policy.isError ? "retry policies" : policy.data?.name}
         </Link>
       </EmptyState>
@@ -299,15 +330,10 @@ export function RetryGroupPage({ isNew = false }: { isNew?: boolean }) {
   if (draft === null) return <LoadingBlock label="Loading group…" />;
 
   const p = policy.data;
-  const update = (patch: Partial<GroupDraft>) => {
-    setProblem(null);
-    setDraft((d) => ({ ...d!, ...patch }));
-  };
+  const update = (patch: Partial<GroupDraft>) => setDraft((d) => ({ ...d!, ...patch }));
   const dirty = isNew || changed;
 
-  const save = () => {
-    const missing = problemWith(draft);
-    if (missing) return setProblem(`Still needs ${missing}.`);
+  const save = () => check.submit(() => {
     const group = groupOf(draft, isNew ? crypto.randomUUID() : groupId);
     write.mutate((groups) => {
       if (isNew) return [...groups, group];
@@ -317,7 +343,7 @@ export function RetryGroupPage({ isNew = false }: { isNew?: boolean }) {
         throw new Error("This group was removed from the policy meanwhile. Open the policy to see it as it is now.");
       return groups.map((g) => (g.id === group.id ? group : g));
     });
-  };
+  });
 
   const toggleAppliesTo = (t: RetryResultType) =>
     update({ appliesTo: draft.appliesTo.includes(t) ? draft.appliesTo.filter((x) => x !== t) : [...draft.appliesTo, t] });
@@ -344,29 +370,56 @@ export function RetryGroupPage({ isNew = false }: { isNew?: boolean }) {
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">
-            <EditableTitle
-              value={draft.name}
-              onChange={(name) => update({ name })}
-              disabled={!canEdit}
-              placeholder="Group name, e.g. Timeouts"
-            />
+            {/* A new group's name is asked for in the form, labelled; an empty input standing in
+                for the heading read as a grey title, not as something to fill in. */}
+            {isNew ? (
+              draft.name.trim() || "New retry group"
+            ) : (
+              <EditableTitle
+                value={draft.name}
+                onChange={(name) => update({ name })}
+                disabled={!canEdit}
+                placeholder="Group name, e.g. Timeouts"
+              />
+            )}
           </h1>
+          {!isNew && <FieldProblem id="rg-name-problem">{check.errors.name}</FieldProblem>}
           <p className="mt-1 text-sm text-ink-500">
             A group in <span className="font-medium text-ink-700">{p.name}</span>. Groups are checked top to bottom
             by priority - the first match decides.
           </p>
         </div>
-        {!isNew && canEdit && (
-          <Button variant="danger" onClick={() => setRemoving(true)}>
-            <Trash2 className="size-4" /> Remove group
-          </Button>
-        )}
+        <MoreActionsMenu
+          actions={[
+            {
+              label: "Remove group",
+              icon: <Trash2 className="size-4" />,
+              danger: true,
+              onSelect: () => setRemoving(true),
+              hidden: isNew || !canEdit,
+            },
+          ]}
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-5">
           <Panel title="What it catches" description="Any one condition may match; at least one is needed.">
             <div className="space-y-4">
+              {isNew && (
+                <div className="max-w-sm">
+                  <Field label="Group name" htmlFor="rg-name" error={check.errors.name}>
+                    <TextInput
+                      id="rg-name"
+                      autoFocus
+                      value={draft.name}
+                      disabled={!canEdit}
+                      placeholder="e.g. Timeouts"
+                      onChange={(e) => update({ name: e.target.value })}
+                    />
+                  </Field>
+                </div>
+              )}
               <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
                 <div className="w-32">
                   <Field label="Priority" htmlFor="rg-priority" hint="Lower runs first.">
@@ -401,6 +454,7 @@ export function RetryGroupPage({ isNew = false }: { isNew?: boolean }) {
                   />
                 </div>
               </div>
+              <FieldProblem id="rg-applies-problem">{check.errors.appliesTo}</FieldProblem>
 
               <fieldset disabled={!canEdit} className="space-y-2">
                 <legend className="sr-only">Conditions</legend>
@@ -412,9 +466,12 @@ export function RetryGroupPage({ isNew = false }: { isNew?: boolean }) {
                     onRemove={() => update({ matchers: draft.matchers.filter((_, xi) => xi !== i) })}
                   />
                 ))}
-                {draft.matchers.length === 0 && (
-                  <p className="text-[13px] text-ink-500">No conditions yet - add the first one.</p>
-                )}
+                {draft.matchers.length === 0 &&
+                  (check.errors.conditions ? (
+                    <FieldProblem id="rg-conditions-problem">{check.errors.conditions}</FieldProblem>
+                  ) : (
+                    <p className="text-[13px] text-ink-500">No conditions yet - add the first one.</p>
+                  ))}
                 <Button size="sm" onClick={() => update({ matchers: [...draft.matchers, DEFAULT_MATCHER] })}>
                   <Plus className="size-3.5" /> Add condition
                 </Button>
@@ -527,6 +584,11 @@ export function RetryGroupPage({ isNew = false }: { isNew?: boolean }) {
 
         <div className="min-w-0 space-y-5">
           <Panel title="When the budget runs out" description="The alert sent once this group stops retrying.">
+            {canAlert && check.errors.alert && (
+              <div className="mb-3">
+                <FieldProblem id="rg-alert-problem">{check.errors.alert}</FieldProblem>
+              </div>
+            )}
             {canAlert ? (
               <AlertRouting
                 value={draft.alert}
@@ -572,19 +634,23 @@ export function RetryGroupPage({ isNew = false }: { isNew?: boolean }) {
         <>
           <div className="mt-5 flex flex-wrap items-center justify-end gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3">
             <p className="mr-auto text-[13px] text-ink-500">Saving writes the policy straight away.</p>
+            <StillNeeds missing={check.missing} />
             <Button onClick={() => leave(() => navigate(back, { replace: true }))}>Cancel</Button>
             <Button variant="primary" busy={write.isPending} disabled={!dirty} onClick={save}>
               {isNew ? "Add group" : "Save group"}
             </Button>
           </div>
-          <FormError>{problem ?? write.error?.message}</FormError>
+          <FormError>{write.error?.message}</FormError>
         </>
       )}
 
       {leaveDialog}
       {removing && (
-        <ConfirmDialog
+        <DeleteDialog
           title={`Remove ${stored?.name}?`}
+          name={stored?.name ?? ""}
+          // Every subscription on the policy is checked against this group.
+          impact={[counted(p.subscriptions.length, "subscription on this policy", "subscriptions on this policy")]}
           body={
             <p>
               Failures it caught fall through to the groups below it - or, with none left to match, aren't

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { signInAsAdmin } from "./helpers";
+import { signInAsAdmin, moreAction } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await signInAsAdmin(page);
@@ -47,7 +47,7 @@ test("promoted properties can be put in order, and the order is kept", async ({ 
   await expect(page.getByText("Main", { exact: true })).toBeVisible();
 
   // Cleanup.
-  await page.getByRole("button", { name: "Delete" }).click();
+  await moreAction(page, "Delete");
   await page.getByRole("button", { name: "Delete information type" }).click();
   await expect(page).toHaveURL(/\/information-types$/);
 });

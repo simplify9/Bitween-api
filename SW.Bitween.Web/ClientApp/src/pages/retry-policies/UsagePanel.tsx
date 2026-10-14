@@ -164,7 +164,7 @@ function Attempts({ policyId, row }: { policyId: number; row: RetryUsageRow }) {
           <li key={a.exchangeId} className="flex items-start gap-2.5 text-[13px]">
             <Link
               to={`/exchanges?ids=${a.exchangeId}`}
-              className="mt-0.5 shrink-0 font-mono text-xs text-crimson-700 hover:underline"
+              className="mt-0.5 shrink-0 font-mono text-xs link"
             >
               {a.exchangeId.slice(0, 8)}
             </Link>
@@ -187,7 +187,7 @@ function Attempts({ policyId, row }: { policyId: number; row: RetryUsageRow }) {
           Showing the {attempts.length} most recent of {total} failures.{" "}
           <Link
             to={`/exchanges?subscriptionId=${row.subscriptionId}&status=failed`}
-            className="font-medium text-crimson-700 hover:underline"
+            className="font-medium link"
           >
             See them all
           </Link>

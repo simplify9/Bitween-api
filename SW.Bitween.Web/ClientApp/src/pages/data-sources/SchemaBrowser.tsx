@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Database, Search, Table2 } from "lucide-react";
 import { keys } from "../../api/queryKeys";
-import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, FormError, LoadingBlock, ProblemText } from "../../components/ui/basics";
 import { Select, TextInput } from "../../components/ui/forms";
 import { Panel } from "../../components/ui/Panel";
 import {
@@ -321,9 +321,7 @@ function ObjectRow({
           {detail.isLoading && <span className="text-[12px] text-ink-500">Reading columns…</span>}
 
           {detail.isError && (
-            <span className="text-[12px] text-danger-700">
-              {detail.error instanceof Error ? detail.error.message : "Could not read this object."}
-            </span>
+            <ProblemText>{detail.error instanceof Error ? detail.error.message : "Could not read this object."}</ProblemText>
           )}
 
           {detail.data && detail.data.columns.length > 0 && (

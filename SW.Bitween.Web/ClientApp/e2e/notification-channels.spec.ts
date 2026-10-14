@@ -53,7 +53,7 @@ test.describe("notification channels", () => {
     await page.getByRole("button", { name: "New channel" }).click();
     await expect(page).toHaveURL(/\/notification-channels\/new$/);
     await expect(page.getByRole("radiogroup", { name: "How it sends" })).toBeVisible();
-    await page.getByLabel("Name").fill(slackName);
+    await page.getByLabel("Channel name").fill(slackName);
     await page.getByRole("radio", { name: /Slack/ }).click();
     await page.getByLabel("Incoming webhook URL *").fill("https://hooks.slack.test/services/T0/B0/x");
     if (SHOTS) await page.screenshot({ path: `${SHOTS}/1-new-channel.png`, fullPage: true });
@@ -72,7 +72,7 @@ test.describe("notification channels", () => {
     await expect(page).toHaveURL(/\/notification-channels\/new\?return=/);
     // The URL changes a moment before the page does; the subscription has a Name field of its own.
     await expect(page.getByRole("radiogroup", { name: "How it sends" })).toBeVisible();
-    await page.getByLabel("Name").fill(teamsName);
+    await page.getByLabel("Channel name").fill(teamsName);
     await page.getByRole("radio", { name: /Microsoft Teams/ }).click();
     await page.getByLabel("Workflows webhook URL *").fill("https://example.test/workflows/hook");
     await page.getByRole("button", { name: "Create channel" }).click();

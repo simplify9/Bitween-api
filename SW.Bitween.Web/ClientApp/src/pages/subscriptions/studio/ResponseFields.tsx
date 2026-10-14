@@ -147,7 +147,7 @@ function ResponseSubscriptionField({
             type="button"
             onClick={onNew}
             title="Define a new response subscription and hand the response to it."
-            className="inline-flex items-center gap-1 text-[13px] font-medium text-crimson-700 hover:underline"
+            className="inline-flex items-center gap-1 text-[13px] font-medium link"
           >
             <Plus className="size-3" /> New response subscription
           </button>
@@ -309,7 +309,7 @@ function BusMessageField({
             <button
               type="button"
               onClick={() => setCreating(true)}
-              className="inline-flex items-center gap-1 text-[13px] font-medium text-crimson-700 hover:underline"
+              className="inline-flex items-center gap-1 text-[13px] font-medium link"
             >
               <Plus className="size-3" /> New information type
             </button>

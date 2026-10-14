@@ -147,7 +147,7 @@ export function NotificationChannelsPanel() {
         <p className="text-[13px] text-ink-500">
           {legacyCount === 1 ? "1 legacy notifier still runs" : `${legacyCount} legacy notifiers still run`} alongside
           these.{" "}
-          <Link to="/notifiers" className="font-medium text-crimson-700 hover:underline">
+          <Link to="/notifiers" className="font-medium link">
             View {legacyCount === 1 ? "it" : "them"}
           </Link>
         </p>

@@ -130,6 +130,26 @@ export function GlobalValueSetsPage() {
         title="Global values"
         description="Shared value sets any adapter can reference - change an endpoint here once instead of in every subscription."
         actions={createAction}
+        help={{
+          title: "How global values work",
+          body: (
+            <>
+              <p>
+                A <strong>value set</strong> is a named group of values. An adapter setting refers to one
+                value as <code>{"{{globals.<id>.<value>}}"}</code>, so the value lives here rather than
+                being copied into each subscription.
+              </p>
+              <p>
+                The <strong>ID</strong> is what those references use, which is why it can't change after
+                the set is created. <strong>Values</strong> counts the entries in the set, and{" "}
+                <strong>Used by</strong> lists the subscriptions that reference it.
+              </p>
+              <p>
+                Filtering by subscription narrows the list to the sets those subscriptions reference.
+              </p>
+            </>
+          ),
+        }}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">

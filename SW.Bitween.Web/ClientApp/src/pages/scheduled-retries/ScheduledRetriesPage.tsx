@@ -82,7 +82,7 @@ export function ScheduledRetriesPage() {
           body: (
             <>
               When an exchange fails, its subscription's{" "}
-              <Link to="/retry-policies" className="font-medium text-crimson-700 hover:underline">
+              <Link to="/retry-policies" className="font-medium link">
                 retry policy
               </Link>{" "}
               decides whether - and when - to try again. The retry job re-runs each entry at its
@@ -122,7 +122,7 @@ export function ScheduledRetriesPage() {
         {activeFilterCount > 0 && (
           <button
             onClick={() => setSearchParams(new URLSearchParams(), { replace: true })}
-            className="inline-flex h-8 items-center gap-1 justify-self-start rounded-lg px-2 text-[13px] font-medium text-crimson-700 hover:bg-crimson-50"
+            className="inline-flex h-8 items-center gap-1 justify-self-start rounded-lg px-2 text-[13px] font-medium text-ink-700 hover:bg-ink-100"
           >
             <X className="size-3.5" aria-hidden />
             Clear filters
@@ -169,7 +169,7 @@ export function ScheduledRetriesPage() {
               cell: (r) => (
                 <Link
                   to={`/information-types/${r.informationTypeId}`}
-                  className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+                  className="font-mono text-xs text-ink-600 hover:link"
                 >
                   {r.informationTypeCode}
                 </Link>
@@ -181,7 +181,7 @@ export function ScheduledRetriesPage() {
                 r.subscriptionName ? (
                   <Link
                     to={`/subscriptions/${r.subscriptionId}`}
-                    className="text-[13px] font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                    className="text-[13px] font-medium text-ink-800 hover:link"
                   >
                     {r.subscriptionName}
                   </Link>
@@ -205,7 +205,7 @@ export function ScheduledRetriesPage() {
                   can("retry-policies.view") ? (
                     <Link
                       to={`/retry-policies/${r.retryPolicyId}`}
-                      className="block text-[13px] font-medium text-crimson-700 hover:underline"
+                      className="block text-[13px] font-medium link"
                     >
                       {r.retryPolicyName}
                     </Link>
@@ -216,7 +216,7 @@ export function ScheduledRetriesPage() {
                   <Link
                     to={`/subscriptions/${r.subscriptionId}`}
                     title="The retry policy set on its subscription"
-                    className="block text-[13px] text-crimson-700 hover:underline"
+                    className="block text-[13px] link"
                   >
                     policy on {r.subscriptionName ?? "its subscription"}
                   </Link>
@@ -229,7 +229,7 @@ export function ScheduledRetriesPage() {
               truncate: true,
               cell: (r) =>
                 r.exception ? (
-                  <ExceptionLine text={r.exception} className="text-[12px] text-danger-700" />
+                  <ExceptionLine text={r.exception} icon className="text-[12px] text-danger-700" />
                 ) : (
                   <span className="text-ink-500">-</span>
                 ),
@@ -243,7 +243,7 @@ export function ScheduledRetriesPage() {
                   <Link
                     to={`/exchanges?ids=${encodeURIComponent(r.id)}`}
                     title={`Open ${r.id} in Exchanges`}
-                    className="text-xs font-medium text-ink-500 hover:text-crimson-700 hover:underline"
+                    className="text-xs font-medium text-ink-500 hover:link"
                   >
                     View exchange
                   </Link>

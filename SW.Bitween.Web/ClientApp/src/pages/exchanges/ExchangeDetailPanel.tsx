@@ -53,7 +53,7 @@ export function ExchangeDetailPanel({
               {x.aggregationXchangeId && <Badge tone="neutral">Aggregated</Badge>}
               <span className="min-w-0 text-[13px] text-ink-500">
                 {x.subscriptionName ? (
-                  <Link to={`/subscriptions/${x.subscriptionId}`} className="font-semibold text-ink-900 hover:text-crimson-700 hover:underline">
+                  <Link to={`/subscriptions/${x.subscriptionId}`} className="font-semibold text-ink-900 hover:link">
                     {x.subscriptionName}
                   </Link>
                 ) : (
@@ -62,7 +62,7 @@ export function ExchangeDetailPanel({
                 {x.partnerName && (
                   <>
                     {" · "}
-                    <Link to={`/partners/${x.partnerId}`} className="text-ink-700 hover:text-crimson-700 hover:underline">
+                    <Link to={`/partners/${x.partnerId}`} className="text-ink-700 hover:link">
                       {x.partnerName}
                     </Link>
                   </>
@@ -70,7 +70,7 @@ export function ExchangeDetailPanel({
                 {" · "}
                 <Link
                   to={`/information-types/${x.informationTypeId}`}
-                  className="font-mono text-xs text-ink-700 hover:text-crimson-700 hover:underline"
+                  className="font-mono text-xs text-ink-700 hover:link"
                 >
                   {x.informationTypeCode}
                 </Link>

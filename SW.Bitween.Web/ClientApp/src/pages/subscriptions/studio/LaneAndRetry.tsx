@@ -79,7 +79,7 @@ export function LaneAndRetry({
             <button
               type="button"
               onClick={() => setGroupDialog(workGroupId)}
-              className="text-[12px] font-medium text-crimson-700 hover:underline"
+              className="text-[12px] font-medium link"
             >
               Edit it
             </button>
@@ -88,7 +88,7 @@ export function LaneAndRetry({
             <button
               type="button"
               onClick={() => setGroupDialog(null)}
-              className="text-[12px] font-medium text-crimson-700 hover:underline"
+              className="text-[12px] font-medium link"
             >
               + New
             </button>
@@ -122,7 +122,7 @@ export function LaneAndRetry({
           {retryPolicyId !== null && (
             <Link
               to={`/retry-policies/${retryPolicyId}`}
-              className="text-[12px] font-medium text-crimson-700 hover:underline"
+              className="text-[12px] font-medium link"
             >
               View
             </Link>
@@ -131,7 +131,7 @@ export function LaneAndRetry({
             <button
               type="button"
               onClick={() => setCreatingPolicy(true)}
-              className="text-[12px] font-medium text-crimson-700 hover:underline"
+              className="text-[12px] font-medium link"
             >
               + New
             </button>

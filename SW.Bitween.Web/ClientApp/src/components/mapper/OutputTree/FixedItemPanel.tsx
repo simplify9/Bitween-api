@@ -51,6 +51,7 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-semibold text-crimson-700 font-mono">{df.key}[]</span>
                 <button className="text-ink-300 hover:text-crimson-500 transition"
+                  aria-label={`Remove ${df.key}`} title={`Remove ${df.key}`}
                   onClick={() => onFieldsChange(fields.filter((_, j) => j !== i))}>
                   <Trash2 size={11} />
                 </button>
@@ -89,10 +90,12 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
                         <span className="text-[9px] font-semibold text-crimson-600">item #{itemIdx + 1}</span>
                         <div className="flex items-center gap-1">
                           <button className="text-ink-300 hover:text-crimson-500 transition"
+                            aria-label={`Edit item ${itemIdx + 1}`} title={`Edit item ${itemIdx + 1}`}
                             onClick={() => updateField(i, { editingSubIdx: itemIdx })}>
                             <SquarePen size={11} />
                           </button>
                           <button className="text-ink-300 hover:text-crimson-500 transition"
+                            aria-label={`Remove item ${itemIdx + 1}`} title={`Remove item ${itemIdx + 1}`}
                             onClick={() => updateField(i, { nestedItems: (df.nestedItems ?? []).filter((_, ii) => ii !== itemIdx) })}>
                             <Trash2 size={11} />
                           </button>
@@ -223,6 +226,8 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
               {/* Delete row - only for free-key fields */}
               {hasFreeKey && (
                 <button
+                  aria-label="Remove this field"
+                  title="Remove this field"
                   className="flex-shrink-0 text-ink-300 hover:text-crimson-500 transition"
                   onClick={() => { onFieldsChange(fields.filter((_, j) => j !== i)); if (lookupOpenIdx === i) setLookupOpenIdx(null); }}>
                   <Trash2 size={12} />

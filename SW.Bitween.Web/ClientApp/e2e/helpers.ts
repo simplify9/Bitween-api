@@ -126,11 +126,17 @@ export async function removeMember(page: Page, email: string) {
   await page.getByRole("dialog", { name: "Member details" }).waitFor({ state: "detached" });
 }
 
+/** Picks an item from a detail page's "More actions" menu, where Delete and the rarer actions live. */
+export async function moreAction(page: Page, name: string) {
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name, exact: true }).click();
+}
+
 export async function deleteRole(page: Page, name: string) {
   await page.goto("team/roles");
   await page.getByRole("link", { name: new RegExp(name) }).click();
+  await moreAction(page, "Delete");
   await page.getByRole("button", { name: "Delete role" }).click();
-  await page.getByRole("button", { name: "Delete role" }).last().click();
   await page.waitForURL(/\/team\/roles$/, { timeout: 15000 });
 }
 

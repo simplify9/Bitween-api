@@ -1,5 +1,5 @@
 import { type InformationType, type InformationTypeFormat } from "../../api";
-import { Button } from "../ui/basics";
+import { Button, ProblemText } from "../ui/basics";
 import { Checkbox, Field, Select, TextInput } from "../ui/forms";
 import { KeyValueEditor, type KvRow } from "../ui/KeyValueEditor";
 import { Panel } from "../ui/Panel";
@@ -41,13 +41,12 @@ export interface InformationTypeDraft {
 export function InformationTypeMessagesWarning({ typeId }: { typeId: number }) {
   const queued = useInformationTypeMessages(typeId);
   if (queued === 0) return null;
+  const caveat = "They're the incoming messages themselves, so they can't be recovered.";
+  if (queued === null) return <p>Any messages still in it are deleted too. {caveat}</p>;
   return (
-    <p className={queued === null ? undefined : "font-medium text-danger-700"}>
-      {queued === null
-        ? "Any messages still in it are deleted too."
-        : `${queued === 1 ? "1 message is" : `${queued} messages are`} still in it and will be deleted.`}{" "}
-      They're the incoming messages themselves, so they can't be recovered.
-    </p>
+    <ProblemText className="font-medium">
+      {queued === 1 ? "1 message is" : `${queued} messages are`} still in it and will be deleted. {caveat}
+    </ProblemText>
   );
 }
 
@@ -244,9 +243,7 @@ export function InformationTypeFields({
                     placeholder={BUS_MESSAGE_NAME_PLACEHOLDER}
                   />
                   {busMessageNameProblem(draft.busMessageTypeName) && (
-                    <p className="mt-1 text-[13px] text-danger-700">
-                      {busMessageNameProblem(draft.busMessageTypeName)}
-                    </p>
+                    <ProblemText className="mt-1">{busMessageNameProblem(draft.busMessageTypeName)}</ProblemText>
                   )}
                 </Field>
               </div>
@@ -297,9 +294,11 @@ export function InformationTypeFields({
               refuses to save. */}
           {hasPromotedRows(draft) && (
             <div className="flex flex-wrap items-center gap-3">
-              <p role="alert" className="text-[13px] text-danger-700">
-                Still promotes {draft.promotedProperties.map((r) => r.key.trim() || r.value.trim()).join(", ")} -{" "}
-                {formatLabel(draft.format)} types can't have promoted properties.
+              <p role="alert">
+                <ProblemText>
+                  Still promotes {draft.promotedProperties.map((r) => r.key.trim() || r.value.trim()).join(", ")} -{" "}
+                  {formatLabel(draft.format)} types can't have promoted properties.
+                </ProblemText>
               </p>
               {canEdit && (
                 <Button size="sm" onClick={() => set("promotedProperties", [])}>
@@ -337,8 +336,8 @@ export function InformationTypeFields({
         draft.validationSchema.trim() !== "" && (
           <Panel title="Schema" description={`${formatLabel(draft.format)} content isn't read, so it can't be checked.`}>
             <div className="flex flex-wrap items-center gap-3">
-              <p role="alert" className="text-[13px] text-danger-700">
-                Still has a schema - {formatLabel(draft.format)} types can't have one.
+              <p role="alert">
+                <ProblemText>Still has a schema - {formatLabel(draft.format)} types can't have one.</ProblemText>
               </p>
               {canEdit && (
                 <Button size="sm" onClick={() => set("validationSchema", "")}>

@@ -274,7 +274,7 @@ export function ConnectionPage() {
   if (connection.isError)
     return isNotFound(connection.error) ? (
       <EmptyState icon={<KeyRound />} title="Connection not found">
-        <Link to="/connections" className="font-medium text-crimson-700 hover:underline">Back to connections</Link>
+        <Link to="/connections" className="font-medium link">Back to connections</Link>
       </EmptyState>
     ) : (
       <LoadError error={connection.error} what="the connection" onRetry={() => void connection.refetch()} />
@@ -397,7 +397,7 @@ export function OAuthCallbackPage() {
       {error ? (
         <div className="mt-4 space-y-4">
           <FormError>{error}</FormError>
-          <Link to="/connections" className="text-sm font-medium text-crimson-700 hover:underline">Back to connections</Link>
+          <Link to="/connections" className="text-sm font-medium link">Back to connections</Link>
         </div>
       ) : (
         <LoadingBlock />

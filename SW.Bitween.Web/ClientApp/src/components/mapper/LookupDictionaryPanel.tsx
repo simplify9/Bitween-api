@@ -87,6 +87,8 @@ export const LookupDictionaryPanel: React.FC<LookupDictionaryPanelProps> = ({
               />
             )}
             <button
+              aria-label="Remove this entry"
+              title="Remove this entry"
               className="flex-shrink-0 text-ink-300 hover:text-crimson-400 transition"
               onClick={() => removeEntry(idx)}
             >

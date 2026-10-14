@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { pickOption, signInAsAdmin } from "./helpers";
+import { pickOption, signInAsAdmin, moreAction } from "./helpers";
 import { SEED } from "./seed-data";
 
 /** A seeded partner, used for the attachment this test makes and then removes. */
@@ -70,7 +70,7 @@ test("API gateway: create, attach partner, create subscription detour, edit atta
 
   // Delete (no attachments left - exercises the plain path; cascade-delete
   // path is covered separately since seed data already has an attached gateway).
-  await page.getByRole("button", { name: "Delete" }).click();
+  await moreAction(page, "Delete");
   await page
     .getByRole("dialog", { name: "Delete this API gateway?" })
     .getByRole("button", { name: "Delete gateway" })
@@ -151,7 +151,7 @@ test("Bus gateway: create, add route with match expression, edit route, remove, 
   // the last route doesn't leave the page still pointing at it.
   await expect(page.getByRole("heading", { name: /^No routes -/ })).toBeVisible();
 
-  await page.getByRole("button", { name: "Delete" }).click();
+  await moreAction(page, "Delete");
   await page
     .getByRole("dialog", { name: "Delete this bus gateway?" })
     .getByRole("button", { name: "Delete gateway" })

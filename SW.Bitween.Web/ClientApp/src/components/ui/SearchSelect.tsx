@@ -1,6 +1,8 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Combobox, ComboboxButton, ComboboxInput, ComboboxOption, ComboboxOptions } from "@headlessui/react";
 import { Check, ChevronsUpDown } from "lucide-react";
+import { ProblemText } from "./basics";
+import { useFieldProps } from "./forms";
 
 export interface SearchSelectOption {
   value: string;
@@ -61,6 +63,8 @@ export function SearchSelect({
   freeText?: (query: string) => SearchSelectOption | string;
 }) {
   const [query, setQuery] = useState("");
+  // Inside a Field, its error turns the border red and its note describes the input, as a TextInput's would.
+  const field = useFieldProps<{ id?: string; "aria-describedby"?: string; "aria-invalid"?: boolean }>({ id });
 
   const all = useMemo(
     () => (clearLabel ? [{ value: "", label: clearLabel }, ...options] : options),
@@ -96,14 +100,18 @@ export function SearchSelect({
     >
       <div className="relative">
         <ComboboxInput
-          id={id}
+          id={field.id}
           aria-label={ariaLabel}
+          aria-describedby={field["aria-describedby"]}
+          aria-invalid={field["aria-invalid"]}
           placeholder={selected && selected.value !== "" ? undefined : (clearLabel ?? placeholder)}
           displayValue={(v: string) => (v === "" ? "" : (all.find((o) => o.value === v)?.label ?? ""))}
           onChange={(e) => setQuery(e.target.value)}
-          className={`${size === "sm" ? "h-8 text-[13px]" : "h-9.5 text-sm"} w-full rounded-lg border border-ink-200 bg-white pr-8 pl-3 text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-500`}
+          className={`${size === "sm" ? "h-8 text-[13px]" : "h-9.5 text-sm"} w-full rounded-lg border border-ink-200 bg-white pr-8 pl-3 text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none aria-invalid:border-danger-600 disabled:bg-ink-50 disabled:text-ink-500`}
         />
-        <ComboboxButton className="absolute inset-y-0 right-0 flex w-8 cursor-pointer items-center justify-center text-ink-500 hover:text-ink-600">
+        <ComboboxButton
+          aria-label={ariaLabel ? `${ariaLabel}: show the choices` : "Show the choices"}
+          className="touch-target absolute inset-y-0 right-0 flex w-8 cursor-pointer items-center justify-center text-ink-500 hover:text-ink-600">
           <ChevronsUpDown className="size-3.5" aria-hidden />
         </ComboboxButton>
       </div>
@@ -159,8 +167,8 @@ export function SearchSelect({
           </ComboboxOption>
         )}
         {typeof offered === "string" && (
-          <div className="border-t border-ink-100 px-3 py-2 text-sm text-danger-700 first:border-t-0">
-            {offered}
+          <div className="border-t border-ink-100 px-3 py-2 first:border-t-0">
+            <ProblemText plain>{offered}</ProblemText>
           </div>
         )}
         {filtered.length === 0 && offered === null && (
@@ -168,5 +176,33 @@ export function SearchSelect({
         )}
       </ComboboxOptions>
     </Combobox>
+  );
+}
+
+/**
+ * A filter-bar choice from a short fixed list ("Any status", "Active", "Inactive"), drawn as the
+ * same combobox as the entity filters it sits beside: a native select next to a styled one read
+ * as two kinds of control doing the same job. The list's "" option becomes the clear choice.
+ */
+export function FilterSelect({
+  value,
+  onChange,
+  options,
+  "aria-label": ariaLabel,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  "aria-label": string;
+}) {
+  return (
+    <SearchSelect
+      aria-label={ariaLabel}
+      size="sm"
+      clearLabel={options.find((o) => o.value === "")?.label}
+      value={value}
+      onChange={onChange}
+      options={options.filter((o) => o.value !== "")}
+    />
   );
 }

@@ -90,6 +90,11 @@ const handlers = [
       totalCount: 3,
     }),
   ),
+  // The licences the marketplace tab badges paid connectors with (RegistryLicenceSummary): an
+  // instance not registered with the registry, so it holds none.
+  http.get(apiPath("/marketplace/licences"), () =>
+    HttpResponse.json({ registered: false, instanceId: null, refreshedOn: null, error: null, licences: [] }),
+  ),
 ];
 
 // The page waits on four catalog requests and the subscriptions list before it draws anything,
@@ -351,9 +356,9 @@ describe("the Adapters page", () => {
     await user.click(await screen.findByRole("button", { name: /Salesforce contacts/ }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByRole("button", { name: "Install" })).toBeDisabled();
-    await user.type(within(dialog).getByLabelText("InstanceUrl"), "https://acme.my.salesforce.com");
-    await user.type(within(dialog).getByLabelText("ClientSecret"), "s3cret");
-    expect(within(dialog).getByLabelText("ClientSecret")).toHaveAttribute("type", "password");
+    await user.type(within(dialog).getByLabelText("Instance URL"), "https://acme.my.salesforce.com");
+    await user.type(within(dialog).getByLabelText("Client secret"), "s3cret");
+    expect(within(dialog).getByLabelText("Client secret")).toHaveAttribute("type", "password");
     expect(within(dialog).getByLabelText("Label")).toHaveValue("Salesforce");
 
     await user.click(within(dialog).getByRole("button", { name: "Show plan" }));

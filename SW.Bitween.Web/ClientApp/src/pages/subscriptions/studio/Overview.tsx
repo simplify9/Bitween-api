@@ -1,8 +1,10 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api, type SubscriptionDetail, type SubscriptionRun } from "../../../api";
 import { Can } from "../../../auth/guards";
-import { Badge, LoadingBlock } from "../../../components/ui/basics";
+import { useSessionCan } from "../../../auth/useSessionCan";
+import { Badge, LoadingBlock, ProblemText } from "../../../components/ui/basics";
 import { MiniTable } from "../../../components/ui/Table";
 import { Panel } from "../../../components/ui/Panel";
 import { HistoryCard } from "../../../components/config/HistoryCard";
@@ -15,14 +17,14 @@ import { LaneAndRetry } from "./LaneAndRetry";
 import { NotificationsPanel } from "./NotificationsPanel";
 import type { Draft, EntryPoint } from "./model";
 import { keys } from "../../../api/queryKeys";
-import { ExceptionBlock } from "../../../components/ui/Exception";
+import { ExceptionBlock, ExceptionLine } from "../../../components/ui/Exception";
 import { CategoryField } from "./CategoryField";
 import { HealthPanel } from "./HealthPanel";
 import { ExpectTrafficPanel } from "./ExpectTrafficPanel";
 import { VersionsPanel } from "./VersionsPanel";
 
 /** Who can feed this subscription. Shared with the Trigger stage, which is the same question. */
-export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: string }) {
+export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: ReactNode }) {
   return (
     <MiniTable
       rows={rows}
@@ -35,7 +37,7 @@ export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: s
           cell: (e) => (
             <Link
               to={e.href}
-              className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+              className="block font-medium text-ink-800 hover:link"
             >
               {e.name}
             </Link>
@@ -48,7 +50,7 @@ export function EntryPointsTable({ rows, empty }: { rows: EntryPoint[]; empty: s
             e.partnerId !== null ? (
               <Link
                 to={`/partners/${e.partnerId}`}
-                className="text-[13px] text-ink-600 hover:text-crimson-700 hover:underline"
+                className="text-[13px] text-ink-600 hover:link"
               >
                 {e.partnerName}
               </Link>
@@ -130,15 +132,35 @@ function RunsTable({ runs, pending }: { runs: SubscriptionRun[]; pending: boolea
           truncate: true,
           cell: (r) =>
             r.error ? (
-              <span className="block truncate font-mono text-[11px] text-danger-700" title={r.error}>
-                {r.error}
-              </span>
+              <ExceptionLine text={r.error} icon className="font-mono text-[11px] text-danger-700" />
             ) : (
               <span className="text-ink-500">-</span>
             ),
         },
       ]}
     />
+  );
+}
+
+/** The window the Health panel counts over, so "Fed by" and its Exchanges figure agree. */
+const FEED_DAYS = 7;
+
+/**
+ * "Fed by" for a direct subscription: the calls it had, plus any gateway also pointing at it.
+ * It only reads as a problem when both are none. `calls` is undefined when the viewer may not
+ * see traffic, and null while it loads; neither is a reason to call it unfed.
+ */
+function DirectFeed({ entryPoints, calls }: { entryPoints: number; calls: number | null | undefined }) {
+  const gateways = entryPoints > 0 ? `${entryPoints} entry point${entryPoints === 1 ? "" : "s"}` : null;
+  if (calls === undefined) return <>{gateways ? `Direct calls, ${gateways}` : "Direct calls"}</>;
+  if (calls === null) return <span className="text-ink-500">Direct calls</span>;
+  if (calls === 0 && !gateways)
+    return <ProblemText plain>Nothing in {FEED_DAYS} days and no gateway points here</ProblemText>;
+  return (
+    <>
+      Direct calls · {calls.toLocaleString()} in {FEED_DAYS} days
+      {gateways && `, ${gateways}`}
+    </>
   );
 }
 
@@ -203,6 +225,16 @@ export function Overview({
     };
   })();
   const paused = s.pausedOn !== null;
+  // A direct subscription has no gateway, so its entry points say nothing about whether
+  // anything feeds it: what does is the calls it actually got. Same query (and cache entry)
+  // as the Health panel below, so this costs no extra request.
+  const direct = s.type === "Internal" || s.type === "ApiCall";
+  const canSeeTraffic = useSessionCan("exchanges.view");
+  const directTraffic = useQuery({
+    queryKey: keys.metrics.subscription(s.id, FEED_DAYS),
+    queryFn: () => api.getSubscriptionMetrics(s.id, FEED_DAYS),
+    enabled: direct && canSeeTraffic,
+  });
 
   return (
     <div className="space-y-5">
@@ -224,11 +256,18 @@ export function Overview({
         <Fact label="Fed by">
           {scheduled ? (
             "Its own schedule"
+          ) : direct ? (
+            <DirectFeed
+              entryPoints={entryPoints.length}
+              calls={canSeeTraffic ? (directTraffic.data?.total.total ?? null) : undefined}
+            />
           ) : entryPoints.length ? (
             // A response subscription's entry points are the subscriptions feeding it.
             `${entryPoints.length} ${s.type === "Response" ? "subscription" : "entry point"}${entryPoints.length === 1 ? "" : "s"}`
           ) : (
-            <span className="text-danger-700">Nothing - it never runs</span>
+            <ProblemText plain>
+              {s.type === "Response" ? "No subscription hands it a response" : "Nothing, no gateway points here"}
+            </ProblemText>
           )}
         </Fact>
         <LaneAndRetry
@@ -337,7 +376,7 @@ export function Overview({
                     cell: (n) => (
                       <Link
                         to={`/notifiers/${n.id}`}
-                        className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                        className="block font-medium text-ink-800 hover:link"
                       >
                         {n.name}
                       </Link>

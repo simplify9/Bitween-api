@@ -7,9 +7,8 @@ import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
-import { Select } from "../../components/ui/forms";
 import { Pagination } from "../../components/ui/Pagination";
-import { SearchSelect } from "../../components/ui/SearchSelect";
+import { FilterSelect, SearchSelect } from "../../components/ui/SearchSelect";
 import { Table } from "../../components/ui/Table";
 import { LinkListCell, WiredHealthBadge } from "../../components/config/shared";
 import { useSubscriptionRowsById } from "../../components/config/lookups";
@@ -76,6 +75,30 @@ export function BusGatewaysPage() {
       <PageHeader
         title="Bus gateways"
         description="Listeners that pick messages off the bus and route them to a subscription."
+        help={{
+          title: "How bus gateways work",
+          body: (
+            <>
+              <p>
+                A bus gateway listens for one <strong>information type</strong>, on Bitween's internal
+                bus or on an external one reached through a <strong>data source</strong> (the Source
+                column). Its <strong>routes</strong> decide which subscription handles each message; with
+                no routes, everything it receives is ignored.
+              </p>
+              <p>
+                Routes match on the information type's <strong>promoted properties</strong>, so{" "}
+                <strong>Matchable on</strong> lists the keys a route here can filter by.{" "}
+                <strong>Message type</strong> is the name on the wire, which the inbound queue is named
+                after: check it first when a publisher says it sent something and nothing arrived.
+              </p>
+              <p>
+                <strong>Type not on bus</strong> means the information type was taken off the internal
+                bus, so no queue exists for it and nothing reaches the gateway. Otherwise Health is the
+                worst case across the subscriptions its routes feed.
+              </p>
+            </>
+          ),
+        }}
         actions={
           <>
             {/* Offered here because this is where someone asking "what feeds what?"
@@ -103,11 +126,10 @@ export function BusGatewaysPage() {
           </div>
         )}
         <div className="w-40">
-          <Select
+          <FilterSelect
             aria-label="Filter by status"
-            className="!h-8 text-[13px]"
             value={inactiveParam ?? ""}
-            onChange={(e) => setParam("inactive", e.target.value || null)}
+            onChange={(v) => setParam("inactive", v || null)}
             options={STATUS_OPTIONS}
           />
         </div>
@@ -163,7 +185,7 @@ export function BusGatewaysPage() {
                   <Link
                     to={`/information-types/${g.informationTypeId}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+                    className="font-mono text-xs text-ink-600 hover:link"
                   >
                     {g.informationTypeCode}
                   </Link>

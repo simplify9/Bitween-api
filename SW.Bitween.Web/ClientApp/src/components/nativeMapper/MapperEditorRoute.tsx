@@ -6,6 +6,10 @@ import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
 import { Button, FormError, LoadingBlock } from "../ui/basics";
 import MappingEditor from "../mapper/MappingEditor";
 import NativeMapperEditor from "./NativeMapperEditor";
+import { useTooNarrowForEditor } from "../../lib/useMediaQuery";
+import { DeskOnlyCard } from "../ui/WiderScreenNote";
+import { SubscriptionStatusBadges } from "../config/shared";
+import { subscriptionPath } from "../../lib/subscriptionPaths";
 
 /** The two mappers with a visual editor, so `?mapper=` cannot name anything else. */
 const MAPPERS_WITH_AN_EDITOR: readonly string[] = [NATIVE_MAPPER_ID, "NativeJSONMapper"];
@@ -29,6 +33,7 @@ export default function MapperEditorRoute() {
   // its editor should not need a save in between. Both editors write `mapperId` when
   // they save, so arriving this way and saving completes the switch that was started.
   const picked = search.get("mapper");
+  const narrow = useTooNarrowForEditor();
 
   const valid = Number.isInteger(subscriptionId) && subscriptionId > 0;
 
@@ -61,6 +66,22 @@ export default function MapperEditorRoute() {
       </div>
     );
   }
+
+  // Two panes of fields and the lines between them need a desk. On a phone, say whose mapping
+  // this is and send people back to the subscription, where pausing and the last error live.
+  if (narrow && data)
+    return (
+      <div className="fixed inset-0 z-40 overflow-y-auto bg-canvas p-4">
+        <DeskOnlyCard
+          title={data.name}
+          what="The mapping editor"
+          status={<SubscriptionStatusBadges enabled={data.enabled} paused={data.pausedOn !== null} />}
+          technical={data.informationTypeCode}
+          facts={[{ label: "Mapper", value: data.mapperId ?? "None yet", tone: data.mapperId ? undefined : "muted" }]}
+          back={{ to: subscriptionPath(data.id, data.type), label: "Subscription" }}
+        />
+      </div>
+    );
 
   // A subscription with no mapper yet gets the new editor - that is what new
   // mappings should be built with. Existing ones keep whichever they were made in.

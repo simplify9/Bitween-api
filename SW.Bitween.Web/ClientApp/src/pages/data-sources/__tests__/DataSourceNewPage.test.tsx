@@ -34,13 +34,24 @@ describe("a new data source", () => {
     expect(await screen.findByText("A connection Bitween keeps open to a database outside it.", undefined, { timeout: 5000 })).toBeVisible();
     await user.type(screen.getByLabelText("Name"), "ERP database");
     const create = screen.getByRole("button", { name: "Create" });
-    expect(create).toBeDisabled();
-    expect(screen.getByText("Still needs Host, Database, Password.")).toBeVisible();
+    expect(screen.getByText("Still needs Host, Database and Password.")).toBeVisible();
 
+    // Create can always be pressed: it marks what is missing, at the field, and goes to the first.
+    expect(create).toBeEnabled();
+    await user.click(create);
+    expect(screen.getByText("PostgreSQL can't connect without its Host.")).toBeVisible();
+    expect(screen.getByText("PostgreSQL can't connect without its Password.")).toBeVisible();
+    expect(screen.getByLabelText("Host")).toHaveFocus();
+    expect(screen.getByLabelText("Host")).toHaveAttribute("aria-invalid", "true");
+    expect(created).toBeNull();
+
+    // Each mark goes as its field is filled in.
     await user.type(screen.getByLabelText("Host"), "db.local");
+    expect(screen.queryByText("PostgreSQL can't connect without its Host.")).toBeNull();
+    expect(screen.getByText("Still needs Database and Password.")).toBeVisible();
     await user.type(screen.getByLabelText("Database"), "erp");
     await user.type(screen.getByLabelText("Password"), "s3cret");
-    expect(create).toBeEnabled();
+    expect(screen.queryByText(/Still needs/)).toBeNull();
     await user.click(create);
 
     await waitFor(() => expect(created).not.toBeNull());

@@ -7,7 +7,7 @@ import {
   type ReactNode,
   type SelectHTMLAttributes,
 } from "react";
-import { Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff, TriangleAlert } from "lucide-react";
 
 const inputClass =
   "h-9.5 w-full rounded-lg border border-ink-200 bg-white px-3 text-sm text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:outline-none focus:ring-2 focus:ring-focus-100 aria-invalid:border-danger-600 disabled:bg-ink-50 disabled:text-ink-500";
@@ -18,7 +18,8 @@ const inputClass =
  */
 const FieldContext = createContext<{ id?: string; describedBy?: string; invalid: boolean } | null>(null);
 
-function useFieldProps<P extends { id?: string; "aria-describedby"?: string; "aria-invalid"?: unknown }>(props: P): P {
+/** Lets a control built elsewhere (SearchSelect) take its id, note and error state from a Field. */
+export function useFieldProps<P extends { id?: string; "aria-describedby"?: string; "aria-invalid"?: unknown }>(props: P): P {
   const field = useContext(FieldContext);
   if (!field) return props;
   return {
@@ -61,8 +62,9 @@ export function Field({
         </label>
         {children}
         {error ? (
-          <p id={noteId} role="alert" className="text-[13px] text-danger-700">
-            {error}
+          <p id={noteId} role="alert" className="flex items-start gap-1 text-[13px] text-danger-700">
+            <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+            <span>{error}</span>
           </p>
         ) : (
           hint && (

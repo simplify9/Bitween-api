@@ -64,7 +64,7 @@ describe("a new notification channel", () => {
     // Every other adapter is one step away rather than one of the choices.
     expect(screen.getByRole("radio", { name: /Use another adapter/ })).toBeVisible();
 
-    await user.type(screen.getByLabelText("Name"), "Ops email");
+    await user.type(screen.getByLabelText("Channel name"), "Ops email");
     await user.click(within(types).getByRole("radio", { name: /Email/ }));
 
     // The server is Settings' business; the channel says where it is.
@@ -80,6 +80,40 @@ describe("a new notification channel", () => {
     ]);
     // Back where the picker was, with the new channel to pick.
     expect(router.state.location.search).toBe("?draftKept=1&pickedChannel=42");
+  });
+
+  it("marks what is missing at each field when Create is pressed too soon", async () => {
+    const created: unknown[] = [];
+    const { user } = renderApp("/settings/notification-channels/new", {
+      handlers: [
+        ...shared,
+        mailServer("smtp.acme.test", "bitween@acme.test"),
+        http.post(apiPath("/notificationchannels"), async ({ request }) => {
+          created.push(await request.json());
+          return HttpResponse.json(42);
+        }),
+      ],
+    });
+
+    // A labelled field for the name; the heading says what it is until one is typed.
+    const name = await screen.findByLabelText("Channel name");
+    expect(screen.getByRole("heading", { level: 1, name: "New notification channel" })).toBeVisible();
+    expect(screen.getByText("Still needs a name and how it sends.")).toBeVisible();
+
+    const create = screen.getByRole("button", { name: "Create channel" });
+    expect(create).toBeEnabled();
+    await user.click(create);
+    expect(screen.getByText("Give the channel a name, e.g. Ops email.")).toBeVisible();
+    expect(screen.getByText("Pick how it sends: Email, Teams, Slack or another adapter.")).toBeVisible();
+    expect(name).toHaveFocus();
+
+    await user.type(name, "Ops email");
+    expect(screen.getByRole("heading", { level: 1, name: "Ops email" })).toBeVisible();
+    expect(screen.queryByText("Give the channel a name, e.g. Ops email.")).toBeNull();
+    await user.click(screen.getByRole("radio", { name: /Email/ }));
+    expect(screen.queryByText(/Pick how it sends:/)).toBeNull();
+    expect(screen.getByText("Fill in the To.")).toBeVisible();
+    expect(created).toEqual([]);
   });
 
   it("says an Email channel can't send until a mail server is set", async () => {

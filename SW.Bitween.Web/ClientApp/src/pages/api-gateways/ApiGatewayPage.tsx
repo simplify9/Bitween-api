@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pause, Pencil, Play, Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { api, type ApiGatewayAttachment, type GatewayAuthentication, type GatewayFailureAnswer } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
@@ -11,6 +11,8 @@ import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../compon
 import { isNotFound } from "../../components/ui/isNotFound";
 import { Field, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu, RunStateControl, type RunStateOption } from "../../components/layout/HeaderActions";
 import { CopyField } from "../../components/ui/CopyField";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
@@ -25,6 +27,12 @@ import { GATEWAY_ERRORS } from "./gatewayErrors";
 import { usePageTitle } from "../../lib/pageTitle";
 
 const ATTACHMENTS_PAGE_SIZE = 10;
+
+// No Paused for a gateway: switched off, it refuses calls rather than holding them.
+const gatewayRunStates: RunStateOption<"running" | "off">[] = [
+  { value: "running", label: "Running", caption: "Running: accepts partner calls and hands them on." },
+  { value: "off", label: "Off", caption: "Off: partners get a 503. Nothing they send is kept." },
+];
 
 /**
  * The same key opens the gateway from any of three places, so a partner uses whichever their
@@ -104,6 +112,7 @@ export function ApiGatewayPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const canEdit = useSessionCan("api-gateways.edit");
+  const canDelete = useSessionCan("api-gateways.delete");
   const wiredColumns = useWiredSubscriptionColumns<ApiGatewayAttachment>((a) => a.subscriptionId);
   // Where each attached subscription's response goes - not on the attachment rows themselves.
   const cachedSetups = useSubscriptionsCache().data;
@@ -204,7 +213,7 @@ export function ApiGatewayPage() {
   if (gateway.isError)
     return (
       <EmptyState title="This API gateway no longer exists">
-        <Link to="/api-gateways" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/api-gateways" className="font-medium link">
           Back to API gateways
         </Link>
       </EmptyState>
@@ -242,25 +251,25 @@ export function ApiGatewayPage() {
             {g.inactive && <Badge tone="warn">Deactivated</Badge>}
           </h1>
         </div>
-        <div className="flex shrink-0 gap-2">
-          {canEdit && (
-            <Button
-              onClick={() => setConfirmingActive(true)}
-              title={
-                g.inactive
-                  ? "Start accepting partner calls again."
-                  : "Refuse partner calls without deleting the gateway or its attachments."
-              }
-            >
-              {g.inactive ? <Play className="size-4" /> : <Pause className="size-4" />}
-              {g.inactive ? "Activate" : "Deactivate"}
-            </Button>
-          )}
-          <Can permission="api-gateways.delete">
-            <Button variant="danger" onClick={() => setDeleting(true)}>
-              <Trash2 className="size-4" /> Delete
-            </Button>
-          </Can>
+        <div className="flex shrink-0 items-start gap-2">
+          <RunStateControl
+            label="Running state"
+            options={gatewayRunStates}
+            value={g.inactive ? "off" : "running"}
+            onChange={() => setConfirmingActive(true)}
+            disabled={!canEdit}
+          />
+          <MoreActionsMenu
+            actions={[
+              {
+                label: "Delete",
+                icon: <Trash2 className="size-4" />,
+                danger: true,
+                onSelect: () => setDeleting(true),
+                hidden: !canDelete,
+              },
+            ]}
+          />
         </div>
       </div>
 
@@ -318,15 +327,26 @@ export function ApiGatewayPage() {
             </Field>
             {auth.method === "PartnerKey" && (
               <Field label="Key header" htmlFor="ag-key-header" error={authProblem.keyHeader}>
-                <TextInput
-                  id="ag-key-header"
-                  value={auth.keyHeader}
-                  disabled={!canEdit}
-                  className="font-mono"
-                  placeholder={g.defaultKeyHeader}
-                  title={`The header partners send their key in. Leave empty to use the system-wide one (${g.defaultKeyHeader}), set in Settings under API behavior. partnerkey always works too.`}
-                  onChange={(e) => setAuth({ ...auth, keyHeader: e.target.value })}
-                />
+                {/* Empty means "the system-wide one", which is a real header partners send, not
+                    a missing setting: it is drawn as a value, with a "default" tag, rather than
+                    in placeholder grey, which read as nothing set. Kept empty underneath so the
+                    gateway still follows a later change to the system-wide header. */}
+                <div className="relative">
+                  <TextInput
+                    id="ag-key-header"
+                    value={auth.keyHeader}
+                    disabled={!canEdit}
+                    className={`font-mono ${auth.keyHeader ? "" : "pr-20 placeholder:text-ink-800"}`}
+                    placeholder={g.defaultKeyHeader}
+                    title={`The header partners send their key in. Leave empty to use the system-wide one (${g.defaultKeyHeader}), set in Settings under API behavior. partnerkey always works too.`}
+                    onChange={(e) => setAuth({ ...auth, keyHeader: e.target.value })}
+                  />
+                  {!auth.keyHeader && (
+                    <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 rounded bg-ink-100 px-1.5 py-0.5 text-[11px] text-ink-600">
+                      default
+                    </span>
+                  )}
+                </div>
               </Field>
             )}
             {auth.method === "Jwt" && (
@@ -418,7 +438,7 @@ export function ApiGatewayPage() {
                   The token's <code className="rounded bg-ink-100 px-1 py-0.5 font-mono text-[11px]">{claim}</code>{" "}
                   is what identifies the caller - it decides which attached partner the exchange runs as. Each
                   partner's identity is set on its{" "}
-                  <Link to="/partners" className="font-medium text-crimson-700 hover:underline">
+                  <Link to="/partners" className="font-medium link">
                     partner page
                   </Link>
                   . API keys are refused.
@@ -447,7 +467,7 @@ export function ApiGatewayPage() {
                 <p className="mt-2 text-[12px] text-ink-500">
                   The key is what identifies the caller - it decides which attached partner the exchange
                   runs as, so each partner sends its own. Keys are issued on a{" "}
-                  <Link to="/partners" className="font-medium text-crimson-700 hover:underline">
+                  <Link to="/partners" className="font-medium link">
                     partner's page
                   </Link>
                   , and only shown once when created.
@@ -506,7 +526,7 @@ export function ApiGatewayPage() {
                   cell: (a) => (
                     <Link
                       to={`/partners/${a.partnerId}`}
-                      className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                      className="font-medium text-ink-800 hover:link"
                     >
                       {a.partnerName}
                     </Link>
@@ -535,7 +555,7 @@ export function ApiGatewayPage() {
                   cell: (a) => (
                     <Link
                       to={`/subscriptions/${a.subscriptionId}`}
-                      className="text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                      className="text-[13px] text-ink-700 hover:link"
                     >
                       {a.subscriptionName}
                     </Link>
@@ -563,7 +583,7 @@ export function ApiGatewayPage() {
                         {s.responseSubscriptionId !== null && (
                           <Link
                             to={`/subscriptions/${s.responseSubscriptionId}`}
-                            className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                            className="block text-[13px] text-ink-700 hover:link"
                           >
                             {target?.name ?? `Subscription ${s.responseSubscriptionId}`}
                           </Link>
@@ -706,13 +726,13 @@ export function ApiGatewayPage() {
 
       {confirmingActive && (
         <ConfirmDialog
-          title={g.inactive ? `Activate ${g.name}?` : `Deactivate ${g.name}?`}
+          title={g.inactive ? `Turn ${g.name} on?` : `Turn ${g.name} off?`}
           body={
             g.inactive
               ? "Partners can call it again immediately. Nothing they sent while it was off was kept."
               : `Partners calling /api/gateway/${g.urlName} get a 503 until it is activated again. Its ${g.attachments.length} attachment${g.attachments.length === 1 ? "" : "s"} stay as they are.`
           }
-          confirmLabel={g.inactive ? "Activate" : "Deactivate"}
+          confirmLabel={g.inactive ? "Turn on" : "Turn off"}
           onConfirm={async () => {
             await api.updateApiGateway(gatewayId, {
               name: g.name,
@@ -726,8 +746,10 @@ export function ApiGatewayPage() {
       )}
 
       {deleting && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this API gateway?"
+          name={g.name}
+          impact={[counted(g.attachments.length, "partner attachment")]}
           body={
             <>
               <strong className="font-medium text-ink-800">{g.name}</strong> and its partner

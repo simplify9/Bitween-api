@@ -150,7 +150,8 @@ describe("an information type's bus queue", () => {
   it("says a delete takes its queue and messages too", async () => {
     const { user } = openType(typeOf(true));
 
-    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    await user.click(await screen.findByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
 
     const dialog = within(screen.getByRole("dialog", { name: "Delete this information type?" }));
     expect(dialog.getByText("Its bus queue is deleted too.")).toBeVisible();

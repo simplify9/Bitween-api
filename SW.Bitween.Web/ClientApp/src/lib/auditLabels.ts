@@ -40,6 +40,7 @@ const PROPERTY_LABEL: Record<string, Record<string, string>> = {
     RetryPolicyId: "Retry policy",
     CategoryId: "Category",
     DataSourceId: "Data source",
+    IsSystem: "Built-in",
   },
   Subscription: {
     HandlerId: "Delivery adapter",
@@ -60,7 +61,21 @@ const PROPERTY_LABEL: Record<string, Record<string, string>> = {
     ResponseSubscriptionId: "Response goes to",
     ResponseMessageTypeName: "Response bus message",
     CustomRetryPolicy: "Own retry rules",
+    // As the subscription's own page and the scheduled-jobs table say them.
+    ReceiveOn: "Next run",
+    Schedules: "Schedule",
+    AutoPauseAfterFailures: "Auto-pause",
+    ExpectTraffic: "Expect traffic",
+    PausedAutomatically: "Paused automatically",
+    ConsecutiveFailures: "Failures in a row",
+    LastException: "Last error",
+    QuietSince: "Quiet since",
+    ReceiverVersion: "Receiving adapter version",
+    HandlerVersion: "Delivery adapter version",
+    MapperVersion: "Mapping adapter version",
+    ValidatorVersion: "Validation adapter version",
   },
+  Role: { IsSystem: "Built-in role" },
   Document: {
     BusEnabled: "Published to the bus",
     BusMessageTypeName: "Bus message name",
@@ -86,6 +101,28 @@ const PROPERTY_LABEL: Record<string, Record<string, string>> = {
 const BOOKKEEPING = new Set(["Id", "CreatedOn", "CreatedBy", "ModifiedOn", "ModifiedBy", "OccurredOn"]);
 
 export const isBookkeeping = (property: string): boolean => BOOKKEEPING.has(property);
+
+/**
+ * Fields the system keeps up to date by itself while running, by kind; "*" for any. Nobody sets
+ * them, so they never lead a summary: a new subscription's line used to spend its three names on
+ * "Running mark, Running since, Next run" instead of what someone actually chose.
+ */
+const MACHINE_KEPT: Record<string, string[]> = {
+  "*": ["IsSystem", "Sequence"],
+  Subscription: [
+    "ReceiveOn",
+    "IsRunning",
+    "RunningSince",
+    "ConsecutiveFailures",
+    "LastException",
+    "QuietSince",
+    "PausedAutomatically",
+  ],
+  Account: ["LastSignInOn", "FailedLoginCount", "LockoutEnd"],
+};
+
+export const isMachineKept = (entity: string | undefined, property: string): boolean =>
+  MACHINE_KEPT["*"].includes(property) || (entity !== undefined && (MACHINE_KEPT[entity]?.includes(property) ?? false));
 
 export const propertyLabel = (entity: string | undefined, property: string): string =>
   (entity && PROPERTY_LABEL[entity]?.[property]) ?? PROPERTY_LABEL["*"][property] ?? humanize(property);

@@ -8,6 +8,8 @@ describe("audit labels", () => {
     expect(propertyLabel("Document", "BusEnabled")).toBe("Published to the bus");
     expect(propertyLabel("Partner", "SecretProperties")).toBe("Which settings are secret");
     expect(propertyLabel("Subscription", "HandlerId")).toBe("Delivery adapter");
+    expect(propertyLabel("Subscription", "ReceiveOn")).toBe("Next run");
+    expect(propertyLabel("Role", "IsSystem")).toBe("Built-in role");
   });
 
   it("makes words of any other name, and knows the database's own fields", () => {

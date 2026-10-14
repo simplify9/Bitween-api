@@ -8,7 +8,6 @@ import { InformationTypeDialog } from "../../components/config/InformationTypeDi
 import { SubscriptionMultiFilter } from "../../components/config/SubscriptionMultiFilter";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
-import { Select } from "../../components/ui/forms";
 import { CodeBadge } from "../../components/ui/Panel";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
@@ -24,6 +23,7 @@ import {
 import { useListParams } from "../../lib/listParams";
 import { NONE } from "../../lib/none";
 import { SearchBox } from "../../components/ui/SearchBox";
+import { FilterSelect } from "../../components/ui/SearchSelect";
 
 const PAGE_SIZE = 25;
 
@@ -131,20 +131,18 @@ export function InformationTypesPage() {
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <SearchBox value={searchText} onChange={setSearchText} label="Search information types" placeholder="Search by name" />
         <div className="w-36">
-          <Select
+          <FilterSelect
             aria-label="Filter by format"
-            className="!h-8 text-[13px]"
             value={format ?? ""}
-            onChange={(e) => setParam("format", e.target.value || null)}
+            onChange={(v) => setParam("format", v || null)}
             options={FORMAT_OPTIONS}
           />
         </div>
         <div className="w-44">
-          <Select
+          <FilterSelect
             aria-label="Filter by bus status"
-            className="!h-8 text-[13px]"
             value={busParam ?? ""}
-            onChange={(e) => setParam("bus", e.target.value || null)}
+            onChange={(v) => setParam("bus", v || null)}
             options={BUS_OPTIONS}
           />
         </div>

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { signInAsAdmin } from "./helpers";
+import { signInAsAdmin, moreAction } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await signInAsAdmin(page);
@@ -33,7 +33,7 @@ test("information type Code is optional end to end", async ({ page }) => {
 
   // Cleanup.
   await row.click();
-  await page.getByRole("button", { name: "Delete" }).click();
+  await moreAction(page, "Delete");
   await page.getByRole("button", { name: "Delete information type" }).click();
   await expect(page).toHaveURL(/\/information-types$/);
   await expect(page.getByText(name)).toHaveCount(0);

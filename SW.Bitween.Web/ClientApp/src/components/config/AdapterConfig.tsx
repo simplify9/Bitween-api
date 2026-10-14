@@ -11,6 +11,8 @@ import { keys } from "../../api/queryKeys";
 import { runtimeLabel } from "../../lib/adapterInventory";
 import { lackingPath, lackingPathWarning, type SourceDocument } from "./sourceValues";
 import { usesVisualMappingEditor } from "./mapperEditors";
+import { groupSettings, propertyLabel, sectionSummary } from "./propertyLabels";
+import { SettingHint, SettingsSection } from "./SettingsSections";
 
 // Lives with the picker, re-exported here because this is where every screen
 // already imports it from.
@@ -282,7 +284,7 @@ function ReferenceHints({
           <div key={token} className="flex flex-wrap items-center gap-1.5 text-xs">
             <Link
               to={`/global-values/${setId}`}
-              className="font-mono text-ink-500 hover:text-crimson-700 hover:underline"
+              className="font-mono text-ink-500 hover:link"
             >
               {token}
             </Link>
@@ -325,7 +327,7 @@ function ReferenceHints({
                   <li key={p.id} className="flex flex-wrap items-center gap-1.5">
                     <Link
                       to={`/partners/${p.id}`}
-                      className="font-medium text-ink-700 hover:text-crimson-700 hover:underline"
+                      className="font-medium text-ink-700 hover:link"
                     >
                       {p.name}
                     </Link>
@@ -457,11 +459,19 @@ export function PropField({
     });
   };
 
+  // The stored key is untouched; only what the label reads changes. A form's own name wins, then
+  // the manifest's, then the key humanised.
+  const shown = label ?? propertyLabel(prop.key, prop.displayName);
+
   return (
     <Field
-      label={prop.optional ? (label ?? prop.key) : `${label ?? prop.key} *`}
+      label={prop.optional ? shown : `${shown} *`}
       htmlFor={`prop-${prop.key}`}
-      hint={prop.description}
+      hint={
+        shown !== prop.key || prop.description ? (
+          <SettingHint rawKey={prop.key} label={shown} help={prop.description} />
+        ) : undefined
+      }
     >
       {masked ? (
         <div className="flex h-9.5 items-center justify-between rounded-lg border border-ink-200 bg-ink-50 px-3">
@@ -556,11 +566,13 @@ export function AdapterConfig({
   const catalog = useAdapterCatalog(kind);
   const adapter = catalog.data?.find((a) => a.id === adapterId);
 
-  // Every field is on screen, required first. The busiest adapters (the HTTP
-  // handler has ~20 optional props) do become a wall - that's the accepted
-  // trade for never hiding configuration behind a chevron.
+  // Required settings first and always on screen. The optional ones used to follow in one flat
+  // grid, and on the busiest adapters (the HTTP handler has fifteen) a first-time user had to read
+  // every one to learn that none of them matter for a plain POST. They now sit in sections that
+  // name what is set while closed and open by themselves when anything in them has a value.
   const requiredProps = adapter?.props.filter((p) => !p.optional) ?? [];
   const optionalProps = adapter?.props.filter((p) => p.optional) ?? [];
+  const sections = groupSettings(optionalProps);
 
   const renderProp = (prop: AdapterInfo["props"][number]) => (
     <PropField
@@ -663,7 +675,7 @@ export function AdapterConfig({
           <button
             type="button"
             onClick={onOpenMapperEditor}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[13px] font-medium text-crimson-700 hover:border-ink-300 hover:bg-ink-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[13px] font-medium text-ink-800 hover:border-ink-300 hover:bg-ink-50"
           >
             Open the visual mapping editor
             <ArrowUpRight className="size-3.5" aria-hidden />
@@ -675,7 +687,7 @@ export function AdapterConfig({
             // a mapper and opening its editor gave you the other one until you saved
             // first - in both directions, and with nothing on screen to explain it.
             to={`${mapperEditorHref}?mapper=${encodeURIComponent(adapter.id)}`}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[13px] font-medium text-crimson-700 hover:border-ink-300 hover:bg-ink-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[13px] font-medium text-ink-800 hover:border-ink-300 hover:bg-ink-50"
           >
             Open the visual mapping editor
             <ArrowUpRight className="size-3.5" aria-hidden />
@@ -697,12 +709,31 @@ export function AdapterConfig({
           {requiredProps.length > 0 && (
             <div className="grid gap-4 @lg:grid-cols-2">{requiredProps.map(renderProp)}</div>
           )}
-          {optionalProps.length > 0 && (
+          {sections.length > 0 && (
             <div className="border-t border-ink-100 pt-4">
               <p className="mb-2.5 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                 Optional · {optionalProps.length} field{optionalProps.length === 1 ? "" : "s"}
               </p>
-              <div className="grid gap-4 @lg:grid-cols-2">{optionalProps.map(renderProp)}</div>
+              <div className="space-y-2">
+                {sections.map((section) => (
+                  <SettingsSection
+                    // Keyed by adapter too, so picking another adapter starts its sections afresh.
+                    key={`${adapter.id}-${section.name}`}
+                    title={section.name}
+                    count={section.items.length}
+                    hasValue={section.items.some((p) => !!properties[p.key])}
+                    summary={sectionSummary(
+                      section.items.map((p) => ({
+                        label: propertyLabel(p.key, p.displayName),
+                        value: properties[p.key] ?? "",
+                        secret: p.secret,
+                      })),
+                    )}
+                  >
+                    <div className="grid gap-4 @lg:grid-cols-2">{section.items.map(renderProp)}</div>
+                  </SettingsSection>
+                ))}
+              </div>
             </div>
           )}
         </div>

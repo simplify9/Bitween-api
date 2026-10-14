@@ -13,6 +13,9 @@ const SKIP = new Set(["node_modules", "bin", "obj", "wwwroot", ".git", "test-res
 const TEXT = /\.(cs|csproj|props|targets|ts|tsx|js|mjs|cjs|json|md|yml|yaml|css|html|sh|ps1|py|txt|xml|cshtml|sql|toml)$/i;
 // Built from character codes, so this file has none of them in it.
 const LONG_DASH = new RegExp(`[${String.fromCharCode(0x2013, 0x2014, 0x2015)}]`);
+// The same dashes written as an escape or an entity, which render as the dash all the same.
+// Written so this line does not match itself.
+const LONG_DASH_ESCAPE = /\\u\{?201[345]|&(m|n)dash;|&#(821[123]|x201[345]);/i;
 
 function* files(dir: string): Generator<string> {
   for (const name of readdirSync(dir)) {
@@ -30,7 +33,7 @@ describe("the long dash", () => {
       readFileSync(path, "utf8")
         .split("\n")
         .forEach((line, i) => {
-          if (LONG_DASH.test(line)) found.push(`${relative(ROOT, path)}:${i + 1}`);
+          if (LONG_DASH.test(line) || LONG_DASH_ESCAPE.test(line)) found.push(`${relative(ROOT, path)}:${i + 1}`);
         });
     }
     expect(found).toEqual([]);

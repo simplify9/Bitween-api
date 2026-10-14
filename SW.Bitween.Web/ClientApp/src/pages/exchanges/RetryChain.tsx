@@ -53,7 +53,7 @@ function Attempt({
           <Link
             to={`/exchanges?ids=${encodeURIComponent(node.id)}`}
             title={`Open the ${ordinal(depth + 1)} attempt at this work`}
-            className="w-[68px] shrink-0 text-[11px] font-medium tracking-wide text-ink-500 uppercase hover:text-crimson-700 hover:underline"
+            className="w-[68px] shrink-0 text-[11px] font-medium tracking-wide text-ink-500 uppercase hover:link"
           >
             Attempt {depth + 1}
           </Link>

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { signInAsAdmin } from "./helpers";
+import { signInAsAdmin, moreAction } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
   await signInAsAdmin(page);
@@ -34,7 +34,7 @@ test("global value set create, edit values, list, delete", async ({ page }) => {
   await expect(row.locator("td").nth(2)).toHaveText("1"); // Values column
 
   await row.click();
-  await page.getByRole("button", { name: "Delete" }).click();
+  await moreAction(page, "Delete");
   await page.getByRole("button", { name: "Delete value set" }).click();
   await expect(page).toHaveURL(/\/global-values$/);
   await expect(page.getByText(name)).toHaveCount(0);

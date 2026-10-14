@@ -123,7 +123,7 @@ export function ProfilePage() {
             <ul className="space-y-2.5">
               {roles.map((role) => (
                 <li key={role.id} className="flex items-start gap-2.5">
-                  <ShieldCheck className="mt-0.5 size-4 shrink-0 text-crimson-600" />
+                  <ShieldCheck className="mt-0.5 size-4 shrink-0 text-ink-500" />
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-ink-800">{role.name}</p>
                   </div>
@@ -137,7 +137,7 @@ export function ProfilePage() {
             {can("roles.view") && (
               <p className="mt-2 text-[13px] text-ink-500">
                 See what each role unlocks under{" "}
-                <Link to="/team/roles" className="font-medium text-crimson-700 hover:underline">
+                <Link to="/team/roles" className="font-medium link">
                   Team → Roles
                 </Link>
                 .

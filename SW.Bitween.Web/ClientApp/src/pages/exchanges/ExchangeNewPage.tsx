@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, ApiRequestError } from "../../api";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { FormatButton } from "../../components/ui/FormatButton";
-import { Button, FormError } from "../../components/ui/basics";
+import { Button, FormError, ProblemText } from "../../components/ui/basics";
 import { Field } from "../../components/ui/forms";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { useSubscriptionsCache } from "../../components/config/lookups";
@@ -145,8 +145,8 @@ export function ExchangeNewPage() {
             className="w-full resize-y rounded-lg border border-ink-200 bg-white px-3 py-2 font-mono text-xs text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
           />
           <div className="flex items-start justify-between gap-3">
-            <p role={problem ? "alert" : undefined} className="min-w-0 text-[12.5px] break-words text-danger-700">
-              {problem}
+            <p role={problem ? "alert" : undefined} className="min-w-0 break-words">
+              {problem && <ProblemText>{problem}</ProblemText>}
             </p>
             <FormatButton value={data} onChange={setData} />
           </div>

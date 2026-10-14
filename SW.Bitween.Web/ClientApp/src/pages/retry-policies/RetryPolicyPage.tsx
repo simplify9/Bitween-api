@@ -3,13 +3,14 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { FlaskConical, Pencil, Plus, Trash2 } from "lucide-react";
 import { api, type RetryGroup, type RetryMatcher, type RetryResultType } from "../../api";
-import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { HistoryCard } from "../../components/config/HistoryCard";
 import { Badge, Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { isNotFound } from "../../components/ui/isNotFound";
 import { Field, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { NotificationChannelPicker } from "../../components/config/pickers";
@@ -186,6 +187,7 @@ export function RetryPolicyPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("retry-policies.edit");
+  const canDelete = useSessionCan("retry-policies.delete");
   const channelNames = useNotificationChannelNames();
 
   const policy = useQuery({
@@ -274,7 +276,7 @@ export function RetryPolicyPage() {
   if (policy.isError)
     return (
       <EmptyState title="This retry policy no longer exists">
-        <Link to="/retry-policies" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/retry-policies" className="font-medium link">
           Back to retry policies
         </Link>
       </EmptyState>
@@ -303,11 +305,17 @@ export function RetryPolicyPage() {
             Groups are checked top to bottom - the first match decides.
           </p>
         </div>
-        <Can permission="retry-policies.delete">
-          <Button variant="danger" onClick={() => setDeleting(true)}>
-            <Trash2 className="size-4" /> Delete
-          </Button>
-        </Can>
+        <MoreActionsMenu
+          actions={[
+            {
+              label: "Delete",
+              icon: <Trash2 className="size-4" />,
+              danger: true,
+              onSelect: () => setDeleting(true),
+              hidden: !canDelete,
+            },
+          ]}
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -504,8 +512,10 @@ export function RetryPolicyPage() {
       )}
 
       {deleting && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this retry policy?"
+          name={p.name}
+          blockers={[counted(p.subscriptions.length, "subscription assigned to it", "subscriptions assigned to it")]}
           body={
             <>
               <strong className="font-medium text-ink-800">{p.name}</strong> will be gone for good.

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../../api";
+import { api, type TrailEntry } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { Can } from "../../auth/guards";
 import { Panel } from "../ui/Panel";
@@ -17,11 +17,17 @@ import { TrailTable } from "./shared";
 export function HistoryList({
   entityName,
   entityKey,
+  subjectOf,
 }: {
   /** The audited entity's name, as the backend records it - e.g. `Partner`. */
   entityName: string;
   /** Its primary key. Omit to show every change to entities of this kind. */
   entityKey?: string | number;
+  /**
+   * Names the row each entry is about, for a card covering every row of a kind: without it, the
+   * lines of such a card cannot say which row they changed.
+   */
+  subjectOf?: (entry: TrailEntry) => string | undefined;
 }) {
   const key = entityKey === undefined ? undefined : String(entityKey);
 
@@ -31,7 +37,7 @@ export function HistoryList({
   });
 
   if (isLoading) return <p className="text-sm text-ink-500">Loading…</p>;
-  return <TrailTable entries={data?.result ?? []} />;
+  return <TrailTable entries={data?.result ?? []} subjectOf={subjectOf} />;
 }
 
 /**
@@ -45,16 +51,18 @@ export function HistoryCard({
   entityKey,
   description,
   className = "",
+  subjectOf,
 }: {
   entityName: string;
   entityKey?: string | number;
   description?: string;
   className?: string;
+  subjectOf?: (entry: TrailEntry) => string | undefined;
 }) {
   return (
     <Can permission="audit.view">
       <Panel title="History" description={description} className={className}>
-        <HistoryList entityName={entityName} entityKey={entityKey} />
+        <HistoryList entityName={entityName} entityKey={entityKey} subjectOf={subjectOf} />
       </Panel>
     </Can>
   );

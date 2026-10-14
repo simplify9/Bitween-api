@@ -8,7 +8,7 @@ import { FileCode, X } from "lucide-react";
 import { api, type AdapterSourceFile } from "../../api";
 import { compareListings, languageFor, type FileChange } from "../../lib/adapterSource";
 import { keys } from "../../api/queryKeys";
-import { Badge, LoadingBlock } from "../../components/ui/basics";
+import { Badge, LoadingBlock, ProblemText } from "../../components/ui/basics";
 
 const editorTheme = EditorView.theme({
   "&": { maxHeight: "32rem", backgroundColor: "#ffffff", fontSize: "12.5px" },
@@ -129,7 +129,9 @@ export default function AdapterSourceViewer({
       {listing.isPending ? (
         <LoadingBlock label="Reading the source…" />
       ) : listing.isError ? (
-        <p className="px-4 py-3 text-[13px] text-danger-700">{listing.error.message}</p>
+        <p className="px-4 py-3">
+          <ProblemText>{listing.error.message}</ProblemText>
+        </p>
       ) : listing.data.files.length === 0 ? (
         <p className="px-4 py-3 text-[13px] text-ink-500">This version was published without its source.</p>
       ) : (
@@ -220,7 +222,12 @@ function FilePane({
 
   const pending = (change !== "removed" && after.isPending) || ((change === "changed" || change === "removed") && before.isPending);
   const error = after.error ?? before.error;
-  if (error) return <p className="px-4 py-3 text-[13px] text-danger-700">{error.message}</p>;
+  if (error)
+    return (
+      <p className="px-4 py-3">
+        <ProblemText>{error.message}</ProblemText>
+      </p>
+    );
   if (pending) return <LoadingBlock label={`Reading ${path}…`} />;
 
   const shown: AdapterSourceFile | undefined = change === "removed" ? before.data : after.data;

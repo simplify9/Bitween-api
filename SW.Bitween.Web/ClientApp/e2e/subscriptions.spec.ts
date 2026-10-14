@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { pickOption, signInAsAdmin, SUBSCRIPTION_PAGE } from "./helpers";
+import { pickOption, signInAsAdmin, SUBSCRIPTION_PAGE, moreAction } from "./helpers";
 import { SEED } from "./seed-data";
 
 /**
@@ -48,38 +48,41 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
 
   await expect(page).toHaveURL(SUBSCRIPTION_PAGE);
   await expect(page.getByRole("heading", { name })).toBeVisible();
-  // A badge now, not a button - the switch that turns it off lives with Pause on the right.
+  // A badge, not a button - the running state is changed from the control on the right.
   await expect(page.getByText("Active", { exact: true }).first()).toBeVisible();
+  const state = page.getByRole("radiogroup", { name: "Running state" });
+  await expect(state.getByRole("radio", { name: "Running" })).toBeChecked();
 
-  // Disable / enable. Distinct from pause below: this one drops the work rather than holding it,
-  // and unlike the chip it replaced it applies on confirm instead of waiting for a save.
-  await page.getByRole("button", { name: "Disable", exact: true }).click();
+  // Off and back on. Distinct from Paused below: this one drops the work rather than holding
+  // it, and it applies on confirm instead of waiting for a save.
+  await state.getByRole("radio", { name: "Off" }).click();
   await page
-    .getByRole("dialog", { name: "Disable this subscription?" })
-    .getByRole("button", { name: "Disable" })
+    .getByRole("dialog", { name: "Turn this subscription off?" })
+    .getByRole("button", { name: "Turn off" })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(state.getByRole("radio", { name: "Off" })).toBeChecked();
   await expect(page.getByText("Disabled", { exact: true }).first()).toBeVisible();
 
-  await page.getByRole("button", { name: "Enable", exact: true }).click();
+  await state.getByRole("radio", { name: "Running" }).click();
   await page
-    .getByRole("dialog", { name: "Enable this subscription?" })
-    .getByRole("button", { name: "Enable" })
+    .getByRole("dialog", { name: "Turn this subscription on?" })
+    .getByRole("button", { name: "Turn on" })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(state.getByRole("radio", { name: "Running" })).toBeChecked();
   await expect(page.getByText("Disabled", { exact: true })).toHaveCount(0);
 
-  // Pause / resume. `exact` because the history card's "Show what changed: …, PausedOn, …"
-  // button is also a substring match for "Pause" once there are edits to show.
-  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  // Paused and resumed.
+  await state.getByRole("radio", { name: "Paused" }).click();
   await page.getByRole("dialog", { name: "Pause this subscription?" }).getByRole("button", { name: "Pause" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByText("Paused", { exact: true }).first()).toBeVisible();
+  await expect(state.getByRole("radio", { name: "Paused" })).toBeChecked();
 
-  await page.getByRole("button", { name: "Resume", exact: true }).click();
+  await state.getByRole("radio", { name: "Running" }).click();
   await page.getByRole("dialog", { name: "Resume this subscription?" }).getByRole("button", { name: "Resume" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByText("Paused", { exact: true })).toHaveCount(0);
+  await expect(state.getByRole("radio", { name: "Running" })).toBeChecked();
 
   // Receive now.
   await page.getByRole("button", { name: "Receive now" }).click();
@@ -110,7 +113,7 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   // centre depends on how wide the columns happen to be.
   await row.getByText(name).click();
   await expect(page).toHaveURL(SUBSCRIPTION_PAGE);
-  await page.getByRole("button", { name: "Delete" }).click();
+  await moreAction(page, "Delete");
   await page.getByRole("button", { name: "Delete subscription" }).click();
   await expect(page).toHaveURL(/\/subscriptions$/);
   await expect(page.getByText(name)).toHaveCount(0);

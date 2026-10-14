@@ -1,7 +1,7 @@
 import { createServer, type IncomingMessage, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { test, expect, type Page } from "@playwright/test";
-import { pickOption, signInAsAdmin, SUBSCRIPTION_PAGE } from "./helpers";
+import { pickOption, signInAsAdmin, SUBSCRIPTION_PAGE, moreAction } from "./helpers";
 import { SEED } from "./seed-data";
 
 /**
@@ -109,7 +109,7 @@ test("HTTP receiver and handler log in with a custom body and token path", async
   expect(sink.auth).toBe(`Bearer ${TOKEN}`);
   expect(JSON.parse(sink.body)).toMatchObject({ orderId: "pw-1" });
 
-  await page.getByRole("button", { name: "Delete" }).click();
+  await moreAction(page, "Delete");
   await page.getByRole("button", { name: "Delete subscription" }).click();
   await expect(page).toHaveURL(/\/subscriptions$/);
 });

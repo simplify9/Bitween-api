@@ -7,7 +7,7 @@ import { isNotFound } from "../../components/ui/isNotFound";
 import { SubscriptionPicker } from "../../components/config/pickers";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
-import { usePageTitle } from "../../lib/pageTitle";
+import { useCrumbTitle, usePageTitle } from "../../lib/pageTitle";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
 function useDraft<T extends object>(initial: T) {
@@ -37,6 +37,7 @@ export function EditAttachmentPage() {
   });
   const attachment = gateway.data?.attachments.find((a) => a.partnerId === pid);
   usePageTitle(attachment?.partnerName);
+  useCrumbTitle("apiGateway", gateway.data?.name);
 
   const [draft, update, clear] = useDraft<Draft>({ subscriptionId: null },
   );
@@ -66,7 +67,7 @@ export function EditAttachmentPage() {
   if (gateway.isError || !attachment)
     return (
       <EmptyState title="This attachment no longer exists">
-        <Link to={`/api-gateways/${gatewayId}`} className="font-medium text-crimson-700 hover:underline">
+        <Link to={`/api-gateways/${gatewayId}`} className="font-medium link">
           Back to the gateway
         </Link>
       </EmptyState>

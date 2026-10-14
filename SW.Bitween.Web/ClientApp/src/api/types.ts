@@ -667,6 +667,13 @@ export interface AdapterProp {
   /** Secret values are write-only: masked after save, replaced not edited. */
   secret: boolean;
   description?: string;
+  /**
+   * A manifest's own name and section for the property. Read when the server sends them; today's
+   * servers don't (the startup-value shape has no room for them), so the label is humanised from
+   * `key` and the section guessed from it.
+   */
+  displayName?: string;
+  group?: string;
 }
 
 export interface AdapterInfo {

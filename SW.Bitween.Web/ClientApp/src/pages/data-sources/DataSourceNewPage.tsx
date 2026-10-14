@@ -6,8 +6,10 @@ import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, PasswordInput, Select, TextInput } from "../../components/ui/forms";
 import { BackLink } from "../../components/ui/BackLink";
+import { StillNeeds, useFormCheck } from "../../components/ui/formCheck";
 import { keys } from "../../api/queryKeys";
-import { declaredSecrets, initialProperties, useDataSourceProviders } from "./providers";
+import { declaredSecrets, initialProperties, settingLabel, useDataSourceProviders } from "./providers";
+import { SettingHint } from "../../components/config/SettingsSections";
 
 /**
  * Creating asks for a name, a provider, and the settings that provider can't connect without.
@@ -58,15 +60,26 @@ export function DataSourceNewPage() {
     typed[provider?.adapterId ?? ""]?.[setting] ?? provider?.settings.find((s) => s.name === setting)?.default ?? "";
   const setValue = (setting: string, value: string) =>
     setTyped((t) => ({ ...t, [provider!.adapterId]: { ...(t[provider!.adapterId] ?? {}), [setting]: value } }));
-  const missing = required.filter((s) => !valueOf(s.name).trim()).map((s) => s.name);
+  const check = useFormCheck<string>([
+    {
+      field: "name",
+      failing: !name.trim(),
+      needs: "a name",
+      message: "Give the data source a name, e.g. Acme's RabbitMQ.",
+      focus: "ds-name",
+    },
+    ...required.map((s) => ({
+      field: `setting:${s.name}`,
+      failing: !valueOf(s.name).trim(),
+      needs: s.name,
+      message: `${provider?.label ?? "This provider"} can't connect without its ${s.name}.`,
+      focus: `ds-new-${s.name}`,
+    })),
+  ]);
 
   const submit = () => {
     setError(null);
-    if (!name.trim()) {
-      setError("A name is required.");
-      return;
-    }
-    create.mutate();
+    check.submit(() => create.mutate());
   };
 
   if (providers.isPending) return <LoadingBlock label="Loading providers…" />;
@@ -99,7 +112,7 @@ export function DataSourceNewPage() {
       />
 
       <div className="flex flex-col gap-4 rounded-xl border border-ink-200 bg-white p-5">
-        <Field label="Name" htmlFor="ds-name">
+        <Field label="Name" htmlFor="ds-name" error={check.errors.name}>
           <TextInput
             id="ds-name"
             value={name}
@@ -128,7 +141,17 @@ export function DataSourceNewPage() {
               What {provider.label} needs to connect. Everything else starts at its default, on the next screen.
             </p>
             {required.map((s) => (
-              <Field key={`${provider.adapterId}-${s.name}`} label={s.name} hint={s.hint ?? undefined} htmlFor={`ds-new-${s.name}`}>
+              <Field
+                key={`${provider.adapterId}-${s.name}`}
+                label={settingLabel(s.name)}
+                hint={
+                  settingLabel(s.name) !== s.name || s.hint ? (
+                    <SettingHint rawKey={s.name} label={settingLabel(s.name)} help={s.hint} />
+                  ) : undefined
+                }
+                htmlFor={`ds-new-${s.name}`}
+                error={check.errors[`setting:${s.name}`]}
+              >
                 {s.allowedValues ? (
                   <Select
                     id={`ds-new-${s.name}`}
@@ -155,15 +178,10 @@ export function DataSourceNewPage() {
 
         <div className="flex items-center gap-2">
           <Button onClick={() => navigate("/data-sources")}>Cancel</Button>
-          <Button
-            variant="primary"
-            onClick={submit}
-            disabled={create.isPending || missing.length > 0}
-            title={missing.length > 0 ? `Still needs ${missing.join(", ")}` : undefined}
-          >
+          <Button variant="primary" onClick={submit} disabled={create.isPending}>
             {create.isPending ? "Creating…" : "Create"}
           </Button>
-          {missing.length > 0 && <span className="text-[12.5px] text-ink-500">Still needs {missing.join(", ")}.</span>}
+          <StillNeeds missing={check.missing} />
         </div>
       </div>
     </div>

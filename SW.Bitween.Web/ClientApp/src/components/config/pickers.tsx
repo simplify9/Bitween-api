@@ -41,7 +41,7 @@ function PickerLinks({
   return (
     <div className="mt-1 flex flex-wrap items-center gap-3">
       {view && (
-        <Link to={view} className="text-[13px] font-medium text-crimson-700 hover:underline">
+        <Link to={view} className="text-[13px] font-medium link">
           View
         </Link>
       )}
@@ -50,14 +50,14 @@ function PickerLinks({
           key={a.label}
           type="button"
           onClick={a.onAct}
-          className="inline-flex items-center gap-1 text-[13px] font-medium text-crimson-700 hover:underline"
+          className="inline-flex items-center gap-1 text-[13px] font-medium link"
         >
           {a.icon && <Plus className="size-3" />}
           {a.label}
         </button>
       ))}
       {create && (
-        <Link to={create} className="text-[13px] font-medium text-crimson-700 hover:underline">
+        <Link to={create} className="text-[13px] font-medium link">
           + {createLabel}
         </Link>
       )}

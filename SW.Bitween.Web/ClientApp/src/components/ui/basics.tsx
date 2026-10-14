@@ -162,6 +162,22 @@ export function InlineNotice({ children }: { children: ReactNode }) {
   );
 }
 
+/**
+ * Something on the page that is wrong, said in red with an icon and a tint. Bare red text read
+ * the same as a link or a brand accent, so a problem never looked different from an action.
+ * `plain` drops the tint where a row of them would be too loud (inside a table cell).
+ */
+export function ProblemText({ children, plain = false, className = "" }: { children: ReactNode; plain?: boolean; className?: string }) {
+  return (
+    <span
+      className={`inline-flex items-start gap-1 text-[13px] text-danger-800 ${plain ? "" : "rounded-md bg-danger-50 px-1.5 py-0.5"} ${className}`}
+    >
+      <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      <span>{children}</span>
+    </span>
+  );
+}
+
 /** Inline error strip for failed form submissions. */
 export function FormError({ children }: { children: ReactNode }) {
   if (!children) return null;

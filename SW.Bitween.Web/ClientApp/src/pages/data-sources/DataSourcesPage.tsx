@@ -139,7 +139,7 @@ export function DataSourcesPage() {
                 <div className="flex flex-col gap-1">
                   <ConnectionBadge state={d.lastKnownState} failures={d.consecutiveFailures} />
                   {d.lastException && (
-                    <ExceptionLine text={d.lastException} className="max-w-80 text-[12px] text-danger-700" />
+                    <ExceptionLine text={d.lastException} icon className="max-w-80 text-[12px] text-danger-700" />
                   )}
                 </div>
               ),

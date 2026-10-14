@@ -329,7 +329,7 @@ export function KeyValueEditor({
                             : "Drag to change the order, or focus this and use the arrow keys."
                         }
                         className={`flex h-7 w-6 cursor-grab items-center justify-center rounded-md hover:bg-ink-100 active:cursor-grabbing ${
-                          i === 0 && reorderable?.first ? "text-crimson-600" : "text-ink-300 hover:text-ink-500"
+                          i === 0 && reorderable?.first ? "text-ink-700" : "text-ink-300 hover:text-ink-500"
                         }`}
                       >
                         <GripVertical className="size-3.5" aria-hidden />
@@ -396,7 +396,7 @@ export function KeyValueEditor({
                           }
                           className={`rounded-md p-1.5 disabled:cursor-default ${
                             isSecret(row.key)
-                              ? "text-crimson-600 hover:bg-crimson-50"
+                              ? "text-ink-800 hover:bg-ink-100"
                               : "text-ink-300 hover:bg-ink-100 hover:text-ink-500"
                           }`}
                         >

@@ -251,12 +251,16 @@ export const OutputBranch: React.FC<OutputBranchProps> = ({ node, depth = 0, sou
                       <span className="truncate">{JSON.stringify(item)}</span>
                       <div className="flex items-center gap-1 ml-2 flex-shrink-0">
                         <button
+                          aria-label={`Edit item ${idx + 1}`}
+                          title={`Edit item ${idx + 1}`}
                           className="text-ink-300 hover:text-crimson-500 transition"
                           onClick={() => { setEditDraftFields(recordToDraftFields(item as Record<string, unknown>, node)); setEditingFixedIdx(idx); }}
                         >
                           <SquarePen size={12} />
                         </button>
                         <button
+                          aria-label={`Remove item ${idx + 1}`}
+                          title={`Remove item ${idx + 1}`}
                           className="text-ink-300 hover:text-crimson-500 transition"
                           onClick={() =>
                             dispatch(updateArrayMapping({

@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Server } from "lucide-react";
+import { Server, TriangleAlert } from "lucide-react";
 import { Link } from "react-router";
 import { api, type ClusterNodes } from "../../api";
 import { keys } from "../../api/queryKeys";
@@ -28,6 +28,30 @@ export function NodesPage() {
     <PageHeader
       title="Nodes"
       description="Every Bitween node writes in every 30 seconds. One that stops is shown as gone after 90 seconds, and forgotten after a week."
+      help={{
+        title: "What this page shows",
+        body: (
+          <>
+            <p>
+              Each row is one running Bitween <strong>node</strong>, as it last described itself: its
+              version, whether it runs <strong>data sources</strong> (and which it holds now), and which{" "}
+              <strong>adapter runtimes</strong> it found. Only nodes that run data sources connect to
+              brokers and databases.
+            </p>
+            <p>
+              <strong>Leases</strong> are what a node has claimed to run on its own, so no other node runs
+              the same thing at the same time. Different versions across nodes are expected during an
+              upgrade, not after one.
+            </p>
+            <p>
+              <strong>Last 24 hours</strong> counts the exchanges each node finished and the adapter calls
+              it made. <strong>Fails more than the others</strong> flags a node whose failure rate is
+              clearly above the rest. Resident adapter instances, below the table, are the long-lived
+              adapter processes and how often each was restarted.
+            </p>
+          </>
+        ),
+      }}
     />
   );
   if (nodes.isPending) return <div>{header}<LoadingBlock label="Asking the nodes…" /></div>;
@@ -120,7 +144,7 @@ export function NodesPage() {
                         {n.holdsDataSources.map((d, i) => (
                           <span key={d.id}>
                             {i > 0 && ", "}
-                            <Link to={`/data-sources/${d.id}`} className="text-crimson-700 hover:underline">
+                            <Link to={`/data-sources/${d.id}`} className="link">
                               {d.name}
                             </Link>
                           </span>
@@ -158,7 +182,7 @@ export function NodesPage() {
                     <span className="block tabular-nums">
                       {compact(m.exchanges)} exchanges
                       {m.failed > 0 && <span className="text-danger-700"> · {compact(m.failed)} failed</span>}
-                      {m.p95Ms !== null && <span className="text-ink-500"> · p95 {formatDurationMs(m.p95Ms)}</span>}
+                      {m.p95Ms !== null && <span className="text-ink-500" title="95 of every 100 calls finished within this time"> · p95 time {formatDurationMs(m.p95Ms)}</span>}
                     </span>
                     <span className="block text-ink-500 tabular-nums">
                       {compact(m.adapterCalls)} adapter calls
@@ -208,7 +232,12 @@ export function NodesPage() {
                 cell: (r) => (
                   <span className="flex flex-wrap items-center gap-1">
                     <Badge tone={r.q ? "danger" : r.s === "Ready" || r.s === "Busy" ? "ok" : "neutral"}>{r.q ? "Quarantined" : r.s}</Badge>
-                    {r.e && <span className="max-w-60 truncate text-[11.5px] text-danger-700" title={r.e}>{r.e}</span>}
+                    {r.e && (
+                      <span className="flex max-w-60 min-w-0 items-center gap-1 text-[11.5px] text-danger-700" title={r.e}>
+                        <TriangleAlert className="size-3.5 shrink-0" aria-hidden />
+                        <span className="truncate">{r.e}</span>
+                      </span>
+                    )}
                   </span>
                 ),
               },

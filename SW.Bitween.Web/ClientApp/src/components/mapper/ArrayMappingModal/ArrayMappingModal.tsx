@@ -80,7 +80,7 @@ const ArrayMappingModal: React.FC = () => {
             </h2>
             <p className="text-xs text-ink-500 mt-0.5">Configure a loop over a source array with optional filters</p>
           </div>
-          <button onClick={handleClose} className="text-ink-500 hover:text-ink-600 transition">
+          <button onClick={handleClose} aria-label="Close" className="text-ink-500 hover:text-ink-600 transition">
             <X size={18} />
           </button>
         </div>

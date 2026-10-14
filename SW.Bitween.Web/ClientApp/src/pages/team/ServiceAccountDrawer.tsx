@@ -300,7 +300,7 @@ export function ServiceAccountDrawer({ accountId, onClose }: { accountId: number
             <HistoryList entityName="Account" entityKey={String(accountId)} />
             <Link
               to={`/audit?userId=${accountId}`}
-              className="mt-2 inline-block text-[13px] font-medium text-crimson-700 hover:underline"
+              className="mt-2 inline-block text-[13px] font-medium link"
             >
               What this service account changed
             </Link>

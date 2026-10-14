@@ -25,6 +25,7 @@ import type { Draft as StudioDraft } from "../subscriptions/studio/model";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { useDetour } from "../../lib/detour";
+import { useCrumbTitle } from "../../lib/pageTitle";
 import { notificationSlot, notificationsIncomplete, withPickedChannel } from "../../lib/notificationChannels";
 import { NotificationsPanel } from "../subscriptions/studio/NotificationsPanel";
 
@@ -141,6 +142,7 @@ export function NewGatewaySubscriptionPage() {
   // A restored draft already has the name it was left with.
   const touched = useRef(detour.kept !== null);
   const gatewayName = gateway.data?.name;
+  useCrumbTitle("apiGateway", gatewayName);
   useEffect(() => {
     if (touched.current || !gatewayName) return;
     update({ name: gatewayName });
@@ -187,7 +189,7 @@ export function NewGatewaySubscriptionPage() {
   if (gateway.isError)
     return (
       <EmptyState title="This API gateway no longer exists">
-        <Link to="/api-gateways" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/api-gateways" className="font-medium link">
           Back to API gateways
         </Link>
       </EmptyState>

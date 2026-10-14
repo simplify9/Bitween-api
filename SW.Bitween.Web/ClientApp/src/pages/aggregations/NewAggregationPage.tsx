@@ -20,6 +20,7 @@ import { adapterIncomplete, faceOf } from "../subscriptions/studio/faces";
 import { ResponseFields } from "../subscriptions/studio/ResponseFields";
 import type { Draft as StudioDraft } from "../subscriptions/studio/model";
 import { BackLink } from "../../components/ui/BackLink";
+import { FieldProblem, StillNeeds, useFormCheck } from "../../components/ui/formCheck";
 import { DataSourceBinding } from "../subscriptions/studio/DataSourceBinding";
 import { LaneAndRetry } from "../subscriptions/studio/LaneAndRetry";
 import { useBindsToDataSource } from "../data-sources/providers";
@@ -205,25 +206,86 @@ export function NewAggregationPage() {
     }),
   );
 
-  const unfilled = [
-    adapterIncomplete(mappers, draft.mapperId, draft.mapperProperties) && "transformation",
-    adapterIncomplete(handlers, draft.handlerId, draft.handlerProperties) && "delivery",
-  ].filter((m): m is string => typeof m === "string");
+  const incomplete = {
+    transformation: adapterIncomplete(mappers, draft.mapperId, draft.mapperProperties),
+    delivery: adapterIncomplete(handlers, draft.handlerId, draft.handlerProperties),
+  };
+  const unfilled = (Object.keys(incomplete) as (keyof typeof incomplete)[]).filter((k) => incomplete[k]);
+  // One phrase for every step with fields left, so the sentence names them together.
+  const unfilledNeeds = `the required fields on ${unfilled.join(" and ")}`;
+  /** A pipeline step's problem: opens the step, and the cursor goes to the line saying what's wrong. */
+  const inStage = (id: StageId) => ({ focus: `na-${id}-problem`, reveal: () => setStage(id) });
 
-  const missing = [
-    draft.aggregationForId === null && "something to roll up",
-    draft.name.trim().length < 2 && "a name",
-    partnerId === null && "a partner",
+  const check = useFormCheck([
+    {
+      field: "source",
+      failing: draft.aggregationForId === null,
+      needs: "something to roll up",
+      message: "Pick the subscription whose exchanges this rolls up.",
+      focus: "na-source",
+    },
+    {
+      field: "name",
+      failing: draft.name.trim().length < 2,
+      needs: "a name",
+      message: draft.name.trim()
+        ? "A name needs at least two characters."
+        : "Give the aggregation a name, e.g. Daily invoice manifest.",
+      focus: "na-name",
+    },
+    {
+      field: "partner",
+      failing: partnerId === null,
+      needs: "a partner",
+      message: "Pick the partner the roll-up belongs to.",
+      focus: "na-partner",
+    },
     // As strict as the scheduled-job page, for the same reason: a roll-up with nowhere to go
     // is built and then thrown away. It also keeps the rail honest - the Delivery node reads
     // "Needed" while nothing is set, and that has to mean something.
-    draft.handlerId === null && "a delivery",
+    {
+      field: "delivery",
+      failing: draft.handlerId === null,
+      needs: "a delivery",
+      message: "Pick where the roll-up is delivered.",
+      ...inStage("delivery"),
+    },
     // Create does not demand a schedule, but update does - one saved without could never be
     // saved again from its own page. The surface that can make that mistake refuses to.
-    draft.schedules.length === 0 && "a schedule",
-    unfilled.length > 0 && `the required fields on ${unfilled.join(" and ")}`,
-    notificationsIncomplete(draft.notifications) && "a channel and an outcome on every notification",
-  ].filter((m): m is string => typeof m === "string");
+    {
+      field: "schedule",
+      failing: draft.schedules.length === 0,
+      needs: "a schedule",
+      message: "Add at least one schedule, or nothing is ever rolled up.",
+      ...inStage("schedule"),
+    },
+    ...unfilled.map((id) => ({
+      field: id,
+      failing: true,
+      needs: unfilledNeeds,
+      message: "Fill in the required fields below.",
+      ...inStage(id),
+    })),
+    {
+      field: "notifications",
+      failing: notificationsIncomplete(draft.notifications),
+      needs: "a channel and an outcome on every notification",
+      message: "Give every notification a channel and at least one outcome.",
+      focus: "na-notifications-problem",
+    },
+  ]);
+
+  /** The step's problem, once Create has been pressed, at the top of its panel. */
+  const stageProblem = (id: StageId) => {
+    const message = check.errors[id as keyof typeof check.errors];
+    return (
+      message && (
+        <div className="mb-3">
+          <FieldProblem id={`na-${id}-problem`}>{message}</FieldProblem>
+        </div>
+      )
+    );
+  };
 
   const renderStage = (stageId: StageId) => {
     const { label, description } = STAGES[stageId];
@@ -241,6 +303,7 @@ export function NewAggregationPage() {
       case "schedule":
         return (
           <Panel title={label} description="When the source's exchanges are rolled up.">
+            {stageProblem("schedule")}
             <ScheduleEditor
               schedules={draft.schedules}
               onChange={(schedules) => update({ schedules })}
@@ -252,6 +315,7 @@ export function NewAggregationPage() {
       case "transformation":
         return (
           <Panel title={label} description={description}>
+            {stageProblem("transformation")}
             <AdapterConfig
               kind="mapper"
               adapterId={draft.mapperId}
@@ -283,6 +347,7 @@ export function NewAggregationPage() {
       case "delivery":
         return (
           <Panel title={label} description={description}>
+            {stageProblem("delivery")}
             <AdapterConfig
               kind="handler"
               adapterId={draft.handlerId}
@@ -340,7 +405,7 @@ export function NewAggregationPage() {
 
       <div className="mb-5 flex flex-wrap gap-5">
         <div className="w-80">
-          <Field label="Name" htmlFor="na-name">
+          <Field label="Name" htmlFor="na-name" error={check.errors.name}>
             <TextInput
               id="na-name"
               value={draft.name}
@@ -356,6 +421,7 @@ export function NewAggregationPage() {
               label="Rolls up"
               htmlFor="na-source"
               hint="Fixed once created. An aggregation cannot roll up another aggregation."
+              error={check.errors.source}
             >
               <SearchSelect
                 id="na-source"
@@ -377,6 +443,7 @@ export function NewAggregationPage() {
             // can sweep up exchanges belonging to many partners, or to none. It is who the
             // roll-up itself belongs to.
             hint="Who the roll-up exchange belongs to, and whose values fill {{partner.…}} in the delivery below. It does not affect which exchanges are collected."
+            error={check.errors.partner}
           >
             <PartnerPicker
               id="na-partner"
@@ -419,6 +486,11 @@ export function NewAggregationPage() {
       )}
 
       <div className="mt-5">
+        {check.errors.notifications && (
+          <div className="mb-2">
+            <FieldProblem id="na-notifications-problem">{check.errors.notifications}</FieldProblem>
+          </div>
+        )}
         <NotificationsPanel
           value={draft.notifications}
           onChange={(notifications) => update({ notifications })}
@@ -439,20 +511,9 @@ export function NewAggregationPage() {
           onChange={(e) => update({ enable: e.target.checked })}
         />
         <div className="flex items-center gap-3">
-          {missing.length > 0 && (
-            <p className="text-[13px] text-ink-500">
-              Still needs {missing.slice(0, -1).join(", ")}
-              {missing.length > 1 ? " and " : ""}
-              {missing.at(-1)}.
-            </p>
-          )}
+          <StillNeeds missing={check.missing} />
           <Button onClick={() => navigate("/aggregations", { replace: true })}>Cancel</Button>
-          <Button
-            variant="primary"
-            busy={create.isPending}
-            disabled={missing.length > 0}
-            onClick={() => create.mutate()}
-          >
+          <Button variant="primary" busy={create.isPending} onClick={() => check.submit(() => create.mutate())}>
             Create aggregation
           </Button>
         </div>

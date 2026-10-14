@@ -5,7 +5,7 @@ import { Check } from "lucide-react";
 import { api, type DataSourceStatement } from "../../../api";
 import { keys } from "../../../api/queryKeys";
 import { Field, Select, TextInput } from "../../../components/ui/forms";
-import { Button, FormError } from "../../../components/ui/basics";
+import { Button, FormError, ProblemText } from "../../../components/ui/basics";
 import { useSessionCan } from "../../../auth/useSessionCan";
 
 /**
@@ -207,10 +207,10 @@ export function DataSourceBinding({
           </Field>
 
           {missing && (
-            <p className="text-[12px] text-danger-700">
+            <ProblemText>
               “{current}” is not a statement {chosen.name} defines any more. This subscription will
               fail on its next message until it names one that exists.
-            </p>
+            </ProblemText>
           )}
 
           {slot !== "receiver" && (

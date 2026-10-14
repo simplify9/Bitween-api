@@ -6,8 +6,8 @@ import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
-import { Select } from "../../components/ui/forms";
+import { Button, EmptyState, LoadError, LoadingBlock, ProblemText } from "../../components/ui/basics";
+import { ExceptionLine } from "../../components/ui/Exception";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { HealthBadge, LinkListCell, SubscriptionStatusBadges } from "../../components/config/shared";
@@ -16,6 +16,7 @@ import { keys } from "../../api/queryKeys";
 import { useListParams } from "../../lib/listParams";
 import { subscriptionPath } from "../../lib/subscriptionPaths";
 import { SearchBox } from "../../components/ui/SearchBox";
+import { FilterSelect } from "../../components/ui/SearchSelect";
 
 const STATUS_OPTIONS = [
   { value: "", label: "Any status" },
@@ -72,16 +73,35 @@ export function ResponseSubscriptionsPage() {
         title="Response subscriptions"
         description="Pipelines that run on what another subscription's delivery hands back - an order id, an acknowledgement, a label."
         actions={createAction}
+        help={{
+          title: "How response subscriptions work",
+          body: (
+            <>
+              <p>
+                A response subscription doesn't receive documents on its own. It runs when another
+                subscription, one that picks it in its <strong>Response</strong> step, delivers and gets
+                something back.
+              </p>
+              <p>
+                <strong>Fed by</strong> lists those subscriptions. One that nothing feeds never runs, which
+                is why it is flagged here. <strong>Carries</strong> is the information type of the responses
+                it runs on.
+              </p>
+              <p>
+                These also appear on the Subscriptions page; this list exists for the Fed by column.
+              </p>
+            </>
+          ),
+        }}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <SearchBox value={searchText} onChange={setSearchText} label="Search response subscriptions" />
         <div className="w-40">
-          <Select
+          <FilterSelect
             aria-label="Filter by status"
-            className="!h-8 text-[13px]"
             value={inactiveParam ?? ""}
-            onChange={(e) => setParam("inactive", e.target.value || null)}
+            onChange={(v) => setParam("inactive", v || null)}
             options={STATUS_OPTIONS}
           />
         </div>
@@ -128,7 +148,7 @@ export function ResponseSubscriptionsPage() {
                   <Link
                     to={`/information-types/${r.informationTypeId}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+                    className="font-mono text-xs text-ink-600 hover:link"
                   >
                     {r.informationTypeCode}
                   </Link>
@@ -144,7 +164,7 @@ export function ResponseSubscriptionsPage() {
               wrap: true,
               cell: (r) => {
                 const feeders = setups.filter((s) => s.responseSubscriptionId === r.id);
-                if (feeders.length === 0) return <span className="text-[13px] text-danger-700">Nothing</span>;
+                if (feeders.length === 0) return <ProblemText plain>Nothing</ProblemText>;
                 return (
                   <LinkListCell
                     label="subscriptions"
@@ -164,7 +184,7 @@ export function ResponseSubscriptionsPage() {
                   <Link
                     to={`/work-groups/${id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:link"
                   >
                     {name}
                   </Link>
@@ -184,7 +204,7 @@ export function ResponseSubscriptionsPage() {
                   <Link
                     to={`/retry-policies/${id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:link"
                   >
                     {name}
                   </Link>
@@ -207,12 +227,7 @@ export function ResponseSubscriptionsPage() {
               truncate: true,
               cell: (r) =>
                 r.lastException ? (
-                  <span
-                    className="block truncate font-mono text-[11px] text-danger-700"
-                    title={r.lastException}
-                  >
-                    {r.lastException}
-                  </span>
+                  <ExceptionLine text={r.lastException} icon className="font-mono text-[11px] text-danger-700" />
                 ) : (
                   <span className="text-ink-500">-</span>
                 ),

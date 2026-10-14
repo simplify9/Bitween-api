@@ -3,12 +3,12 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { api, referencesGlobal } from "../../api";
-import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { isNotFound } from "../../components/ui/isNotFound";
-import { ConfirmDialog } from "../../components/ui/overlays";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import { KeyValueEditor, type KvRow } from "../../components/ui/KeyValueEditor";
 import { toRecord, toRows } from "../../components/ui/keyValueRows";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
@@ -16,8 +16,7 @@ import { MiniTable } from "../../components/ui/Table";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
-import { SUBSCRIPTION_TYPE_LABELS } from "../../components/config/subscriptionLabels";
-import { SubscriptionMiniList } from "../../components/config/shared";
+import { SubscriptionMiniList, TypeBadge } from "../../components/config/shared";
 import { useSubscriptionsCache } from "../../components/config/lookups";
 import { usePageTitle } from "../../lib/pageTitle";
 
@@ -26,6 +25,7 @@ export function GlobalValueSetPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("global-values.edit");
+  const canDelete = useSessionCan("global-values.delete");
 
   const set = useQuery({
     queryKey: keys.valueSets.detail(id),
@@ -87,7 +87,7 @@ export function GlobalValueSetPage() {
   if (set.isError)
     return (
       <EmptyState title="This value set no longer exists">
-        <Link to="/global-values" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/global-values" className="font-medium link">
           Back to global values
         </Link>
       </EmptyState>
@@ -109,11 +109,17 @@ export function GlobalValueSetPage() {
             </code>
           </h1>
         </div>
-        <Can permission="global-values.delete">
-          <Button variant="danger" onClick={() => setDeleting(true)}>
-            <Trash2 className="size-4" /> Delete
-          </Button>
-        </Can>
+        <MoreActionsMenu
+          actions={[
+            {
+              label: "Delete",
+              icon: <Trash2 className="size-4" />,
+              danger: true,
+              onSelect: () => setDeleting(true),
+              hidden: !canDelete,
+            },
+          ]}
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -166,7 +172,7 @@ export function GlobalValueSetPage() {
                   cell: (u) => (
                     <Link
                       to={`/subscriptions/${u.subscriptionSetup.id}`}
-                      className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                      className="block font-medium text-ink-800 hover:link"
                     >
                       {u.subscriptionSetup.name}
                     </Link>
@@ -174,7 +180,7 @@ export function GlobalValueSetPage() {
                 },
                 {
                   header: "Type",
-                  cell: (u) => <Badge>{SUBSCRIPTION_TYPE_LABELS[u.subscriptionSetup.type]}</Badge>,
+                  cell: (u) => <TypeBadge type={u.subscriptionSetup.type} />,
                 },
                 {
                   header: "References",
@@ -206,8 +212,10 @@ export function GlobalValueSetPage() {
       )}
 
       {deleting && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this value set?"
+          name={s.name}
+          blockers={[counted(s.usedBy.length, "subscription referencing it", "subscriptions referencing it")]}
           body={
             <>
               <strong className="font-medium text-ink-800">{s.name}</strong> and all its values will

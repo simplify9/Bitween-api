@@ -4,7 +4,7 @@ import type { InformationTypeFormat, MatchCondition, MatchGroup, MatchNode } fro
 import { useSessionCan } from "../../auth/useSessionCan";
 import { formatLabel, readsContent } from "../../lib/informationTypeFormat";
 import { matchSummary } from "../../lib/match";
-import { Button } from "../ui/basics";
+import { Button, ProblemText } from "../ui/basics";
 import { Select } from "../ui/forms";
 
 const emptyCondition = (path: string): MatchCondition => ({ op: "oneOf", path, values: [] });
@@ -201,8 +201,10 @@ export function MatchExpressionEditor({
         ) : (
           // Left over from before the type was switched: the server skips it on every message.
           <>
-            <p role="alert" className="text-sm text-danger-700">
-              This filter never passes - nothing reads {formatLabel(format)} content, so no message is picked up.
+            <p role="alert">
+              <ProblemText>
+                This filter never passes - nothing reads {formatLabel(format)} content, so no message is picked up.
+              </ProblemText>
             </p>
             <p className="rounded-lg bg-ink-50 px-3 py-2 font-mono text-xs text-ink-600">{matchSummary(value)}</p>
             {!disabled && (
@@ -242,7 +244,7 @@ export function MatchExpressionEditor({
             {informationTypeId != null && canEditTypes && (
               <Link
                 to={`/information-types/${informationTypeId}`}
-                className="font-medium text-crimson-700 hover:underline"
+                className="font-medium link"
               >
                 Add some
               </Link>

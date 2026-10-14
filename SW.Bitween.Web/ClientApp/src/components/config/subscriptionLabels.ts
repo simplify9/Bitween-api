@@ -1,24 +1,38 @@
 import { type SubscriptionType, type QueueSeverity, type ScheduleHealth } from "../../api";
 
 /**
- * Display names for subscription types; Internal and ApiCall are legacy.
+ * Display names for subscription types.
  *
  * `Receiving` reads "Scheduled job", not the backend's "Receiver" - it is the
  * same thing the sidebar and its own page call a scheduled job, and one entity
  * with two names in the same screen is just a puzzle for the reader.
+ *
+ * Internal and ApiCall predate gateways, and used to carry a yellow "Legacy" badge. An
+ * operator read that as a warning on subscriptions that were working fine, and "legacy"
+ * says nothing about what runs them anyway. They are named by their trigger instead:
+ * something calls them directly, by id or by sending a document of their type.
  */
 export const SUBSCRIPTION_TYPE_LABELS: Record<SubscriptionType, string> = {
   Receiving: "Scheduled job",
   GatewayApiCall: "API gateway",
   BusGateway: "Bus gateway",
-  Internal: "Internal",
-  ApiCall: "API call",
+  Internal: "Direct, by document",
+  ApiCall: "Direct, called by id",
   Aggregation: "Aggregation",
   Response: "Response",
 };
 
 export const isLegacyType = (type: SubscriptionType) =>
   type === "Internal" || type === "ApiCall";
+
+/**
+ * How a direct subscription is called, for the small note beside its "Direct" badge.
+ * Only the two direct types have one; the gateway types say how they are fed in their name.
+ */
+export const DIRECT_TRIGGER: Partial<Record<SubscriptionType, string>> = {
+  Internal: "by document",
+  ApiCall: "called by id",
+};
 
 /**
  * A fault the scheduler itself reports, which contradicts whatever the

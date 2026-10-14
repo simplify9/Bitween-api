@@ -5,9 +5,10 @@ import { Archive, Trash2, Undo2 } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
-import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock, ProblemText } from "../../components/ui/basics";
 import { isNotFound } from "../../components/ui/isNotFound";
-import { ConfirmDialog } from "../../components/ui/overlays";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import { CodeBadge, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { HistoryCard } from "../../components/config/HistoryCard";
@@ -38,6 +39,7 @@ export function InformationTypePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("documents.edit");
+  const canDelete = useSessionCan("documents.delete");
 
   const type = useQuery({
     queryKey: keys.informationTypes.detail(typeId),
@@ -88,7 +90,7 @@ export function InformationTypePage() {
   if (type.isError)
     return (
       <EmptyState title="This information type no longer exists">
-        <Link to="/information-types" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/information-types" className="font-medium link">
           Back to information types
         </Link>
       </EmptyState>
@@ -149,19 +151,25 @@ export function InformationTypePage() {
                   )}
                 </Button>
               </Can>
-              <Can permission="documents.delete">
-                <Button variant="danger" onClick={() => setDeleting(true)}>
-                  <Trash2 className="size-4" /> Delete
-                </Button>
-              </Can>
+              <MoreActionsMenu
+                actions={[
+                  {
+                    label: "Delete",
+                    icon: <Trash2 className="size-4" />,
+                    danger: true,
+                    onSelect: () => setDeleting(true),
+                    hidden: !canDelete,
+                  },
+                ]}
+              />
             </div>
             {/*
               Retire refuses for reasons the user can act on - a subscription still carrying the
               type, say - and without this the refusal reached the network tab and nowhere else.
             */}
             {retire.error && (
-              <p className="max-w-md text-right text-[13px] text-danger-700">
-                {retire.error.message}
+              <p className="max-w-md text-right">
+                <ProblemText className="text-left">{retire.error.message}</ProblemText>
               </p>
             )}
           </div>
@@ -199,7 +207,7 @@ export function InformationTypePage() {
                         cell: (g) => (
                           <Link
                             to={`/bus-gateways/${g.gatewayId}`}
-                            className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                            className="block font-medium text-ink-800 hover:link"
                           >
                             {g.gatewayName}
                           </Link>
@@ -234,8 +242,16 @@ export function InformationTypePage() {
       )}
 
       {deleting && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this information type?"
+          name={t.code ?? t.name}
+          blockers={[
+            counted(t.subscriptionSetups.length, "subscription carrying it", "subscriptions carrying it"),
+            counted(t.busGateways.length, "bus gateway listening for it", "bus gateways listening for it"),
+          ]}
+          // Only the latest few are loaded, so this is not a count: any history at all is what
+          // the delete takes with it.
+          impact={[{ label: "Every exchange recorded against it, and their payloads", count: t.recentExchanges.length }]}
           body={
             <div className="space-y-2">
               <p>

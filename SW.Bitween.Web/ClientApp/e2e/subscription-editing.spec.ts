@@ -76,6 +76,10 @@ test("editing an existing subscription's name and delivery settings: the page sh
   await openDelivery(page);
   await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/before");
   await page.locator("#prop-Url").fill("https://example.com/after");
+  // Optional settings sit in collapsed sections; nothing in Request is set yet, so it is closed.
+  const requestSection = page.getByRole("button", { name: /^Request/ });
+  await expect(requestSection).toHaveAttribute("aria-expanded", "false");
+  await requestSection.click();
   await page.locator("#prop-Verb").fill("put");
   await page.locator("#prop-ContentType").fill("application/xml");
   // A secret setting: written here, and never shown or handed back again.
@@ -87,6 +91,8 @@ test("editing an existing subscription's name and delivery settings: the page sh
   // The stage card summarises what is saved without opening it.
   await expect(page.getByRole("button", { name: /^Delivery/ })).toContainText("https://example.com/after");
   await openDelivery(page);
+  // A section with something set in it opens by itself.
+  await expect(page.getByRole("button", { name: /^Request/ })).toHaveAttribute("aria-expanded", "true");
   await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/after");
   await expect(page.locator("#prop-Verb")).toHaveValue("put");
   await expect(page.locator("#prop-ContentType")).toHaveValue("application/xml");

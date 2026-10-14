@@ -65,7 +65,7 @@ export function NotifiersPage() {
         actions={
           <Link
             to={`/settings?section=${encodeURIComponent("Notification channels")}`}
-            className="text-[13px] font-medium text-crimson-700 hover:underline"
+            className="text-[13px] font-medium link"
           >
             Notification channels
           </Link>

@@ -17,6 +17,7 @@ export const PALETTE = {
     divider: "border-[#2b2b2b]",
     handle: "hover:bg-crimson-500/60",
     icon: "text-[#c5c5c5] hover:bg-[#ffffff1a]",
+    problem: "text-danger-300",
   },
   light: {
     frame: "bg-[#f8f8f8] text-ink-800 border-ink-200",
@@ -32,6 +33,7 @@ export const PALETTE = {
     divider: "border-ink-200",
     handle: "hover:bg-crimson-400/60",
     icon: "text-ink-600 hover:bg-ink-200",
+    problem: "text-danger-700",
   },
 } as const;
 

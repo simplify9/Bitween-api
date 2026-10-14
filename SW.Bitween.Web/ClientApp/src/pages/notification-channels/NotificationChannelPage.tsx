@@ -2,9 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Plug, Send, Trash2 } from "lucide-react";
-import { api, type AdapterProp, type NotificationChannelDetail } from "../../api";
+import { api, type AdapterInfo, type AdapterProp, type NotificationChannelDetail } from "../../api";
 import { keys } from "../../api/queryKeys";
-import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { usePageTitle } from "../../lib/pageTitle";
@@ -12,9 +11,13 @@ import { AdapterConfig, PropField } from "../../components/config/AdapterConfig"
 import { useAdapterCatalog } from "../../components/config/adapterCatalog";
 import { HistoryCard } from "../../components/config/HistoryCard";
 import { BackLink } from "../../components/ui/BackLink";
-import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { FieldProblem, StillNeeds, useFormCheck, type FormNeed } from "../../components/ui/formCheck";
+import { Field, TextInput } from "../../components/ui/forms";
+import { Badge, Button, EmptyState, FormError, LoadingBlock, ProblemText } from "../../components/ui/basics";
+import { ExceptionLine } from "../../components/ui/Exception";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { ConfirmDialog } from "../../components/ui/overlays";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import { MiniTable } from "../../components/ui/Table";
 import { formatDateTime, timeAgo } from "../../lib/dates";
 import { returnPath, safeReturn } from "../../lib/detour";
@@ -76,6 +79,51 @@ const TYPE_FIELDS: Record<string, { prop: AdapterProp; label: string }[]> = {
   ],
 };
 
+/** What a channel can't be saved without, each said at the part of the page it is about. */
+function channelNeeds(
+  draft: ChannelDraft | null,
+  otherChosen: boolean,
+  handlers: { data: AdapterInfo[] | undefined },
+  isNew: boolean,
+): FormNeed<"name" | "type" | "fields" | "adapter">[] {
+  if (draft === null) return [];
+  const type = channelTypeOf(draft.handlerId);
+  const other = type === null && (draft.handlerId !== null || otherChosen);
+  const required = type === null ? [] : TYPE_FIELDS[type.adapterId].filter((f) => !f.prop.optional);
+  const labels = required.map((f) => f.label).join(" and ");
+  return [
+    {
+      field: "name",
+      failing: draft.name.trim() === "",
+      needs: "a name",
+      message: "Give the channel a name, e.g. Ops email.",
+      // A new channel's name is a field of the form; a saved one's is edited in the heading.
+      focus: isNew ? "nc-name" : "nc-name-problem",
+    },
+    {
+      field: "type",
+      failing: draft.handlerId === null,
+      needs: "how it sends",
+      message: other ? "Pick the adapter it sends through." : "Pick how it sends: Email, Teams, Slack or another adapter.",
+      focus: other ? "nc-adapter-problem" : "nc-type-problem",
+    },
+    {
+      field: "fields",
+      failing: required.some((f) => !draft.handlerProperties[f.prop.key]),
+      needs: `the ${labels}`,
+      message: `Fill in the ${labels}.`,
+      focus: "nc-fields-problem",
+    },
+    {
+      field: "adapter",
+      failing: other && adapterIncomplete(handlers, draft.handlerId, draft.handlerProperties),
+      needs: "the adapter's required fields",
+      message: "Fill in the adapter's required fields.",
+      focus: "nc-adapter-problem",
+    },
+  ];
+}
+
 /**
  * One notification channel, on its own page: how it sends, where to, a test send, who uses it and
  * what it has sent. Pickers come here to make or change one and are sent back with it picked - see
@@ -89,6 +137,7 @@ export function NotificationChannelPage({ isNew = false }: { isNew?: boolean }) 
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan(isNew ? "notifiers.create" : "notifiers.edit");
+  const canDelete = useSessionCan("notifiers.delete");
   const handlers = useAdapterCatalog("handler");
 
   const existing = useQuery({
@@ -102,6 +151,7 @@ export function NotificationChannelPage({ isNew = false }: { isNew?: boolean }) 
   /** "Use another adapter" was picked, before an adapter has been. */
   const [otherChosen, setOtherChosen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const check = useFormCheck(channelNeeds(draft, otherChosen, handlers, isNew));
 
   const saved = useMemo<ChannelDraft | null>(
     () =>
@@ -148,7 +198,7 @@ export function NotificationChannelPage({ isNew = false }: { isNew?: boolean }) 
   if (!isNew && existing.isError)
     return (
       <EmptyState title="This channel no longer exists">
-        <Link to={SETTINGS_SECTION} className="font-medium text-crimson-700 hover:underline">
+        <Link to={SETTINGS_SECTION} className="font-medium link">
           Back to notification channels
         </Link>
       </EmptyState>
@@ -170,14 +220,7 @@ export function NotificationChannelPage({ isNew = false }: { isNew?: boolean }) 
     if (type !== null) update({ handlerId: null, handlerProperties: {} });
   };
 
-  const missing = [
-    draft.name.trim() === "" && "a name",
-    draft.handlerId === null && "how it sends",
-    type !== null &&
-      TYPE_FIELDS[type.adapterId].some((f) => !f.prop.optional && !draft.handlerProperties[f.prop.key]) &&
-      `the ${TYPE_FIELDS[type.adapterId].filter((f) => !f.prop.optional).map((f) => f.label).join(" and ")}`,
-    other && adapterIncomplete(handlers, draft.handlerId, draft.handlerProperties) && "the adapter's required fields",
-  ].filter((m): m is string => typeof m === "string");
+  const missing = check.missing;
 
   const back = returnTo ?? SETTINGS_SECTION;
 
@@ -188,13 +231,20 @@ export function NotificationChannelPage({ isNew = false }: { isNew?: boolean }) 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">
-            <EditableTitle
-              value={draft.name}
-              onChange={(name) => update({ name })}
-              disabled={!canEdit}
-              placeholder="Channel name"
-            />
+            {/* A new channel's name is asked for in the form, labelled; an empty input standing in
+                for the heading read as a grey title, not as something to fill in. */}
+            {isNew ? (
+              draft.name.trim() || "New notification channel"
+            ) : (
+              <EditableTitle
+                value={draft.name}
+                onChange={(name) => update({ name })}
+                disabled={!canEdit}
+                placeholder="Channel name"
+              />
+            )}
           </h1>
+          {!isNew && <FieldProblem id="nc-name-problem">{check.errors.name}</FieldProblem>}
           <p className="mt-1 text-sm text-ink-500">
             {isNew
               ? "Where notifications and retry alerts go. Pick how it sends, then where to."
@@ -203,21 +253,40 @@ export function NotificationChannelPage({ isNew = false }: { isNew?: boolean }) 
           </p>
         </div>
         {existing.data && (
-          <Can permission="notifiers.delete">
-            <Button
-              variant="danger"
-              onClick={() => setDeleting(true)}
-              disabled={existing.data.usedBy.length > 0}
-              title={existing.data.usedBy.length > 0 ? "Still in use - point its users at another channel first." : undefined}
-            >
-              <Trash2 className="size-4" /> Delete
-            </Button>
-          </Can>
+          <MoreActionsMenu
+            actions={[
+              {
+                label: "Delete",
+                icon: <Trash2 className="size-4" />,
+                danger: true,
+                onSelect: () => setDeleting(true),
+                // Unavailable rather than name-checked: a channel still in use is not offered for
+                // deleting at all, and the way out is pointing its users at another one.
+                disabled: existing.data.usedBy.length > 0,
+                title: existing.data.usedBy.length > 0 ? "Still in use - point its users at another channel first." : undefined,
+                hidden: !canDelete,
+              },
+            ]}
+          />
         )}
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0 space-y-5">
+          {isNew && (
+            <div className="max-w-sm">
+              <Field label="Channel name" htmlFor="nc-name" error={check.errors.name}>
+                <TextInput
+                  id="nc-name"
+                  autoFocus
+                  value={draft.name}
+                  disabled={!canEdit}
+                  placeholder="e.g. Ops email"
+                  onChange={(e) => update({ name: e.target.value })}
+                />
+              </Field>
+            </div>
+          )}
           <Panel
             title="How it sends"
             description="Email, Teams and Slack get a message Bitween writes: what ran, how it ended, the error, and a link back."
@@ -229,6 +298,11 @@ export function NotificationChannelPage({ isNew = false }: { isNew?: boolean }) 
               onPick={pickType}
               onPickOther={pickOther}
             />
+            {!other && check.errors.type && (
+              <div className="mt-3">
+                <FieldProblem id="nc-type-problem">{check.errors.type}</FieldProblem>
+              </div>
+            )}
           </Panel>
 
           {type !== null && (
@@ -240,6 +314,11 @@ export function NotificationChannelPage({ isNew = false }: { isNew?: boolean }) 
                   : "Global values and partner properties can stand in for the address with the { } button."
               }
             >
+              {check.errors.fields && (
+                <div className="mb-3">
+                  <FieldProblem id="nc-fields-problem">{check.errors.fields}</FieldProblem>
+                </div>
+              )}
               {type.adapterId === "NativeEmailMessageHandler" && <MailServerNote />}
               <div className="space-y-4">
                 {TYPE_FIELDS[type.adapterId].map(({ prop, label }) => (
@@ -273,6 +352,11 @@ export function NotificationChannelPage({ isNew = false }: { isNew?: boolean }) 
               title="Adapter"
               description="Any handler adapter, built in or custom. It is handed the notification as JSON, as a legacy notifier was."
             >
+              {(check.errors.adapter ?? check.errors.type) && (
+                <div className="mb-3">
+                  <FieldProblem id="nc-adapter-problem">{check.errors.adapter ?? check.errors.type}</FieldProblem>
+                </div>
+              )}
               <AdapterConfig
                 kind="handler"
                 adapterId={draft.handlerId}
@@ -306,19 +390,13 @@ export function NotificationChannelPage({ isNew = false }: { isNew?: boolean }) 
       {isNew ? (
         <>
           <div className="mt-5 flex flex-wrap items-center justify-end gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3">
-            {missing.length > 0 && (
-              <p className="text-[13px] text-ink-500">
-                Still needs {missing.slice(0, -1).join(", ")}
-                {missing.length > 1 ? " and " : ""}
-                {missing.at(-1)}.
-              </p>
-            )}
+            <StillNeeds missing={missing} />
             <Button onClick={() => leave(() => navigate(back, { replace: true }))}>Cancel</Button>
             <Button
               variant="primary"
               busy={save.isPending}
-              disabled={missing.length > 0 || !canEdit}
-              onClick={() => save.mutate()}
+              disabled={!canEdit}
+              onClick={() => check.submit(() => save.mutate())}
             >
               Create channel
             </Button>
@@ -331,7 +409,7 @@ export function NotificationChannelPage({ isNew = false }: { isNew?: boolean }) 
           <UnsavedBar
             busy={save.isPending}
             error={save.error?.message ?? (missing.length > 0 ? `Still needs ${missing.join(" and ")}.` : undefined)}
-            onSave={() => (missing.length > 0 ? undefined : save.mutate())}
+            onSave={() => check.submit(() => save.mutate())}
             onDiscard={() => {
               setOtherChosen(false);
               setDraft(null);
@@ -455,7 +533,7 @@ function MailServerNote() {
     <p className="mb-3 text-[13px] text-ink-500">
       Sends through <span className="font-medium text-ink-700">{host}</span> as{" "}
       <span className="font-medium text-ink-700">{from}</span>.{" "}
-      <Link to={link} className="font-medium text-crimson-700 hover:underline">
+      <Link to={link} className="font-medium link">
         Change in Settings
       </Link>
     </p>
@@ -483,8 +561,8 @@ function TestPanel({ channelId, pending, canTest }: { channelId: number; pending
         </p>
       )}
       {test.data && !test.data.sent && (
-        <p role="alert" className="mt-2 text-[13px] break-words text-danger-700">
-          Not sent: {test.data.error ?? "the adapter gave no reason."}
+        <p role="alert" className="mt-2 break-words">
+          <ProblemText>Not sent: {test.data.error ?? "the adapter gave no reason."}</ProblemText>
         </p>
       )}
       <FormError>{test.error?.message}</FormError>
@@ -505,7 +583,7 @@ function UsedByPanel({ channel }: { channel: NotificationChannelDetail }) {
             return (
               <li key={i} className="text-[13px] text-ink-700">
                 {href ? (
-                  <Link to={href} className="hover:text-crimson-700 hover:underline">
+                  <Link to={href} className="hover:link">
                     {text}
                   </Link>
                 ) : (
@@ -616,7 +694,7 @@ function SendsPanel({ channelId }: { channelId: number }) {
               cell: (n) => (
                 <Link
                   to={`/exchanges?ids=${encodeURIComponent(n.xchangeId)}`}
-                  className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+                  className="font-mono text-xs text-ink-600 hover:link"
                 >
                   {n.xchangeId}
                 </Link>
@@ -643,9 +721,7 @@ function SendsPanel({ channelId }: { channelId: number }) {
               truncate: true,
               cell: (n) =>
                 n.exception ? (
-                  <span className="block truncate font-mono text-[11px] text-danger-700" title={n.exception}>
-                    {n.exception}
-                  </span>
+                  <ExceptionLine text={n.exception} icon className="font-mono text-[11px] text-danger-700" />
                 ) : (
                   <span className="text-ink-500">-</span>
                 ),

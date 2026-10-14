@@ -17,12 +17,14 @@ import { visibleGroups } from "../../nav";
 import { Badge, Button, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { isNotFound } from "../../components/ui/isNotFound";
 import { Field, TextInput } from "../../components/ui/forms";
-import { ConfirmDialog } from "../../components/ui/overlays";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { splitErrors } from "../../lib/fieldErrors";
 import { usePageTitle } from "../../lib/pageTitle";
+import { usePhone } from "../../lib/useMediaQuery";
 
 /** Live answer to "what would someone with this role actually see?" */
 function AccessPreview({ permissions, total }: { permissions: Set<PermissionKey>; total: number }) {
@@ -76,6 +78,7 @@ export function RoleEditor() {
   const queryClient = useQueryClient();
   const { can } = useSession();
   const catalog = usePermissionCatalog();
+  const phone = usePhone();
   const areas = catalog.data ?? [];
 
   const source = useQuery({
@@ -151,7 +154,7 @@ export function RoleEditor() {
     return (
       <div className="py-16 text-center text-sm text-ink-500">
         This role no longer exists.{" "}
-        <Link to="/team/roles" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/team/roles" className="font-medium link">
           Back to roles
         </Link>
       </div>
@@ -207,10 +210,26 @@ export function RoleEditor() {
             </p>
           )}
         </div>
-        {!isNew && can("roles.create") && (
-          <Button onClick={() => navigate(`/team/roles/new?from=${id}`)}>
-            <Copy className="size-4" /> Duplicate
-          </Button>
+        {/* The same header as every other detail page: Delete used to sit in a Danger zone
+            at the bottom of the sidebar here, the one page that did it differently. */}
+        {!isNew && (
+          <MoreActionsMenu
+            actions={[
+              {
+                label: "Duplicate",
+                icon: <Copy className="size-4" />,
+                onSelect: () => navigate(`/team/roles/new?from=${id}`),
+                hidden: !can("roles.create"),
+              },
+              {
+                label: "Delete",
+                icon: <Trash2 className="size-4" />,
+                danger: true,
+                onSelect: () => setConfirmingDelete(true),
+                hidden: isSystem || !can("roles.delete"),
+              },
+            ]}
+          />
         )}
       </div>
 
@@ -248,6 +267,63 @@ export function RoleEditor() {
 
           {groupsIn(areas).map((group) => {
             const groupAreas = areas.filter((a) => a.group === group);
+            // On a phone the matrix squeezed every description one word to a line and the page ran
+            // to nine metres. Stacked, each area keeps the full width for its words and its boxes
+            // sit underneath with their names beside them, since there is no column header to
+            // read them from.
+            if (phone)
+              return (
+                <section key={group} aria-label={group} className="rounded-xl border border-ink-200 bg-white">
+                  <h2 className="border-b border-ink-100 px-4 py-3 text-xs font-semibold tracking-wide text-ink-500 uppercase">
+                    {group}
+                  </h2>
+                  <ul className="divide-y divide-ink-100">
+                    {groupAreas.map((area) => {
+                      const actionIds = area.actions.map((a) => a.id);
+                      const allOn = actionIds.every((a) => granted.has(permissionKey(area.id, a)));
+                      const box = "flex min-h-11 cursor-pointer items-center gap-2 pr-2 text-[13px] text-ink-700";
+                      return (
+                        <li key={area.id} className="px-4 py-3">
+                          <p className="font-medium text-ink-800">{area.label}</p>
+                          <p className="text-[13px] text-ink-500">{area.description}</p>
+                          <div className="mt-1 flex flex-wrap gap-x-3">
+                            {ACTION_ORDER.map((action) => {
+                              const def = area.actions.find((a) => a.id === action);
+                              if (!def) return null;
+                              const key = permissionKey(area.id, action);
+                              return (
+                                <label key={action} className={box}>
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`${area.label}: ${ACTION_LABELS[action]}`}
+                                    title={`${key} - ${def.description}`}
+                                    checked={granted.has(key)}
+                                    disabled={!editable}
+                                    onChange={() => toggle(area.id, action)}
+                                    className="size-5 cursor-pointer rounded accent-crimson-600 disabled:cursor-default"
+                                  />
+                                  {ACTION_LABELS[action]}
+                                </label>
+                              );
+                            })}
+                            <label className={`${box} font-medium`}>
+                              <input
+                                type="checkbox"
+                                aria-label={`${area.label}: everything`}
+                                checked={allOn}
+                                disabled={!editable}
+                                onChange={() => toggleArea(area.id, actionIds, allOn)}
+                                className="size-5 cursor-pointer rounded accent-ink-700 disabled:cursor-default"
+                              />
+                              All
+                            </label>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              );
             return (
               <section key={group} className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
                 <table className="w-full min-w-130 text-sm">
@@ -323,20 +399,6 @@ export function RoleEditor() {
           {/* A role that doesn't exist yet has no history, and a system role's grants are
               computed rather than stored, so nothing ever edits one. */}
           {!isNew && !isSystem && <HistoryCard entityName="Role" entityKey={id} />}
-
-          {!isNew && !isSystem && can("roles.delete") && (
-            <div className="rounded-xl border border-danger-200 bg-white p-4">
-              <h3 className="text-xs font-semibold tracking-wide text-danger-800 uppercase">
-                Danger zone
-              </h3>
-              <p className="mt-1 mb-3 text-[13px] text-ink-500">
-                Roles can only be deleted once no member holds them.
-              </p>
-              <Button variant="danger" size="sm" onClick={() => setConfirmingDelete(true)}>
-                <Trash2 className="size-3.5" /> Delete role
-              </Button>
-            </div>
-          )}
         </div>
       </div>
 
@@ -361,8 +423,10 @@ export function RoleEditor() {
       )}
 
       {confirmingDelete && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this role?"
+          name={source.data?.name ?? ""}
+          blockers={[counted(source.data?.memberCount ?? 0, "member holding it", "members holding it")]}
           body={
             <>
               <strong className="font-medium text-ink-800">{source.data?.name}</strong> will be gone

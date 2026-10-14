@@ -15,7 +15,7 @@ import {
 import { api, type AdapterKind, type AdapterUploadResult } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, FormError, LoadingBlock, ProblemText } from "../../components/ui/basics";
 import { Field, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
@@ -115,6 +115,28 @@ export function AdaptersPage() {
       <PageHeader
         title="Adapters"
         description="What Bitween can receive with, check, transform and deliver with - built in, or installed on this instance."
+        help={{
+          title: "How adapters work",
+          body: (
+            <>
+              <p>
+                Adapters are the steps a subscription is built from, in four kinds:{" "}
+                <strong>receivers</strong> pull documents in, <strong>validators</strong> check them,{" "}
+                <strong>mappers</strong> transform them and <strong>handlers</strong> deliver them.
+              </p>
+              <p>
+                <strong>Built-in</strong> adapters ship with Bitween and run in-process.{" "}
+                <strong>Installed</strong> ones are packages published to this instance, each running in its
+                own process, and a subscription can pin one of their versions. The{" "}
+                <strong>Marketplace</strong> lists connectors from the registry set under Settings.
+              </p>
+              <p>
+                Each row says how many subscriptions use the adapter and how often it was called in the
+                last 7 days; open it for the detail.
+              </p>
+            </>
+          ),
+        }}
         actions={
           <div className="flex gap-2">
             <Can permission="adapter-source.operate">
@@ -163,7 +185,7 @@ export function AdaptersPage() {
         ) : catalogs.loading ? (
           <LoadingBlock label="Reading the adapters…" />
         ) : catalogs.error ? (
-          <p className="text-sm text-danger-700">{catalogs.error.message}</p>
+          <ProblemText>{catalogs.error.message}</ProblemText>
         ) : tab === "built-in" ? (
           <AdapterCatalog
             key="built-in"
@@ -286,7 +308,12 @@ function RegistryCheckLine({ onMarketplace }: { onMarketplace: () => void }) {
             : "Not checked with the registry yet; it is checked once a day."}
           {summary.checkedOn && updates > 0 && ` ${updates} with a newer version.`}
           {summary.checkedOn && revoked > 0 && (
-            <span className="font-medium text-danger-700"> {revoked} with a revoked version.</span>
+            <>
+              {" "}
+              <ProblemText plain className="font-medium">
+                {revoked} with a revoked version.
+              </ProblemText>
+            </>
           )}
         </span>
         <Can permission="adapter-source.operate">
@@ -294,17 +321,17 @@ function RegistryCheckLine({ onMarketplace }: { onMarketplace: () => void }) {
             type="button"
             onClick={() => check.mutate()}
             disabled={check.isPending}
-            className="font-medium text-crimson-700 hover:underline disabled:text-ink-400"
+            className="font-medium link disabled:text-ink-400"
           >
             {check.isPending ? "Checking…" : "Check now"}
           </button>
         </Can>
-        <button type="button" onClick={onMarketplace} className="font-medium text-crimson-700 hover:underline">
+        <button type="button" onClick={onMarketplace} className="font-medium link">
           Browse the marketplace
         </button>
       </p>
       {summary.error && (
-        <p className="text-[12.5px] text-danger-700">The last check didn't finish: {summary.error}</p>
+        <ProblemText>The last check didn't finish: {summary.error}</ProblemText>
       )}
       <FormError>{check.error?.message}</FormError>
     </div>
@@ -488,7 +515,7 @@ function AdapterDetails({ adapter: a, usage }: { adapter: InventoryAdapter; usag
           <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
             {usage.subscriptions.map((s) => (
               <li key={s.id}>
-                <Link to={`/subscriptions/${s.id}`} className="font-medium text-crimson-700 hover:underline">
+                <Link to={`/subscriptions/${s.id}`} className="font-medium link">
                   {s.name}
                 </Link>
               </li>
@@ -597,7 +624,7 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                             type="button"
                             onClick={() => setSourceOf(v.version)}
                             aria-label={`View source of v${v.version}`}
-                            className="inline-flex items-center gap-1 font-medium text-crimson-700 hover:underline"
+                            className="inline-flex items-center gap-1 font-medium link"
                           >
                             <FileCode className="size-3.5" aria-hidden />
                             View
@@ -617,7 +644,7 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                               type="button"
                               onClick={() => void edit(v.version)}
                               aria-label={`Edit v${v.version}`}
-                              className="inline-flex items-center gap-1 font-medium text-crimson-700 hover:underline"
+                              className="inline-flex items-center gap-1 font-medium link"
                             >
                               <Pencil className="size-3.5" aria-hidden />
                               Edit
@@ -628,7 +655,7 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
                               type="button"
                               onClick={() => setPromoting(v.version)}
                               aria-label={`Make v${v.version} current`}
-                              className="font-medium text-crimson-700 hover:underline"
+                              className="font-medium link"
                             >
                               Make current
                             </button>
@@ -671,7 +698,7 @@ function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usag
               </ul>
               <p className="mt-1 text-[12px] text-ink-500">
                 Install one from the{" "}
-                <Link to="/adapters?tab=marketplace" className="font-medium text-crimson-700 hover:underline">
+                <Link to="/adapters?tab=marketplace" className="font-medium link">
                   Marketplace tab
                 </Link>
                 ; it is added beside these, and made current only when you say.

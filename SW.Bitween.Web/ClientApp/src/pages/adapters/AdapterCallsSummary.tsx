@@ -26,7 +26,7 @@ export function AdapterCallsLine({ adapterId }: { adapterId: string }) {
       <span className="tabular-nums">
         {compact(calls.calls)} calls
         {calls.failures > 0 && <span className="text-danger-700"> · {percent(calls.failureRate)} failed</span>}
-        {calls.p95Ms !== null && <span> · p95 {formatDurationMs(calls.p95Ms)}</span>}
+        {calls.p95Ms !== null && <span title="95 of every 100 calls finished within this time"> · p95 time {formatDurationMs(calls.p95Ms)}</span>}
       </span>
     </span>
   );
@@ -92,8 +92,8 @@ export function AdapterCallsDetail({ adapterId }: { adapterId: string }) {
                 <th className="py-1 pr-4 font-medium">Version</th>
                 <th className={HEAD}>Calls</th>
                 <th className={HEAD}>Failed</th>
-                <th className={HEAD}>p50</th>
-                <th className="py-1 text-right font-medium">p95</th>
+                <th className={HEAD} title="Half of the calls finished within this time">p50 time</th>
+                <th className="py-1 text-right font-medium" title="95 of every 100 calls finished within this time">p95 time</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100 text-ink-800">
@@ -111,8 +111,8 @@ export function AdapterCallsDetail({ adapterId }: { adapterId: string }) {
                 <th className="py-1 pr-4 font-medium">Node, as</th>
                 <th className={HEAD}>Calls</th>
                 <th className={HEAD}>Failed</th>
-                <th className={HEAD}>p50</th>
-                <th className="py-1 text-right font-medium">p95</th>
+                <th className={HEAD} title="Half of the calls finished within this time">p50 time</th>
+                <th className="py-1 text-right font-medium" title="95 of every 100 calls finished within this time">p95 time</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-ink-100 text-ink-800">
@@ -177,7 +177,7 @@ export function AdapterCallsDetail({ adapterId }: { adapterId: string }) {
                   <td className="py-1.5 pr-4">
                     <Link
                       to={subscriptionPath(s.subscriptionId)}
-                      className="font-medium text-crimson-700 hover:underline"
+                      className="font-medium link"
                     >
                       {s.name}
                     </Link>

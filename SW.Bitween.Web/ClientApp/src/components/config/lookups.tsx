@@ -195,7 +195,7 @@ export function useWiredSubscriptionColumns<T>(
         return canSeeInfoTypes ? (
           <Link
             to={`/information-types/${r.informationTypeId}`}
-            className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+            className="font-mono text-xs text-ink-600 hover:link"
           >
             {r.informationTypeCode}
           </Link>
@@ -266,7 +266,7 @@ export function useWiredSubscriptionColumns<T>(
       cell: (row) => {
         const message = rowsById.get(subscriptionIdOf(row))?.lastException;
         return message ? (
-          <ExceptionLine text={message} className="text-[12px] text-danger-700" />
+          <ExceptionLine text={message} icon className="text-[12px] text-danger-700" />
         ) : (
           <span className="text-ink-500">-</span>
         );
