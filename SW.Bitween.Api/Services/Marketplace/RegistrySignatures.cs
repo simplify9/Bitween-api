@@ -28,6 +28,9 @@ public static class RegistrySignatures
 
     public static string RevocationsMessage(string payload) => $"bitween-registry/v1/revocations\n{payload}";
 
+    /// <summary>What the registry signs over a licence: its JSON, as served.</summary>
+    public static string LicenceMessage(string payload) => $"bitween-registry/v1/licence\n{payload}";
+
     /// <summary>A time the registry sent is UTC even when it arrives without a zone; only a local time is converted.</summary>
     public static string Timestamp(DateTime value) =>
         (value.Kind == DateTimeKind.Local ? value.ToUniversalTime() : DateTime.SpecifyKind(value, DateTimeKind.Utc))

@@ -1,5 +1,16 @@
 import type { ApiClient } from "../client";
-import type { KitInfo, KitInstallRequest, KitRun, MarketplaceInstallResult, MarketplacePackage, MarketplaceSearch, RegistryCheckSummary } from "../types";
+import type {
+  KitInfo,
+  KitInstallRequest,
+  KitRun,
+  MarketplaceInstallResult,
+  MarketplacePackage,
+  MarketplaceRegistration,
+  MarketplaceSearch,
+  RegistryCheckSummary,
+  RegistryLicenceSummary,
+  UsageReportPreview,
+} from "../types";
 import { get, post } from "./request";
 
 export const marketplaceMethods = {
@@ -20,4 +31,13 @@ export const marketplaceMethods = {
   planKit: (request: KitInstallRequest) => post<KitRun>("/marketplace/kitplan", request),
 
   installKit: (request: KitInstallRequest) => post<KitRun>("/marketplace/kitinstall", request),
+
+  registerWithRegistry: (code: string, displayName: string) =>
+    post<MarketplaceRegistration>("/marketplace/register", { code, displayName }),
+
+  getMarketplaceLicences: () => get<RegistryLicenceSummary>("/marketplace/licences"),
+
+  refreshMarketplaceLicences: () => post<RegistryLicenceSummary>("/marketplace/refreshlicences", {}),
+
+  marketplaceUsage: (day: string | null, send: boolean) => post<UsageReportPreview>("/marketplace/usage", { day, send }),
 } satisfies Partial<ApiClient>;

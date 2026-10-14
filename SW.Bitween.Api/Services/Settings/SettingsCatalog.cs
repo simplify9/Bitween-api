@@ -284,6 +284,27 @@ public static class SettingsCatalog
             t => Str(t.Bitween.RegistryAllowCommunity),
             (t, v) => t.Bitween.RegistryAllowCommunity = Bool(v)),
 
+        new("Bitween.RegistryInstanceId", "Marketplace",
+            "Registered as",
+            "What the registry calls this Bitween, once it is registered with a registration code (Settings, Marketplace, Register). Needed only for private connectors, paid connectors and usage reports. Clear it, with the token, to unregister.",
+            SettingKind.String, false,
+            t => t.Bitween.RegistryInstanceId,
+            (t, v) => t.Bitween.RegistryInstanceId = v),
+
+        new("Bitween.RegistryInstanceToken", "Marketplace",
+            "Instance token",
+            "The token the registry gave at registration, sent with every call to it. Set by registering; clear it to unregister.",
+            SettingKind.String, true,
+            t => t.Bitween.RegistryInstanceToken,
+            (t, v) => t.Bitween.RegistryInstanceToken = v),
+
+        new("Bitween.RegistryUsageReports", "Marketplace",
+            "Send usage reports",
+            "Once a day, for each connector installed from the registry: how many subscriptions use it, calls and failures. No payloads, no partner or subscription names, no hostnames. Off unless turned on; needs the Bitween registered.",
+            SettingKind.Boolean, false,
+            t => Str(t.Bitween.RegistryUsageReports),
+            (t, v) => t.Bitween.RegistryUsageReports = Bool(v)),
+
         // --- Mail server ---
         // Shared by every Email notification channel, which then only names its recipients. The
         // Email adapter reads these on each send, so a change applies to the next email.

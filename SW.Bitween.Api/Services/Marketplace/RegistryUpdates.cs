@@ -186,7 +186,7 @@ public class RegistryUpdates(BitweenDbContext dbContext, RegistryClient registry
     }
 
     /// <summary>Every catalog entry that came from a registry.</summary>
-    async Task<List<AdapterCatalogEntry>> InstalledFromRegistryAsync()
+    public async Task<List<AdapterCatalogEntry>> InstalledFromRegistryAsync()
     {
         var root = AdapterCatalogPaths.CatalogRoot(serverlessOptions.AdapterRemotePath);
         IEnumerable<CloudFileInfo> files;
@@ -256,6 +256,19 @@ public class RegistryUpdateChecker(IServiceScopeFactory scopes, ILogger<Registry
                 {
                     var result = await updates.CheckAsync(stoppingToken);
                     if (result.Error != null) logger.LogWarning("The daily registry check didn't finish: {Error}", result.Error);
+
+                    // A registered Bitween also brings its licences up to date and, when turned on, sends yesterday's usage.
+                    if (registry.Registered)
+                    {
+                        var licences = await scope.ServiceProvider.GetRequiredService<RegistryLicences>().RefreshAsync();
+                        if (licences.Error != null) logger.LogWarning("The registry licences weren't all refreshed: {Error}", licences.Error);
+                        var usage = scope.ServiceProvider.GetRequiredService<UsageReporter>();
+                        if (usage.Enabled)
+                        {
+                            try { await usage.SendAsync(); }
+                            catch (Exception ex) when (ex is not OperationCanceledException) { logger.LogWarning(ex, "Yesterday's usage report didn't reach the registry."); }
+                        }
+                    }
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)

@@ -22,7 +22,7 @@ namespace SW.Bitween.Services.Adapters;
 /// over a limit, a process that died, or an error of the adapter's own.
 /// </summary>
 public class AdapterInvoker(IEnumerable<IAdapterRuntime> runtimes, MetricsRecorder metrics = null, AdapterCatalog catalog = null,
-    Connections.ConnectionTokens connections = null)
+    Connections.ConnectionTokens connections = null, Marketplace.RegistryLicences licences = null)
     : IAdapterInvoker
 {
     // Order matters: the classic runtime claims everything, so it has to be asked last.
@@ -36,6 +36,10 @@ public class AdapterInvoker(IEnumerable<IAdapterRuntime> runtimes, MetricsRecord
         // one, and a retry later still gets a token that works. Every role and runtime passes
         // through this, so every adapter can use them.
         if (connections != null) properties = await connections.ResolveAsync(properties);
+
+        // A paid connector from the registry runs only on a licence that is live or in grace. Read
+        // from the catalog's and the licence store's caches, so nothing is fetched on a call.
+        if (licences != null) await licences.EnsureLicensedAsync(adapterId);
 
         foreach (var runtime in _runtimes)
             if (await runtime.CanRunAsync(adapterId))

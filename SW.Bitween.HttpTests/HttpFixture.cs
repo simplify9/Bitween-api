@@ -109,6 +109,8 @@ public sealed class HttpFixture : IAsyncLifetime
         ["Token:Issuer"] = "http-tests",
         ["Token:Audience"] = "http-tests",
         ["Bitween:InitialAdminPassword"] = AdminPassword,
+        // So a secret setting (the registry instance token) can be stored, as a configured install can.
+        ["Bitween:SettingsEncryptionKey"] = "http-tests-settings-passphrase-0123456789",
         ["Bitween:RateLimits:SignInPerMinute"] = SignInPerMinute.ToString(),
         ["Bitween:RateLimits:RequestsPerMinute"] = "100000",
     };

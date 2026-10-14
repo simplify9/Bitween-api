@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BadgeCheck, Package, ShieldCheck, Store } from "lucide-react";
-import { api, type KitRun, type MarketplaceCard, type MarketplaceInstalled, type RegistryTier } from "../../api";
+import { BadgeCheck, KeyRound, Package, ShieldCheck, Store } from "lucide-react";
+import { api, type KitRun, type LicenceState, type MarketplaceCard, type MarketplaceInstalled, type RegistryLicenceSummary, type RegistryTier } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { Badge, Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, Field, PasswordInput, Select, TextInput } from "../../components/ui/forms";
@@ -23,6 +23,34 @@ const TIER_HINT: Record<RegistryTier, string> = {
   Community: "From a publisher Simplify9 hasn't vetted. Installing these is off unless Settings allows it.",
 };
 
+/** Whether a licence pattern (an id, a namespace with .*, or *) names a package. */
+const covers = (pattern: string, id: string) => {
+  const p = pattern.trim().toLowerCase();
+  const target = id.toLowerCase();
+  return p === "*" || (p.endsWith(".*") ? target.startsWith(p.slice(0, -1)) : p === target);
+};
+
+/**
+ * What the licences held here say about a paid connector: the best state among those covering it,
+ * read from the summary the Settings page also shows. None when nothing covers it.
+ */
+const licenceStateOf = (licences: RegistryLicenceSummary | undefined, card: MarketplaceCard): LicenceState => {
+  if (card.pricing !== "Paid" || !licences?.registered) return "None";
+  const rank: Record<LicenceState, number> = { Live: 4, Grace: 3, NotYet: 2, Expired: 1, None: 0 };
+  return licences.licences
+    .filter((l) => l.packages.split(",").some((p) => covers(p, card.id)))
+    .filter((l) => l.instances.split(",").some((i) => i.trim() === "*" || i.trim() === licences.instanceId))
+    .reduce<LicenceState>((best, l) => (rank[l.state] > rank[best] ? l.state : best), "None");
+};
+
+const LICENCE_BADGE: Record<LicenceState, { label: string; tone: "ok" | "warn" | "danger" | "neutral"; hint: string }> = {
+  Live: { label: "Licensed", tone: "ok", hint: "A licence this Bitween holds covers it." },
+  Grace: { label: "Licence in grace", tone: "warn", hint: "Its licence has ended; it still runs during the grace days. Renew it with Simplify9." },
+  NotYet: { label: "Licence pending", tone: "neutral", hint: "Its licence hasn't started yet." },
+  Expired: { label: "Licence expired", tone: "danger", hint: "Its licence and grace are over: it won't install or run until renewed." },
+  None: { label: "Paid", tone: "warn", hint: "Needs a licence: register this Bitween under Settings, Marketplace, and ask Simplify9 for one." },
+};
+
 /**
  * Connectors from the Bitween Registry set under Settings. Installing one checks the registry's
  * and the publisher's signatures, then publishes it here like an uploaded package: it runs from
@@ -37,6 +65,8 @@ export function MarketplaceTab() {
   const [pricing, setPricing] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const search = useQuery({ queryKey: keys.marketplace(q, tier), queryFn: () => api.searchMarketplace(q, tier) });
+  // Read from what was stored, so a paid connector's card says whether it is licensed here.
+  const licences = useQuery({ queryKey: keys.marketplaceLicences, queryFn: () => api.getMarketplaceLicences() });
 
   if (search.isLoading) return <LoadingBlock label="Reading the registry…" />;
   if (search.error) return <LoadError error={search.error} what="the marketplace" onRetry={() => search.refetch()} />;
@@ -134,7 +164,13 @@ export function MarketplaceTab() {
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           {results.map(({ card, installed }) => (
-            <ConnectorCard key={card.id} card={card} installed={installed} onOpen={() => setOpen(card.id)} />
+            <ConnectorCard
+              key={card.id}
+              card={card}
+              installed={installed}
+              licence={licenceStateOf(licences.data, card)}
+              onOpen={() => setOpen(card.id)}
+            />
           ))}
         </div>
       )}
@@ -149,7 +185,17 @@ export function MarketplaceTab() {
   );
 }
 
-function ConnectorCard({ card, installed, onOpen }: { card: MarketplaceCard; installed: MarketplaceInstalled; onOpen: () => void }) {
+function ConnectorCard({
+  card,
+  installed,
+  licence,
+  onOpen,
+}: {
+  card: MarketplaceCard;
+  installed: MarketplaceInstalled;
+  licence: LicenceState;
+  onOpen: () => void;
+}) {
   const update = installed.fromRegistry && !installed.versions.includes(card.latest);
   return (
     <button
@@ -169,7 +215,11 @@ function ConnectorCard({ card, installed, onOpen }: { card: MarketplaceCard; ins
         <Badge tone={TIER_TONE[card.tier]} title={TIER_HINT[card.tier]}>
           {card.tier}
         </Badge>
-        {card.pricing === "Paid" && <Badge tone="warn">Paid</Badge>}
+        {card.pricing === "Paid" && (
+          <Badge tone={LICENCE_BADGE[licence].tone} title={LICENCE_BADGE[licence].hint}>
+            {LICENCE_BADGE[licence].label}
+          </Badge>
+        )}
         {isKit(card) && (
           <Badge tone="ink" title="Connectors plus the configuration that makes them useful, installed with its parameters.">
             Kit
@@ -186,6 +236,7 @@ function ConnectorCard({ card, installed, onOpen }: { card: MarketplaceCard; ins
 function ConnectorDialog({ id, onClose }: { id: string; onClose: () => void }) {
   const queryClient = useQueryClient();
   const detail = useQuery({ queryKey: keys.marketplacePackage(id), queryFn: () => api.getMarketplacePackage(id) });
+  const licences = useQuery({ queryKey: keys.marketplaceLicences, queryFn: () => api.getMarketplaceLicences() });
   const [current, setCurrent] = useState(true);
 
   const install = useMutation({
@@ -222,7 +273,11 @@ function ConnectorDialog({ id, onClose }: { id: string; onClose: () => void }) {
                   <Badge tone={TIER_TONE[card.tier]} title={TIER_HINT[card.tier]}>
                     {card.tier}
                   </Badge>
-                  {card.pricing === "Paid" && <Badge tone="warn">Paid</Badge>}
+                  {card.pricing === "Paid" && (
+                    <Badge tone={LICENCE_BADGE[licenceStateOf(licences.data, card)].tone} title={LICENCE_BADGE[licenceStateOf(licences.data, card)].hint}>
+                      {LICENCE_BADGE[licenceStateOf(licences.data, card)].label}
+                    </Badge>
+                  )}
                   <span>{card.publisherName}</span>
                   <span>·</span>
                   <code className="font-mono">{card.id}</code>
@@ -251,6 +306,31 @@ function ConnectorDialog({ id, onClose }: { id: string; onClose: () => void }) {
                     </li>
                   ))}
                 </ul>
+              </div>
+            )}
+
+            {card.pricing === "Paid" && (
+              <div className="flex items-start gap-3 rounded-lg border border-ink-200 px-4 py-3 text-sm text-ink-700">
+                <KeyRound className="mt-0.5 size-4 shrink-0 text-ink-500" aria-hidden />
+                <p>
+                  A paid connector installs and runs only on a licence from the registry.{" "}
+                  {licences.data?.registered ? (
+                    <>
+                      {LICENCE_BADGE[licenceStateOf(licences.data, card)].hint}{" "}
+                      <Link to="/settings?section=Marketplace" className="text-crimson-700 hover:underline">
+                        Licences
+                      </Link>
+                    </>
+                  ) : (
+                    <>
+                      This Bitween isn't registered yet:{" "}
+                      <Link to="/settings?section=Marketplace" className="text-crimson-700 hover:underline">
+                        register it under Settings, Marketplace
+                      </Link>{" "}
+                      with the code Simplify9 gave.
+                    </>
+                  )}
+                </p>
               </div>
             )}
 

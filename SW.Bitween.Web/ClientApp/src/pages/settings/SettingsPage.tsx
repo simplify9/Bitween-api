@@ -16,6 +16,7 @@ import { RETENTION_SECTION, retentionProposal, useRetention } from "../../lib/re
 import { NoticeList, RetentionPanel } from "./RetentionPanel";
 import { AboutPanel } from "./AboutPanel";
 import { NotificationChannelsPanel } from "./NotificationChannelsPanel";
+import { MarketplacePanel, MARKETPLACE_SECTION } from "./MarketplacePanel";
 
 /** Not a section of the catalog: a read-only view of the instance, after the editable ones. */
 const ABOUT_SECTION = "About this instance";
@@ -413,6 +414,7 @@ export function SettingsPage() {
           </div>
           {section === RETENTION_SECTION && <RetentionPanel rows={rows} draft={draft} />}
           {section === ABOUT_SECTION && <AboutPanel />}
+          {section === MARKETPLACE_SECTION && <MarketplacePanel rows={rows} canEdit={canEdit} />}
           {section === CHANNELS_SECTION ? (
             <NotificationChannelsPanel />
           ) : (

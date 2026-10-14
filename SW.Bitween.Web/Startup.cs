@@ -107,6 +107,8 @@ namespace SW.Bitween.Web
             services.AddScoped<SW.Bitween.Services.Marketplace.MarketplaceInstaller>();
             // Once a day: newer versions and revocations for what was installed from the registry.
             services.AddScoped<SW.Bitween.Services.Marketplace.RegistryUpdates>();
+            services.AddScoped<SW.Bitween.Services.Marketplace.RegistryLicences>();
+            services.AddScoped<SW.Bitween.Services.Marketplace.UsageReporter>();
             services.AddHostedService<SW.Bitween.Services.Marketplace.RegistryUpdateChecker>();
             services.AddScoped<SubscriptionRevisions>();
             services.AddScoped<SW.Bitween.Services.Adapters.AdapterChanges>();

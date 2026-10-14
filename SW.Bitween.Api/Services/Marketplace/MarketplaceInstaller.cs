@@ -31,7 +31,8 @@ public class MarketplaceInstaller(
     AdapterChanges changes,
     AdapterWorkshop workshop,
     ICloudFilesService cloudFiles,
-    ServerlessOptions serverlessOptions)
+    ServerlessOptions serverlessOptions,
+    RegistryLicences licences = null)
 {
     /// <summary>Where the registry a package came from is recorded, in its catalog entry.</summary>
     public const string OriginExtension = "registry";
@@ -75,8 +76,7 @@ public class MarketplaceInstaller(
             throw new SWValidationException("REGISTRY_COMMUNITY",
                 "This connector is from a Community publisher. Allow Community connectors under Settings, Marketplace to install it.");
         if (string.Equals(detail.Pricing, "Paid", StringComparison.OrdinalIgnoreCase))
-            throw new SWValidationException("REGISTRY_LICENCE",
-                "This is a paid connector. Installing one needs a licence, which this version of Bitween can't check yet.");
+            await EnsureLicensed(packageId);
 
         var manifest = AdapterManifest.Parse(detail.Manifest.GetRawText());
         var isKit = IsKit(manifest);
@@ -192,6 +192,28 @@ public class MarketplaceInstaller(
             throw new SWValidationException("REGISTRY_SIGNATURE", "The publisher's signature on this version doesn't verify. Nothing was installed.");
     }
 
+    /// <summary>
+    /// A paid connector installs only where a licence covers it: fetched from the registry now (this
+    /// Bitween must be registered, under Settings, Marketplace), checked against the trusted keys.
+    /// </summary>
+    async Task EnsureLicensed(string packageId)
+    {
+        if (!registry.Registered)
+            throw new SWValidationException("REGISTRY_LICENCE",
+                "This is a paid connector. Register this Bitween with the registry under Settings, Marketplace, with the registration code Simplify9 gave, then install it.");
+        if (licences == null)
+            throw new SWValidationException("REGISTRY_LICENCE", "This is a paid connector and no licence can be checked here.");
+        await licences.RefreshAsync();
+        var status = await licences.StatusFor(packageId);
+        if (status.Allows) return;
+        throw new SWValidationException("REGISTRY_LICENCE", status.State switch
+        {
+            LicenceState.Expired => $"The licence for {packageId} ended on {status.Licence.Ends:yyyy-MM-dd} and its grace is over. Renew it with Simplify9 to install it.",
+            LicenceState.NotYet => $"The licence for {packageId} starts on {status.Licence.Starts:yyyy-MM-dd}.",
+            _ => $"This Bitween holds no licence for {packageId}. Ask Simplify9 for one; it appears under Settings, Marketplace once issued.",
+        });
+    }
+
     async Task RecordOrigin(string packageId, RegistryVersion detail)
     {
         var store = new AdapterCatalogStore(cloudFiles, serverlessOptions.AdapterRemotePath);
@@ -204,6 +226,7 @@ public class MarketplaceInstaller(
             url = registry.BaseUrl,
             publisher = detail.Publisher,
             tier = detail.Tier.ToLowerInvariant(),
+            pricing = (detail.Pricing ?? "free").ToLowerInvariant(),
         });
         await store.SaveAsync(entry);
         await changes.ForgetEverywhereAsync(packageId);

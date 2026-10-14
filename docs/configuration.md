@@ -103,6 +103,7 @@ applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
 | `OidcAuthority`, `OidcClientId`, `OidcClientSecret`, `OidcDisplayName`, `OidcScopes`, `OidcRedirectUri` | | First values of the OpenID Connect sign-in settings. See [Security](security.md#openid-connect). |
 | `RebexLicenseKey` | | First value of the runtime setting. |
 | `RegistryEnabled`, `RegistryUrl`, `RegistryTrustedKeys`, `RegistryAllowCommunity` | `true`, Simplify9's registry and its keys, `false` | First values of the Marketplace settings. See [Adapters](adapters.md#installing-from-the-marketplace). |
+| `RegistryInstanceId`, `RegistryInstanceToken`, `RegistryUsageReports` | empty, empty, `false` | First values of the registration settings: set by **Register** under Settings, Marketplace rather than by hand. See [Paid connectors and licences](adapters.md#paid-connectors-and-licences). |
 | `RetryJobCron` | `0 * * * * ?` | First value of the runtime setting. |
 | `MaxRetryAfterSeconds` | `21600` | First value of the runtime setting: the longest an adapter's [try again after](retries-and-alerts.md#when-an-adapter-says-when-to-try-again) can push back a retry. |
 
@@ -166,6 +167,9 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.RegistryUrl` | Marketplace | Yes | `https://registry.bitween.io` |
 | `Bitween.RegistryTrustedKeys` | Marketplace | Yes | Simplify9's registry's keys |
 | `Bitween.RegistryAllowCommunity` | Marketplace | Yes | `false` |
+| `Bitween.RegistryInstanceId` | Marketplace | Yes | empty, set by registering |
+| `Bitween.RegistryInstanceToken` | Marketplace | Yes, secret | empty, set by registering |
+| `Bitween.RegistryUsageReports` | Marketplace | Yes | `false` |
 | `Bitween.MailServer.Host`, `Port`, `UseTls`, `CertificateThumbprint`, `Username`, `From`, `FromName` | Mail server | Yes | port `587`, `UseTls` `true`, the rest empty |
 | `Bitween.MailServer.Password` | Mail server | Yes, secret | empty |
 | `Bitween.MaxRetryAfterSeconds` | Reliability & jobs | Yes | `21600`, six hours |

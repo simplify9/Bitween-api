@@ -330,6 +330,21 @@ namespace SW.Bitween
         public bool RegistryAllowCommunity { get; set; }
 
         /// <summary>
+        /// What the registry calls this Bitween once it is registered with a code from Settings, Marketplace.
+        /// Registering is needed only for private listings, paid connectors and usage reports.
+        /// </summary>
+        public string RegistryInstanceId { get; set; }
+
+        /// <summary>The instance token the registry gave at registration, sent with every call to it. A secret.</summary>
+        public string RegistryInstanceToken { get; set; }
+
+        /// <summary>
+        /// Whether a daily usage report goes to the registry: per connector installed from it, how many
+        /// subscriptions use it, calls and failures; nothing else. Off unless turned on.
+        /// </summary>
+        public bool RegistryUsageReports { get; set; }
+
+        /// <summary>
         /// Allowed CORS origins for credential-bearing requests (cookies).
         /// When set, enables AllowCredentials() on the CORS policy.
         /// Example: ["https://localhost:3000", "https://slim-dev.starlinks-me.com"]

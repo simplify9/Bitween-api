@@ -2011,6 +2011,53 @@ export interface RegistryCheckSummary {
   adapters: RegistryAdapterCheck[];
 }
 
+export type LicenceState = "None" | "NotYet" | "Live" | "Grace" | "Expired";
+
+/** One licence this Bitween holds, as the registry signed it and as it stands now. */
+export interface RegistryLicenceRow {
+  licenceId: number;
+  customer: string;
+  /** Package ids or namespace patterns, comma separated. */
+  packages: string;
+  /** Instance ids, or * for any. */
+  instances: string;
+  starts: string;
+  ends: string;
+  graceDays: number;
+  state: LicenceState;
+}
+
+/** The licences held here: fetched daily and on demand, checked against the trusted keys. */
+export interface RegistryLicenceSummary {
+  registered: boolean;
+  instanceId: string | null;
+  refreshedOn: string | null;
+  /** Why the last fetch didn't keep everything; what was held before stays. */
+  error: string | null;
+  licences: RegistryLicenceRow[];
+}
+
+export interface MarketplaceRegistration {
+  instanceId: string;
+  displayName: string | null;
+  customerName: string;
+  licences: RegistryLicenceSummary;
+}
+
+export interface RegistryUsageLine {
+  packageId: string;
+  version: string;
+  subscriptions: number;
+  calls: number;
+  failures: number;
+}
+
+/** One day's usage report, as it would be or was sent. */
+export interface UsageReportPreview {
+  day: string;
+  lines: RegistryUsageLine[];
+}
+
 /** A kit's parameter, as its install form asks for it. */
 export interface KitParameter {
   name: string;

@@ -106,8 +106,11 @@ import type {
   AdapterDraftSummary,
   MarketplaceInstallResult,
   MarketplacePackage,
+  MarketplaceRegistration,
   MarketplaceSearch,
   RegistryCheckSummary,
+  RegistryLicenceSummary,
+  UsageReportPreview,
   SubscriptionRevision,
   SubscriptionRevisionDetail,
   DraftBuild,
@@ -404,6 +407,14 @@ export interface ApiClient {
   planKit(request: KitInstallRequest): Promise<KitRun>;
   /** Installs a kit: its connectors, then its configuration with the parameters filled in. */
   installKit(request: KitInstallRequest): Promise<KitRun>;
+  /** Registers this Bitween with the registry by a registration code (settings.edit); the token becomes a setting. */
+  registerWithRegistry(code: string, displayName: string): Promise<MarketplaceRegistration>;
+  /** The licences held here, as last fetched. */
+  getMarketplaceLicences(): Promise<RegistryLicenceSummary>;
+  /** Fetches the licences from the registry now (adapter-source.operate). */
+  refreshMarketplaceLicences(): Promise<RegistryLicenceSummary>;
+  /** What a day's usage report says; sends it when asked (settings.edit). */
+  marketplaceUsage(day: string | null, send: boolean): Promise<UsageReportPreview>;
 
   // - the adapter editor (adapter-source.edit; publishing and promoting need adapter-source.operate) -
   listAdapterDrafts(): Promise<AdapterDraftSummary[]>;

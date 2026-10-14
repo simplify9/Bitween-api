@@ -29,6 +29,10 @@ public record RegistryVersion(string PackageId, string Version, string Status, s
 
 public record RegistrySignedDocument(string Payload, string KeyId, string Signature);
 
+public record RegistryRegistration(string InstanceId, string Token, string DisplayName, int CustomerId, string CustomerName);
+
+public record RegistryUsageLine(string PackageId, string Version, int Subscriptions, long Calls, long Failures);
+
 /// <summary>
 /// The registry's read API, as the Marketplace tab and the installer use it. Nothing it returns is
 /// trusted for installing until <see cref="RegistrySignatures"/> has checked it.
@@ -75,6 +79,28 @@ public class RegistryClient(BitweenOptions options)
 
     public Task<RegistrySignedDocument> RevocationsAsync() => GetAsync<RegistrySignedDocument>("/v1/revocations");
 
+    /// <summary>Whether this Bitween is registered: it has a token to send.</summary>
+    public bool Registered => !string.IsNullOrWhiteSpace(options.RegistryInstanceToken);
+
+    /// <summary>A registration code becomes an instance id and a token. Sent without a token: there is none yet.</summary>
+    public Task<RegistryRegistration> RegisterAsync(string code, string displayName, string bitweenVersion) =>
+        PostAsync<RegistryRegistration>("/v1/instances/register", new { code, displayName, bitweenVersion }, withToken: false);
+
+    /// <summary>The licences the registry holds for this instance, each signed; nothing is trusted until checked.</summary>
+    public Task<List<RegistrySignedDocument>> EntitlementsAsync() => GetAsync<List<RegistrySignedDocument>>("/v1/instances/me/entitlements");
+
+    public async Task ReportUsageAsync(DateOnly day, string bitweenVersion, IReadOnlyList<RegistryUsageLine> lines)
+    {
+        using var _ = await SendAsync("/v1/instances/me/usage", HttpMethod.Post, new { day = day.ToString("yyyy-MM-dd"), bitweenVersion, lines });
+    }
+
+    async Task<T> PostAsync<T>(string path, object body, bool withToken = true)
+    {
+        using var response = await SendAsync(path, HttpMethod.Post, body, withToken);
+        return await response.Content.ReadFromJsonAsync<T>(Json)
+               ?? throw new SWValidationException("REGISTRY_UNREACHABLE", "The registry sent an empty answer.");
+    }
+
     public async Task<byte[]> DownloadAsync(string id, string version)
     {
         using var response = await SendAsync($"/v1/packages/{Uri.EscapeDataString(id)}/versions/{Uri.EscapeDataString(version)}/download");
@@ -90,7 +116,7 @@ public class RegistryClient(BitweenOptions options)
                ?? throw new SWValidationException("REGISTRY_UNREACHABLE", "The registry sent an empty answer.");
     }
 
-    async Task<HttpResponseMessage> SendAsync(string path)
+    async Task<HttpResponseMessage> SendAsync(string path, HttpMethod method = null, object body = null, bool withToken = true)
     {
         if (Disabled)
             throw new SWValidationException("REGISTRY_OFF", "The marketplace is turned off under Settings, Marketplace.");
@@ -100,7 +126,12 @@ public class RegistryClient(BitweenOptions options)
         HttpResponseMessage response;
         try
         {
-            response = await Client.GetAsync(BaseUrl + path, HttpCompletionOption.ResponseHeadersRead);
+            using var request = new HttpRequestMessage(method ?? HttpMethod.Get, BaseUrl + path);
+            // The instance token opens private listings and licences; a Bitween that never registered sends none.
+            if (withToken && Registered)
+                request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.RegistryInstanceToken.Trim());
+            if (body != null) request.Content = JsonContent.Create(body, options: Json);
+            response = await Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or UriFormatException)
         {
@@ -110,9 +141,22 @@ public class RegistryClient(BitweenOptions options)
         if (response.IsSuccessStatusCode) return response;
 
         var status = response.StatusCode;
+        string said = null;
+        try
+        {
+            // The registry answers a refusal with { code, message }, which is the thing to show.
+            var problem = await response.Content.ReadFromJsonAsync<JsonElement>(Json);
+            if (problem.ValueKind == JsonValueKind.Object && problem.TryGetProperty("message", out var m)) said = m.GetString();
+        }
+        catch (Exception ex) when (ex is JsonException or HttpRequestException or NotSupportedException)
+        {
+            // Not JSON: the status is what there is.
+        }
         response.Dispose();
         if (status == HttpStatusCode.NotFound)
             throw new SWNotFoundException(path);
-        throw new SWValidationException("REGISTRY_UNREACHABLE", $"The registry at {BaseUrl} answered {(int)status}.");
+        if (status is HttpStatusCode.BadRequest or HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.Conflict && said != null)
+            throw new SWValidationException("REGISTRY_REFUSED", said);
+        throw new SWValidationException("REGISTRY_UNREACHABLE", $"The registry at {BaseUrl} answered {(int)status}{(said == null ? "" : ": " + said)}.");
     }
 }

@@ -509,8 +509,8 @@ or new lines.
 Browsing needs `subscriptions.view`; installing needs `adapter-source.operate`. Installing a version:
 
 1. reads it from the registry, and refuses one that isn't published there, one from a Community publisher
-   unless **Allow Community connectors** is on, a paid one (licences aren't checked yet), and one that needs
-   a newer Bitween (`ADAPTER_NEEDS_NEWER_BITWEEN`);
+   unless **Allow Community connectors** is on, a paid one without a [licence](#paid-connectors-and-licences)
+   (`REGISTRY_LICENCE`), and one that needs a newer Bitween (`ADAPTER_NEEDS_NEWER_BITWEEN`);
 2. refuses an id this Bitween already has from anywhere but a registry (`REGISTRY_ID_TAKEN`), so a
    registry package never takes the place of an adapter published here, and a version it already has
    (`REGISTRY_INSTALLED`);
@@ -530,6 +530,39 @@ install is in the audit trail as an `AdapterRelease` with the action `installed`
 A card says **Installed** when this Bitween has the registry's newest version, and **Update available**
 when it has an older one. Nothing is updated by itself. Besides the search and the publisher, the tab
 filters by type (connectors or kits), category, runtime and price.
+
+#### Paid connectors and licences
+
+Free connectors need nothing more than the above. A paid connector, marked so on its card, installs and
+runs only on a licence from the registry, and seeing a publisher's private connectors needs the same
+registration. Under **Settings, Marketplace**, **Register** takes a one-time registration code from
+Simplify9 (or from your customer page on the registry) and a name for this Bitween; the registry answers
+with an instance id and a token, kept as the settings **Registered as** and **Instance token** (a secret,
+so it needs `Bitween:SettingsEncryptionKey`). From then on every call to the registry carries the token.
+Clearing the two settings unregisters.
+
+A licence is a document the registry signs with the same keys that countersign packages: the customer,
+the instances it names (one, or any), the packages it covers (ids, or a namespace such as `s9.*`), when it
+starts and ends, and days of grace. Bitween fetches them at registration, with **Refresh**, and once a day
+with the update check, keeps the ones that verify with the trusted keys, drops and reports the rest, and
+stores them in its own database, so every node reads the same and nothing is asked of the registry when a
+connector runs. The panel lists each licence as **Live**, **In grace**, **Not yet** or **Expired**, and the
+Marketplace tab says the same on each paid card.
+
+Installing a paid connector fetches the licences first and refuses without one that is live or in grace.
+Running one checks the stored licences on every call, at no cost: a connector whose licence is past its
+grace fails with `ADAPTER_LICENCE_EXPIRED`, a failure the subscription's retry policy retries, so the calls
+go through once the licence is renewed. Nothing else on the instance is affected, and a free connector,
+or one not installed from the registry, is never asked.
+
+**Send usage reports**, off unless turned on, sends the registry once a day, with the update check, one
+line per connector installed from it: the package id and version, how many subscriptions name it, and
+yesterday's calls and failures from the adapter metrics. No payloads, no partner or subscription names,
+no hostnames. **Show yesterday's report** on the panel says exactly what would go before it is turned on,
+and **Send it now** sends it. The report is `/api/marketplace/usage` with `send` true or false
+(`settings.edit`); registering is `/api/marketplace/register`, the licences held are
+`/api/marketplace/licences` (`subscriptions.view`), and `/api/marketplace/refreshlicences` fetches them
+now (`adapter-source.operate`).
 
 A card marked **Kit** is connectors plus the configuration that makes them useful (see [Kits](cli.md#kits)).
 Opening it shows the kit's parameters as a form, with secrets as password fields and defaults filled in, and

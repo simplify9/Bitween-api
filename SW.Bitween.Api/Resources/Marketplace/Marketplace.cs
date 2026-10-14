@@ -1,7 +1,9 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using System;
 using SW.Bitween.Domain;
+using SW.Bitween.Services;
 using SW.Bitween.Services.Adapters;
 using SW.Bitween.Services.Marketplace;
 using SW.PrimitiveTypes;
@@ -176,6 +178,106 @@ public class Check(BitweenDbContext dbContext, RequestContext requestContext, Re
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.AdapterSource.Operate);
         return await updates.CheckAsync();
+    }
+}
+
+public class MarketplaceRegisterRequest
+{
+    /// <summary>The registration code Simplify9 gave, bwreg_...</summary>
+    public string Code { get; set; }
+
+    /// <summary>What to call this Bitween in the registry; its address by default.</summary>
+    public string DisplayName { get; set; }
+}
+
+/// <summary>
+/// Registers this Bitween with the registry: the code becomes an instance id and a token, saved as
+/// settings, and the licences are fetched. Needed only for private or paid connectors and usage reports.
+/// </summary>
+[HandlerName("register")]
+public class Register(BitweenDbContext dbContext, RequestContext requestContext, RegistryClient registry, BitweenOptions options,
+    SettingsService settings, IInfolinkCache cache, RegistryLicences licences)
+    : ICommandHandler<MarketplaceRegisterRequest, object>
+{
+    public async Task<object> Handle(MarketplaceRegisterRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Settings.Edit);
+        if (string.IsNullOrWhiteSpace(request?.Code))
+            throw new SWValidationException("Code", "Paste the registration code Simplify9 gave.");
+        var token = SettingsCatalog.Find("Bitween.RegistryInstanceToken");
+        if (!settings.CanStore(token))
+            throw new SWValidationException("SETTING_ENCRYPTION_UNAVAILABLE",
+                $"The instance token is a secret and can only be stored once {BitweenOptions.ConfigurationSection}:{nameof(BitweenOptions.SettingsEncryptionKey)} is configured.");
+
+        var registration = await registry.RegisterAsync(request.Code.Trim(),
+            string.IsNullOrWhiteSpace(request.DisplayName) ? options.PublicUrl ?? "Bitween" : request.DisplayName.Trim(),
+            BitweenInfo.Version(options).ToString());
+
+        // Stored and applied the way Settings, Update does, so the next request already sends the token.
+        foreach (var (definition, value) in new[] { (SettingsCatalog.Find("Bitween.RegistryInstanceId"), registration.InstanceId), (token, registration.Token) })
+        {
+            var stored = await dbContext.Set<Setting>().FindAsync(definition.Key);
+            var toStore = settings.ToStored(definition, value);
+            if (stored is null) dbContext.Add(new Setting { Id = definition.Key, Value = toStore });
+            else stored.Value = toStore;
+            settings.Apply(definition, value);
+        }
+        await dbContext.SaveChangesAsync();
+        await cache.BroadcastRevoke();
+
+        var summary = await licences.RefreshAsync();
+        return new { registration.InstanceId, registration.DisplayName, registration.CustomerName, Licences = summary };
+    }
+}
+
+public class MarketplaceLicencesRequest
+{
+}
+
+/// <summary>The licences this Bitween holds, as last fetched; nothing is asked of the registry.</summary>
+[HandlerName("licences")]
+public class Licences(BitweenDbContext dbContext, RequestContext requestContext, RegistryLicences licences)
+    : IQueryHandler<MarketplaceLicencesRequest, object>
+{
+    public async Task<object> Handle(MarketplaceLicencesRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.View);
+        return await licences.ReadAsync();
+    }
+}
+
+/// <summary>Fetches the licences from the registry now.</summary>
+[HandlerName("refreshlicences")]
+public class RefreshLicences(BitweenDbContext dbContext, RequestContext requestContext, RegistryLicences licences)
+    : ICommandHandler<MarketplaceLicencesRequest, object>
+{
+    public async Task<object> Handle(MarketplaceLicencesRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.AdapterSource.Operate);
+        return await licences.RefreshAsync();
+    }
+}
+
+public class MarketplaceUsageRequest
+{
+    /// <summary>The day to report, yyyy-MM-dd; yesterday by default.</summary>
+    public string Day { get; set; }
+
+    /// <summary>True sends it; false only shows what would be sent.</summary>
+    public bool Send { get; set; }
+}
+
+/// <summary>What the daily usage report says, and sends it when asked.</summary>
+[HandlerName("usage")]
+public class Usage(BitweenDbContext dbContext, RequestContext requestContext, UsageReporter usage)
+    : ICommandHandler<MarketplaceUsageRequest, object>
+{
+    public async Task<object> Handle(MarketplaceUsageRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Settings.Edit);
+        var day = string.IsNullOrWhiteSpace(request?.Day) ? DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1)
+            : DateOnly.TryParseExact(request.Day, "yyyy-MM-dd", out var d) ? d : throw new SWValidationException("Day", "Give the day as yyyy-MM-dd.");
+        return request?.Send == true ? await usage.SendAsync(day) : await usage.PreviewAsync(day);
     }
 }
 

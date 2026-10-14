@@ -237,6 +237,7 @@ export const keys = {
   adapterDrafts: ["adapter-drafts"] as const,
   marketplace: (q: string, tier: string) => ["marketplace", q, tier] as const,
   marketplaceUpdates: ["marketplace", "updates"] as const,
+  marketplaceLicences: ["marketplace", "licences"] as const,
   marketplacePackage: (id: string) => ["marketplace", "package", id] as const,
   adapterDraft: (id: number) => ["adapter-drafts", id] as const,
 } as const;
