@@ -10,9 +10,9 @@ it has been discussed; the plan at the end is rebuilt from the decisions.
 Goal: shorter exchange duration, queues that drain fast, and a throughput ceiling set by the
 partners and the database rather than by Bitween itself.
 
-## Done, committed locally on `releases/r10.0-develop`, not pushed (2026-10-14)
+## Done, pushed and running on bitween-dev (2026-10-14)
 
-Implemented, tested and measured. Removed from the findings below so the file lists open work;
+Implemented, tested, measured, deployed by CI run 167 and checked on dev (Parallel column, readiness, sync answer times). Removed from the findings below so the file lists open work;
 their full write-ups are in this file's git history (`d9a6c52b`, `11ee0a99`). A session touching
 these areas should read the commits before changing them.
 
