@@ -61,14 +61,25 @@ public static class DocumentSchema
     }
 
     /// <summary>What is wrong with <paramref name="data"/>, at most <see cref="MaxErrors"/>; empty when it matches.</summary>
-    public static async Task<IReadOnlyList<string>> Check(DocumentFormat format, string schema, string data)
+    public static Task<IReadOnlyList<string>> Check(DocumentFormat format, string schema, string data) =>
+        Check(format, schema, data, null);
+
+    /// <summary>
+    /// What is wrong with the file's payload, read from the pipeline's shared parse when it has one
+    /// (finding 6c).
+    /// </summary>
+    public static Task<IReadOnlyList<string>> Check(DocumentFormat format, string schema, XchangeFile file) =>
+        Check(format, schema, file?.Data, NativeAdapters.ParsedPayload.Of(file));
+
+    private static async Task<IReadOnlyList<string>> Check(DocumentFormat format, string schema, string data,
+        NativeAdapters.ParsedPayload shared)
     {
         if (string.IsNullOrWhiteSpace(schema) || format is not (DocumentFormat.Json or DocumentFormat.Xml))
             return [];
 
         var compiled = await CompileAsync(format, schema);
         return format == DocumentFormat.Json
-            ? CheckJson((JsonSchema)compiled, data)
+            ? CheckJson((JsonSchema)compiled, data, shared)
             : CheckXml((XmlSchemaSet)compiled, data);
     }
 
@@ -77,6 +88,17 @@ public static class DocumentSchema
     {
         if (document is null) return;
         var errors = await Check(document.DocumentFormat, document.ValidationSchema, data);
+        if (errors.Count > 0) throw new DocumentSchemaException(document.Name, errors);
+    }
+
+    /// <summary>
+    /// Throws <see cref="DocumentSchemaException"/> when the file's payload doesn't match, read from
+    /// the pipeline's shared parse when it has one (finding 6c).
+    /// </summary>
+    public static async Task Enforce(Domain.Document document, XchangeFile file)
+    {
+        if (document is null) return;
+        var errors = await Check(document.DocumentFormat, document.ValidationSchema, file);
         if (errors.Count > 0) throw new DocumentSchemaException(document.Name, errors);
     }
 
@@ -118,17 +140,20 @@ public static class DocumentSchema
         return set;
     }
 
-    private static IReadOnlyList<string> CheckJson(JsonSchema schema, string data)
+    private static IReadOnlyList<string> CheckJson(JsonSchema schema, string data, NativeAdapters.ParsedPayload shared)
     {
-        JToken token;
-        try
+        // The shared tree is read, never written: the removal below works on a copy.
+        if (shared == null || !shared.TryGet(NativeAdapters.ParseProfiles.Defaults, data, out var token))
         {
-            NativeAdapters.PayloadParseTally.Parsed();
-            token = JToken.Parse(data);
-        }
-        catch (JsonReaderException ex)
-        {
-            return [$"Not valid JSON: {ex.Message}"];
+            try
+            {
+                NativeAdapters.PayloadParseTally.Parsed();
+                token = JToken.Parse(data);
+            }
+            catch (JsonReaderException ex)
+            {
+                return [$"Not valid JSON: {ex.Message}"];
+            }
         }
 
         if (token is JObject obj && obj.ContainsKey(InjectedProperty))

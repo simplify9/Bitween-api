@@ -63,6 +63,7 @@
   <ItemGroup>
     <!-- For AccountExtensions.MicrosoftSigningKeys: sign-in with Microsoft tested end to end. -->
     <InternalsVisibleTo Include="SW.Bitween.IntegrationTests" />
+    <InternalsVisibleTo Include="SW.Bitween.UnitTests" />
     <InternalsVisibleTo Include="SW.Bitween.HttpTests" />
   </ItemGroup>
 

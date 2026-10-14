@@ -434,7 +434,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             // can reference them as {{ __partner__?.propkey }}
             // Only applies when the data is a JSON object; skip enrichment for non-object payloads
             // (e.g. a receiver returning a JSON-encoded string).
-            var jObjEnriched = MapperEnrichment.Read(xchangeFile);
+            var jObjEnriched = MapperEnrichment.Read(xchangeFile, out var shared);
 
             if (jObjEnriched != null)
             {
@@ -447,7 +447,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 // From the cache, which every change to a set revokes: this ran a query per exchange.
                 var globalSets = await BitweenCache.ListGlobalAdapterValuesSetsAsync();
 
-                var enriched = MapperEnrichment.Enrich(jObjEnriched, partner?.AdapterProperties, globalSets);
+                var enriched = MapperEnrichment.Enrich(jObjEnriched, shared, partner?.AdapterProperties, globalSets);
                 if (enriched != null)
                     xchangeFile = new XchangeFile(enriched, xchangeFile.Filename);
             }
@@ -798,7 +798,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             var inputFile = InputFrom(message, xchange);
             if (inputFile == null)
                 using (BitweenTelemetry.Stage("storage.read"))
-                    inputFile = new XchangeFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
+                    inputFile = InputFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
             // Whatever way it arrived - bus, receiver, response - input that doesn't match its
             // type's schema fails here, with what is wrong, before anything acts on it.
             // Promoted properties are read when the exchange is created now. Filtered here only for
@@ -808,7 +808,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             FilterResult result = null;
             using (BitweenTelemetry.Stage("filter"))
             {
-                await DocumentSchema.Enforce(await BitweenCache.DocumentByIdAsync(xchange.DocumentId), inputFile.Data);
+                await DocumentSchema.Enforce(await BitweenCache.DocumentByIdAsync(xchange.DocumentId), inputFile);
                 if (!loaded.HasPromoted || xchange.SubscriptionId == null)
                     result = await filterService.Filter(xchange.DocumentId, inputFile);
             }
@@ -955,12 +955,20 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     private XchangeFile InputFrom(XchangeMessage message, Xchange xchange)
     {
         if (message.Input == null) return null;
-        var carried = new XchangeFile(message.Input, xchange.InputName);
+        var carried = InputFile(message.Input, xchange.InputName);
         if (xchange.InputHash == null || carried.Hash == xchange.InputHash) return carried;
 
         logger.LogWarning("The input carried by the message of xchange {XchangeId} doesn't match its hash; reading storage.", xchange.Id);
         return null;
     }
+
+    /// <summary>
+    /// The input as the worker hands it from step to step: carrying its parsed trees, so the schema
+    /// check, the filter, the enrichment and the built-in mappers parse it once per parse profile
+    /// rather than once each, unless <c>Bitween:SharedPayloadParse</c> is off (finding 6c).
+    /// </summary>
+    private XchangeFile InputFile(string data, string name) =>
+        BitweenSettings.SharedPayloadParse ? new NativeAdapters.ParsedXchangeFile(data, name) : new XchangeFile(data, name);
 
     /// <summary>
     /// Writes on the result which node ran it, which adapter versions ran, and how long it took from

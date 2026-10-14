@@ -11,6 +11,9 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="SW.Bitween.UnitTests" />
+        <!-- The pipeline hands the built-in adapters its parsed payload (ParsedXchangeFile), which nothing outside needs. -->
+        <InternalsVisibleTo Include="SW.Bitween.Api" />
+        <InternalsVisibleTo Include="SW.Bitween.IntegrationTests" />
     </ItemGroup>
 
     <ItemGroup>

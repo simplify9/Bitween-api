@@ -44,13 +44,13 @@ public class AdapterInvoker(IEnumerable<IAdapterRuntime> runtimes, MetricsRecord
         foreach (var runtime in _runtimes)
             if (await runtime.CanRunAsync(adapterId))
             {
-                if (metrics == null) return await runtime.BeginAsync(adapterId, role, properties, correlationId);
+                if (metrics == null) return TextOutside(runtime, await runtime.BeginAsync(adapterId, role, properties, correlationId));
 
                 var meter = new Meter(metrics, adapterId, await VersionOf(adapterId), role, RuntimeKind(runtime));
                 var clock = Stopwatch.StartNew();
                 try
                 {
-                    return new MeteredSession(await runtime.BeginAsync(adapterId, role, properties, correlationId), meter);
+                    return new MeteredSession(TextOutside(runtime, await runtime.BeginAsync(adapterId, role, properties, correlationId)), meter);
                 }
                 catch (Exception ex)
                 {
@@ -115,6 +115,25 @@ public class AdapterInvoker(IEnumerable<IAdapterRuntime> runtimes, MetricsRecord
 
         public void Record(long ms, Exception ex) =>
             metrics.AdapterCall(_adapterId, version, role.ToString().ToLowerInvariant(), runtime, ms, Classify(ex), ex?.Message);
+    }
+
+    /// <summary>
+    /// The session as it should see its arguments: a built-in adapter, run in this process, takes the
+    /// pipeline's parsed payload (finding 6c); every other runtime is handed the file as text alone, as
+    /// it always was, so the adapter contract does not change.
+    /// </summary>
+    static IAdapterSession TextOutside(IAdapterRuntime runtime, IAdapterSession session) =>
+        runtime is NativeAdapterRuntime ? session : new TextSession(session);
+
+    sealed class TextSession(IAdapterSession inner) : IAdapterSession
+    {
+        public Task<TResult> InvokeAsync<TResult>(string method, object argument = null) =>
+            inner.InvokeAsync<TResult>(method, NativeAdapters.ParsedXchangeFile.Plain(argument));
+
+        public Task InvokeAsync(string method, object argument = null) =>
+            inner.InvokeAsync(method, NativeAdapters.ParsedXchangeFile.Plain(argument));
+
+        public ValueTask DisposeAsync() => inner.DisposeAsync();
     }
 
     /// <summary>A session whose every call is timed and counted.</summary>

@@ -53,25 +53,58 @@ public class ExchangeParseCountTests(BitweenFixture fixture, ITestOutputHelper o
     }
 
     /// <summary>
-    /// Before finding 6, by stage: the gateway's schema check (with a schema) and its promoted-property
-    /// read; then the worker's schema check (with a schema), the enrichment, the mapper's read of its
-    /// input, the Scriban mapper's read of its own output, and the HTTP handler's URL model.
+    /// Per path, with and without a schema: the parses before finding 6, which
+    /// <c>Bitween:SharedPayloadParse=false</c> must still give, and the parses with it on.
     /// </summary>
-    public static readonly TheoryData<Route, bool, int> Baselines = new()
+    /// <remarks>
+    /// <para>
+    /// Before, by stage: the gateway's schema check (with a schema) and its promoted-property read;
+    /// then the worker's schema check (with a schema), the enrichment, the mapper's read of its input,
+    /// the Scriban mapper's read of its own output, and the HTTP handler's URL model.
+    /// </para>
+    /// <para>
+    /// Shared: one parse per profile in each scope. The gateway's schema check and promoted-property
+    /// read share one. In the worker, the schema check, the enrichment and the Scriban model share the
+    /// defaults tree; the rules mapper reads the exact one, so the rules path keeps one parse of each.
+    /// A payload the enrichment writes into is new text, parsed again for the Scriban model: its
+    /// partner and global values are parsed there (a date-like value becomes a date), which a copy of
+    /// the tree would not do. The Scriban output and the URL model are other text, or another reader,
+    /// and keep their parses.
+    /// </para>
+    /// </remarks>
+    public static readonly TheoryData<Route, bool, int, int> Parses = new()
     {
-        { Route.RulesPlainUrl, false, 2 },
-        { Route.RulesPlainUrl, true, 4 },
-        { Route.ScribanTemplatedUrl, false, 5 },
-        { Route.ScribanTemplatedUrl, true, 7 },
-        { Route.ScribanRootArray, false, 4 },
-        { Route.ScribanRootArray, true, 6 },
+        { Route.RulesPlainUrl, false, 2, 2 },
+        { Route.RulesPlainUrl, true, 4, 3 },
+        { Route.ScribanTemplatedUrl, false, 5, 5 },
+        { Route.ScribanTemplatedUrl, true, 7, 5 },
+        { Route.ScribanRootArray, false, 4, 3 },
+        { Route.ScribanRootArray, true, 6, 3 },
     };
 
     [Theory]
-    [MemberData(nameof(Baselines))]
-    public async Task A_sync_gateway_call_parses_its_payload_as_often_as_its_path_needs(Route route, bool schema, int parses)
+    [MemberData(nameof(Parses))]
+    public async Task A_sync_gateway_call_parses_its_payload_as_often_as_its_path_needs(Route route, bool schema, int before, int shared)
     {
-        Assert.Equal(parses, await ParsesOfOneCallAsync(route, schema));
+        _ = before;
+        Assert.Equal(shared, await ParsesOfOneCallAsync(route, schema));
+    }
+
+    [Theory]
+    [MemberData(nameof(Parses))]
+    public async Task With_the_shared_parse_off_every_step_parses_for_itself_as_before(Route route, bool schema, int before, int shared)
+    {
+        _ = shared;
+        var options = fixture.App.Services.GetRequiredService<BitweenOptions>();
+        options.SharedPayloadParse = false;
+        try
+        {
+            Assert.Equal(before, await ParsesOfOneCallAsync(route, schema));
+        }
+        finally
+        {
+            options.SharedPayloadParse = true;
+        }
     }
 
     private async Task<long> ParsesOfOneCallAsync(Route route, bool schema)

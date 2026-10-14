@@ -23,12 +23,29 @@ public class JsonFormat : IDocumentFormat
     /// <summary>No: an array is an array, and one element in it is a list of one.</summary>
     public bool SingleValueIsAList => false;
 
-    public ValueNode Read(string text)
+    public ValueNode Read(string text) => Read(text, null);
+
+    /// <summary>
+    /// <see cref="Read(string)"/> from the payload's shared parse when the pipeline has one for this
+    /// text (finding 6c), parsed here otherwise. The tree is only read.
+    /// </summary>
+    internal ValueNode Read(string text, ParsedPayload? shared)
     {
         if (string.IsNullOrWhiteSpace(text))
             throw new DocumentFormatException("The document is empty, so there is nothing to map.");
 
-        JToken token;
+        if (shared == null || !shared.TryGet(ParseProfiles.Exact, text, out var token))
+        {
+            PayloadParseTally.Parsed();
+            token = ParseExact(text);
+        }
+
+        return FromToken(token);
+    }
+
+    /// <summary>The text as this format reads it, the one parse profile it shares as <see cref="ParseProfiles.Exact"/>.</summary>
+    internal static JToken ParseExact(string text)
+    {
         try
         {
             // FloatParseHandling.Decimal so a price arrives exact. The default gives double, and
@@ -38,8 +55,7 @@ public class JsonFormat : IDocumentFormat
                 FloatParseHandling = FloatParseHandling.Decimal,
                 DateParseHandling = DateParseHandling.None,
             };
-            PayloadParseTally.Parsed();
-            token = JToken.ReadFrom(reader);
+            var token = JToken.ReadFrom(reader);
 
             // ReadFrom stops at the end of the first value, so two documents concatenated would
             // read as the first one and the rest would be dropped without a word. Reading one more
@@ -48,13 +64,13 @@ public class JsonFormat : IDocumentFormat
             if (reader.Read())
                 throw new DocumentFormatException(
                     "The document has more than one top-level value; JSON allows exactly one.");
+
+            return token;
         }
         catch (JsonException ex)
         {
             throw new DocumentFormatException($"The document is not valid JSON: {ex.Message}");
         }
-
-        return FromToken(token);
     }
 
     public string Write(ValueNode root) => ToToken(root).ToString(Formatting.Indented);

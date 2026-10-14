@@ -12,10 +12,24 @@ public static class ScribanJsonHelper
     /// <summary>
     /// Renders a Scriban template against the provided input JSON and returns the mapped output JSON.
     /// </summary>`
-    public static string Render(string scribanTemplate, string inputJson)
-    {
-        var rendered = RenderText(scribanTemplate, inputJson);
+    public static string Render(string scribanTemplate, string inputJson) =>
+        Tidy(RenderText(scribanTemplate, inputJson));
 
+    /// <summary>
+    /// <see cref="Render(string, string)"/> for the mapper: the model is built from the payload's
+    /// shared parse when the pipeline has one for this text (finding 6c), parsed here otherwise.
+    /// </summary>
+    internal static string Render(string scribanTemplate, SW.PrimitiveTypes.XchangeFile input)
+    {
+        var shared = ParsedPayload.Of(input);
+        return Tidy(shared != null && shared.TryGet(ParseProfiles.Defaults, input.Data, out var tree)
+            ? RenderText(scribanTemplate, tree)
+            : RenderText(scribanTemplate, input.Data));
+    }
+
+    /// <summary>The rendered text as a mapper's output: valid JSON, trailing commas gone, dotted keys expanded.</summary>
+    private static string Tidy(string rendered)
+    {
         // 6. Strip trailing commas that may appear after the last field/element
         rendered = StripTrailingCommas(rendered);
 
@@ -41,7 +55,7 @@ public static class ScribanJsonHelper
     /// </summary>
     /// <remarks>
     /// For templates whose output is prose rather than a payload - an email subject or body, say.
-    /// <see cref="Render"/> builds on this and adds the JSON validation and dotted-key expansion
+    /// <see cref="Render(string, string)"/> builds on this and adds the JSON validation and dotted-key expansion
     /// that a mapper needs and a sentence does not.
     /// </remarks>
     /// <summary>

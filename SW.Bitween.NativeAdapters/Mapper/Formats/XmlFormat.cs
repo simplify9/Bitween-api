@@ -52,29 +52,21 @@ public class XmlFormat : IDocumentFormat
     /// </remarks>
     private const int MaxDepth = 64;
 
-    public ValueNode Read(string text)
+    public ValueNode Read(string text) => Read(text, null);
+
+    /// <summary>
+    /// <see cref="Read(string)"/> from the payload's shared parse when the pipeline has one for this
+    /// text (finding 6c), loaded here otherwise. The document is only read.
+    /// </summary>
+    internal ValueNode Read(string text, ParsedPayload? shared)
     {
         if (string.IsNullOrWhiteSpace(text))
             throw new DocumentFormatException("The document is empty, so there is nothing to map.");
 
-        XDocument document;
-        try
+        if (shared == null || !shared.TryGet(ParseProfiles.RawXml, text, out var document))
         {
-            // A partner's document is untrusted input, so no DTD and no resolver: between them
-            // they are what lets an XML document declare an entity that expands to gigabytes, or
-            // one that reads a file off this server and sends it wherever the mapping writes it.
-            var settings = new XmlReaderSettings
-            {
-                DtdProcessing = DtdProcessing.Prohibit,
-                XmlResolver = null,
-            };
-            using var reader = XmlReader.Create(new StringReader(text), settings);
             PayloadParseTally.Parsed();
-            document = XDocument.Load(reader);
-        }
-        catch (XmlException ex)
-        {
-            throw new DocumentFormatException($"The document is not valid XML: {ex.Message}");
+            document = LoadRaw(text);
         }
 
         if (document.Root is null)
@@ -86,6 +78,28 @@ public class XmlFormat : IDocumentFormat
         var root = ValueNode.Object();
         root.Set(document.Root.Name.LocalName, FromElement(document.Root, 1));
         return root;
+    }
+
+    /// <summary>The text as this format loads it, the one parse profile it shares as <see cref="ParseProfiles.RawXml"/>.</summary>
+    internal static XDocument LoadRaw(string text)
+    {
+        try
+        {
+            // A partner's document is untrusted input, so no DTD and no resolver: between them
+            // they are what lets an XML document declare an entity that expands to gigabytes, or
+            // one that reads a file off this server and sends it wherever the mapping writes it.
+            var settings = new XmlReaderSettings
+            {
+                DtdProcessing = DtdProcessing.Prohibit,
+                XmlResolver = null,
+            };
+            using var reader = XmlReader.Create(new StringReader(text), settings);
+            return XDocument.Load(reader);
+        }
+        catch (XmlException ex)
+        {
+            throw new DocumentFormatException($"The document is not valid XML: {ex.Message}");
+        }
     }
 
     /// <summary>

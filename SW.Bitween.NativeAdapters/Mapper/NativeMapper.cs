@@ -72,7 +72,14 @@ public class NativeMapper : INativeInfolinkMapper, IReceivesMappingContext
         var source = ResolveFormat(_rules.SourceFormat, "source", _rules.SourceOptions());
         var target = ResolveFormat(_rules.TargetFormat, "target", _rules.TargetOptions());
 
-        var input = source.Read(xchangeFile.Data);
+        // The two formats the pipeline may have parsed already take the shared tree (finding 6c).
+        var shared = ParsedPayload.Of(xchangeFile);
+        var input = source switch
+        {
+            JsonFormat json => json.Read(xchangeFile.Data, shared),
+            XmlFormat xml => xml.Read(xchangeFile.Data, shared),
+            _ => source.Read(xchangeFile.Data),
+        };
         var output = DocumentMapper.Map(_rules, input, _context, source.SingleValueIsAList);
 
         return Task.FromResult(new XchangeFile(target.Write(output), xchangeFile.Filename)

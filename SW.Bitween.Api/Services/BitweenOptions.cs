@@ -131,6 +131,14 @@ namespace SW.Bitween
         public bool CacheCompiledTemplates { get; set; } = true;
 
         /// <summary>
+        /// Whether an exchange's payload is parsed once per parse profile and the tree handed from step
+        /// to step (the gateway's schema check and promoted properties; the worker's schema check,
+        /// filter, enrichment and built-in mappers), instead of each step parsing it again: on. Off
+        /// returns every step to its own parse, as before.
+        /// </summary>
+        public bool SharedPayloadParse { get; set; } = true;
+
+        /// <summary>
         /// After a notifier sends for a subscription and outcome, further notifications for the same
         /// pair within this many minutes are recorded as suppressed rather than sent, and the next
         /// one sent says how many there were. An outage no longer means one email per failure.

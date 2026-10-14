@@ -20,8 +20,20 @@ public static class MapperEnrichment
     /// The payload as the enrichment reads it: <c>JToken.Parse</c>, which throws on what is not JSON,
     /// and null for JSON that is not an object (a root array, a string), which is not enriched.
     /// </summary>
-    public static JObject Read(XchangeFile file)
+    /// <remarks>
+    /// <paramref name="shared"/> says the object is the pipeline's shared parse (finding 6c), which
+    /// <see cref="Enrich"/> must copy before it writes.
+    /// </remarks>
+    public static JObject Read(XchangeFile file, out bool shared)
     {
+        if (NativeAdapters.ParsedPayload.Of(file) is { } payload &&
+            payload.TryGet(NativeAdapters.ParseProfiles.Defaults, file.Data, out var tree))
+        {
+            shared = true;
+            return tree as JObject;
+        }
+
+        shared = false;
         NativeAdapters.PayloadParseTally.Parsed();
         return JToken.Parse(file.Data) as JObject;
     }
@@ -30,27 +42,31 @@ public static class MapperEnrichment
     /// The payload with the partner's adapter properties and every global values set written in, as
     /// text; null when there is nothing to write, so the payload goes on exactly as it arrived.
     /// </summary>
-    public static string Enrich(JObject payload, IDictionary<string, string> partnerProperties,
+    /// <remarks>
+    /// A <paramref name="shared"/> payload is the tree every other step of the exchange reads, so it is
+    /// copied before anything is written: the copy is written to and serialized, the shared tree is
+    /// left as it was parsed. Not copied when there is nothing to write.
+    /// </remarks>
+    public static string Enrich(JObject payload, bool shared, IDictionary<string, string> partnerProperties,
         IEnumerable<GlobalAdapterValuesSet> globalSets)
     {
-        var enriched = false;
-
-        if (partnerProperties?.Count > 0)
-        {
-            payload["__partner__"] = JObject.FromObject(partnerProperties);
-            enriched = true;
-        }
-
+        var writePartner = partnerProperties?.Count > 0;
         var sets = globalSets?.Where(s => s.Values?.Count > 0).ToList() ?? [];
+        if (!writePartner && sets.Count == 0) return null;
+
+        if (shared) payload = (JObject)payload.DeepClone();
+
+        if (writePartner)
+            payload["__partner__"] = JObject.FromObject(partnerProperties);
+
         if (sets.Count > 0)
         {
             var globalsObj = new JObject();
             foreach (var set in sets)
                 globalsObj[set.Id] = JObject.FromObject(set.Values);
             payload["__globals__"] = globalsObj;
-            enriched = true;
         }
 
-        return enriched ? payload.ToString(Formatting.None) : null;
+        return payload.ToString(Formatting.None);
     }
 }

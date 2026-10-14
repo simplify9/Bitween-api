@@ -140,12 +140,17 @@ public class GatewayController(
             DocumentFormat.Other => "",
             _ => ".json",
         };
-        var xchangeFile = new XchangeFile(json, $"{gatewayApiName.Replace('/', '-')}{extension}");
+        // Carrying its parsed trees, so the schema check below and the promoted-property read at
+        // creation share one parse, unless Bitween:SharedPayloadParse is off (finding 6c).
+        var fileName = $"{gatewayApiName.Replace('/', '-')}{extension}";
+        var xchangeFile = options.SharedPayloadParse
+            ? new NativeAdapters.ParsedXchangeFile(json, fileName)
+            : new XchangeFile(json, fileName);
 
         // Told now, while the partner is still on the line, rather than as a failed exchange later.
         var schemaErrors = document is null
             ? []
-            : await DocumentSchema.Check(document.DocumentFormat, document.ValidationSchema, json);
+            : await DocumentSchema.Check(document.DocumentFormat, document.ValidationSchema, xchangeFile);
         if (schemaErrors.Count > 0)
             return BadRequest(new { error = "SCHEMA_MISMATCH", errors = schemaErrors });
 

@@ -25,8 +25,8 @@ namespace SW.Bitween
             // that could pass, so only what asked for the type unconditionally picks it up.
             IExchangePayloadReader propReader = doc.DocumentFormat switch
             {
-                DocumentFormat.Xml => new XmlExchangePayloadReader(xchangeFile.Data),
-                DocumentFormat.Json => new JsonExchangePayloadReader(xchangeFile.Data),
+                DocumentFormat.Xml => new XmlExchangePayloadReader(xchangeFile.Data, NativeAdapters.ParsedPayload.Of(xchangeFile)),
+                DocumentFormat.Json => new JsonExchangePayloadReader(xchangeFile.Data, NativeAdapters.ParsedPayload.Of(xchangeFile)),
                 _ => null,
             };
 

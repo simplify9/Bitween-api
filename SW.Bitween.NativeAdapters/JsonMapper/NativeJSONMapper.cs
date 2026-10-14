@@ -20,7 +20,7 @@ public class NativeJSONMapper : INativeInfolinkMapper
 
     public Task<XchangeFile> Handle(XchangeFile xchangeFile)
     {
-        var outputJson = ScribanJsonHelper.Render(_options.ScribanTemplate, xchangeFile.Data);
+        var outputJson = ScribanJsonHelper.Render(_options.ScribanTemplate, xchangeFile);
         return Task.FromResult(new XchangeFile(outputJson));
     }
 }

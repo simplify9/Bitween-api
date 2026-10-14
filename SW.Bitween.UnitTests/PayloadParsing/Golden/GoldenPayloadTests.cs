@@ -11,6 +11,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -20,6 +21,7 @@ using SW.Bitween.Model;
 using SW.Bitween.NativeAdapters;
 using SW.Bitween.NativeAdapters.JsonMapper;
 using SW.Bitween.NativeAdapters.Mapper;
+using SW.Bitween.NativeAdapters.Mapper.Formats;
 using SW.PrimitiveTypes;
 using ValueType = SW.Bitween.NativeAdapters.Mapper.ValueType;
 using RulesMapper = SW.Bitween.NativeAdapters.Mapper.NativeMapper;
@@ -85,11 +87,18 @@ public class GoldenPayloadTests
             .Select(f => (Path.GetFileName(f), Encoding.UTF8.GetString(File.ReadAllBytes(f))))
             .ToList();
 
-    /// <summary>With each of finding 6's switches on, and off: either way, nothing may change.</summary>
+    /// <summary>
+    /// With each of finding 6's switches on, and off: either way, nothing may change. With the shared
+    /// parse on, every consumer of an input is handed one <see cref="ParsedXchangeFile"/>, in the order
+    /// the pipeline reaches them, as the worker hands its input from step to step; off, each gets a
+    /// plain file and parses for itself, as before.
+    /// </summary>
     [DataTestMethod]
-    [DataRow(true, DisplayName = "compiled templates kept")]
-    [DataRow(false, DisplayName = "compiled templates not kept")]
-    public async Task Every_consumer_reads_the_corpus_as_it_did_before_finding_6(bool cacheCompiledTemplates)
+    [DataRow(true, true, DisplayName = "shared parse, compiled templates kept")]
+    [DataRow(true, false, DisplayName = "shared parse, compiled templates not kept")]
+    [DataRow(false, true, DisplayName = "own parses, compiled templates kept")]
+    [DataRow(false, false, DisplayName = "own parses, compiled templates not kept")]
+    public async Task Every_consumer_reads_the_corpus_as_it_did_before_finding_6(bool sharedParse, bool cacheCompiledTemplates)
     {
         Assert.AreEqual(TimeSpan.FromHours(9), TimeZoneInfo.Local.BaseUtcOffset,
             "The fixtures hold local times in " + Zone + ", and this process did not take the zone.");
@@ -97,7 +106,7 @@ public class GoldenPayloadTests
         CompiledTemplates.Enabled = cacheCompiledTemplates;
         try
         {
-            await CheckTheCorpus();
+            await CheckTheCorpus(sharedParse);
         }
         finally
         {
@@ -105,7 +114,30 @@ public class GoldenPayloadTests
         }
     }
 
-    private static async Task CheckTheCorpus()
+    /// <summary>
+    /// The trees the consumers shared are the trees a fresh parse makes: no consumer wrote to one. The
+    /// enrichment writes <c>__partner__</c> into every object it is handed, so a missing copy shows here.
+    /// </summary>
+    [TestMethod]
+    public async Task No_consumer_changes_a_shared_tree()
+    {
+        foreach (var (name, text) in Corpus())
+        {
+            var file = new ParsedXchangeFile(text);
+            await GoldenConsumers.RunAll(_ => file);
+
+            if (file.Payload.TryGet(ParseProfiles.Defaults, file.Data, out var defaults))
+                Assert.IsTrue(JToken.DeepEquals(defaults, JToken.Parse(text)), $"{name}: the defaults tree changed");
+            if (file.Payload.TryGet(ParseProfiles.Exact, file.Data, out var exact))
+                Assert.IsTrue(JToken.DeepEquals(exact, JsonFormat.ParseExact(text)), $"{name}: the exact tree changed");
+            if (file.Payload.TryGet(ParseProfiles.RawXml, file.Data, out var raw))
+                Assert.IsTrue(XNode.DeepEquals(raw, XmlFormat.LoadRaw(text)), $"{name}: the raw XML changed");
+            if (file.Payload.TryGet(XmlExchangePayloadReader.Cleaned, file.Data, out var cleaned))
+                Assert.IsTrue(XNode.DeepEquals(cleaned, XmlExchangePayloadReader.Cleaned.Parse(text)), $"{name}: the cleaned XML changed");
+        }
+    }
+
+    private static async Task CheckTheCorpus(bool sharedParse)
     {
         var write = Environment.GetEnvironmentVariable("BITWEEN_GOLDEN_WRITE") == "1";
         var corpus = Corpus();
@@ -114,7 +146,8 @@ public class GoldenPayloadTests
         var mismatches = new List<string>();
         foreach (var (name, text) in corpus)
         {
-            var actual = await GoldenConsumers.RunAll(text);
+            ParsedXchangeFile? shared = sharedParse ? new ParsedXchangeFile(text) : null;
+            var actual = await GoldenConsumers.RunAll(_ => shared ?? new XchangeFile(text));
             var expectedPath = Path.Combine(ExpectedFolder, name + ".txt");
 
             if (write)
@@ -160,8 +193,6 @@ internal static class GoldenConsumers
         ("url", Url),
         ("fill", Fill),
     ];
-
-    public static async Task<string> RunAll(string input) => await RunAll(_ => new XchangeFile(input));
 
     /// <summary>Every consumer on the file <paramref name="fileFor"/> gives it, in pipeline order.</summary>
     public static async Task<string> RunAll(Func<string, XchangeFile> fileFor)
@@ -270,7 +301,7 @@ internal static class GoldenConsumers
 
     private static async Task<string> Schema(DocumentFormat format, string schema, XchangeFile file)
     {
-        var errors = await DocumentSchema.Check(format, schema, file.Data);
+        var errors = await DocumentSchema.Check(format, schema, file);
         return errors.Count == 0 ? "(valid)" : string.Join("\n", errors);
     }
 
@@ -292,16 +323,16 @@ internal static class GoldenConsumers
 
     private static Task<string> Enriched(XchangeFile file)
     {
-        var payload = MapperEnrichment.Read(file);
+        var payload = MapperEnrichment.Read(file, out var shared);
         if (payload is null) return Task.FromResult("(not an object, not enriched)");
-        return Task.FromResult(MapperEnrichment.Enrich(payload, PartnerProperties, GlobalSets) ?? "(nothing to add)");
+        return Task.FromResult(MapperEnrichment.Enrich(payload, shared, PartnerProperties, GlobalSets) ?? "(nothing to add)");
     }
 
     /// <summary>What <c>RunMapper</c> hands a Scriban mapper: the payload, enriched when it is an object.</summary>
     private static async Task<string> EnrichedThenScriban(XchangeFile file)
     {
-        var payload = MapperEnrichment.Read(file);
-        if (payload != null && MapperEnrichment.Enrich(payload, PartnerProperties, GlobalSets) is { } enriched)
+        var payload = MapperEnrichment.Read(file, out var shared);
+        if (payload != null && MapperEnrichment.Enrich(payload, shared, PartnerProperties, GlobalSets) is { } enriched)
             file = new XchangeFile(enriched, file.Filename);
         return await Scriban(file);
     }
