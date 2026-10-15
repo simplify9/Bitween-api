@@ -6,6 +6,7 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Exceptions;
 using SW.Bitween.Domain.Cluster;
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -66,6 +67,11 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
     public async Task<IResourceLease> TryAcquireAsync(string resource,
         CancellationToken cancellationToken = default)
     {
+        // Asked of the database first, so a lease another live node holds costs the broker nothing.
+        // Declaring it anyway is refused, and RabbitMQ logs every refusal as an error: every node
+        // trying every lease it doesn't hold, every thirty seconds, made most of the broker's log.
+        if (await HeldByAnotherLiveNodeAsync(resource, cancellationToken)) return null;
+
         var connection = await GetConnectionAsync(cancellationToken);
         if (connection == null) return null;
 
@@ -110,6 +116,36 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
             channel.Dispose();
             _logger.LogError(ex, "Acquired the lock on {Resource} but could not record its term.", resource);
             return null;
+        }
+    }
+
+    /// <summary>
+    /// True when the lease's owner, by the database, is another node whose heartbeat is current. Only
+    /// a hint: the queue is still the lock. A node that released its lease cleared the owner, so the
+    /// next node takes it at once; one that died is tried again once its heartbeat is stale
+    /// (<see cref="NodeHeartbeat.GoneAfter"/>), when the broker has long since freed the queue. Any
+    /// doubt, such as no row or no heartbeat, is answered by trying, as before.
+    /// </summary>
+    private async Task<bool> HeldByAnotherLiveNodeAsync(string resource, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+
+            var owner = await dbContext.Set<ClusterLease>().AsNoTracking()
+                .Where(l => l.Id == resource).Select(l => l.OwnerNode)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (owner == null || owner == nodeName) return false;
+
+            var aliveSince = DateTime.UtcNow - NodeHeartbeat.GoneAfter;
+            return await dbContext.Set<ClusterNode>().AsNoTracking()
+                .AnyAsync(n => n.Id == owner && n.LastSeenOn > aliveSince, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Could not read the owner of {Resource}; trying the lock.", resource);
+            return false;
         }
     }
 
@@ -214,6 +250,18 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
             try { await _channel.QueueDeleteAsync(_queue, ifUnused: false, ifEmpty: false); } catch { }
             try { await _channel.CloseAsync(); } catch { }
             _channel.Dispose();
+
+            // And say so, or the other nodes would wait out this node's heartbeat before trying it.
+            // Only this term's ownership: a node that has taken it since keeps it.
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+                await dbContext.Set<ClusterLease>()
+                    .Where(l => l.Id == Resource && l.Term == Term && l.OwnerNode == nodeName)
+                    .ExecuteUpdateAsync(set => set.SetProperty(l => l.OwnerNode, (string)null));
+            }
+            catch { }
         }
     }
 }
