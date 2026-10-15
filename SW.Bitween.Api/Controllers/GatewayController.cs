@@ -74,6 +74,24 @@ public class GatewayController(
 
     private async Task<IActionResult> ProcessCallAsync(string gatewayApiName, bool resultSync)
     {
+        // The creation in a method of its own, so that once it returns nothing reaches what it read:
+        // the request body and its parsed trees, which a sync call would otherwise hold through the
+        // whole wait (up to Bitween:MaxResponseWaitSeconds), are garbage before the wait starts.
+        var call = await CreateAsync(gatewayApiName, resultSync);
+        if (call.Answer != null) return call.Answer;
+        if (!resultSync) return Accepted(call.XchangeId);
+        return await WaitAsync(call);
+    }
+
+    /// <summary>
+    /// What a call's creation leaves for the rest of it: an answer when it is done already, else the
+    /// exchange it waits for, how long, and how the gateway answers a failure. Nothing of the payload.
+    /// </summary>
+    private sealed record CreatedCall(IActionResult Answer, string XchangeId = null, int WaitSeconds = 0,
+        GatewayFailureAnswer FailureAnswer = default);
+
+    private async Task<CreatedCall> CreateAsync(string gatewayApiName, bool resultSync)
+    {
         using var created = BitweenTelemetry.Stage("gateway.create");
         var globalAdapterValuesSet = await cache.ListGlobalAdapterValuesSetsAsync();
         // From the cache, with its attachments and partners, as the subscriptions are: these were two
@@ -84,7 +102,7 @@ public class GatewayController(
         if (apiGateway == null)
         {
             activity.Refused(gatewayApiName, "unknown-gateway", 404, address);
-            return NotFound();
+            return new CreatedCall(NotFound());
         }
 
         // Resolve the partner the way this gateway asks callers to prove who they are
@@ -93,7 +111,7 @@ public class GatewayController(
         if (!authorized)
         {
             activity.Refused(gatewayApiName, "not-authenticated", 401, address);
-            return Unauthorized();
+            return new CreatedCall(Unauthorized());
         }
 
         // Verify partner is part of the API Gateway
@@ -101,7 +119,7 @@ public class GatewayController(
         if (apiGatewayPartner == null)
         {
             activity.Refused(gatewayApiName, "not-attached", 401, address);
-            return Unauthorized();
+            return new CreatedCall(Unauthorized());
         }
         await activity.KeyUsedAsync(partner.Id, keyName);
         Services.Metrics.DbCommandTally.Current?.AttributeTo(DateTime.UtcNow, apiGatewayPartner.SubscriptionId, partner.Id);
@@ -116,8 +134,8 @@ public class GatewayController(
         if (apiGateway.Inactive)
         {
             activity.Refused(gatewayApiName, "gateway-off", 503, address);
-            return StatusCode(StatusCodes.Status503ServiceUnavailable,
-                $"The '{apiGateway.Name}' gateway is currently deactivated.");
+            return new CreatedCall(StatusCode(StatusCodes.Status503ServiceUnavailable,
+                $"The '{apiGateway.Name}' gateway is currently deactivated."));
         }
 
         var subscription = await cache.SubscriptionByIdAsync(apiGatewayPartner.SubscriptionId);
@@ -125,7 +143,7 @@ public class GatewayController(
         if (subscription == null)
         {
             activity.Refused(gatewayApiName, "no-subscription", 404, address);
-            return NotFound();
+            return new CreatedCall(NotFound());
         }
 
         var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
@@ -152,7 +170,7 @@ public class GatewayController(
             ? []
             : await DocumentSchema.Check(document.DocumentFormat, document.ValidationSchema, xchangeFile);
         if (schemaErrors.Count > 0)
-            return BadRequest(new { error = "SCHEMA_MISMATCH", errors = schemaErrors });
+            return new CreatedCall(BadRequest(new { error = "SCHEMA_MISMATCH", errors = schemaErrors }));
 
         var validatorProperties = subscription.ValidatorProperties.ToDictionary()
             .Fill(partner, globalAdapterValuesSet);
@@ -170,7 +188,7 @@ public class GatewayController(
         // exchange the first one made, not a second. Scoped to this gateway and this partner.
         var idempotencyKey = Request.Headers[IdempotencyGuard.Header].FirstOrDefault()?.Trim();
         if (idempotencyKey?.Length > IdempotencyGuard.MaxKeyLength)
-            return BadRequest($"{IdempotencyGuard.Header} is longer than {IdempotencyGuard.MaxKeyLength} characters.");
+            return new CreatedCall(BadRequest($"{IdempotencyGuard.Header} is longer than {IdempotencyGuard.MaxKeyLength} characters."));
         var idempotencyScope = $"gateway:{apiGateway.Id}:partner:{partner.Id}";
 
         var xchangeId = string.IsNullOrEmpty(idempotencyKey)
@@ -230,12 +248,13 @@ public class GatewayController(
             }
         }
 
-        created.Dispose();
-        if (!resultSync)
-        {
-            return Accepted(xchangeId);
-        }
+        return new CreatedCall(null, xchangeId, waitResponse, apiGateway.FailureAnswer);
+    }
 
+    private async Task<IActionResult> WaitAsync(CreatedCall call)
+    {
+        var xchangeId = call.XchangeId;
+        var waitResponse = call.WaitSeconds;
         using var waited = BitweenTelemetry.Stage("gateway.wait");
 
         // Each check reads the result itself rather than asking whether there is one and then reading
@@ -284,13 +303,13 @@ public class GatewayController(
                     }
                 case false:
                 {
-                    if (apiGateway.FailureAnswer == GatewayFailureAnswer.Legacy) return BadRequest();
+                    if (call.FailureAnswer == GatewayFailureAnswer.Legacy) return BadRequest();
                     // The retry, if any, is scheduled in the same save as the result, so it is there now.
                     var retryOn = await dbContext.Set<DelayedRetry>().AsNoTracking()
                         .Where(r => r.Id == xchangeId).Select(r => (DateTime?)r.On).FirstOrDefaultAsync();
                     var hasMapper = await dbContext.Set<Xchange>().AsNoTracking()
                         .Where(x => x.Id == xchangeId).Select(x => x.MapperId != null).FirstOrDefaultAsync();
-                    var answer = GatewayFailureAnswers.For(apiGateway.FailureAnswer, xchangeId, hasMapper,
+                    var answer = GatewayFailureAnswers.For(call.FailureAnswer, xchangeId, hasMapper,
                         mapped: ready.OutputSize > 0 || ready.OutputName != null, retryOn);
                     return new ObjectResult(answer.Body) { StatusCode = answer.Status };
                 }

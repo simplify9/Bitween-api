@@ -20,6 +20,16 @@ namespace SW.Bitween.Resources.Xchanges
     {
         public async Task<object> Handle(string documentIdOrName, dynamic request)
         {
+            // Created in a method of its own, so the payload's text and file are garbage before the
+            // wait. The request itself CqApi holds until this returns.
+            (object answer, string xchangeId, int waitResponse) = await CreateAsync(documentIdOrName, (object)request);
+            return waitResponse <= 0 ? answer : await WaitAsync(xchangeId, waitResponse);
+        }
+
+        /// <summary>The answer when there is no wait, else the exchange to wait for and how long.</summary>
+        private async Task<(object Answer, string XchangeId, int WaitResponse)> CreateAsync(string documentIdOrName,
+            dynamic request)
+        {
             Document document;
 
             // Inject external request context values into the object - minus the caller's
@@ -57,7 +67,7 @@ namespace SW.Bitween.Resources.Xchanges
             if (par.Partner.Id == Partner.SystemId && sub is null)
             {
                 await xchangeService.SubmitFilterXchange(document.Id,new XchangeFile(request.ToString()));
-                return null;
+                return (null, null, 0);
             }
 
             if (sub is null)
@@ -125,11 +135,16 @@ namespace SW.Bitween.Resources.Xchanges
             }
 
             if (waitResponse <= 0)
-                return new CqApiResult<string>(xchangeId)
+                return (new CqApiResult<string>(xchangeId)
                 {
                     Status = CqApiResultStatus.Ok
-                };
+                }, xchangeId, waitResponse);
 
+            return (null, xchangeId, waitResponse);
+        }
+
+        private async Task<object> WaitAsync(string xchangeId, int waitResponse)
+        {
             var available = await ResultWait.UntilAsync(() => IsResultAvailable(xchangeId), waitResponse,
                 httpContextAccessor?.HttpContext?.RequestAborted ?? System.Threading.CancellationToken.None);
 

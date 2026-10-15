@@ -47,9 +47,10 @@ public sealed class HttpFixture : IAsyncLifetime
     /// Another instance of the app on the same database and broker, as a second node in a cluster
     /// is. The caller disposes it.
     /// </summary>
-    public WebApplicationFactory<Web.Program> SecondNode()
+    /// <param name="services">Changes to the node's services, as a test needs them.</param>
+    public WebApplicationFactory<Web.Program> SecondNode(Action<IServiceCollection>? services = null)
     {
-        var node = new BitweenApp(settings);
+        var node = new BitweenApp(settings, services);
         using var _ = node.CreateClient();
         return node;
     }
@@ -185,7 +186,8 @@ public sealed class HttpFixture : IAsyncLifetime
         return client;
     }
 
-    internal sealed class BitweenApp(IDictionary<string, string?> settings) : WebApplicationFactory<Web.Program>
+    internal sealed class BitweenApp(IDictionary<string, string?> settings, Action<IServiceCollection>? services = null)
+        : WebApplicationFactory<Web.Program>
     {
         protected override void ConfigureWebHost(IWebHostBuilder builder)
         {
@@ -194,6 +196,7 @@ public sealed class HttpFixture : IAsyncLifetime
             // Each instance its own socket for its resident adapter host. The default is named after
             // the process, which is one per node in production; here the nodes share a process, and a
             // second node starting took the first one's socket, so its adapters could no longer attach.
+            if (services != null) builder.ConfigureTestServices(services);
             builder.ConfigureTestServices(services =>
             {
                 var resident = services.LastOrDefault(d => d.ServiceType == typeof(SW.Serverless.Resident.ResidentOptions))

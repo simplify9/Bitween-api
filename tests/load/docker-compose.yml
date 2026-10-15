@@ -158,6 +158,10 @@ services:
     working_dir: /scripts
     environment:
       BITWEEN_URL: "http://bitween:8080"
+      # Go collects k6's garbage before its heap passes this, rather than when it has doubled: with
+      # 1 MB orders and calls queueing, each virtual user leaves a body behind per call, and k6
+      # outgrew an 8 GB VM long before Bitween did.
+      GOMEMLIMIT: "${K6_GOMEMLIMIT:-1536MiB}"
       PARTNER_URL: "${PARTNER_URL:-http://partner:8080/orders}"
       PAYLOAD_KB: "${PAYLOAD_KB:-}"
       MAPPER: "${MAPPER:-}"
