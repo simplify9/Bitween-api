@@ -16,7 +16,14 @@ namespace SW.Bitween.NativeAdapters;
 /// <param name="Failures">Unwell results in a row that open the circuit. 0 switches the breaker off.</param>
 /// <param name="WindowSeconds">The run of failures must fall within this many seconds.</param>
 /// <param name="OpenSeconds">How long an open circuit fails calls before it lets one through to try.</param>
-public sealed record CircuitBreakerSettings(int Failures = 5, int WindowSeconds = 60, int OpenSeconds = 60)
+/// <param name="PerEndpoint">
+/// HTTP calls get a circuit per endpoint (host and path) rather than per host. Per host, one endpoint
+/// failing cut off every flow to the same host: a partner's warehouse API down stopped its marketplace
+/// API being called too. A host that is down altogether still opens each endpoint's circuit within the
+/// same few calls. File transfers stay per server either way.
+/// </param>
+public sealed record CircuitBreakerSettings(int Failures = 5, int WindowSeconds = 60, int OpenSeconds = 60,
+    bool PerEndpoint = false)
 {
     public static CircuitBreakerSettings Default { get; } = new();
     public static CircuitBreakerSettings Off { get; } = new(0);
@@ -71,6 +78,24 @@ public sealed class DestinationCircuits
     }
 
     public bool Enabled => settings.Failures > 0;
+
+    /// <summary>
+    /// The circuit an HTTP call to <paramref name="uri"/> goes through. <paramref name="configuredUrl"/> is
+    /// the URL as configured: per endpoint, its path is taken up to the first template placeholder, so a
+    /// path that carries an order number shares one circuit rather than opening one per order.
+    /// Userinfo and the query are left out: the key is logged, and a query is not a different endpoint.
+    /// </summary>
+    public string HttpDestination(Uri uri, string? configuredUrl)
+    {
+        var origin = $"{uri.Scheme}://{uri.Authority}";
+        if (!settings.PerEndpoint) return origin;
+
+        var path = uri.AbsolutePath;
+        if (configuredUrl != null && configuredUrl.Contains("{{") &&
+            Uri.TryCreate(configuredUrl[..configuredUrl.IndexOf("{{", StringComparison.Ordinal)], UriKind.Absolute, out var stem))
+            path = stem.AbsolutePath;
+        return origin + path.TrimEnd('/');
+    }
 
     TimeSpan Window => TimeSpan.FromSeconds(Math.Max(1, settings.WindowSeconds));
     TimeSpan Cooldown => TimeSpan.FromSeconds(Math.Max(1, settings.OpenSeconds));

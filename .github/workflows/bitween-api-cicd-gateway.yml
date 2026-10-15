@@ -113,6 +113,7 @@ jobs:
         resources.requests.memory=1024Mi
         resources.limits.memory=2048Mi
         environmentVariables.Bitween__BusProvidersEnabled=true
+        environmentVariables.Bitween__CircuitBreakerPerEndpoint=true
         environmentVariables.AWS_REQUEST_CHECKSUM_CALCULATION=when_required
         environmentVariables.AWS_RESPONSE_CHECKSUM_VALIDATION=when_required
     secrets:

@@ -53,7 +53,7 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits?
 
         // Before signing in, so a destination whose circuit is open costs no login call either.
         // Userinfo is left out of the key: it is a credential, and the key is logged.
-        using var pass = circuits.Enter($"{uri.Scheme}://{uri.Authority}");
+        using var pass = circuits.Enter(circuits.HttpDestination(uri, _options.Url));
 
         // Credentials go on this request, never on the client: the proxy shares one client per
         // origin across every subscription that calls it, so a default header set here was sent on

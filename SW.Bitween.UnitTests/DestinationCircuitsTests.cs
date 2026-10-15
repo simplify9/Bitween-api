@@ -32,6 +32,21 @@ public class DestinationCircuitsTests
         return (new DestinationCircuits(new CircuitBreakerSettings(failures, window, open), clock), clock);
     }
 
+    [TestMethod]
+    public void Per_host_by_default_per_endpoint_when_asked_and_a_template_shares_one_circuit()
+    {
+        var perHost = new DestinationCircuits(new CircuitBreakerSettings());
+        var perEndpoint = new DestinationCircuits(new CircuitBreakerSettings(PerEndpoint: true));
+        var warehouse = new Uri("http://user:pw@partner:8080/warehouse/orders?x=1");
+
+        Assert.AreEqual("http://partner:8080", perHost.HttpDestination(warehouse, null));
+        Assert.AreEqual("http://partner:8080/warehouse/orders", perEndpoint.HttpDestination(warehouse, null));
+        Assert.AreNotEqual(perEndpoint.HttpDestination(new Uri("http://partner:8080/marketplace/stock"), null),
+            perEndpoint.HttpDestination(warehouse, null));
+        Assert.AreEqual("http://partner:8080/orders",
+            perEndpoint.HttpDestination(new Uri("http://partner:8080/orders/A-17"), "http://partner:8080/orders/{{ id }}"));
+    }
+
     static void Fail(DestinationCircuits circuits, string destination = Erp)
     {
         using var pass = circuits.Enter(destination);

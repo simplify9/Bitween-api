@@ -219,6 +219,13 @@ namespace SW.Bitween
         public int CircuitBreakerOpenSeconds { get; set; } = 60;
 
         /// <summary>
+        /// HTTP deliveries get a circuit per endpoint (host and path) instead of per host. Off keeps the
+        /// per-host circuit every deployment has had, under which one failing endpoint stopped calls to
+        /// every other endpoint on the same host.
+        /// </summary>
+        public bool CircuitBreakerPerEndpoint { get; set; }
+
+        /// <summary>
         /// Lets the adapter editor build drafts that name packages in requirements.txt or
         /// package.json: the server then downloads them from PyPI and npm, or from the mirrors
         /// PIP_INDEX_URL and NPM_CONFIG_REGISTRY name. Off by default, since it needs the server to

@@ -578,7 +578,8 @@ namespace SW.Bitween.Web
                 {
                     var options = sp.GetRequiredService<BitweenOptions>();
                     return new CircuitBreakerSettings(options.CircuitBreakerFailures,
-                        options.CircuitBreakerWindowSeconds, options.CircuitBreakerOpenSeconds);
+                        options.CircuitBreakerWindowSeconds, options.CircuitBreakerOpenSeconds,
+                        options.CircuitBreakerPerEndpoint);
                 },
                 sp => sp.GetRequiredService<BitweenOptions>().MailServer);
 
