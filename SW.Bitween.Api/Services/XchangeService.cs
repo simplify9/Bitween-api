@@ -883,6 +883,11 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             await CountFailure(xchange, xchangeResult);
             dbContext.Add(xchangeResult);
             await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.Error, ex.ToString(), xchangeResult);
+            // One line per failed exchange: a handler failure left nothing in the log, so a delivery that
+            // never arrived could only be traced in the database.
+            logger.LogWarning("Exchange {XchangeId} of subscription {SubscriptionId} failed: {Error}{RetryNote}",
+                xchange.Id, xchange.SubscriptionId, ex.GetBaseException().Message,
+                xchangeResult.RetryBlockedReason is { } blocked ? $" Not retried: {blocked}" : "");
             await KeepResultEventOnlyIfHeard(xchange, xchangeResult);
             await dbContext.SaveChangesAsync();
             await AnnounceResult(message, xchangeResult, responseFile);
