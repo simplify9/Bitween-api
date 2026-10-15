@@ -54,6 +54,47 @@ public class PasswordAndSecretTests(HttpFixture fixture)
     }
 
     [Fact]
+    public async Task The_password_link_endpoints_answer_without_a_session()
+    {
+        using var anonymous = fixture.Client();
+
+        // This app has no mail server, so a reset is refused - by the handler, not by sign-in.
+        var reset = await anonymous.PostAsJsonAsync("/api/accounts/forgotPassword", new { Email = Email() });
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, reset.StatusCode);
+        Assert.Contains("PASSWORD_RESET_OFF", await reset.Content.ReadAsStringAsync());
+
+        foreach (var path in new[] { "/api/accounts/passwordLink", "/api/accounts/usePasswordLink" })
+        {
+            var made = await anonymous.PostAsJsonAsync(path, new { Token = "not-a-real-token", Password = "Whatever-2026!" });
+            Assert.Equal(System.Net.HttpStatusCode.BadRequest, made.StatusCode);
+            Assert.Contains("LINK_INVALID", await made.Content.ReadAsStringAsync());
+        }
+    }
+
+    [Fact]
+    public async Task A_member_added_with_an_invite_needs_no_password_and_chooses_one_from_the_link()
+    {
+        using var admin = await fixture.AdminAsync();
+        var email = Email();
+        var id = await Api.CreateAsync(admin, "/api/accounts", new { name = "Invited Member", email, invite = true, roleIds = new[] { 2 } });
+
+        // No mail server here, so the link comes back to pass on by hand.
+        var invite = await Api.Json(await admin.PostAsJsonAsync($"/api/accounts/{id}/invite", new { }));
+        Assert.False((bool)invite["emailed"]!);
+        var token = new Uri((string)invite["link"]!).Query.Split("token=")[1];
+
+        using var anonymous = fixture.Client();
+        var link = await Api.Json(await anonymous.PostAsJsonAsync("/api/accounts/passwordLink", new { token }));
+        Assert.Equal("Invite", (string)link["purpose"]!);
+
+        var weak = await anonymous.PostAsJsonAsync("/api/accounts/usePasswordLink", new { token, password = "weak" });
+        Assert.Equal(System.Net.HttpStatusCode.BadRequest, weak.StatusCode);
+
+        await Api.Json(await anonymous.PostAsJsonAsync("/api/accounts/usePasswordLink", new { token, password = "Chosen-By-Them-2026!" }));
+        Assert.False(string.IsNullOrEmpty(await HttpFixture.SignInAsync(anonymous, email, "Chosen-By-Them-2026!")));
+    }
+
+    [Fact]
     public async Task Guessing_the_old_password_locks_out_as_sign_in_does()
     {
         const string password = "Change-Me-Not-2026!";

@@ -122,6 +122,49 @@ namespace SW.Bitween.MsSql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EmailError")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<DateTime?>("EmailedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<byte>("Purpose")
+                        .HasColumnType("tinyint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("Hash")
+                        .IsUnique();
+
+                    b.ToTable("AccountLinks", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountRoleLink", b =>
                 {
                     b.Property<int>("AccountId")
@@ -3033,6 +3076,15 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasIndex("SchedulerName", "JobName", "JobGroup");
 
                     b.ToTable("QRTZ_triggers", "dbo");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountLink", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountRoleLink", b =>

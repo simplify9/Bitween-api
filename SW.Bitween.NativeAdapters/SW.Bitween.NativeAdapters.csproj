@@ -39,6 +39,7 @@
   <ItemGroup>
     <!-- Each adapter's manifest - what a catalog or marketplace shows for it - beside its code. -->
     <EmbeddedResource Include="*/adapter.json" />
+    <EmbeddedResource Include="ChannelMessages/bitween-logo.png" LogicalName="SW.Bitween.NativeAdapters.ChannelMessages.bitween-logo.png" />
   </ItemGroup>
 
 </Project>

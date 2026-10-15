@@ -38,11 +38,16 @@ public static class ServiceCollectionExtensions
     /// The mail server Email channels send through. Read per adapter instance for the same reason as
     /// the license key: it is set in Settings while the app runs. Left out, Email channels have none.
     /// </param>
+    /// <param name="emailAccent">
+    /// The brand colour emails are drawn in, read per adapter instance as it too changes in Settings.
+    /// Left out, Bitween's own.
+    /// </param>
     public static void AddNativeAdapters(this IServiceCollection serviceCollection,
         Func<IServiceProvider, string?>? rebexLicenseKey = null,
         Func<IServiceProvider, bool>? blockPrivateNetworks = null,
         Func<IServiceProvider, CircuitBreakerSettings>? circuitBreaker = null,
-        Func<IServiceProvider, MailServerOptions>? mailServer = null)
+        Func<IServiceProvider, MailServerOptions>? mailServer = null,
+        Func<IServiceProvider, string?>? emailAccent = null)
     {
         // One per process, so every adapter instance (they are scoped) learns from the others' calls.
         serviceCollection.TryAddSingleton(sp => new DestinationCircuits(
@@ -96,9 +101,9 @@ public static class ServiceCollectionExtensions
         // one, and kept out of the adapter pickers by IChannelMessageAdapter.
         mailServer ??= _ => new MailServerOptions();
         serviceCollection.AddScoped<INativeInfolinkHandler>(sp =>
-            new NativeEmailMessageHandler(mailServer(sp), sp.GetRequiredService<DestinationCircuits>()));
+            new NativeEmailMessageHandler(mailServer(sp), sp.GetRequiredService<DestinationCircuits>(), emailAccent?.Invoke(sp)));
         serviceCollection.AddScoped<INativeAdapter>(sp =>
-            new NativeEmailMessageHandler(mailServer(sp), sp.GetRequiredService<DestinationCircuits>()));
+            new NativeEmailMessageHandler(mailServer(sp), sp.GetRequiredService<DestinationCircuits>(), emailAccent?.Invoke(sp)));
 
         serviceCollection.AddScoped<INativeInfolinkHandler, NativeTeamsMessageHandler>();
         serviceCollection.AddScoped<INativeAdapter, NativeTeamsMessageHandler>();

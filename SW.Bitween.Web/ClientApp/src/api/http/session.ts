@@ -1,4 +1,4 @@
-import { ApiRequestError, type Session, type User } from "../types";
+import { ApiRequestError, type PasswordLinkInfo, type Session, type User } from "../types";
 import { getAppConfig } from "./appConfig";
 import { clearToken, get, getToken, mayHaveSession, post, request, setToken, silentRefresh } from "./request";
 
@@ -32,6 +32,9 @@ const buildSession = (profile: Profile): Session => {
     lockedUntil: null,
     microsoftLinked: false,
     createdOn: profile.createdOn,
+    // Signed in, so they have whatever it takes to sign in; nothing on the profile reads these.
+    hasPassword: true,
+    invite: null,
   };
   return {
     user,
@@ -179,5 +182,17 @@ export const sessionMethods = {
       oldPassword: currentPassword,
       newPassword,
     });
+  },
+
+  async forgotPassword(email: string): Promise<void> {
+    await post("/accounts/forgotPassword", { email });
+  },
+
+  async readPasswordLink(token: string): Promise<PasswordLinkInfo> {
+    return await post<PasswordLinkInfo>("/accounts/passwordLink", { token });
+  },
+
+  async usePasswordLink(token: string, password: string): Promise<{ email: string }> {
+    return await post<{ email: string }>("/accounts/usePasswordLink", { token, password });
   },
 };

@@ -301,6 +301,23 @@ public class ChannelMessageTests
     }
 
     [TestMethod]
+    public void An_email_is_drawn_in_the_brand_colour_with_the_logo_it_carries()
+    {
+        var message = new ChannelMessage { Title = "You're invited to Bitween", LinkUrl = "https://bitween.example/x" };
+
+        var branded = EmailBody.Render(message, "#0055aa").Html;
+        StringAssert.Contains(branded, "border-top:4px solid #0055aa");
+        StringAssert.Contains(branded, "bgcolor=\"#0055aa\"");
+        StringAssert.Contains(branded, $"src=\"cid:{EmailBody.LogoContentId}\"");
+        Assert.IsTrue(EmailBody.Logo().Length > 0);
+
+        // The colour goes into a style attribute, so anything but a plain hex colour is ignored.
+        var forged = EmailBody.Render(message, "red;background:url(https://evil.example)").Html;
+        Assert.IsFalse(forged.Contains("evil.example"));
+        StringAssert.Contains(forged, $"border-top:4px solid {EmailBody.DefaultAccent}");
+    }
+
+    [TestMethod]
     public async Task The_Slack_adapter_posts_to_its_webhook_and_reports_what_Slack_said_when_refused()
     {
         var factory = new RecordingHttpClientFactory();

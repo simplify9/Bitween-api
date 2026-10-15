@@ -6,6 +6,8 @@ import { LoginPage } from "./pages/auth/Login";
 import { ChangePasswordPage } from "./pages/auth/ChangePassword";
 import { CliLoginPage } from "./pages/auth/CliLogin";
 import { OidcCallbackPage } from "./pages/auth/OidcCallback";
+import { ForgotPasswordPage } from "./pages/auth/ForgotPassword";
+import { SetPasswordPage } from "./pages/auth/SetPassword";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { RouteError } from "./pages/RouteError";
 import { Suspense, type ReactNode } from "react";
@@ -171,6 +173,9 @@ export const routes: RouteObject[] = [
   { path: "/login", element: <LoginPage />, errorElement: <RouteError /> },
   // Where an OpenID Connect provider sends the browser back; it signs in, so it needs no session.
   { path: "/oidc-callback", element: <OidcCallbackPage />, errorElement: <RouteError /> },
+  // Where invite and reset emails lead, and where a reset is asked for: no session, by definition.
+  { path: "/forgot-password", element: <ForgotPasswordPage />, errorElement: <RouteError /> },
+  { path: "/set-password", element: <SetPasswordPage />, errorElement: <RouteError /> },
   {
     element: <RequireAuth />,
     // A page that crashes shows this, with a way back, rather than react-router's developer screen.

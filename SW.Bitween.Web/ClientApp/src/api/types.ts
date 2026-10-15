@@ -48,6 +48,34 @@ export interface User {
   microsoftLinked: boolean;
   createdOn: string;
   lastActiveOn?: string;
+  /** False for a member invited and yet to choose a password. */
+  hasPassword: boolean;
+  /** Their latest invite while they have no password, expired or not; null otherwise. */
+  invite: MemberInvite | null;
+}
+
+export interface MemberInvite {
+  expiresOn: string;
+  /** When it was emailed; null when the link was handed to whoever invited instead. */
+  emailedOn: string | null;
+  /** Why the email couldn't be sent, when it couldn't. */
+  emailError: string | null;
+}
+
+/** What became of an invite. `link` only when it wasn't emailed, to pass on by hand - shown once. */
+export interface InviteResult {
+  emailed: boolean;
+  emailError: string | null;
+  expiresOn: string | null;
+  link: string | null;
+}
+
+/** Who an invite or reset link is for. */
+export interface PasswordLinkInfo {
+  purpose: "Invite" | "PasswordReset";
+  name: string;
+  email: string;
+  expiresOn: string;
 }
 
 export type ServiceTokenStatus = "active" | "expired" | "revoked";

@@ -1,5 +1,7 @@
 import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
+  InviteResult,
+  PasswordLinkInfo,
   AdapterInfo,
   KitInfo,
   KitInstallRequest,
@@ -148,10 +150,15 @@ export interface ApiClient {
   logout(): Promise<void>;
 
   // - self service -
-  // No password-reset flow exists on the backend yet (BACKEND_WIRING_PLAN.md G3) - it needs
-  // outbound mail, which Bitween doesn't have. Hidden in the UI rather than faked.
   updateProfile(changes: { displayName: string }): Promise<Session>;
   changePassword(currentPassword: string, newPassword: string): Promise<void>;
+
+  // - password links, from invite and reset emails; no session needed -
+  /** Emails a reset link when the address is a member's. Answers the same either way. */
+  forgotPassword(email: string): Promise<void>;
+  readPasswordLink(token: string): Promise<PasswordLinkInfo>;
+  /** Sets the password and spends the link. Returns the member's email, to sign in with. */
+  usePasswordLink(token: string, password: string): Promise<{ email: string }>;
 
   // - service accounts -
   listServiceAccounts(): Promise<ServiceAccount[]>;
@@ -166,16 +173,19 @@ export interface ApiClient {
   listUsers(): Promise<User[]>;
   getUser(id: string): Promise<User>;
   /**
-   * Creates a member outright, password and all. Bitween has no outbound mail, so there's no
-   * invite link - whoever adds the member passes the first password on themselves.
+   * Creates a member. With `invite` they choose their own password from an invite (see
+   * `inviteUser`); otherwise whoever adds them sets it here and passes it on.
    */
   createUser(input: {
     displayName: string;
     email: string;
-    password: string;
+    password?: string;
+    invite?: boolean;
     roleIds: string[];
   }): Promise<User>;
-  /** Stands in for a self-service reset, which would need mail Bitween doesn't have. */
+  /** Invites a member with no password yet: emailed, or a link handed back to pass on. Replaces any earlier one. */
+  inviteUser(id: string): Promise<InviteResult>;
+  /** Sets someone else's password, for when they can't reset it themselves. */
   setUserPassword(id: string, password: string): Promise<void>;
   updateUserRoles(id: string, roleIds: string[]): Promise<User>;
   /** Clears a failed-sign-in lockout early, rather than waiting it out. */

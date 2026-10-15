@@ -748,6 +748,20 @@ namespace SW.Bitween
                 b.HasIndex(p => p.Hash).IsUnique();
             });
 
+            modelBuilder.Entity<AccountLink>(b =>
+            {
+                b.ToTable("AccountLinks");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasOne<Account>().WithMany().HasForeignKey(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
+
+                b.Property(p => p.Purpose).HasConversion<byte>();
+                b.Property(p => p.Hash).IsRequired().IsUnicode(false).HasMaxLength(64);
+                b.Property(p => p.EmailError).HasMaxLength(500);
+                // A link is looked up by its hash when it is opened.
+                b.HasIndex(p => p.Hash).IsUnique();
+            });
+
             modelBuilder.Entity<Role>(b =>
             {
                 b.ToTable("Roles");

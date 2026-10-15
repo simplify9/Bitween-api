@@ -15,7 +15,7 @@ namespace SW.Bitween.Resources.Accounts
     [Unprotect]
     public class Login(JwtTokenParameters jwtTokenParameters, BitweenDbContext dbContext,
         BitweenOptions BitweenSettings, IHttpContextAccessor httpContextAccessor, ILogger<Login> logger,
-        SignInThrottle throttle, Services.OidcSignIn oidc) : ICommandHandler<UserLogin, object>
+        SignInThrottle throttle, Services.OidcSignIn oidc, Services.AccountMail mail) : ICommandHandler<UserLogin, object>
     {
         // Account-wide, across every address: the backstop for guessing spread over many of them.
         // Five from any one address already locks that address out - see SignInThrottle.
@@ -297,6 +297,12 @@ namespace SW.Bitween.Resources.Accounts
                                 a => a.FailedLoginCount + 1 >= MaxFailedLoginAttempts ? lockoutEnd : a.LockoutEnd)
                             .SetProperty(a => a.FailedLoginCount,
                                 a => a.FailedLoginCount + 1 >= MaxFailedLoginAttempts ? 0 : a.FailedLoginCount + 1));
+
+                    // It wasn't locked a moment ago - that was checked above - so a lock now is this
+                    // attempt's, and the owner should know someone is guessing.
+                    if (await dbContext.Set<Account>().AnyAsync(a => a.Id == account.Id && a.LockoutEnd > nowUtc))
+                        mail.SendInBackground(account.Email, Services.AccountEmails.Locked(
+                            account.Email, mail.PublicBase, MaxFailedLoginAttempts, lockoutEnd));
                     throw new SWException("Invalid username or password.");
                 }
 

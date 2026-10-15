@@ -52,6 +52,7 @@ interface RawApiGateway {
   // Only the detail endpoint sends these.
   authentication?: RawGatewayAuthentication | null;
   defaultKeyHeader?: string | null;
+  failureAnswer?: GatewayFailureAnswer | null;
 }
 interface RawBusGatewayRoute {
   id: number;
@@ -111,6 +112,7 @@ const toApiGatewayDetail = (raw: RawApiGateway): ApiGatewayDetail => ({
     partnerClaim: raw.authentication?.partnerClaim ?? "",
   },
   defaultKeyHeader: raw.defaultKeyHeader ?? "partnerkey",
+  failureAnswer: raw.failureAnswer ?? undefined,
 });
 
 const toBusGatewayRoute = (r: RawBusGatewayRoute): BusGatewayRoute => ({

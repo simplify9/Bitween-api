@@ -92,6 +92,25 @@ public sealed class BitweenFixture : IAsyncLifetime
     /// <summary>Base address of MailHog's own API, for reading back what was delivered.</summary>
     public string MailHogApi => $"http://{_mailHog.Hostname}:{_mailHog.GetMappedPublicPort(ApiContainerPort)}";
 
+    /// <summary>What MailHog received for <paramref name="to"/> with this subject.</summary>
+    public async Task<List<MimeKit.MimeMessage>> MailedAsync(string to, string subject)
+    {
+        using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        using var messages = System.Text.Json.JsonDocument.Parse(
+            await http.GetStringAsync($"{MailHogApi}/api/v2/messages?limit=250"));
+        var found = new List<MimeKit.MimeMessage>();
+        foreach (var item in messages.RootElement.GetProperty("items").EnumerateArray())
+        {
+            var raw = item.GetProperty("Raw").GetProperty("Data").GetString()!;
+            var message = await MimeKit.MimeMessage.LoadAsync(
+                new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(raw)));
+            if (message.Subject == subject &&
+                System.Linq.Enumerable.Any(message.To.Mailboxes, m => string.Equals(m.Address, to, StringComparison.OrdinalIgnoreCase)))
+                found.Add(message);
+        }
+        return found;
+    }
+
     /// <summary>
     /// Connection details for the external broker, as a data source's properties.
     ///
@@ -228,6 +247,7 @@ public sealed class BitweenFixture : IAsyncLifetime
 
                     services.AddMemoryCache();
                     services.AddSingleton<SignInThrottle>();
+                    services.AddSingleton<AccountMail>();
                     services.AddScoped<RequestContext>();
 
                     services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>

@@ -13,9 +13,19 @@ Bitween supports four ways to sign in.
 - Changing your own password checks the old one, and that check is limited as sign-in is: five wrong ones from one address lock the change out for 15 minutes, so a session left open can't be used to guess the password.
 - Passwords need at least 8 characters, including an upper-case letter, a lower-case letter, a digit and a symbol. When an administrator sets someone else's password, only the 8-character minimum applies.
 - Passwords are hashed with PBKDF2-HMAC-SHA256, 210,000 iterations and a random salt, and compared in constant time. Hashes stored before September 2026 use PBKDF2-SHA1 with 10,000 iterations. They still verify, and each is replaced with the current hash the next time that person signs in with their password.
-- Bitween sends no email, so there is no self-service password reset.
+- With a mail server and a public address, the sign-in page offers **Forgot password?**: see [Invites and password resets](#invites-and-password-resets). Without them, an administrator sets a new password instead.
 
 Turning on the **Microsoft sign-in only** setting disables this method, for Microsoft and OpenID Connect sign-in alike. New accounts are then created without a password.
+
+### Invites and password resets
+
+Account emails go to one person, through the mail server set in **Settings, Mail server** (the one Email channels use), never through a notification channel.
+
+- **Invites.** A member can be added with an invite instead of a password (`POST /api/accounts` with `invite: true`, then `POST /api/accounts/{id}/invite`). They choose their own password from a link that works once, for 48 hours. With a mail server the link is emailed; without one it is handed back once to whoever invited, to pass on. Sending another invite stops the earlier link working. Inviting needs `users.create`, and, as setting a password does, every permission the member holds. On an instance with **Microsoft sign-in only** an invite is an email saying where to sign in, and needs a mail server.
+- **Resets.** **Forgot password?** emails a link that works once, for one hour. It needs a mail server and `Bitween:PublicUrl`: a link built on the address a request came in on could be pointed at another site with a forged `Host` header. The answer is the same whether the address has an account or not, and the email is sent after the answer, so neither says who has one. A member gets at most one reset email a minute.
+- **Using a link** sets the password, clears a lockout, and ends every session the member had. Every other link they had stops working.
+- **Notices.** A member is emailed when their password is changed (by them, by an administrator, or with a reset link) and when their account is locked after 20 wrong passwords.
+- Only a SHA-256 hash of each link is stored, so the database can't be used to sign in. `POST /api/accounts/forgotPassword`, `passwordLink` and `usePasswordLink` need no session, and share the sign-in rate limit.
 
 ### Microsoft
 

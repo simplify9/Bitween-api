@@ -45,6 +45,10 @@ public class Config(BitweenOptions BitweenOptions, ThemeOptions themeOptions) : 
             // which starts the sign-in.
             OidcEnabled = !string.IsNullOrWhiteSpace(BitweenOptions.OidcAuthority) && !string.IsNullOrWhiteSpace(BitweenOptions.OidcClientId),
             OidcDisplayName = string.IsNullOrWhiteSpace(BitweenOptions.OidcDisplayName) ? null : BitweenOptions.OidcDisplayName.Trim(),
+            // Whether Bitween can email members: the Team page offers invites by email, and the
+            // sign-in page "Forgot password?", only when it can.
+            MailServerConfigured = BitweenOptions.MailServer.IsSet,
+            PasswordResetAvailable = Services.AccountMail.ResetAvailableFor(BitweenOptions),
             IsRabbitMqManagementConfigured = !string.IsNullOrWhiteSpace(BitweenOptions.RabbitMqManagementUrl)
                                              && !string.IsNullOrWhiteSpace(BitweenOptions.RabbitMqManagementUsername)
                                              && !string.IsNullOrWhiteSpace(BitweenOptions.RabbitMqManagementPassword),

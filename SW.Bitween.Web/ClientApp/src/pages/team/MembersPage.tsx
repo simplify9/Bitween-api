@@ -1,9 +1,10 @@
 import { useMemo } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { UserPlus, UsersRound } from "lucide-react";
-import { api, type User } from "../../api";
+import { api, getAppConfig, type User } from "../../api";
 import { Can } from "../../auth/guards";
+import { useSession } from "../../auth/useSession";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Avatar } from "../../components/ui/Avatar";
 import { clickableRow, clickableRowClass } from "../../components/ui/clickableRow";
@@ -36,6 +37,9 @@ export function MembersPage() {
 
   const users = useQuery({ queryKey: keys.users.list, queryFn: () => api.listUsers() });
   const roles = useQuery({ queryKey: keys.roles.list, queryFn: () => api.listRoles() });
+  const appConfig = useQuery({ queryKey: keys.appConfig, queryFn: getAppConfig });
+  const passwordsOff = Boolean(appConfig.data?.disableEmailPasswordLogin);
+  const { can } = useSession();
   const phone = usePhone();
   // The open member's drawer has its own address, so the breadcrumb names them.
   usePageTitle(openMemberId ? users.data?.find((u) => u.id === openMemberId)?.displayName : null);
@@ -85,7 +89,8 @@ export function MembersPage() {
               </p>
               <p>
                 To bring someone in: create or pick a role under <strong>Roles</strong>, then add
-                them here. You set their first password and pass it on - Bitween doesn't send mail.
+                them here with an invite. They choose their own password from a link: Bitween emails
+                it once a mail server is set up in Settings, and otherwise gives it to you to send.
               </p>
             </>
           ),
@@ -117,6 +122,20 @@ export function MembersPage() {
           </Can>
         </div>
       </div>
+
+      {/* Without a mail server an invite is a link the admin sends by hand, and nobody can reset a
+          forgotten password themselves. Said once, here, where people are added. */}
+      {appConfig.data && !appConfig.data.mailServerConfigured && can("users.create") && (
+        <p className="mb-4 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-[13px] text-ink-600">
+          Bitween can&apos;t email members yet, so invites give you a link to send yourself, and there&apos;s
+          no Forgot password on the sign-in page.{" "}
+          {can("settings.view") && (
+            <Link to="/settings?section=Mail%20server" className="font-medium link">
+              Set up a mail server
+            </Link>
+          )}
+        </p>
+      )}
 
       {users.isPending ? (
         <LoadingBlock label="Loading members…" />
@@ -155,7 +174,7 @@ export function MembersPage() {
                 <span className={user.status === "disabled" ? "text-ink-500" : undefined}>{user.displayName}</span>
               </span>
             ),
-            status: statusBadge(user.status, user.lockedUntil),
+            status: statusBadge(user, passwordsOff),
             technical: user.email,
             subtitle: (
               <span className="flex flex-wrap items-center gap-1">
@@ -205,7 +224,7 @@ export function MembersPage() {
                       ))}
                     </div>
                   </td>
-                  <td className="px-4 py-2.5">{statusBadge(user.status, user.lockedUntil)}</td>
+                  <td className="px-4 py-2.5">{statusBadge(user, passwordsOff)}</td>
                   <td className="px-4 py-2.5 text-ink-500">
                     {user.lastActiveOn ? timeAgo(user.lastActiveOn) : "-"}
                   </td>

@@ -1,6 +1,7 @@
 import type { ApiClient } from "../client";
 import {
   ApiRequestError,
+  type InviteResult,
   type PermissionArea,
   type PermissionKey,
   type Role,
@@ -30,6 +31,8 @@ interface RawAccount {
   lastSignInOn?: string | null;
   microsoftLinked?: boolean;
   roles: RawRoleSummary[] | null;
+  hasPassword?: boolean;
+  invite?: { expiresOn: string; emailedOn: string | null; emailError: string | null } | null;
 }
 
 interface RawRole {
@@ -54,6 +57,9 @@ const toUser = (r: RawAccount): User => ({
   createdOn: r.createdOn,
   // The last sign-in, not the last request: a session renewing itself doesn't count.
   lastActiveOn: r.lastSignInOn ?? undefined,
+  // Missing from an older backend, whose members all have passwords.
+  hasPassword: r.hasPassword ?? true,
+  invite: r.invite ?? null,
 });
 
 const toRole = (r: RawRole): Role => ({
@@ -95,20 +101,33 @@ export const teamMethods = {
     displayName,
     email,
     password,
+    invite,
     roleIds,
   }: {
     displayName: string;
     email: string;
-    password: string;
+    password?: string;
+    invite?: boolean;
     roleIds: string[];
   }): Promise<User> {
     const id = await post<number>("/accounts", {
       name: displayName,
       email,
-      password,
+      ...(invite ? { invite: true } : { password }),
       roleIds: roleIds.map(Number),
     });
     return fetchUser(String(id));
+  },
+
+  async inviteUser(id: string): Promise<InviteResult> {
+    const r = await post<Partial<InviteResult>>(`/accounts/${id}/invite`, {});
+    return {
+      emailed: r.emailed ?? false,
+      emailError: r.emailError ?? null,
+      expiresOn: r.expiresOn ?? null,
+      // Built on the address the admin is using when the instance has no public one.
+      link: r.link ? new URL(r.link, window.location.origin).toString() : null,
+    };
   },
 
   async setUserPassword(id: string, password: string): Promise<void> {
