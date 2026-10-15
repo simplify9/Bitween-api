@@ -138,7 +138,13 @@ jobs:
       # holding it can mint a token for any identity, so the app refuses to start on it.
       # Set the TokenKey secret to a long random string unique to this environment
       # (openssl rand -base64 48). Changing it signs out everyone holding an older token.
-      helm-set-secret-values: 'global.token.key=${{ secrets.TokenKey }},db=${{ secrets.dbConnection }},global.bus.rabbitUrl=${{ secrets.rabbitUrl }},global.cloudFiles.secretAccessKey=${{ secrets.SecretAccessKey }},global.cloudFiles.accessKeyId=${{ secrets.AccessKeyId }},global.cloudFiles.serviceUrl=${{ secrets.ServiceUrl }},global.cloudFiles.bucketName=${{ secrets.BucketName }},environmentVariables.Bitween__RabbitMqManagementUrl=${{ secrets.RabbitMqManagementUrl }},environmentVariables.Bitween__RabbitMqManagementPassword=${{ secrets.RabbitMqManagementPassword }},environmentVariables.Bitween__RabbitMqManagementUsername=${{ secrets.RabbitMqManagementUsername }}'
+      #
+      # Bitween__SettingsEncryptionKey encrypts stored credentials (partner, adapter and connection
+      # secrets, the mail server password). Without it they are stored in plain text and secret
+      # settings can't be saved in the UI. Set the SettingsEncryptionKey secret once
+      # (openssl rand -base64 32) and never change or lose it: what it encrypted can't be read
+      # without it.
+      helm-set-secret-values: 'global.token.key=${{ secrets.TokenKey }},db=${{ secrets.dbConnection }},global.bus.rabbitUrl=${{ secrets.rabbitUrl }},global.cloudFiles.secretAccessKey=${{ secrets.SecretAccessKey }},global.cloudFiles.accessKeyId=${{ secrets.AccessKeyId }},global.cloudFiles.serviceUrl=${{ secrets.ServiceUrl }},global.cloudFiles.bucketName=${{ secrets.BucketName }},environmentVariables.Bitween__RabbitMqManagementUrl=${{ secrets.RabbitMqManagementUrl }},environmentVariables.Bitween__RabbitMqManagementPassword=${{ secrets.RabbitMqManagementPassword }},environmentVariables.Bitween__RabbitMqManagementUsername=${{ secrets.RabbitMqManagementUsername }},secrets.Bitween__SettingsEncryptionKey=${{ secrets.SettingsEncryptionKey }}'
 
   Prod:
     # Release: build and publish for clients, deploy production. releases/r10.0 is the
