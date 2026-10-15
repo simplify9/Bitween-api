@@ -36,7 +36,7 @@ The first run builds the Bitween image from the repository's `Dockerfile` (sever
 | `MAPPER` | unset | `rules` seeds the rules-based mapper (header and every line), `scriban` the Scriban mapper (header, line count, first line); unset, no mapper |
 | `METRICS` | unset | `1` starts an OpenTelemetry collector (profile `metrics`) and reports Bitween's CPU time and allocated bytes per exchange from its runtime counters |
 | `BITWEEN_IMAGE` | `bitween-load:local` | the Bitween image to run, for example one built from another commit; with `NO_BUILD=1` |
-| `SHARED_PAYLOAD_PARSE`, `CACHE_COMPILED_TEMPLATES` | `true` | finding 6's switches, `Bitween:SharedPayloadParse` and `Bitween:CacheCompiledTemplates` |
+| `SHARED_PAYLOAD_PARSE`, `CACHE_COMPILED_TEMPLATES` | `true` | `Bitween:SharedPayloadParse` and `Bitween:CacheCompiledTemplates`: whether the pipeline hands one parsed payload from step to step, and whether compiled mapping templates and rules are kept between calls |
 
 ## What runs
 
@@ -81,33 +81,36 @@ harness measures the warm node.
   divided by the exchanges of this run (warm-up included in both). It is the whole process, so it
   includes the work Bitween does on a timer whatever the traffic; compare runs of the same length.
   Written to `results/runtime.json`.
-- **payload parses per exchange**: Bitween's own figure, `sum(payload_parses) / sum(total)`, the
-  finding 6 counter, shown when the build has the column.
+- **payload parses per exchange**: Bitween's own figure, `sum(payload_parses) / sum(total)` from
+  `infolink.exchange_stats`, shown when the build has the column.
 - **db commands per exchange**: Bitween's own figure, `sum(db_commands) / sum(total)` from
-  `infolink.exchange_stats` for the seeded subscription, counted by the phase 0 interceptor.
+  `infolink.exchange_stats` for the seeded subscription, counted by Bitween's command interceptor.
   Shown only when the build has that column. It counts commands (round trips): one
   `SaveChanges` batch is one command but several statements, so it reads lower than the
   `pg_stat_statements` figure. Both are kept; the targets below are in round trips.
 
-## Acceptance per phase (finding 4)
+## Reference figures
 
-Each phase is accepted on this harness at the same `RATE` and `DURATION` as the baseline.
+One sync gateway call with a native handler, no mapper and no notifications, measured on this
+harness at the same `RATE` and `DURATION`:
 
-| Phase | Steps | DB commands per sync exchange | p95 | exchanges/s |
-|---|---|---|---|---|
-| 0 | baseline: counter, stage timings, this harness | about 14 (recorded) | recorded | recorded |
-| 1 | 4e, 4g, 4d, 4h, 4f: reads folded or moved to the cache | about 9 | no regression | no regression |
-| 2 | 4a, 4b: outbox insert and delete in batch, partial index | about 7 | no regression | no regression |
-| 3 | 4c, 4i: result event only when something notifies, auto-pause on results | about 5 | no regression | no regression |
-| 4 | 4j, 4k: promoted properties at creation, optimistic idempotency insert | about 4 | no regression | no regression |
+| Figure | Value |
+|---|---|
+| DB commands per sync exchange | about 3 |
+| Object storage calls per exchange | 2 (two writes, no reads) |
+| Sync p50 with `PARTNER_DELAY_MS=100` at `RATE=5` | about 115 ms |
+| Payload parses per exchange, rules mapper and plain URL | 2 |
+| Payload parses per exchange, Scriban mapper and templated URL | 2 |
 
-`pg_stat_statements` should also show each removed statement gone from the top list.
+A run that reads higher than these on the same build has regressed. `pg_stat_statements` lists
+the statements behind the command count.
 
 ## Notes
 
-- A single node runs one lane. Before lanes run exchanges in parallel (finding 1), a lane does one
-  exchange at a time, so with `PARTNER_DELAY_MS=100` it tops out near 8 exchanges per second:
-  measure latency below that (for example `RATE=5`), or the figures are queueing time.
+- A lane runs as many exchanges at once as its work group's **Parallel exchanges** setting (the
+  prefetch, 12, unless set). With `Bitween:BusDefaultConcurrency=1` and `PARTNER_DELAY_MS=100` the
+  single lane tops out near 8 exchanges per second: measure latency below that (for example
+  `RATE=5`), or the figures are queueing time.
 
 - The storage is SeaweedFS because MinIO no longer publishes images on Docker Hub. It is
   S3-compatible and Bitween talks to it with its S3 provider, as production does. Bitween creates
