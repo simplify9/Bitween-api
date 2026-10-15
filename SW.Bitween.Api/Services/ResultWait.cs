@@ -40,7 +40,7 @@ public static class ResultWait
             var delay = TimeSpan.FromSeconds(step) < remaining ? TimeSpan.FromSeconds(step) : remaining;
             try
             {
-                await Task.Delay(delay, cancellationToken);
+                await Task.Delay(NotNegative(delay), cancellationToken);
             }
             catch (OperationCanceledException)
             {
@@ -66,20 +66,26 @@ public static class ResultWait
     /// only as a backstop: after <see cref="BackstopFirstCheck"/>, then every <see cref="BackstopInterval"/>.
     /// A signal that is cancelled leaves the backstop to carry on alone.
     /// </summary>
+    /// <param name="time">The clock to measure and sleep by; the system's when null.</param>
     /// <returns>What the signal or the check brought; null when the time is up or the caller left.</returns>
     public static async Task<T> UntilAsync<T>(Task<T> signal, Func<Task<T>> check, int seconds,
-        CancellationToken cancellationToken, TimeSpan? firstCheck = null, TimeSpan? interval = null) where T : class
+        CancellationToken cancellationToken, TimeSpan? firstCheck = null, TimeSpan? interval = null,
+        TimeProvider time = null) where T : class
     {
+        time ??= TimeProvider.System;
         var deadline = TimeSpan.FromSeconds(seconds);
-        var clock = Stopwatch.StartNew();
+        var started = time.GetTimestamp();
+        TimeSpan Elapsed() => time.GetElapsedTime(started);
         var nextCheck = firstCheck ?? BackstopFirstCheck;
 
-        while (clock.Elapsed < deadline && !cancellationToken.IsCancellationRequested)
+        while (Elapsed() < deadline && !cancellationToken.IsCancellationRequested)
         {
-            var untilCheck = nextCheck - clock.Elapsed;
-            var remaining = deadline - clock.Elapsed;
+            // The clock can pass the next check during the loop (a signal that ends late, a busy
+            // machine), and Task.Delay throws on a negative wait: the check is due now.
+            var untilCheck = nextCheck - Elapsed();
+            var remaining = deadline - Elapsed();
             using var sleeping = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            var sleep = Task.Delay(untilCheck < remaining ? untilCheck : remaining, sleeping.Token);
+            var sleep = Task.Delay(NotNegative(untilCheck < remaining ? untilCheck : remaining), time, sleeping.Token);
             var woke = signal == null ? sleep : await Task.WhenAny(signal, sleep);
 
             if (woke == signal)
@@ -90,11 +96,13 @@ public static class ResultWait
                 continue;
             }
 
-            if (sleep.IsCanceled || clock.Elapsed < nextCheck) continue;
+            if (sleep.IsCanceled || Elapsed() < nextCheck) continue;
             if (await check() is { } found) return found;
-            nextCheck = clock.Elapsed + (interval ?? BackstopInterval);
+            nextCheck = Elapsed() + (interval ?? BackstopInterval);
         }
 
         return null;
     }
+
+    private static TimeSpan NotNegative(TimeSpan wait) => wait < TimeSpan.Zero ? TimeSpan.Zero : wait;
 }
