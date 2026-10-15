@@ -25,8 +25,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
 /// The database commands one synchronous gateway call costs, from the gateway's first query to the
-/// answer: creation, processing, the result lane and the sync wait. This is the number finding 4 of
-/// docs/design/processing-performance.md works down, phase by phase, so it is held to its budget
+/// answer: creation, processing, the result lane and the sync wait. This number is held to its budget
 /// here and a change that adds a round trip to every exchange fails a test rather than a customer.
 /// </summary>
 /// <remarks>
@@ -39,13 +38,13 @@ public class ExchangeCommandCountTests(BitweenFixture fixture, ITestOutputHelper
 {
     /// <summary>
     /// The sync path with a native handler, no mapper, no notifications, no duplicate window, no
-    /// idempotency key, auto-pause off, caches warm. 13 before finding 4; 9 once the gateway, its
+    /// idempotency key, auto-pause off, caches warm. 13 at first; 9 once the gateway, its
     /// partners and keys come from the cache, the exchange loads with its has-result flag and the
     /// retry budget is asked only of policies that have one (phase 1); 7 once published outbox rows
     /// are deleted in batches off the exchange's path instead of updated inline (phase 2); 5 once the
     /// result lane only hears of results something notifies on (phase 3); 4 once the sync wait reads
     /// the result in the poll that finds it (phase 4). Promoted properties ride in the creation
-    /// batch, and cost no command of their own. 3 once finding 2's signal replaces the poll and brings
+    /// batch, and cost no command of their own. 3 once the result signal replaces the poll and brings
     /// the response with it: nothing after the result's save.
     /// </summary>
     private const int SyncCallBudget = 3;

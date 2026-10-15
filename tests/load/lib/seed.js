@@ -6,7 +6,7 @@
 //
 // MAPPER: unset for none; "rules" for the rules-based mapper (NativeMapper) mapping the header and
 // every line; "scriban" for the Scriban mapper (NativeJSONMapper) mapping the header, the line
-// count and the first line. Finding 6 measures both against large payloads; a Scriban loop stops
+// count and the first line. Both are measured against large payloads; a Scriban loop stops
 // at 1000 iterations, so its template does not walk the lines.
 import http from 'k6/http';
 

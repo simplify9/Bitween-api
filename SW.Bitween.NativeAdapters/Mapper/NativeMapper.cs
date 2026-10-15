@@ -72,7 +72,7 @@ public class NativeMapper : INativeInfolinkMapper, IReceivesMappingContext
         var source = ResolveFormat(_rules.SourceFormat, "source", _rules.SourceOptions());
         var target = ResolveFormat(_rules.TargetFormat, "target", _rules.TargetOptions());
 
-        // The two formats the pipeline may have parsed already take the shared tree (finding 6c).
+        // The two formats the pipeline may have parsed already take the shared tree.
         var shared = ParsedPayload.Of(xchangeFile);
         var input = source switch
         {

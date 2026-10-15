@@ -119,7 +119,7 @@ public class AdapterInvoker(IEnumerable<IAdapterRuntime> runtimes, MetricsRecord
 
     /// <summary>
     /// The session as it should see its arguments: a built-in adapter, run in this process, takes the
-    /// pipeline's parsed payload (finding 6c); every other runtime is handed the file as text alone, as
+    /// pipeline's parsed payload; every other runtime is handed the file as text alone, as
     /// it always was, so the adapter contract does not change.
     /// </summary>
     static IAdapterSession TextOutside(IAdapterRuntime runtime, IAdapterSession session) =>

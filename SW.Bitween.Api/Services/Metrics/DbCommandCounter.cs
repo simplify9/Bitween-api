@@ -12,10 +12,9 @@ namespace SW.Bitween.Services.Metrics;
 /// processing, its result lane. Opened by the stage, counted by <see cref="DbCommandCounter"/>.
 /// </summary>
 /// <remarks>
-/// The count is how the work on database round trips is measured (processing-performance.md,
-/// finding 4): summed per exchange into <c>ExchangeStats.DbCommands</c>, so commands per exchange is
+/// The count is how the work on database round trips is measured: summed per exchange into <c>ExchangeStats.DbCommands</c>, so commands per exchange is
 /// that column over <c>Total</c>, and exported as a histogram per stage. The stage's payload parses
-/// (finding 6) are opened, attributed and recorded with it, into <c>ExchangeStats.PayloadParses</c>.
+/// are opened, attributed and recorded with it, into <c>ExchangeStats.PayloadParses</c>.
 /// </remarks>
 public sealed class DbCommandTally
 {

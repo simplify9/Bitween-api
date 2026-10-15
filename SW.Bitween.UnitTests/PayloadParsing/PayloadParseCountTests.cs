@@ -15,7 +15,7 @@ public class PayloadParseCountTests
     private const string Payload = "{\"id\":\"A-1\",\"price\":1.10}";
 
     /// <summary>
-    /// 2 before finding 6: one parse to see that the payload is JSON, one to build the model (row 4).
+    /// 2 before the shared parse: one parse to see that the payload is JSON, one to build the model (row 4).
     /// 1 once the model is built from the parse that saw it was JSON (6b).
     /// </summary>
     private const int FillParses = 1;

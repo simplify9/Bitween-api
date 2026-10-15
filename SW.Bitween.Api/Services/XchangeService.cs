@@ -1003,7 +1003,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// <summary>
     /// The input as the worker hands it from step to step: carrying its parsed trees, so the schema
     /// check, the filter, the enrichment and the built-in mappers parse it once per parse profile
-    /// rather than once each, unless <c>Bitween:SharedPayloadParse</c> is off (finding 6c).
+    /// rather than once each, unless <c>Bitween:SharedPayloadParse</c> is off.
     /// </summary>
     private XchangeFile InputFile(string data, string name) =>
         BitweenSettings.SharedPayloadParse ? new NativeAdapters.ParsedXchangeFile(data, name) : new XchangeFile(data, name);

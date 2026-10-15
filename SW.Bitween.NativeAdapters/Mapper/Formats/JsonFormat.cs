@@ -27,7 +27,7 @@ public class JsonFormat : IDocumentFormat
 
     /// <summary>
     /// <see cref="Read(string)"/> from the payload's shared parse when the pipeline has one for this
-    /// text (finding 6c), parsed here otherwise. The tree is only read.
+    /// text, parsed here otherwise. The tree is only read.
     /// </summary>
     internal ValueNode Read(string text, ParsedPayload? shared)
     {

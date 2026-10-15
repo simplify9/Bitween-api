@@ -6,7 +6,7 @@ namespace SW.Bitween.NativeAdapters;
 /// lane.
 /// </summary>
 /// <remarks>
-/// How the work on parsing is measured (processing-performance.md, finding 6). Opened with the
+/// How the work on parsing is measured. Opened with the
 /// stage's database command tally, which records both, and counted wherever a payload is parsed:
 /// the payload readers, the schema check, the enrichment, the built-in mappers and the HTTP
 /// handler's URL model. Lives here rather than beside the command tally because the built-in

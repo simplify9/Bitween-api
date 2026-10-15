@@ -88,7 +88,7 @@ public class GoldenPayloadTests
             .ToList();
 
     /// <summary>
-    /// With each of finding 6's switches on, and off: either way, nothing may change. With the shared
+    /// With each of the parsing switches on, and off: either way, nothing may change. With the shared
     /// parse on, every consumer of an input is handed one <see cref="ParsedXchangeFile"/>, in the order
     /// the pipeline reaches them, as the worker hands its input from step to step; off, each gets a
     /// plain file and parses for itself, as before.

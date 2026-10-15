@@ -76,7 +76,7 @@ namespace SW.Bitween.Web
             Configuration.GetSection(ThemeOptions.ConfigurationSection).Bind(themeOptions);
             services.AddSingleton(themeOptions);
             services.AddSingleton(bitweenOptions);
-            // The built-in mappers cannot see these options; finding 6's kill switch reaches them here.
+            // The built-in mappers cannot see these options; the shared-parse switch reaches them here.
             CompiledTemplates.Enabled = bitweenOptions.CacheCompiledTemplates;
 
             // The same passphrase the settings secrets use, now also for the credential columns.

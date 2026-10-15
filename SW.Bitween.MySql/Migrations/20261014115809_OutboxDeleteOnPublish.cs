@@ -6,8 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace SW.Bitween.MySql.Migrations
 {
     /// <summary>
-    /// Published outbox rows are deleted now rather than marked and kept a day (finding 4a of
-    /// docs/design/processing-performance.md), so the dispatcher's index leads with the
+    /// Published outbox rows are deleted now rather than marked and kept a day so the dispatcher's index leads with the
     /// published date, and each node reports what it published on its heartbeat.
     /// XchangeDeliveries goes: it was never written. Secondary indexes build online on InnoDB.
     /// </summary>

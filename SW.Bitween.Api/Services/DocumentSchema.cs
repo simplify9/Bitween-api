@@ -66,7 +66,7 @@ public static class DocumentSchema
 
     /// <summary>
     /// What is wrong with the file's payload, read from the pipeline's shared parse when it has one
-    /// (finding 6c).
+    ///.
     /// </summary>
     public static Task<IReadOnlyList<string>> Check(DocumentFormat format, string schema, XchangeFile file) =>
         Check(format, schema, file?.Data, NativeAdapters.ParsedPayload.Of(file));
@@ -93,7 +93,7 @@ public static class DocumentSchema
 
     /// <summary>
     /// Throws <see cref="DocumentSchemaException"/> when the file's payload doesn't match, read from
-    /// the pipeline's shared parse when it has one (finding 6c).
+    /// the pipeline's shared parse when it has one.
     /// </summary>
     public static async Task Enforce(Domain.Document document, XchangeFile file)
     {

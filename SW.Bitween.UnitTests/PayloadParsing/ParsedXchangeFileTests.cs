@@ -10,7 +10,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.UnitTests.PayloadParsing;
 
 /// <summary>
-/// The file the pipeline hands from step to step with its parsed trees (finding 6c) is, to anything
+/// The file the pipeline hands from step to step with its parsed trees is, to anything
 /// outside the process, the file it always was.
 /// </summary>
 [TestClass]

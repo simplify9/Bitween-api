@@ -56,7 +56,7 @@ public class XmlFormat : IDocumentFormat
 
     /// <summary>
     /// <see cref="Read(string)"/> from the payload's shared parse when the pipeline has one for this
-    /// text (finding 6c), loaded here otherwise. The document is only read.
+    /// text, loaded here otherwise. The document is only read.
     /// </summary>
     internal ValueNode Read(string text, ParsedPayload? shared)
     {

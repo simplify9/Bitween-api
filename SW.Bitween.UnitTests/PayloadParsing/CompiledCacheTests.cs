@@ -19,7 +19,7 @@ using ValueType = SW.Bitween.NativeAdapters.Mapper.ValueType;
 namespace SW.Bitween.UnitTests.PayloadParsing;
 
 /// <summary>
-/// Compiled Scriban templates and mapping rules kept by their text (finding 6a): the same object for
+/// Compiled Scriban templates and mapping rules kept by their text: the same object for
 /// the same text, nothing kept that failed, a bound, a switch that turns it off, and the two things
 /// that make sharing one object between exchanges safe: a run does not change the rules, and one
 /// template renders correctly from many threads at once.

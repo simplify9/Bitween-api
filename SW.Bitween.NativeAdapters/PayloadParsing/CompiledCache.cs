@@ -5,7 +5,7 @@ namespace SW.Bitween.NativeAdapters;
 
 /// <summary>
 /// Whether the built-in mappers keep what they compile from their settings: Scriban templates and
-/// mapping rules (processing-performance.md, finding 6a).
+/// mapping rules.
 /// </summary>
 /// <remarks>
 /// <c>Bitween:CacheCompiledTemplates</c>, on unless set off, copied here at startup because the

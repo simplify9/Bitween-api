@@ -17,7 +17,7 @@ public static class ScribanJsonHelper
 
     /// <summary>
     /// <see cref="Render(string, string)"/> for the mapper: the model is built from the payload's
-    /// shared parse when the pipeline has one for this text (finding 6c), parsed here otherwise.
+    /// shared parse when the pipeline has one for this text, parsed here otherwise.
     /// </summary>
     internal static string Render(string scribanTemplate, SW.PrimitiveTypes.XchangeFile input)
     {
@@ -64,7 +64,7 @@ public static class ScribanJsonHelper
     /// </summary>
     /// <remarks>
     /// The payload is parsed once: the parse that tells it is JSON is the one the template is filled
-    /// from. They used to be two parses of the same text with the same settings (finding 6b).
+    /// from. They used to be two parses of the same text with the same settings.
     /// </remarks>
     public static string FillIfJson(string template, string? payload)
     {

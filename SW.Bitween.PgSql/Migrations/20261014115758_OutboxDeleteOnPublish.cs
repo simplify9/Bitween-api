@@ -6,8 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace SW.Bitween.PgSql.Migrations
 {
     /// <summary>
-    /// Published outbox rows are deleted now rather than marked and kept a day (finding 4a of
-    /// docs/design/processing-performance.md), so the dispatcher's index covers unpublished rows
+    /// Published outbox rows are deleted now rather than marked and kept a day so the dispatcher's index covers unpublished rows
     /// only, and each node reports what it published on its heartbeat. XchangeDeliveries goes: it
     /// was never written.
     /// </summary>

@@ -50,7 +50,7 @@ public static class BitweenTelemetry
 
     /// <summary>
     /// Full parses of a payload into a tree that one stage of one exchange made, tagged <c>stage</c>
-    /// like <see cref="DbCommands"/> (processing-performance.md, finding 6).
+    /// like <see cref="DbCommands"/>.
     /// </summary>
     public static readonly Histogram<int> PayloadParses =
         Meter.CreateHistogram<int>("bitween.exchanges.payload_parses", unit: "{parse}",

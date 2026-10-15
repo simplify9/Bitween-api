@@ -21,7 +21,7 @@ public class XmlExchangePayloadReader : IExchangePayloadReader
     {
     }
 
-    /// <summary>Reads the payload's shared parse when the pipeline has one for this text (finding 6c).</summary>
+    /// <summary>Reads the payload's shared parse when the pipeline has one for this text.</summary>
     internal XmlExchangePayloadReader(string data, ParsedPayload shared)
     {
         if (shared == null || !shared.TryGet(Cleaned, data, out _doc))

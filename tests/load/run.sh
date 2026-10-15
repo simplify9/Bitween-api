@@ -195,7 +195,7 @@ if [[ "$has_db_commands" == 1 ]]; then
   psql_db -c "select sum(total) as exchanges, sum(db_commands) as db_commands,
       round(sum(db_commands)::numeric / nullif(sum(total), 0), 2) as \"db commands per exchange\"
     from infolink.exchange_stats where subscription_id = $subscription_id"
-  # Finding 6's count, in builds that have the column.
+  # Bitween's payload parse count, in builds that have the column.
   has_payload_parses="$(psql_db -tA -c "select count(*) from information_schema.columns
     where table_schema = 'infolink' and table_name = 'exchange_stats' and column_name = 'payload_parses'")"
   if [[ "$has_payload_parses" == 1 ]]; then

@@ -16,7 +16,7 @@ public class JsonExchangePayloadReader : IExchangePayloadReader
     }
 
     /// <summary>
-    /// Reads the payload's shared parse when the pipeline has one for this text (finding 6c). It is
+    /// Reads the payload's shared parse when the pipeline has one for this text. It is
     /// the same tree: <c>JArray.Parse</c> and <c>JObject.Parse</c> are <c>JToken.Parse</c> with the
     /// same reader and settings, for text that opens with the bracket each expects.
     /// </summary>

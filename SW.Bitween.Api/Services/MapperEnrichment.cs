@@ -21,7 +21,7 @@ public static class MapperEnrichment
     /// and null for JSON that is not an object (a root array, a string), which is not enriched.
     /// </summary>
     /// <remarks>
-    /// <paramref name="shared"/> says the object is the pipeline's shared parse (finding 6c), which
+    /// <paramref name="shared"/> says the object is the pipeline's shared parse, which
     /// <see cref="Enrich"/> must copy before it writes.
     /// </remarks>
     public static JObject Read(XchangeFile file, out bool shared)

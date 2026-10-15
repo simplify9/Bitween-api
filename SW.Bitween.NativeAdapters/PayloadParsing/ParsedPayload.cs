@@ -22,7 +22,7 @@ internal sealed class ParseProfile<T>(string name, Func<string, T> parse) where 
     public override string ToString() => name;
 }
 
-/// <summary>The two JSON profiles and the raw XML one (processing-performance.md, finding 6c).</summary>
+/// <summary>The two JSON profiles and the raw XML one.</summary>
 /// <remarks>
 /// The cleaned XML profile of the promoted-property reader lives beside that reader in the API.
 /// </remarks>

@@ -53,7 +53,7 @@ public class ExchangeParseCountTests(BitweenFixture fixture, ITestOutputHelper o
     }
 
     /// <summary>
-    /// Per path, with and without a schema: the parses before finding 6, which
+    /// Per path, with and without a schema: the parses before the shared parse, which
     /// <c>Bitween:SharedPayloadParse=false</c> must still give, and the parses with it on.
     /// </summary>
     /// <remarks>

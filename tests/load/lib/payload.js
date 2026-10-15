@@ -1,7 +1,7 @@
 // The order each sync call sends.
 //
 // PAYLOAD_KB unset or 0: the small order the harness has always sent. Set: an order with as many
-// lines as it takes to reach about that many kilobytes (finding 6 measures 100 and 1024), built
+// lines as it takes to reach about that many kilobytes (100 and 1024 are the usual sizes), built
 // once for the whole run and shared by every virtual user, then sent with its own order id. Built
 // per virtual user, a 1 MB order took k6 long enough to start one that it stopped starting them.
 import { SharedArray } from 'k6/data';
