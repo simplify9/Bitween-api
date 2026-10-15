@@ -157,6 +157,7 @@ public class ExchangeArchive(BitweenDbContext dbContext, XchangeService xchangeS
                                 result.ResponseBad,
                                 result.ResponseXchangeId,
                                 result.RetryBlockedReason,
+                                result.Warning,
                                 result.RetryGroupId,
                                 result.AttemptNumber
                             },
@@ -178,11 +179,13 @@ public class ExchangeArchive(BitweenDbContext dbContext, XchangeService xchangeS
                             Output = result == null
                                 ? null
                                 : await ReadFile(xchange, XchangeFileType.Output, result.OutputName,
-                                    result.OutputSize, result.OutputContentType, rules),
+                                    result.OutputSize, result.OutputContentType, rules,
+                                    result.NotStoredReason(XchangeFileType.Output)),
                             Response = result == null
                                 ? null
                                 : await ReadFile(xchange, XchangeFileType.Response, result.ResponseName,
-                                    result.ResponseSize, result.ResponseContentType, rules)
+                                    result.ResponseSize, result.ResponseContentType, rules,
+                                    result.NotStoredReason(XchangeFileType.Response))
                         },
                         ArchivedOn = DateTime.UtcNow
                     };
@@ -240,11 +243,22 @@ public class ExchangeArchive(BitweenDbContext dbContext, XchangeService xchangeS
     /// <summary>
     /// One of the exchange's files as it goes into the archive. A file the bucket has already deleted is
     /// recorded as missing, with the reason, rather than stopping the archive: its details are still worth
-    /// keeping. Any other storage failure does stop it.
+    /// keeping. Any other storage failure does stop it. So is one that couldn't be stored after its delivery
+    /// (<paramref name="notStored"/>), which storage never had.
     /// </summary>
     private async Task<object> ReadFile(Xchange xchange, XchangeFileType type, string name, int size,
-        string contentType, StorageRules rules)
+        string contentType, StorageRules rules, string notStored = null)
     {
+        if (notStored != null)
+            return new
+            {
+                Name = name,
+                ContentType = contentType,
+                Size = size,
+                Content = (string)null,
+                Missing = $"Delivered, but could not be stored when the exchange ran: {notStored}"
+            };
+
         if (size == 0) return null;
 
         var key = xchangeService.FileKey(xchange, type);

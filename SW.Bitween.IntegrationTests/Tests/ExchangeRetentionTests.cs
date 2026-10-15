@@ -128,6 +128,29 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_delivered_file_that_could_not_be_stored_is_archived_as_missing_with_the_warning()
+    {
+        var (_, subscription) = await Setup(("OrderNumber", "$.order"));
+        var old = await CreateExchange(subscription, "{\"order\":\"ORD-2101\"}",
+            new() { ["OrderNumber"] = "ORD-2101" }, succeeded: true, responseNotStored: "disk full");
+        var startedOn = await Backdate(old.Id, AncientDays);
+
+        await RunJob(archive: true);
+
+        await using var readScope = fixture.CreateScope();
+        Assert.False(await readScope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<Xchange>().AnyAsync(x => x.Id == old.Id));
+        var prefix = readScope.ServiceProvider.GetRequiredService<ExchangeArchive>().Prefix;
+        var archived = JObject.Parse(await Read(
+            $"{prefix}/{subscription.Id}/{startedOn:yyyy}/{startedOn:MM}/{startedOn:dd}/ORD-2101_{old.Id}.json"));
+
+        Assert.Equal("Succeeded", (string)archived["status"]);
+        Assert.Equal("Delivered; the response file could not be stored: disk full", (string)archived["result"]!["warning"]);
+        Assert.Null((string)archived["files"]!["response"]!["content"]);
+        Assert.Contains("disk full", (string)archived["files"]!["response"]!["missing"]);
+        Assert.Equal("{\"order\":\"ORD-2101\"}", (string)archived["files"]!["input"]!["content"]);
+    }
+
+    [Fact]
     public async Task An_exchange_waiting_for_a_scheduled_retry_is_kept()
     {
         var (_, subscription) = await Setup();
@@ -565,7 +588,7 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
     }
 
     private async Task<Xchange> CreateExchange(Subscription subscription, string payload,
-        Dictionary<string, string> promoted, bool succeeded)
+        Dictionary<string, string> promoted, bool succeeded, string responseNotStored = null)
     {
         await using var scope = fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
@@ -579,7 +602,11 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
         var filtered = new FilterResult();
         foreach (var (name, value) in promoted) filtered.Properties[name] = value;
         db.Add(new XchangePromotedProperties(xchange.Id, filtered));
-        db.Add(new XchangeResult(xchange.Id, null, null, exception: succeeded ? null : "failed on purpose"));
+        var result = responseNotStored == null
+            ? new XchangeResult(xchange.Id, null, null, exception: succeeded ? null : "failed on purpose")
+            : new XchangeResult(xchange.Id, null, null, new XchangeFile("{\"ok\":true}"));
+        if (responseNotStored != null) result.FileNotStored(XchangeFileType.Response, responseNotStored);
+        db.Add(result);
         await db.SaveChangesAsync();
         return xchange;
     }

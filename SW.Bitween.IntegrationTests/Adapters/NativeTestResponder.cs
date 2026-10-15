@@ -8,7 +8,8 @@ namespace SW.Bitween.IntegrationTests.Adapters;
 
 /// <summary>
 /// A delivery that answers with whatever its <c>Body</c> property says, marked bad when <c>Bad</c>
-/// is true - a bad response otherwise needs an HTTP endpoint that answers 4xx.
+/// is true - a bad response otherwise needs an HTTP endpoint that answers 4xx. With <c>Fail</c> true
+/// it throws instead, as a delivery the partner refused.
 /// </summary>
 public class NativeTestResponder : INativeInfolinkHandler
 {
@@ -33,6 +34,9 @@ public class NativeTestResponder : INativeInfolinkHandler
             Deliveries.AddOrUpdate(body, 1, (_, n) => n + 1);
             Received.GetOrAdd(body, _ => new()).Enqueue(xchangeFile.Data);
         }
+
+        if (_settings.TryGetValue("Fail", out var fail) && bool.Parse(fail))
+            throw new InvalidOperationException("the partner refused the delivery");
 
         return Task.FromResult(new XchangeFile(
             hasBody ? body : xchangeFile.Data,

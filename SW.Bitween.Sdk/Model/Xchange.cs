@@ -221,6 +221,9 @@ namespace SW.Bitween.Model
         public string InputUri { get; set; }
         public string OutputUri { get; set; }
         public string ResponseUri { get; set; }
+
+        /// <summary>Set when the delivery went through but a file of it could not be stored; <c>null</c> otherwise.</summary>
+        public string Warning { get; set; }
     }
 
     //public class XchangeUnderProcessing : IUnderProcessing
@@ -282,6 +285,12 @@ namespace SW.Bitween.Model
 
         /// <summary>Why the retry policy declined to schedule another attempt, when it declined.</summary>
         public string RetryBlockedReason { get; set; }
+
+        /// <summary>
+        /// Something about a successful exchange to know, such as a delivery whose output or response
+        /// file could not be stored; <c>null</c> for nothing.
+        /// </summary>
+        public string Warning { get; set; }
 
         /// <summary>
         /// <c>true</c> when something has already been retried from this exchange. An exchange

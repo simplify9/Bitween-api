@@ -10,9 +10,10 @@ import { journeyStages } from "../journey";
 const A_FILE = { name: "doc.json", size: 12 } as ExchangeFileRef;
 
 /** Only the three fields `journeyStages` reads; the rest of the row does not reach it. */
-const row = (status: ExchangeStatus, over: { mapperSkipped?: boolean; mapped?: boolean } = {}) =>
+const row = (status: ExchangeStatus, over: { mapperSkipped?: boolean; mapped?: boolean; warning?: string } = {}) =>
   ({
     status,
+    warning: over.warning ?? null,
     mapperSkipped: over.mapperSkipped ?? false,
     files: { input: A_FILE, mapped: over.mapped ? A_FILE : null, handled: null },
   }) as ExchangeRow;
@@ -61,5 +62,16 @@ describe("journeyStages labels", () => {
       "Mapped:done",
       "Handled:bad",
     ]);
+  });
+
+  it("shows a delivered exchange whose files could not be stored as mapped and handled, saying why", () => {
+    const x = row("success", {
+      warning:
+        "Delivered; the output file could not be stored: disk full\nDelivered; the response file could not be stored: disk full",
+    });
+    expect(labels(x)).toEqual(["Received:done", "Mapped:done", "Handled:done"]);
+    const [, mapped, handled] = journeyStages(x);
+    expect(mapped.note).toContain("could not be stored");
+    expect(handled.note).toContain("could not be stored");
   });
 });

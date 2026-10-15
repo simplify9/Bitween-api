@@ -129,9 +129,11 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
 
                 if (!results.TryGetValue(xchange.Id, out var result)) continue;
                 await Add(zip, xchange, XchangeFileType.Output, $"{folder}/mapped",
-                    result.OutputName, result.OutputSize, result.OutputContentType, missing, aborted);
+                    result.OutputName, result.OutputSize, result.OutputContentType, missing, aborted,
+                    result.NotStoredReason(XchangeFileType.Output));
                 await Add(zip, xchange, XchangeFileType.Response, $"{folder}/handled",
-                    result.ResponseName, result.ResponseSize, result.ResponseContentType, missing, aborted);
+                    result.ResponseName, result.ResponseSize, result.ResponseContentType, missing, aborted,
+                    result.NotStoredReason(XchangeFileType.Response));
             }
 
             if (missing.Count > 0)
@@ -148,11 +150,18 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
 
     /// <summary>
     /// One file into the zip, named <paramref name="path"/> plus the extension its own name or content type
-    /// gives. A file the exchange never had is left out; one storage no longer has goes on the missing list.
+    /// gives. A file the exchange never had is left out; one storage no longer has, or never got because it
+    /// couldn't be stored after the delivery (<paramref name="notStored"/>), goes on the missing list.
     /// </summary>
     private async Task Add(ZipArchive zip, Xchange xchange, XchangeFileType type, string path, string name, int size,
-        string contentType, List<string> missing, CancellationToken aborted)
+        string contentType, List<string> missing, CancellationToken aborted, string notStored = null)
     {
+        if (notStored != null)
+        {
+            missing.Add($"{path + ExtensionOf(name, contentType)}: it was delivered, but could not be stored: {notStored}");
+            return;
+        }
+
         if (size == 0) return;
         path += ExtensionOf(name, contentType);
 

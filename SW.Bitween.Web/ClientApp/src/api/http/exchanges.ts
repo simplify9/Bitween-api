@@ -51,6 +51,8 @@ interface RawXchangeRow {
   partnerId: number | null;
   scheduledRetryOn: string | null;
   hasRetry: boolean;
+  /** Absent from servers that predate it. */
+  warning?: string | null;
 }
 
 interface RawRetryNode {
@@ -131,6 +133,7 @@ const toExchangeRow = (raw: RawXchangeRow, partnerNameById: Map<number, string>)
   aggregationXchangeId: raw.aggregationXchangeId,
   scheduledRetryOn: raw.scheduledRetryOn,
   exception: raw.exception,
+  warning: raw.warning ?? null,
   promotedProperties: raw.promotedProperties,
   sourceXchangeId: raw.sourceXchangeId ?? null,
   sourceValues: raw.sourceValues ?? null,

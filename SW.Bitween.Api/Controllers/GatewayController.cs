@@ -264,11 +264,13 @@ public class GatewayController(
         {
             switch (ready.Success)
             {
-                case true when ready.ResponseSize == 0:
+                // A delivered response whose file couldn't be stored has no size, but the signal still
+                // brings it when it is small enough to travel; without it there is nothing to read.
+                case true when ready.ResponseSize == 0 && ready.Response == null:
                     {
                         return Ok(xchangeId);
                     }
-                case true when ready.ResponseSize != 0:
+                case true:
                     {
                         // From the signal when it brought the response; from storage when it was too
                         // large to travel, or the backstop found the result.

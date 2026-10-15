@@ -1,4 +1,5 @@
-﻿using SW.PrimitiveTypes;
+﻿using SW.Bitween.Model;
+using SW.PrimitiveTypes;
 using System;
 using System.Linq;
 
@@ -83,6 +84,60 @@ namespace SW.Bitween.Domain
         public string ResponseHash { get; private set; }
         public bool ResponseBad { get; private set; }
         public string ResponseContentType { get; private set; }
+
+        /// <summary>The longest <see cref="Warning"/> kept.</summary>
+        public const int WarningMaxLength = 2000;
+
+        /// <summary>
+        /// Something about a successful result its reader should know, or <c>null</c> for nothing:
+        /// a delivery that went through while a file of it could not be stored, one line per file.
+        /// Null on results from before it was recorded.
+        /// </summary>
+        public string Warning { get; private set; }
+
+        /// <summary>
+        /// Records that the delivery went through but the output or response file could not be
+        /// stored: the file is recorded as missing (no size, name or hash, so nothing links to it)
+        /// and the warning says why. Its content type and bad flag stay, since they describe what
+        /// the handler did rather than the file.
+        /// </summary>
+        public void FileNotStored(XchangeFileType type, string reason)
+        {
+            if (type == XchangeFileType.Output)
+            {
+                OutputSize = 0;
+                OutputName = null;
+                OutputHash = null;
+            }
+            else if (type == XchangeFileType.Response)
+            {
+                ResponseSize = 0;
+                ResponseName = null;
+                ResponseHash = null;
+            }
+            else throw new ArgumentOutOfRangeException(nameof(type), type, "Only the output and response files are stored after delivery.");
+
+            // Each line gets its share of the column, so a long first reason never cuts the second off.
+            var line = NotStoredPrefix(type) + Cut(reason ?? "unknown error", WarningMaxLength / 2 - 60);
+            Warning = Warning == null ? line : Warning + "\n" + line;
+        }
+
+        /// <summary>
+        /// Why <paramref name="type"/>'s file could not be stored after the delivery, read back from
+        /// <see cref="Warning"/>; <c>null</c> when it was stored, or never written.
+        /// </summary>
+        public string NotStoredReason(XchangeFileType type) => NotStoredReason(Warning, type);
+
+        /// <inheritdoc cref="NotStoredReason(XchangeFileType)"/>
+        public static string NotStoredReason(string warning, XchangeFileType type)
+        {
+            if (warning == null) return null;
+            var prefix = NotStoredPrefix(type);
+            return warning.Split('\n').FirstOrDefault(l => l.StartsWith(prefix, StringComparison.Ordinal))?[prefix.Length..];
+        }
+
+        static string NotStoredPrefix(XchangeFileType type) =>
+            $"Delivered; the {type.ToString().ToLowerInvariant()} file could not be stored: ";
 
         /// <summary>
         /// Why the retry policy declined to schedule another attempt for this failure, or

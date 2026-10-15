@@ -2472,6 +2472,10 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<bool>("Success")
                         .HasColumnType("bit");
 
+                    b.Property<string>("Warning")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("RetryGroupId");

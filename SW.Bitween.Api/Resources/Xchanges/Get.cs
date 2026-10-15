@@ -48,7 +48,11 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext, Xcha
                     //OutputUri = xchangeService.GetFileUrl(queryResult.xchange.Id, XchangeFileType.Output),
                     // A sealed Bitween link: the partner follows it with no login, as it did the public
                     // storage URL this used to be, and exchange files are private in storage now.
-                    ResponseUri = xchangeService.FileUrl(queryResult.xchange.Id, queryResult.xchange.FilesPrefix, XchangeFileType.Response),
+                    // No link to a response the delivery got but storage couldn't keep: it would open nothing.
+                    ResponseUri = queryResult.result.NotStoredReason(XchangeFileType.Response) != null
+                        ? null
+                        : xchangeService.FileUrl(queryResult.xchange.Id, queryResult.xchange.FilesPrefix, XchangeFileType.Response),
+                    Warning = queryResult.result.Warning,
                 };
         }
 

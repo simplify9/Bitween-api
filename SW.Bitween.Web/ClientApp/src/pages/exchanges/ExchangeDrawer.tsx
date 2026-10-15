@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, FileText, Loader2, Play, RotateCcw } from "lucide-react";
 import { api, ApiRequestError, type ExchangeDocStage, type ExchangeRow } from "../../api";
 import { useSessionCan } from "../../auth/useSessionCan";
-import { Badge, Button, ProblemText } from "../../components/ui/basics";
+import { Badge, Button, InlineNotice, ProblemText } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { HighlightedDocument } from "../../components/ui/HighlightedDocument";
 import { CopyButton } from "../../components/ui/CopyButton";
@@ -306,6 +306,16 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
 
       {/* - failure - */}
       {x.exception && <ExceptionBlock text={x.exception} />}
+
+      {/* - delivered, with a file that could not be stored - */}
+      {x.warning && (
+        <InlineNotice>
+          <span className="block whitespace-pre-line">{x.warning}</span>
+          <span className="mt-1 block text-warn-700">
+            Nothing to retry: the partner has the document. Only Bitween's copy of the file is missing.
+          </span>
+        </InlineNotice>
+      )}
 
       {/* - the attempts this exchange belongs to, when it belongs to any - */}
       {hasRetryChain(x) && <RetryChain id={x.id} />}

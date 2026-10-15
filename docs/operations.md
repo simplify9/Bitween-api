@@ -32,6 +32,7 @@ Tick exchanges on the Exchanges page, or select everything a filter matches, and
 | Failed, with *Auto-retry in …* | A retry is scheduled | Wait, or use **Run now** |
 | Failed, with a blocked reason | The retry policy declined | Read the reason, fix the cause, then retry by hand or reset the budget |
 | Bad response | The handler flagged its response, such as an HTTP 4xx | Open the response file |
+| Success, with *File not stored* | Delivered: the partner has the document, but Bitween could not store the output or response file. The warning in the drawer says which and why | Nothing to retry, and retrying would deliver the document again. Check object storage, using the reason in the warning and the Warning log line with the exchange id and storage key. The file is not in the export or the archive; `missing.txt` lists it with the reason |
 | Failed, with a link to a later attempt | This attempt was already retried | Follow the chain to its newest attempt |
 | No exchange for a bus message | Nothing matched, or the information type disregards unfiltered messages | Check routes and match expressions on the Flow map |
 

@@ -94,6 +94,23 @@ public class ExchangeExportTests(BitweenFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_delivered_file_that_could_not_be_stored_is_listed_in_missing_txt_with_its_reason()
+    {
+        var document = await InformationType();
+        var delivered = await CreateExchange(document, "{\"n\":1}", "in.json",
+            output: new XchangeFile("{\"mapped\":true}", "out.json") { ContentType = "application/json" },
+            response: new XchangeFile("accepted") { ContentType = "text/plain" },
+            notStored: XchangeFileType.Output);
+
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        var (_, zip, _) = await Export(scope, new XchangeFilesExport { Ids = [delivered.Id] });
+
+        Assert.Equal(new[] { "missing.txt", $"{delivered.Id}/input.json", $"{delivered.Id}/handled.txt" }.Order(), zip.Keys.Order());
+        Assert.Contains($"{delivered.Id}/mapped.json: it was delivered, but could not be stored: disk full", zip["missing.txt"]);
+    }
+
+    [Fact]
     public async Task Before_the_download_it_says_how_many_exchanges_are_older_than_storage_keeps_their_files()
     {
         _options.DocumentPrefix = $"temp30/{Unique("check")}";
@@ -208,7 +225,7 @@ public class ExchangeExportTests(BitweenFixture fixture) : IAsyncLifetime
     }
 
     private async Task<Xchange> CreateExchange(Document document, string payload, string fileName, string city = null,
-        XchangeFile output = null, XchangeFile response = null)
+        XchangeFile output = null, XchangeFile response = null, XchangeFileType? notStored = null)
     {
         await using var scope = fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
@@ -226,11 +243,14 @@ public class ExchangeExportTests(BitweenFixture fixture) : IAsyncLifetime
         if (output != null || response != null)
         {
             var cloudFiles = scope.ServiceProvider.GetRequiredService<ICloudFilesService>();
-            if (output != null)
+            if (output != null && notStored != XchangeFileType.Output)
                 await cloudFiles.WriteTextAsync(output.Data, new WriteFileSettings { Key = service.FileKey(xchange, XchangeFileType.Output) });
-            if (response != null)
+            if (response != null && notStored != XchangeFileType.Response)
                 await cloudFiles.WriteTextAsync(response.Data, new WriteFileSettings { Key = service.FileKey(xchange, XchangeFileType.Response) });
-            db.Add(new XchangeResult(xchange.Id, null, output, response));
+            var result = new XchangeResult(xchange.Id, null, output, response);
+            // Delivered, as the worker records it when the file's write fails.
+            if (notStored is { } type) result.FileNotStored(type, "disk full");
+            db.Add(result);
         }
 
         await db.SaveChangesAsync();

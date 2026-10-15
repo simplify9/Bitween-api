@@ -574,6 +574,7 @@ namespace SW.Bitween
                 b.Property(p => p.ResponseContentType).IsUnicode(false).HasMaxLength(200);
                 b.Property(p => p.OutputContentType).IsUnicode(false).HasMaxLength(200);
                 b.Property(p => p.RetryBlockedReason).HasMaxLength(500);
+                b.Property(p => p.Warning).HasMaxLength(XchangeResult.WarningMaxLength);
                 b.Property(p => p.RetryGroupId);
                 b.Property(p => p.AttemptNumber);
                 b.HasIndex(p => p.RetryGroupId);

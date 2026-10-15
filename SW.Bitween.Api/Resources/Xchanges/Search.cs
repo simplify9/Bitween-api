@@ -104,7 +104,8 @@ namespace SW.Bitween.Resources.Xchanges
                             // a direct PartnerId - fall back to that for those legacy rows.
                             PartnerId = xchange.PartnerId ?? subscriber.PartnerId,
                             ScheduledRetryOn = delayedRetry != null ? delayedRetry.On : (DateTime?)null,
-                            RetryBlockedReason = result.RetryBlockedReason
+                            RetryBlockedReason = result.RetryBlockedReason,
+                            Warning = result.Warning
                         };
 
             query = query.ApplySpecialFilters(searchyRequest, dbContext);

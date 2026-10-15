@@ -6,7 +6,7 @@ import { Badge } from "../../components/ui/basics";
 import { PromotedProps } from "../../components/config/shared";
 import { timeUntil } from "../../lib/dates";
 import { ExchangeDrawer } from "./ExchangeDrawer";
-import { StatusBadge } from "./shared";
+import { StatusBadge, WarningBadge } from "./shared";
 
 /**
  * The open exchange, beside the list rather than inside it. Opening a row used to push every
@@ -48,6 +48,7 @@ export function ExchangeDetailPanel({
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
               <StatusBadge status={x.status} />
+              <WarningBadge warning={x.warning} />
               {x.retryFor && <Badge tone="neutral">Retry</Badge>}
               {x.scheduledRetryOn && <Badge tone="warn">Auto-retry {timeUntil(x.scheduledRetryOn)}</Badge>}
               {x.aggregationXchangeId && <Badge tone="neutral">Aggregated</Badge>}

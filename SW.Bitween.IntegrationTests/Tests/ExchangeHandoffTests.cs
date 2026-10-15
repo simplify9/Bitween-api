@@ -17,9 +17,10 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// Exchange files are written beside the work instead of before it (finding 3 of
-/// docs/design/processing-performance.md), and the rule that kept them safe still holds: a saved
-/// exchange or result names only files storage has.
+/// Exchange files are written beside the work instead of before it, and the rule that kept them safe
+/// still holds: a saved exchange or result names only files storage has. Once the handler has
+/// delivered, a file that couldn't be stored is recorded as missing, with a warning, on a result that
+/// stays a success.
 /// </summary>
 [Collection("Bitween")]
 public class ExchangeHandoffTests(BitweenFixture fixture)
@@ -63,25 +64,105 @@ public class ExchangeHandoffTests(BitweenFixture fixture)
     }
 
     [Fact]
-    public async Task A_response_that_cannot_be_written_is_a_failure_that_names_no_response()
+    public async Task A_delivery_whose_response_cannot_be_written_succeeds_naming_no_response_and_is_not_retried()
     {
-        var subscriptionId = await SubscriptionAsync();
+        var body = $"reply-{Guid.NewGuid():N}";
+        var subscriptionId = await SubscriptionAsync(body: body);
         var xchangeId = await CreateAsync(subscriptionId, "{\"order\":7}");
 
+        var result = await ProcessFailingWritesAsync(xchangeId, "/response");
+
+        Assert.True(result.Success, result.Exception);
+        Assert.Null(result.Exception);
+        Assert.Equal(0, result.ResponseSize);
+        Assert.Null(result.ResponseName);
+        Assert.Null(result.ResponseHash);
+        Assert.Equal("Delivered; the response file could not be stored: storage refused the request", result.Warning);
+        Assert.Equal(0, result.ConsecutiveFailures);
+        await AssertDeliveredOnceAndNotRetriedAsync(xchangeId, body);
+    }
+
+    [Fact]
+    public async Task A_delivery_whose_output_cannot_be_written_succeeds_naming_no_output_and_is_not_retried()
+    {
+        var body = $"reply-{Guid.NewGuid():N}";
+        var subscriptionId = await SubscriptionAsync(body: body, mapped: true);
+        var xchangeId = await CreateAsync(subscriptionId, "{\"order\":11}");
+
+        var result = await ProcessFailingWritesAsync(xchangeId, "/output");
+
+        Assert.True(result.Success, result.Exception);
+        Assert.Equal(0, result.OutputSize);
+        Assert.Null(result.OutputName);
+        Assert.Null(result.OutputHash);
+        Assert.Equal("Delivered; the output file could not be stored: storage refused the request", result.Warning);
+        // The response was stored as usual.
+        await using (var check = fixture.CreateScope())
+            Assert.Equal(body, await check.ServiceProvider.GetRequiredService<XchangeService>().GetFile(xchangeId, XchangeFileType.Response));
+        await AssertDeliveredOnceAndNotRetriedAsync(xchangeId, body);
+    }
+
+    [Fact]
+    public async Task A_delivery_whose_output_and_response_both_cannot_be_written_succeeds_with_both_in_its_warning()
+    {
+        var body = $"reply-{Guid.NewGuid():N}";
+        var subscriptionId = await SubscriptionAsync(body: body, mapped: true);
+        var xchangeId = await CreateAsync(subscriptionId, "{\"order\":12}");
+
+        var result = await ProcessFailingWritesAsync(xchangeId, "/output", "/response");
+
+        Assert.True(result.Success, result.Exception);
+        Assert.Equal(0, result.OutputSize);
+        Assert.Equal(0, result.ResponseSize);
+        Assert.Equal("Delivered; the output file could not be stored: storage refused the request\n" +
+                     "Delivered; the response file could not be stored: storage refused the request", result.Warning);
+        await AssertDeliveredOnceAndNotRetriedAsync(xchangeId, body);
+    }
+
+    [Fact]
+    public async Task A_handler_that_failed_fails_the_exchange_whatever_the_output_write_did()
+    {
+        var body = $"reply-{Guid.NewGuid():N}";
+        var subscriptionId = await SubscriptionAsync(body: body, mapped: true, fail: true);
+        var xchangeId = await CreateAsync(subscriptionId, "{\"order\":13}");
+
+        var result = await ProcessFailingWritesAsync(xchangeId, "/output");
+
+        Assert.False(result.Success);
+        Assert.Contains("the partner refused the delivery", result.Exception);
+        Assert.Null(result.Warning);
+        // A failed result names only files storage has.
+        Assert.Equal(0, result.OutputSize);
+        Assert.Null(result.OutputName);
+        await using var check = fixture.CreateScope();
+        Assert.True(await check.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<DelayedRetry>()
+            .AnyAsync(r => r.Id == xchangeId), "the retry policy schedules a failure as it always did");
+    }
+
+    /// <summary>Processes the exchange on storage that refuses writes of the given files, and returns its result.</summary>
+    private async Task<XchangeResult> ProcessFailingWritesAsync(string xchangeId, params string[] files)
+    {
         await using (var worker = fixture.CreateScope())
         {
-            var failing = Storage.Wrapping(worker.ServiceProvider.GetRequiredService<ICloudFilesService>(), failWritesOf: "/response");
-            await ActivatorUtilities.CreateInstance<XchangeService>(worker.ServiceProvider, failing)
+            var storage = worker.ServiceProvider.GetRequiredService<ICloudFilesService>();
+            foreach (var file in files) storage = Storage.Wrapping(storage, failWritesOf: file);
+            await ActivatorUtilities.CreateInstance<XchangeService>(worker.ServiceProvider, storage)
                 .Process("handoff-test", JsonConvert.SerializeObject(new { Id = xchangeId }));
         }
 
         await using var check = fixture.CreateScope();
-        var result = await check.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<XchangeResult>()
+        return await check.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<XchangeResult>()
             .AsNoTracking().SingleAsync(r => r.Id == xchangeId);
-        Assert.False(result.Success);
-        Assert.Contains("storage refused", result.Exception);
-        Assert.Equal(0, result.ResponseSize);
-        Assert.Null(result.ResponseName);
+    }
+
+    /// <summary>The partner got the document once, and the retry policy, which retries every error, scheduled nothing.</summary>
+    private async Task AssertDeliveredOnceAndNotRetriedAsync(string xchangeId, string body)
+    {
+        Assert.Equal(1, NativeTestResponder.Deliveries.GetValueOrDefault(body));
+        await using var check = fixture.CreateScope();
+        var db = check.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        Assert.False(await db.Set<DelayedRetry>().AnyAsync(r => r.Id == xchangeId));
+        Assert.False(await db.Set<Xchange>().AnyAsync(x => x.RetryFor == xchangeId));
     }
 
     [Fact]
@@ -207,7 +288,12 @@ public class ExchangeHandoffTests(BitweenFixture fixture)
         return xchange.Id;
     }
 
-    private async Task<int> SubscriptionAsync()
+    /// <summary>
+    /// A subscription delivering through <see cref="NativeTestResponder"/>, answering <paramref name="body"/>
+    /// when given (or else echoing), after a mapping when <paramref name="mapped"/>, and failing when
+    /// <paramref name="fail"/>. Its retry policy retries every error, so a failure shows as a retry.
+    /// </summary>
+    private async Task<int> SubscriptionAsync(string? body = null, bool mapped = false, bool fail = false)
     {
         await using var scope = fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
@@ -217,9 +303,42 @@ public class ExchangeHandoffTests(BitweenFixture fixture)
 
         var subscription = new Subscription($"Handoff sub {Guid.NewGuid():N}", document.Id,
             SubscriptionType.GatewayApiCall) { Inactive = false, HandlerId = nameof(NativeTestResponder) };
+        var handler = new Dictionary<string, string>();
+        if (body != null) handler["Body"] = body;
+        if (fail) handler["Fail"] = "true";
+        var mapper = new Dictionary<string, string>();
+        if (mapped)
+        {
+            subscription.MapperId = nameof(NativeAdapters.Mapper.NativeMapper);
+            mapper["MappingRules"] = JsonConvert.SerializeObject(new
+            {
+                version = 1, sourceFormat = "json", targetFormat = "json",
+                fields = new object[] { new { target = new[] { "ref" }, from = new { kind = "Path", path = "order" } } },
+            });
+        }
+
         subscription.SetDictionaries(
-            new Dictionary<string, string>(), new Dictionary<string, string>(), new Dictionary<string, string>(),
+            handler, mapper, new Dictionary<string, string>(),
             new Dictionary<string, string>(), new Dictionary<string, string>());
+        subscription.SetRetryPolicy(null, new CustomRetryPolicy
+        {
+            Groups =
+            [
+                new RetryGroup
+                {
+                    Name = "Errors",
+                    Priority = 10,
+                    AppliesTo = [XchangeResultType.Error],
+                    Matchers = [],
+                    Budget = new RetryBudget
+                    {
+                        MaxAttemptsPerError = 5,
+                        MaxAttemptsTotal = 1000,
+                        DelayStrategy = new FixedDelayStrategy { DelayMs = 60_000 },
+                    },
+                },
+            ],
+        });
         db.Add(subscription);
         await db.SaveChangesAsync();
         scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();

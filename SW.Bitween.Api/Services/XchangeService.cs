@@ -754,6 +754,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         Xchange responseXchange = null;
         XchangeFile outputFile = null;
         XchangeFile responseFile = null;
+        // Files of a delivery that could not be stored, so a save that then fails doesn't name them.
+        IReadOnlyCollection<XchangeFileType> notStored = [];
         WorkGroup workGroup = null;
         var commands = Services.Metrics.DbCommandTally.Open("process");
         // The exchange and whether it has a result, in one query: they were two.
@@ -861,6 +863,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             else
                 await TryClearingRetryBudgetAfterSuccess(xchange);
             await KeepResultEventOnlyIfHeard(xchange, xchangeResult);
+            // Waited for last, so the writes overlap everything above.
+            if (xchange.HandlerId != null) notStored = await RecordFilesNotStored(xchange, xchangeResult);
             using (BitweenTelemetry.Stage("save"))
                 await dbContext.SaveChangesAsync();
             await AnnounceResult(message, xchangeResult, responseFile);
@@ -872,8 +876,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             // The files still being written are waited for here, so the failure names only those that
             // made it. A write that failed leaves its exchange out of this save, as a failed save does.
             var unwritten = await dbContext.Handoff.SettleAsync();
-            if (unwritten.Contains((xchange.Id, XchangeFileType.Output))) outputFile = null;
-            if (unwritten.Contains((xchange.Id, XchangeFileType.Response))) responseFile = null;
+            if (unwritten.Contains((xchange.Id, XchangeFileType.Output)) || notStored.Contains(XchangeFileType.Output)) outputFile = null;
+            if (unwritten.Contains((xchange.Id, XchangeFileType.Response)) || notStored.Contains(XchangeFileType.Response)) responseFile = null;
             DiscardUnsavedOutcome(xchange.Id, saveFailed: ex is DbUpdateException || unwritten.Count > 0);
             failure = ex;
             var xchangeResult = new XchangeResult(xchange.Id, workGroup, outputFile, responseFile,
@@ -916,6 +920,33 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     }
 
     /// <summary>
+    /// Waits for the output and response writes of an exchange whose handler has delivered, and
+    /// records each that failed as a missing file with a warning on the result, which stays a success.
+    /// Returns the files that failed.
+    /// </summary>
+    /// <remarks>
+    /// The delivery is the fact that matters: the partner has the document. Failing the result for a
+    /// file Bitween couldn't keep would have its retry deliver the same document a second time. The
+    /// other writes of this unit of work, such as the input of an exchange the response starts, are
+    /// still waited for by the save, which they fail as before.
+    /// </remarks>
+    private async Task<IReadOnlyCollection<XchangeFileType>> RecordFilesNotStored(Xchange xchange, XchangeResult result)
+    {
+        var failed = await dbContext.Handoff.SettleAsync(xchange.Id, XchangeFileType.Output, XchangeFileType.Response);
+        foreach (var (type, ex) in failed.OrderBy(f => f.Key))
+        {
+            var reason = ex.GetBaseException().Message;
+            result.FileNotStored(type, reason);
+            logger.LogWarning(
+                "Xchange {XchangeId} was delivered, but its {FileType} file could not be stored at {Key}: {Reason} " +
+                "The result is saved as successful without the file, and nothing is retried.",
+                xchange.Id, type, FileKey(xchange, type), reason);
+        }
+
+        return failed.Keys.ToList();
+    }
+
+    /// <summary>
     /// Tells the synchronous call waiting for this result, if one is, that it is saved: by ringing the
     /// bell when the call is on this node, by a broadcast to every node otherwise. Never throws: the
     /// result is saved, and a call that isn't told finds it by its backstop poll. The response goes
@@ -927,8 +958,10 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         try
         {
             var ready = XchangeResultReady.From(result, message.AwaitedOn);
-            // Only what the result names: a response whose write failed isn't on it.
-            var response = result.ResponseSize > 0 ? responseFile?.Data : null;
+            // The handler's response, stored or not: a failed exchange's response whose write failed
+            // is dropped before it gets here, and a delivered one whose file couldn't be stored is
+            // still the partner's answer. An empty one is no response.
+            var response = responseFile?.Data is { Length: > 0 } data ? data : null;
             var signals = serviceProvider.GetService<ResultSignals>();
             if (signals?.Node == message.AwaitedOn)
             {

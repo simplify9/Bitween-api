@@ -2463,6 +2463,10 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<bool>("Success")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<string>("Warning")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("RetryGroupId");

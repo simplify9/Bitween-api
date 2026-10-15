@@ -74,6 +74,33 @@ public sealed class XchangeHandoff
         return failed;
     }
 
+    /// <summary>
+    /// Waits for the writes of one exchange's <paramref name="types"/> files without throwing, forgets
+    /// them, and says why each that failed did. The other writes are left for the save to wait for:
+    /// for a result whose delivery has happened, where a file that couldn't be stored is recorded as
+    /// missing rather than failing the save.
+    /// </summary>
+    public async Task<IReadOnlyDictionary<XchangeFileType, Exception>> SettleAsync(string xchangeId,
+        params XchangeFileType[] types)
+    {
+        var mine = writes.Where(w => w.XchangeId == xchangeId && types.Contains(w.Type)).ToArray();
+        writes.RemoveAll(w => mine.Contains(w));
+        var failed = new Dictionary<XchangeFileType, Exception>();
+        foreach (var (_, type, write) in mine)
+        {
+            try
+            {
+                await write;
+            }
+            catch (Exception ex)
+            {
+                failed[type] = ex;
+            }
+        }
+
+        return failed;
+    }
+
     /// <summary>The input of a new exchange, as written to storage, for its created message to carry.</summary>
     public void Carry(string xchangeId, string input) => inputs[xchangeId] = input;
 

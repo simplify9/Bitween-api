@@ -20,6 +20,19 @@ export function StatusBadge({ status }: { status: ExchangeStatus }) {
   return <Badge tone={tone}>{STATUS_LABELS[status]}</Badge>;
 }
 
+/**
+ * Beside the status of an exchange with a warning: delivered, while a file of it could not be
+ * stored. The whole warning is on hover; the drawer spells it out.
+ */
+export function WarningBadge({ warning }: { warning: string | null }) {
+  if (!warning) return null;
+  return (
+    <Badge tone="warn" title={warning}>
+      File not stored
+    </Badge>
+  );
+}
+
 // --- The pipeline journey ---
 
 export type StageState = "done" | "bad" | "failed" | "skipped" | "running" | "notReached";

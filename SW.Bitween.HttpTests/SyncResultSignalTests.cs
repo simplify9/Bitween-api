@@ -102,7 +102,7 @@ public class SyncResultSignalTests(HttpFixture fixture)
     }
 
     /// <summary>A partner on the loopback address that answers every post with its body.</summary>
-    private sealed class EchoPartner : IDisposable
+    internal sealed class EchoPartner : IDisposable
     {
         private readonly System.Net.HttpListener listener = new();
 

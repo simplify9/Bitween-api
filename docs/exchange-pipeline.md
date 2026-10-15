@@ -132,7 +132,13 @@ Bitween saves the result.
 
 Retry evaluation can never cost the result. If evaluation itself fails, the error is logged and the result is still saved.
 
-The output and response files are written while the handler runs and the result is prepared, and the result is saved only once storage has them. When a write fails the exchange fails, and the failure result names only the files that were written.
+The output and response files are written while the handler runs and the result is prepared, and the result is saved only once their writes have finished. What a failed write does depends on whether the handler delivered:
+
+- **The handler delivered** and the output write, the response write or both failed: the result is saved as a success, because the partner has the document. The file is recorded as missing: it has no size, name or hash, so the exchange list, the drawer, the export and the archive show no file for it and no link is made to it. The result carries a warning, one line per file, such as `Delivered; the output file could not be stored: <reason>`, and the worker logs it at Warning level with the exchange id and the storage key. Nothing is retried and no retry budget is touched; success notifications send, and auto-pause counts it as a success. A sync gateway call is answered with the response the result signal carries when it is under the size cap; when it is not, and the response file is missing, the call gets 200 with the exchange id, as a delivery with no response does.
+- **The handler failed**: the exchange fails as any failed delivery does, and the failure result names only the files that were written.
+- **No handler ran**: nothing was delivered, so a failed write fails the exchange.
+
+The input is written when the exchange is created, before anything is delivered, and a failed input write still fails the request that created it.
 
 When a [sync gateway call](entry-points.md#async-and-sync) waits for the exchange, the worker tells it as soon as the result is saved, on success and on failure. On the node holding the call it does so directly; otherwise it broadcasts to every node, and the one holding the call takes it. The signal carries what the answer needs, including the response when it is no larger than `Bitween:MessagePayloadMaxBytes` (always, on the same node), so a successful call is answered without reading the database or storage.
 

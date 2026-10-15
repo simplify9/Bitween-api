@@ -11,7 +11,7 @@ import { clickableRow, clickableRowClass } from "../../components/ui/clickableRo
 import { duration, formatDateTime, timeAgo, timeUntil } from "../../lib/dates";
 import { hasRetryChain, retryTreeQuery } from "./retryTree";
 import { journeyStages, journeySummary } from "./journey";
-import { JourneyStrip, StatusBadge } from "./shared";
+import { JourneyStrip, StatusBadge, WarningBadge } from "./shared";
 
 /**
  * Where an exchange got to: the three-segment strip and the phrase under it. While a stage is
@@ -78,6 +78,7 @@ export function ExchangeList({
 
   const markers = (x: ExchangeRow) => (
     <>
+      <WarningBadge warning={x.warning} />
       {x.retryFor && <Badge tone="neutral">Retry</Badge>}
       {x.scheduledRetryOn && <Badge tone="warn">Auto-retry {timeUntil(x.scheduledRetryOn)}</Badge>}
       {x.aggregationXchangeId && <Badge tone="neutral">Aggregated</Badge>}

@@ -1435,6 +1435,11 @@ export interface ExchangeRow {
   /** A pending auto-retry, when the retry policy scheduled one. */
   scheduledRetryOn: string | null;
   exception: string | null;
+  /**
+   * Something to know about a successful exchange: a delivery that went through while its output
+   * or response file could not be stored, one line per file. null for nothing.
+   */
+  warning: string | null;
   promotedProperties: Record<string, string | null> | null;
   /**
    * The exchange whose delivery's response started this one. Only a response or bus gateway

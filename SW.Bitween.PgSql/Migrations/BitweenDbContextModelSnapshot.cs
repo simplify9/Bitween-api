@@ -3002,6 +3002,11 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("success");
 
+                    b.Property<string>("Warning")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("warning");
+
                     b.HasKey("Id")
                         .HasName("pk_xchange_result");
 

@@ -21,12 +21,22 @@ export const STATUS_LABELS: Record<ExchangeStatus, string> = {
   failed: "Failed",
 };
 
+/**
+ * Whether the delivery went through but the stage's file could not be stored, as the result's
+ * warning says. The stage happened; only its document is missing.
+ */
+export function fileNotStored(x: Pick<ExchangeRow, "warning">, file: "output" | "response"): boolean {
+  return !!x.warning?.includes(`the ${file} file could not be stored`);
+}
+
 /** Derives what happened at each pipeline stage from the row's fields. */
 export function journeyStages(x: ExchangeRow): JourneyStage[] {
   const mapped: Omit<JourneyStage, "label"> = x.mapperSkipped
     ? { key: "Mapped", state: "skipped", note: "No mapper configured" }
     : x.files.mapped
       ? { key: "Mapped", state: "done" }
+      : fileNotStored(x, "output")
+        ? { key: "Mapped", state: "done", note: "Mapped and delivered; the file could not be stored" }
       : x.status === "processing"
         ? { key: "Mapped", state: "running", note: "Mapping now" }
         : x.status === "failed"
@@ -41,7 +51,9 @@ export function journeyStages(x: ExchangeRow): JourneyStage[] {
       mapped.state === "running"
       ? { key: "Handled", state: "notReached", note: "Not reached yet" }
       : x.status === "success"
-      ? { key: "Handled", state: "done" }
+      ? fileNotStored(x, "response")
+        ? { key: "Handled", state: "done", note: "Delivered; the response file could not be stored" }
+        : { key: "Handled", state: "done" }
       : x.status === "badResponse"
         ? { key: "Handled", state: "bad", note: "Delivered, but the response reports an error" }
         : x.status === "failed"
