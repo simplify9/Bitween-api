@@ -1525,4 +1525,41 @@ public class RetryPolicyTests(BitweenFixture fixture)
         Assert.True(released.On <= DateTime.UtcNow);
         Assert.True((await db.Set<DelayedRetry>().AsNoTracking().SingleAsync(r => r.Id == othersHeld.Id)).Held);
     }
+
+    /// <summary>
+    /// What the success-time release missed, the retry job's sweep frees: a held retry whose
+    /// subscription has no spent budget left goes, one whose budget is still spent stays.
+    /// </summary>
+    [Fact]
+    public async Task The_sweep_releases_held_retries_only_where_the_budget_is_no_longer_spent()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+
+        var doc = new Document(null, "Sweep Doc", DocumentFormat.Json);
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+        var free = new Subscription("Sweep Free Sub", doc.Id);
+        var spent = new Subscription("Sweep Spent Sub", doc.Id);
+        db.Set<Subscription>().AddRange(free, spent);
+        await db.SaveChangesAsync();
+
+        var freeHeld = new Xchange(free, new XchangeFile("{}"));
+        var spentHeld = new Xchange(spent, new XchangeFile("{}"));
+        db.Set<Xchange>().AddRange(freeHeld, spentHeld);
+        db.Set<DelayedRetry>().AddRange(
+            new DelayedRetry { Id = freeHeld.Id, On = DelayedRetry.HeldOn },
+            new DelayedRetry { Id = spentHeld.Id, On = DelayedRetry.HeldOn });
+        db.Set<RetryGroupUsage>().Add(new RetryGroupUsage
+        {
+            SubscriptionId = spent.Id, GroupId = Guid.NewGuid(), AttemptsUsed = 1,
+            LastAttemptOn = DateTime.UtcNow, ExhaustedNotifiedOn = DateTime.UtcNow
+        });
+        await db.SaveChangesAsync();
+
+        Assert.True(await DelayedRetry.ReleaseHeldWithBudgetAsync(db) >= 1);
+
+        Assert.False((await db.Set<DelayedRetry>().AsNoTracking().SingleAsync(r => r.Id == freeHeld.Id)).Held);
+        Assert.True((await db.Set<DelayedRetry>().AsNoTracking().SingleAsync(r => r.Id == spentHeld.Id)).Held);
+    }
 }

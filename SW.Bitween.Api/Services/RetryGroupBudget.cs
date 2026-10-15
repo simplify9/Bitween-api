@@ -107,6 +107,12 @@ public class RetryGroupBudget(
     /// </remarks>
     /// <returns>How many group budgets were released.</returns>
     public async Task<int> ReleaseExhaustedBudgets(DateTime succeededFrom)
+        => await ReleaseExhaustedBudgetsCore(succeededFrom);
+
+    /// <summary>How many held retries the last <see cref="ReleaseExhaustedBudgets"/> made due.</summary>
+    public int HeldReleased { get; private set; }
+
+    private async Task<int> ReleaseExhaustedBudgetsCore(DateTime succeededFrom)
     {
         // Cheapest question first, and for almost every success the answer ends it here: a
         // subscription that has never spent a retry has no row, and must not pay for a policy load
@@ -142,7 +148,7 @@ public class RetryGroupBudget(
 
         // What a group set to hold kept while its total was spent goes now, the downstream having
         // just shown it's back.
-        if (released > 0) await DelayedRetry.ReleaseHeldAsync(dbContext, [subscriptionId]);
+        if (released > 0) HeldReleased = await DelayedRetry.ReleaseHeldAsync(dbContext, [subscriptionId]);
         return released;
     }
 

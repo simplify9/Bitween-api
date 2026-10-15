@@ -33,6 +33,18 @@ public class RetryJob(BitweenDbContext dbContext, XchangeService xchangeService,
         // tick, otherwise a fast-failing subscription could keep this run going indefinitely.
         var due = DateTime.UtcNow;
 
+        // Before the due ones are read, so what this frees runs in this pass.
+        try
+        {
+            var released = await DelayedRetry.ReleaseHeldWithBudgetAsync(dbContext);
+            if (released > 0)
+                logger.LogInformation("Released {Count} held retries whose retry budget is no longer spent.", released);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not release held retries; trying again next pass.");
+        }
+
         while (true)
         {
             var ready = await dbContext.Set<DelayedRetry>()

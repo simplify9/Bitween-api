@@ -1218,8 +1218,12 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         {
             // The exchange's own start time is the watermark: anything charged after this run began
             // belongs to a failure this success knows nothing about, and is left where it is.
-            await new RetryGroupBudget(dbContext, serviceProvider, xchange.SubscriptionId.Value)
-                .ReleaseExhaustedBudgets(xchange.StartedOn);
+            var budget = new RetryGroupBudget(dbContext, serviceProvider, xchange.SubscriptionId.Value);
+            var lifted = await budget.ReleaseExhaustedBudgets(xchange.StartedOn);
+            if (lifted > 0)
+                logger.LogInformation(
+                    "Subscription {SubscriptionId} succeeded again: its spent retry budget is lifted, and {Held} held retries released.",
+                    xchange.SubscriptionId.Value, budget.HeldReleased);
         }
         catch (Exception ex)
         {
@@ -1291,8 +1295,12 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                     BitweenSettings.MaxRetryAfterSeconds)
             });
         else if (decision.Held)
+        {
             // Kept, not dropped: released when the subscription next succeeds. See RetryExhaustedAction.Hold.
             dbContext.Add(new DelayedRetry { Id = xchange.Id, On = DelayedRetry.HeldOn });
+            logger.LogInformation("Exchange {XchangeId} of subscription {SubscriptionId} is held: {Reason}",
+                xchange.Id, xchange.SubscriptionId, decision.Reason);
+        }
         else
             // A policy applied but refused. Recorded so an exhausted budget is distinguishable
             // from an error no group was ever configured to catch.
@@ -1301,6 +1309,11 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         // Raised on the result rather than published here, so the alert only reaches the bus once
         // this failure is committed. Its own event type means its own queue and its own consumer,
         // keeping a slow alert handler away from the ordinary notifier path.
+        if (decision.BudgetJustExhausted)
+            logger.LogWarning(
+                "Retry group {Group} of subscription {SubscriptionId} has spent its total of {Total} retries; until it next succeeds, failures are {Then}.",
+                decision.MatchedGroup!.Name, xchange.SubscriptionId, decision.MatchedGroup.Budget!.MaxAttemptsTotal,
+                decision.Held ? "held" : "final");
         if (decision.BudgetJustExhausted)
             xchangeResult.RaiseBudgetExhausted(
                 xchange.SubscriptionId.Value,

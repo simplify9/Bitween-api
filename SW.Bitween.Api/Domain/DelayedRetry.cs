@@ -35,6 +35,24 @@ public class DelayedRetry : BaseEntity<string>
     }
 
     /// <summary>
+    /// Makes due every held retry whose subscription has no spent budget left: whatever lifted it.
+    /// The release that rides on a success can miss: a success that started before the last charge
+    /// leaves the budget spent, and a failure a moment later can hold more after the budget is lifted.
+    /// The retry job calls this every pass, so nothing stays held past a minute once the budget is free.
+    /// A spent budget is one whose exhaustion was claimed (<see cref="RetryGroupUsage.ExhaustedNotifiedOn"/>).
+    /// </summary>
+    /// <returns>How many were released.</returns>
+    public static Task<int> ReleaseHeldWithBudgetAsync(BitweenDbContext dbContext)
+    {
+        var now = DateTime.UtcNow;
+        return dbContext.Set<DelayedRetry>()
+            .Where(r => r.On >= HeldOn && dbContext.Set<Xchange>()
+                .Any(x => x.Id == r.Id && x.SubscriptionId != null && !dbContext.Set<RetryGroupUsage>()
+                    .Any(u => u.SubscriptionId == x.SubscriptionId && u.ExhaustedNotifiedOn != null)))
+            .ExecuteUpdateAsync(set => set.SetProperty(r => r.On, now));
+    }
+
+    /// <summary>
     /// How many times running this retry has failed. A failure is rescheduled, not dropped - a
     /// database blip used to delete the retry for good - up to <see cref="RetryJob.MaxRunFailures"/>.
     /// </summary>
