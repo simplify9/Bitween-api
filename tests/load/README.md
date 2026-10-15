@@ -102,6 +102,16 @@ harness at the same `RATE` and `DURATION`:
 | Payload parses per exchange, rules mapper and plain URL | 2 |
 | Payload parses per exchange, Scriban mapper and templated URL | 2 |
 
+With a mapper and a larger order, at `RATE=20 DURATION=60s WARMUP=15s METRICS=1` on a Colima VM
+with 4 CPUs and 8 GB:
+
+| `PAYLOAD_KB=100` | `MAPPER=rules` | `MAPPER=scriban` |
+|---|---|---|
+| CPU per exchange | 26.2 ms | 27.0 ms |
+| Allocated per exchange | 7.5 MB | 5.5 MB |
+| Sync p95 | 21.5 ms | 26.6 ms |
+| Payload parses per exchange | 2 | 3 |
+
 A run that reads higher than these on the same build has regressed. `pg_stat_statements` lists
 the statements behind the command count.
 
