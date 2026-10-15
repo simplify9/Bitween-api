@@ -63,15 +63,25 @@ public class UsePasswordLink(BitweenDbContext dbContext, SignInThrottle throttle
     {
         var (link, account) = await PasswordLinks.FindAsync(dbContext, request.Token);
 
-        account.SetPassword(request.Password);
-        // Locked out after wrong guesses is usually why someone resets; the new password is the way back in.
-        account.Unlock();
-        throttle.ClearAccount(account.Id);
-        await dbContext.SaveChangesAsync();
+        await using (var transaction = await dbContext.Database.BeginTransactionAsync())
+        {
+            // Spent first, and only once: of two requests with the same link at the same moment, one
+            // deletes it and the other finds nothing to delete, rather than both setting a password.
+            if (await dbContext.Set<AccountLink>().Where(l => l.Id == link.Id).ExecuteDeleteAsync() == 0)
+                throw new SWValidationException("LINK_INVALID", PasswordLinks.Invalid);
 
-        await dbContext.Set<AccountLink>().Where(l => l.AccountId == account.Id).ExecuteDeleteAsync();
-        // A session opened with the old password outlives the change unless its refresh tokens go.
-        await dbContext.Set<RefreshToken>().Where(t => t.AccountId == account.Id).ExecuteDeleteAsync();
+            account.SetPassword(request.Password);
+            // Locked out after wrong guesses is usually why someone resets; the new password is the way back in.
+            account.Unlock();
+            await dbContext.SaveChangesAsync();
+
+            await dbContext.Set<AccountLink>().Where(l => l.AccountId == account.Id).ExecuteDeleteAsync();
+            // A session opened with the old password outlives the change unless its refresh tokens go.
+            await dbContext.Set<RefreshToken>().Where(t => t.AccountId == account.Id).ExecuteDeleteAsync();
+            await transaction.CommitAsync();
+        }
+
+        throttle.ClearAccount(account.Id);
 
         // An invite is the member choosing their first password: nothing to warn them about.
         if (link.Purpose == AccountLinkPurpose.PasswordReset)

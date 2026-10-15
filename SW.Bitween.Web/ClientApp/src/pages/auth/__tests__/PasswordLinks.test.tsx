@@ -95,6 +95,26 @@ describe("a password link", () => {
     expect(calls).toBe(0);
   });
 
+  it("that can't be checked right now says so, and offers to try again rather than a new link", async () => {
+    let calls = 0;
+    const { user } = renderApp("/set-password?token=t0k3n", {
+      as: null,
+      handlers: [
+        http.post(apiPath("/accounts/passwordLink"), () => {
+          calls++;
+          return calls === 1
+            ? HttpResponse.json({ type: "error", title: "Service unavailable", status: 503 }, { status: 503 })
+            : HttpResponse.json({ purpose: "Invite", name: "Jane", email: "jane@acme.test", expiresOn: "2026-10-17T10:00:00Z" });
+        }),
+      ],
+    });
+
+    expect(await screen.findByRole("heading", { name: "Couldn't check your link" })).toBeVisible();
+    expect(screen.queryByText(/expired or has already been used/)).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("heading", { name: "Welcome, Jane" })).toBeVisible();
+  });
+
   it("that was used or has expired says so, and where to get a new one", async () => {
     renderApp("/set-password?token=spent", {
       as: null,

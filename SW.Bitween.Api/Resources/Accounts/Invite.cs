@@ -57,13 +57,21 @@ public class Invite(BitweenDbContext dbContext, RequestContext requestContext, B
                 $"{account.DisplayName} already has a password. Set a new one for them, " +
                 "or have them use Forgot password on the sign-in page.");
 
-        // Only the newest invite works, so a resend makes any earlier email useless.
-        await dbContext.Set<AccountLink>()
-            .Where(l => l.AccountId == key && l.Purpose == AccountLinkPurpose.Invite)
-            .ExecuteDeleteAsync();
-
         var now = DateTime.UtcNow;
         var (link, token) = AccountLink.Issue(key, AccountLinkPurpose.Invite, now);
+
+        // Only the newest invite works, so a resend makes any earlier email useless. The old link goes
+        // and the new one is stored as one change, committed before anything is sent: an email is
+        // never sent for a link that wasn't saved, and a failed save leaves the old link working.
+        await using (var transaction = await dbContext.Database.BeginTransactionAsync())
+        {
+            await dbContext.Set<AccountLink>()
+                .Where(l => l.AccountId == key && l.Purpose == AccountLinkPurpose.Invite)
+                .ExecuteDeleteAsync();
+            dbContext.Add(link);
+            await dbContext.SaveChangesAsync();
+            await transaction.CommitAsync();
+        }
 
         string error = null;
         if (mail.CanSend)
@@ -71,10 +79,8 @@ public class Invite(BitweenDbContext dbContext, RequestContext requestContext, B
             error = await mail.SendAsync(account.Email, AccountEmails.Invite(inviter, account.Email, linkBase, token));
             if (error is null) link.Emailed(now);
             else link.NotEmailed(error);
+            await dbContext.SaveChangesAsync();
         }
-
-        dbContext.Add(link);
-        await dbContext.SaveChangesAsync();
 
         var emailed = mail.CanSend && error is null;
         return new InviteResultModel

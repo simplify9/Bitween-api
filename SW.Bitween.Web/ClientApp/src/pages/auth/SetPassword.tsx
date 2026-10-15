@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { api, getAppConfig } from "../../api";
+import { api, ApiRequestError, getAppConfig } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { Button, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Field, PasswordInput } from "../../components/ui/forms";
@@ -57,6 +57,21 @@ export function SetPasswordPage() {
     return (
       <AuthLayout>
         <LoadingBlock label="Checking your link…" />
+      </AuthLayout>
+    );
+  }
+
+  // Only the server saying the link is spent means it is. A network error or a busy server says
+  // nothing about the link, and sending someone off to ask for a new one would be wrong.
+  const spent = link.error instanceof ApiRequestError && link.error.code === "LINK_INVALID";
+  if (token && link.isError && !spent) {
+    return (
+      <AuthLayout>
+        <h1 className="text-xl font-semibold tracking-tight text-ink-900">Couldn&apos;t check your link</h1>
+        <FormError>{link.error.message}</FormError>
+        <Button className="mt-4" busy={link.isFetching} onClick={() => void link.refetch()}>
+          Try again
+        </Button>
       </AuthLayout>
     );
   }

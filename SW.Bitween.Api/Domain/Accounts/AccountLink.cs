@@ -10,8 +10,8 @@ namespace SW.Bitween.Domain.Accounts;
 /// </summary>
 /// <remarks>
 /// Only a hash is kept, as for service tokens: the link itself is in the email, and whoever reads
-/// this table can't use it. Issuing a new one for the same purpose replaces the old one, so a
-/// forwarded or resent email leaves at most one link working.
+/// this table can't use it. A new invite replaces the old one; reset links each last their hour.
+/// Using any link ends every link the member has.
 /// </remarks>
 public class AccountLink : BaseEntity, IHasCreationTime
 {

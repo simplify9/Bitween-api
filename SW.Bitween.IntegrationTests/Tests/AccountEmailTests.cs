@@ -160,6 +160,43 @@ public class AccountEmailTests(BitweenFixture fixture)
     }
 
     [Fact]
+    public async Task A_link_used_twice_at_once_sets_one_password()
+    {
+        int member;
+        string token;
+        await using (var scope = fixture.CreateScope())
+        {
+            member = await Account(scope, Address("twice"), SecurePasswordHasher.Hash("Forgotten-pass-1"));
+            (var link, token) = AccountLink.Issue(member, AccountLinkPurpose.PasswordReset, DateTime.UtcNow);
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            db.Add(link);
+            await db.SaveChangesAsync();
+        }
+
+        // Each on a request of its own, as two clicks of the same button would be.
+        async Task<bool> Use(string password)
+        {
+            await using var scope = fixture.CreateScope();
+            try
+            {
+                await Handler<UsePasswordLink>(scope).Handle(new UsePasswordLinkModel { Token = token, Password = password });
+                return true;
+            }
+            catch (SWValidationException)
+            {
+                return false;
+            }
+        }
+
+        var results = await Task.WhenAll(Use("First-choice-1"), Use("Second-choice-2"));
+
+        Assert.Single(results, worked => worked);
+        await using var check = fixture.CreateScope();
+        var stored = (await Read(check, member)).Password;
+        Assert.True(SecurePasswordHasher.Verify(results[0] ? "First-choice-1" : "Second-choice-2", stored));
+    }
+
+    [Fact]
     public async Task An_expired_link_is_refused()
     {
         await using var scope = fixture.CreateScope();

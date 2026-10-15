@@ -218,7 +218,8 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
 
         <div className="flex justify-end gap-2">
           <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="primary" busy={create.isPending}>
+          {/* Waits for the instance's settings: whether passwords and mail are on decides what is sent. */}
+          <Button type="submit" variant="primary" busy={create.isPending} disabled={!appConfig.data}>
             {!passwordsOff && mode === "invite" ? (mailOn ? "Add and email invite" : "Add and make invite link") : "Add member"}
           </Button>
         </div>
