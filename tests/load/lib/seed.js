@@ -1,9 +1,51 @@
 // Creates, through Bitween's admin API, what the sync load test calls: an information type, a
 // partner with a key, a gateway subscription whose handler is the native HTTP handler pointed at
-// the partner endpoint (no mapper, no notifications), and an API gateway with the partner
-// attached by key. Every name carries a run id, so seeding again creates a fresh set beside the
-// old one instead of failing on a name that is taken.
+// the partner endpoint (no mapper unless MAPPER says, no notifications), and an API gateway with
+// the partner attached by key. Every name carries a run id, so seeding again creates a fresh set
+// beside the old one instead of failing on a name that is taken.
+//
+// MAPPER: unset for none; "rules" for the rules-based mapper (NativeMapper) mapping the header and
+// every line; "scriban" for the Scriban mapper (NativeJSONMapper) mapping the header, the line
+// count and the first line. Finding 6 measures both against large payloads; a Scriban loop stops
+// at 1000 iterations, so its template does not walk the lines.
 import http from 'k6/http';
+
+const path = (p) => ({ kind: 'Path', path: p });
+
+const mappers = {
+  rules: {
+    mapperId: 'NativeMapper',
+    mapperProperties: [{
+      key: 'MappingRules',
+      value: JSON.stringify({
+        sourceFormat: 'json',
+        targetFormat: 'json',
+        fields: [
+          { target: ['reference'], from: path('orderId') },
+          { target: ['customer'], from: path('customer') },
+          { target: ['total'], from: path('total'), type: 'Number' },
+          { target: ['createdOn'], from: path('createdOn') },
+        ],
+        lists: [{
+          over: 'lines', as: 'line', target: ['lines'],
+          fields: [
+            { target: ['sku'], from: path('sku') },
+            { target: ['quantity'], from: path('qty'), type: 'Number' },
+            { target: ['unitPrice'], from: path('price'), type: 'Number' },
+          ],
+        }],
+      }),
+    }],
+  },
+  scriban: {
+    mapperId: 'NativeJSONMapper',
+    mapperProperties: [{
+      key: 'ScribanTemplate',
+      value: '{ "reference": {{ orderId | json }}, "customer": {{ customer | json }}, "total": {{ total | json }}, ' +
+        '"createdOn": {{ createdOn | json }}, "lineCount": {{ lines | array.size }}, "first": {{ lines[0] | json }} }',
+    }],
+  },
+};
 
 const json = { 'Content-Type': 'application/json' };
 
@@ -36,7 +78,8 @@ function adminToken(base, email, password) {
   return second.jwt;
 }
 
-export function seed({ base, email, password, partnerUrl, runId }) {
+export function seed({ base, email, password, partnerUrl, runId, mapper }) {
+  if (mapper && !mappers[mapper]) throw new Error(`MAPPER=${mapper}: use rules, scriban, or leave it unset`);
   const id = runId || `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
   const headers = { ...json, Authorization: `Bearer ${adminToken(base, email, password)}` };
   const post = (what, path, body) => ok(what, http.post(`${base}${path}`, JSON.stringify(body), { headers }));
@@ -63,6 +106,7 @@ export function seed({ base, email, password, partnerUrl, runId }) {
     documentId,
     type: 'GatewayApiCall',
     inactive: false,
+    ...(mapper ? mappers[mapper] : {}),
     handlerId: 'NativeHttpHandler',
     handlerProperties: [
       { key: 'Url', value: partnerUrl },

@@ -51,7 +51,9 @@ The cost of one sync gateway call, native handler, success, before and after:
 
 ### 6. The payload is parsed several times
 
-- **Status:** decided 2026-10-14 (6a, 6b, 6c with safeguards; 6d deferred), to be implemented in a separate session. Remove once shipped.
+- **Status:** decided 2026-10-14 (6a, 6b, 6c with safeguards; 6d deferred). Phases 6.0 to 6.4
+  implemented and committed locally on `releases/r10.0-develop` 2026-10-14, not pushed; 6.5
+  measured in part (see "Implemented" below). Remove once shipped.
 - **Where:** `FilterService` and the payload readers, `DocumentSchema`, `XchangeService.RunMapper`
   (enrichment), `NativeAdapters/Mapper` (`NativeMapper`, `JsonFormat`, `XmlFormat`),
   `NativeAdapters/JsonMapper/ScribanJsonHelper`, `NativeAdapters/HttpHandler/NativeHttpHandler`
@@ -175,6 +177,68 @@ The cost of one sync gateway call, native handler, success, before and after:
 
   Out of scope: 6d (partner and global values as Scriban variables), 6e (System.Text.Json),
   the DotLiquid URL template cache, anything that changes a stored value or an adapter's input.
+
+- **Implemented (2026-10-14), committed locally, not pushed.** `d3cff002` (6.0), `88f37e1b` (6.1),
+  `93b835c9` (6.2), `f10e580b` (6.3), `d3953379` (6.4). Harness and docs for 6.5 are in the working
+  tree, uncommitted until the HTTP and integration suites have run on the final state.
+
+  Golden corpus: 43 inputs (JSON numbers, dates, unicode and escapes, shapes, duplicate keys,
+  trailing whitespace and content, a BOM, comments, single quotes, NaN, depth 70, empty and
+  invalid; XML with entities, invalid characters, namespaces, CDATA, HTML-encoded, a DTD, a BOM,
+  trailing content) through twelve consumers, in `SW.Bitween.UnitTests/PayloadParsing/Golden`.
+  Green with both switches on and off, in all four combinations; a test holds that no consumer
+  changes a shared tree.
+
+  Payload parses per sync gateway call (`ExchangeParseCountTests`, creation plus processing):
+
+  | Path | Before | After, switches on | After, `SharedPayloadParse=false` |
+  |---|---|---|---|
+  | Rules mapper, plain URL | 2 | 2 | 2 |
+  | Rules mapper, plain URL, schema | 4 | 3 | 4 |
+  | Scriban mapper, templated URL, enriched object | 5 | 5 | 5 |
+  | Scriban mapper, templated URL, enriched object, schema | 7 | 5 | 7 |
+  | Scriban mapper on a root array (not enriched) | 4 | 3 | 4 |
+  | Scriban mapper on a root array, schema | 6 | 3 | 6 |
+  | FTP file name or SMTP fill (`FillIfJson`) | 2 | 1 | 1 (6b has no switch) |
+
+  Measured on the harness, 20/s for 60 s after a 15 s warm-up, one node on Colima (4 CPUs), per
+  exchange from the runtime's own counters (`METRICS=1`). Only the clean pairs are given; the
+  others were spoiled by the machine and are listed as such.
+
+  | Payload, mapper | CPU before | CPU after | Allocated before | Allocated after | p95 before | p95 after |
+  |---|---|---|---|---|---|---|
+  | 1 MB, Scriban | 73.8 ms | 66.0 ms | 64.3 MB | 49.0 MB | 88 ms | 74 ms |
+  | 100 KB, Scriban | 23.4 ms | 45.0 ms (stalled run) | 7.51 MB | 7.42 MB | 21 ms | 4987 ms (stalled run) |
+  | 1 MB, rules | 77.9 ms | not measured | 66.4 MB | not measured | 76 ms | not measured |
+  | 100 KB, rules | not measured | 26.4 ms | not measured | 7.02 MB | not measured | 25 ms |
+
+  The 1 MB Scriban pair is the one result to rely on: one parse of the payload fewer is about
+  15 MB less allocated per exchange and 11% less CPU. The 100 KB Scriban "after" run stalled for
+  reasons outside Bitween (a Kubernetes control plane of another project shares the VM); its CPU
+  and latency say nothing about the change. The rules runs that are missing collapsed in k6 (each
+  virtual user built the 1 MB order itself, since fixed with a `SharedArray`) or on a cold first
+  run. A second round was abandoned when the machine went to sleep mid-run. Owed: the full round
+  again on an awake, otherwise idle machine.
+
+- **What turned out different from the plan.**
+  - The rules path cannot go from 2 parses to 1: its two parses are the two profiles (defaults at
+    creation for promoted properties, exact in the mapper), and nothing else on that path reads
+    either. It drops only when a schema is checked (4 to 3).
+  - The Scriban path does not go from 6 to 2. Row 4 (`LooksLikeJson`) is not on the mapper's path
+    at all, it is the FTP and SMTP fill, so the baseline was 5 (7 with a schema). The Scriban model
+    cannot use the enrichment's tree: the enriched text is parsed again today, so a partner or
+    global value that looks like a date reaches the template as a date (golden fixture
+    `json-dates.json`, `partnerSince`), which a copy of the tree would not do. The mapper's output
+    and the URL model read other text. So the enriched Scriban path stays at 5 and saves only the
+    schema parse; a payload that is not enriched saves the model parse.
+  - The HTTP handler's URL model keeps its own parse: its dictionary drops a later null where a
+    tree keeps it (fixture `json-duplicate-keys.json`, `price=1` in the URL), so building it from
+    the shared tree would change URLs.
+  - Sharing across creation and processing (one parse for an exchange created and run on the same
+    pod) was not built: it needs a process-wide store of trees for queued exchanges, which a
+    backlog of large payloads would turn into a memory problem. To decide if wanted.
+  - `Xchanges/Update` (the older ApiCall entry) checks the schema on one `request.ToString()` and
+    creates the exchange from another, so it does not share; left alone.
 
 
 

@@ -8,8 +8,10 @@
 #
 # Other settings (see sync.k6.js): WARMUP, MAX_VUS, P95_BUDGET_MS, P99_BUDGET_MS, ERROR_BUDGET,
 # WAIT_PERIOD. PRIME: sequential calls before the measured window (default 30).
-# NO_BUILD=1 skips rebuilding the Bitween image. PARTNER_DELAY_MS: the partner answers after
-# that many milliseconds (the slow-partner service) instead of at once.
+# NO_BUILD=1 skips rebuilding the Bitween image; BITWEEN_IMAGE runs another one. PARTNER_DELAY_MS:
+# the partner answers after that many milliseconds (the slow-partner service) instead of at once.
+# PAYLOAD_KB: the size of the order sent; MAPPER: rules or scriban (see lib/seed.js). METRICS=1:
+# Bitween's CPU time and allocated bytes per exchange, from its runtime counters via a collector.
 # Exit code: k6's (non-zero when a threshold failed), or 1 when the harness itself failed.
 set -euo pipefail
 
@@ -30,6 +32,24 @@ WARMUP="${WARMUP:-15s}"
 if [[ -n "${PARTNER_DELAY_MS:-}" ]]; then
   export PARTNER_URL="http://slow-partner:8080/orders"
 fi
+
+# Bitween's runtime counters through the collector: CPU seconds and allocated bytes so far.
+if [[ "${METRICS:-}" == 1 ]]; then
+  export COMPOSE_PROFILES=metrics OTEL_ENDPOINT="http://otel:4317"
+fi
+runtime_counters() {
+  curl -fsS "http://localhost:${OTEL_PROMETHEUS_PORT:-8889}/metrics" 2>/dev/null | python3 -c '
+import re, sys
+cpu = alloc = 0.0
+for line in sys.stdin:
+    if line.startswith("#"): continue
+    m = re.match(r"([a-zA-Z_:][a-zA-Z0-9_:]*)(\{[^}]*\})? ([0-9.e+-]+)", line)
+    if not m: continue
+    name, value = m.group(1), float(m.group(3))
+    if re.match(r"(dotnet_process_cpu_time|process_cpu_time)", name): cpu += value
+    elif re.match(r"(dotnet_gc_heap_allocated|dotnet_gc_heap_total_allocated|process_runtime_dotnet_gc_allocations_size)", name): alloc += value
+print(f"{cpu} {alloc}")'
+}
 
 log() { printf '\n\033[1m== %s\033[0m\n' "$*"; }
 die() { printf 'run.sh: %s\n' "$*" >&2; exit 1; }
@@ -95,8 +115,10 @@ since="$(psql_db -tA -v reset=1 -f - < "$here/stats.sql" | sed -n 's/^since=//p'
 echo "window starts $since"
 
 s3_before="$(s3_requests || true)"
+runtime_before=""
+[[ "${METRICS:-}" == 1 ]] && runtime_before="$(runtime_counters || true)"
 
-log "k6: ${RATE}/s for ${DURATION} after a ${WARMUP} warm-up${PARTNER_DELAY_MS:+, partner answering in ${PARTNER_DELAY_MS} ms}"
+log "k6: ${RATE}/s for ${DURATION} after a ${WARMUP} warm-up${PARTNER_DELAY_MS:+, partner answering in ${PARTNER_DELAY_MS} ms}${PAYLOAD_KB:+, ${PAYLOAD_KB} KB orders}${MAPPER:+, ${MAPPER} mapper}"
 set +e
 compose run --rm \
   -e RATE="$RATE" -e DURATION="$DURATION" -e WARMUP="$WARMUP" \
@@ -134,6 +156,33 @@ for kind in sorted(after):
 print(f"{'all':>8}: {total:>7}  {total / exchanges if exchanges else float('nan'):6.2f} per exchange ({exchanges} exchanges)")
 PY
 
+if [[ "${METRICS:-}" == 1 ]]; then
+  log "Bitween's runtime (CPU time and allocated bytes, System.Runtime meter)"
+  # Exported once a second: let the counters catch up with the last exchanges.
+  sleep 3
+  runtime_after="$(runtime_counters || true)"
+  python3 - "$runtime_before" "$runtime_after" "$window_exchanges" "$here/results/runtime.json" <<'PY'
+import json, sys
+before, after, exchanges, out = sys.argv[1].split(), sys.argv[2].split(), int(sys.argv[3] or 0), sys.argv[4]
+if len(before) != 2 or len(after) != 2 or float(after[1]) == 0:
+    print("not available: no runtime counters from the collector")
+    sys.exit(0)
+cpu = float(after[0]) - float(before[0])
+alloc = float(after[1]) - float(before[1])
+result = {
+    "exchanges": exchanges,
+    "cpuSeconds": cpu,
+    "allocatedBytes": alloc,
+    "cpuMsPerExchange": 1000 * cpu / exchanges if exchanges else None,
+    "allocatedMBPerExchange": alloc / exchanges / 1048576 if exchanges else None,
+}
+json.dump(result, open(out, "w"), indent=2)
+print(f"CPU {cpu:.1f} s, allocated {alloc / 1048576:.0f} MB over {exchanges} exchanges (warm-up included)")
+if exchanges:
+    print(f"  {result['cpuMsPerExchange']:.2f} ms CPU and {result['allocatedMBPerExchange']:.2f} MB allocated per exchange")
+PY
+fi
+
 log "Bitween's own count (infolink.exchange_stats.db_commands)"
 if [[ "$has_db_commands" == 1 ]]; then
   # Counted in memory and added to the hourly rows once a minute: wait for the run's exchanges.
@@ -146,6 +195,14 @@ if [[ "$has_db_commands" == 1 ]]; then
   psql_db -c "select sum(total) as exchanges, sum(db_commands) as db_commands,
       round(sum(db_commands)::numeric / nullif(sum(total), 0), 2) as \"db commands per exchange\"
     from infolink.exchange_stats where subscription_id = $subscription_id"
+  # Finding 6's count, in builds that have the column.
+  has_payload_parses="$(psql_db -tA -c "select count(*) from information_schema.columns
+    where table_schema = 'infolink' and table_name = 'exchange_stats' and column_name = 'payload_parses'")"
+  if [[ "$has_payload_parses" == 1 ]]; then
+    psql_db -c "select sum(payload_parses) as payload_parses,
+        round(sum(payload_parses)::numeric / nullif(sum(total), 0), 2) as \"payload parses per exchange\"
+      from infolink.exchange_stats where subscription_id = $subscription_id"
+  fi
 else
   echo "not available: infolink.exchange_stats has no db_commands column in this build"
 fi

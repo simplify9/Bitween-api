@@ -87,7 +87,8 @@ services:
       # local package folders, which do not exist inside the build), so the copy can carry an
       # ignore file that leaves it out.
       dockerfile: ${BITWEEN_DOCKERFILE:-Dockerfile}
-    image: bitween-load:local
+    # BITWEEN_IMAGE runs an image built elsewhere, such as a commit to compare against (NO_BUILD=1).
+    image: ${BITWEEN_IMAGE:-bitween-load:local}
     depends_on:
       postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }
@@ -119,6 +120,13 @@ services:
       Bitween__RateLimits__SignInPerMinute: "1000"
       # No calls out to the public adapter registry from a load test.
       Bitween__RegistryEnabled: "false"
+      # Finding 6's switches, on unless set; a build without them ignores them.
+      Bitween__SharedPayloadParse: "${SHARED_PAYLOAD_PARSE:-true}"
+      Bitween__CacheCompiledTemplates: "${CACHE_COMPILED_TEMPLATES:-true}"
+      # METRICS=1 points these at the collector, for CPU and allocated bytes per exchange. Empty, as
+      # by default, Bitween exports nothing.
+      OTEL_EXPORTER_OTLP_ENDPOINT: "${OTEL_ENDPOINT:-}"
+      OTEL_METRIC_EXPORT_INTERVAL: "1000"
     healthcheck:
       # The image has python3 (for adapters) but no curl.
       test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health/ready', timeout=4).status == 200 else 1)"]
@@ -126,6 +134,18 @@ services:
       timeout: 5s
       retries: 60
       start_period: 20s
+
+  # Bitween's runtime counters (CPU time, bytes allocated), received over OTLP and served for
+  # Prometheus on the host's port 8889. Started by run.sh only with METRICS=1 (profile "metrics").
+  # The counters it serves are the runtime's own (the System.Runtime meter).
+  otel:
+    image: ${OTEL_COLLECTOR_IMAGE:-otel/opentelemetry-collector-contrib:0.162.0}
+    profiles: ["metrics"]
+    command: ["--config=/etc/otel.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otel.yaml:ro
+    ports:
+      - "${OTEL_PROMETHEUS_PORT:-8889}:8889"
 
   # The load generator. Not started by "up"; run.sh starts it with "docker compose run".
   k6:
@@ -139,5 +159,7 @@ services:
     environment:
       BITWEEN_URL: "http://bitween:8080"
       PARTNER_URL: "${PARTNER_URL:-http://partner:8080/orders}"
+      PAYLOAD_KB: "${PAYLOAD_KB:-}"
+      MAPPER: "${MAPPER:-}"
       ADMIN_EMAIL: admin@Bitween.systems
       ADMIN_PASSWORD: *admin-password

@@ -13,11 +13,14 @@
 //   P99_BUDGET_MS   threshold on the measured p99 (default 5000)
 //   ERROR_BUDGET    threshold on the share of failed calls (default 0.01)
 //   WAIT_PERIOD     seconds Bitween may hold a sync call for the result (default 30)
+//   PAYLOAD_KB      size of the order sent, about (default: the small order, see lib/payload.js)
+//   MAPPER          rules or scriban when seeding here (default none, see lib/seed.js)
 import http from 'k6/http';
 import { check } from 'k6';
 import exec from 'k6/execution';
 import { Trend, Rate, Counter } from 'k6/metrics';
 import { seed } from './lib/seed.js';
+import { orderBody } from './lib/payload.js';
 
 const rate = Number(__ENV.RATE || 20);
 const duration = __ENV.DURATION || '2m';
@@ -82,15 +85,12 @@ export function setup() {
     password: __ENV.ADMIN_PASSWORD,
     partnerUrl: __ENV.PARTNER_URL || 'http://partner:8080/orders',
     runId: __ENV.RUN_ID,
+    mapper: __ENV.MAPPER,
   });
 }
 
 export default function (data) {
-  const body = JSON.stringify({
-    orderId: `${__VU}-${__ITER}`,
-    customer: 'C-1001',
-    lines: [{ sku: 'SKU-1', qty: 2, price: 12.5 }],
-  });
+  const body = orderBody(`${__VU}-${__ITER}`);
   const res = http.post(`${base}/api/gateway/${data.urlName}/sync`, body, {
     headers: {
       'Content-Type': 'application/json',

@@ -10,6 +10,7 @@
 import http from 'k6/http';
 import { check } from 'k6';
 import { seed } from './lib/seed.js';
+import { orderBody, payloadKb } from './lib/payload.js';
 
 const prime = Number(__ENV.PRIME || 30);
 
@@ -27,13 +28,14 @@ export function setup() {
     password: __ENV.ADMIN_PASSWORD,
     partnerUrl: __ENV.PARTNER_URL || 'http://partner:8080/orders',
     runId: __ENV.RUN_ID,
+    mapper: __ENV.MAPPER,
   });
 }
 
 export default function (data) {
   if (prime <= 0) return;
   const res = http.post(`${__ENV.BITWEEN_URL || 'http://bitween:8080'}/api/gateway/${data.urlName}/sync`,
-    JSON.stringify({ orderId: `prime-${__ITER}` }),
+    payloadKb ? orderBody(`prime-${__ITER}`) : JSON.stringify({ orderId: `prime-${__ITER}` }),
     { headers: { 'Content-Type': 'application/json', partnerkey: data.key, 'Wait-Period': '30' }, timeout: '60s' });
   check(res, { 'priming call answered 200': (r) => r.status === 200 });
 }

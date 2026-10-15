@@ -109,6 +109,8 @@ applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
 | `MaxRetryAfterSeconds` | `21600` | First value of the runtime setting: the longest an adapter's [try again after](retries-and-alerts.md#when-an-adapter-says-when-to-try-again) can push back a retry. |
 | `MaxResponseWaitSeconds` | `300` | The longest a [sync gateway call](entry-points.md#async-and-sync) waits for its exchange's result, whatever `Wait-Period` asks. After it the caller gets `202`. |
 | `MessagePayloadMaxBytes` | `262144` | The largest input, in bytes, an exchange's created message carries beside its id, so the worker doesn't read it back from storage; and the largest response a sync call's result signal carries to another node. Larger ones are read from storage. Every file is written to storage either way. `0` sends none. |
+| `SharedPayloadParse` | `true` | Parse an exchange's payload once per way of reading it and hand the result from step to step: on a gateway call the schema check and the promoted properties; in the worker the schema check, the routing filter, the partner and global values written into the payload, and the built-in mappers. Each step reads exactly what it read before. `false` has every step parse the payload for itself, as it used to. |
+| `CacheCompiledTemplates` | `true` | Keep the built-in mappers' compiled Scriban templates and mapping rules, by their text, instead of compiling them on every exchange. An edited template or rule set is simply new text. `false` compiles them on every call, as it used to. Read at startup. |
 
 ## `Theme` section
 

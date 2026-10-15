@@ -22,6 +22,8 @@ Open either editor from a subscription's Transformation stage with **Open the vi
 
 Every rule is attempted. If any rule fails, the exchange fails with a message listing each failing target and the reason, instead of producing a document with gaps.
 
+The rules are read once per rule set and kept, and the source document is read from the parse the exchange already made of it when there is one. Neither changes what a mapping produces: numbers are still read exactly and dates still as text. See `SharedPayloadParse` and `CacheCompiledTemplates` in [Configuration](configuration.md#bitween-section).
+
 ### Stored properties
 
 | Property | Content |
@@ -253,6 +255,8 @@ The toolbar's format chip, as **JSON → XML**, opens what the mapping reads and
 ## Legacy JSON mapper
 
 `NativeJSONMapper` renders a [Scriban](https://github.com/scriban/scriban) template over the JSON payload and stores the result as JSON.
+
+The template is compiled once per text and kept, and the payload is read from the parse the exchange already made of it when nothing was written into it. A template renders exactly as before, including `__partner__` and `__globals__`.
 
 ### Retirement
 

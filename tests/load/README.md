@@ -32,6 +32,11 @@ The first run builds the Bitween image from the repository's `Dockerfile` (sever
 | `WAIT_PERIOD` | 30 | seconds Bitween may hold a sync call for its result (`Wait-Period` header) |
 | `PRIME` | 30 | sync calls made one at a time after seeding, before the measured window |
 | `PARTNER_DELAY_MS` | unset | the seeded handler calls `slow-partner`, which answers after this many milliseconds, instead of the nginx partner that answers at once |
+| `PAYLOAD_KB` | unset | each call sends an order of about this many kilobytes (header and lines, see `lib/payload.js`) instead of the small one |
+| `MAPPER` | unset | `rules` seeds the rules-based mapper (header and every line), `scriban` the Scriban mapper (header, line count, first line); unset, no mapper |
+| `METRICS` | unset | `1` starts an OpenTelemetry collector (profile `metrics`) and reports Bitween's CPU time and allocated bytes per exchange from its runtime counters |
+| `BITWEEN_IMAGE` | `bitween-load:local` | the Bitween image to run, for example one built from another commit; with `NO_BUILD=1` |
+| `SHARED_PAYLOAD_PARSE`, `CACHE_COMPILED_TEMPLATES` | `true` | finding 6's switches, `Bitween:SharedPayloadParse` and `Bitween:CacheCompiledTemplates` |
 
 ## What runs
 
@@ -71,6 +76,13 @@ harness measures the warm node.
   type, from SeaweedFS's own request counter, divided by the exchanges of this run (warm-up
   included in both). Storage here is local and answers in under a millisecond, so this harness
   shows how many calls an exchange makes, not what they cost on S3 or Azure Blob.
+- **CPU and allocated per exchange** (`METRICS=1`): the change in Bitween's `dotnet.process.cpu.time`
+  and `dotnet.gc.heap.total_allocated` (`dotnet_gc_heap_allocated_bytes_total` as the collector serves it) over the window, read from the collector before and after,
+  divided by the exchanges of this run (warm-up included in both). It is the whole process, so it
+  includes the work Bitween does on a timer whatever the traffic; compare runs of the same length.
+  Written to `results/runtime.json`.
+- **payload parses per exchange**: Bitween's own figure, `sum(payload_parses) / sum(total)`, the
+  finding 6 counter, shown when the build has the column.
 - **db commands per exchange**: Bitween's own figure, `sum(db_commands) / sum(total)` from
   `infolink.exchange_stats` for the seeded subscription, counted by the phase 0 interceptor.
   Shown only when the build has that column. It counts commands (round trips): one
