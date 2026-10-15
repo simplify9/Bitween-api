@@ -22,7 +22,7 @@ namespace SW.Bitween.Services;
 /// Laid out by the Email channel's own adapter, so they look like Bitween's other emails.
 /// </remarks>
 public class AccountMail(BitweenOptions options, ILogger<AccountMail> logger,
-    IHttpContextAccessor httpContextAccessor, DestinationCircuits circuits = null)
+    IHttpContextAccessor httpContextAccessor, DestinationCircuits circuits = null, ThemeOptions theme = null)
 {
     /// <summary>Whether there is a mail server to send through.</summary>
     public bool CanSend => options.MailServer.IsSet;
@@ -63,7 +63,7 @@ public class AccountMail(BitweenOptions options, ILogger<AccountMail> logger,
         if (!CanSend) return "No mail server is set up. Add one in Settings, under Mail server.";
         try
         {
-            var email = new NativeEmailMessageHandler(options.MailServer, circuits);
+            var email = new NativeEmailMessageHandler(options.MailServer, circuits, theme?.PrimaryColor);
             email.InitializeStartupValues(new Dictionary<string, string> { ["To"] = to });
             await email.Handle(new XchangeFile(JsonConvert.SerializeObject(message)));
             return null;

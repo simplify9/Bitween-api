@@ -582,7 +582,8 @@ namespace SW.Bitween.Web
                         options.CircuitBreakerWindowSeconds, options.CircuitBreakerOpenSeconds,
                         options.CircuitBreakerPerEndpoint);
                 },
-                sp => sp.GetRequiredService<BitweenOptions>().MailServer);
+                sp => sp.GetRequiredService<BitweenOptions>().MailServer,
+                sp => sp.GetRequiredService<ThemeOptions>().PrimaryColor);
 
             // services.AddScoped<INativeInfolinkHandler, NativeUpdatePartnerPropsHandler>();
             // services.AddScoped<INativeAdapter, NativeUpdatePartnerPropsHandler>();
