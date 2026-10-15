@@ -134,11 +134,16 @@ public class RetryGroupBudget(
             .ToList();
         if (exhausted.Count == 0) return 0;
 
-        return await dbContext.Set<RetryGroupUsage>()
+        var released = await dbContext.Set<RetryGroupUsage>()
             .Where(u => u.SubscriptionId == subscriptionId
                         && exhausted.Contains(u.GroupId)
                         && u.LastAttemptOn < succeededFrom)
             .ExecuteDeleteAsync();
+
+        // What a group set to hold kept while its total was spent goes now, the downstream having
+        // just shown it's back.
+        if (released > 0) await DelayedRetry.ReleaseHeldAsync(dbContext, [subscriptionId]);
+        return released;
     }
 
     /// <summary>

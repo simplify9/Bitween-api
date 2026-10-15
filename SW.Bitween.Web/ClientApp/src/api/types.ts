@@ -1598,6 +1598,8 @@ export interface ScheduledRetryRow {
   id: string;
   /** When the retry job will pick it up. */
   on: string;
+  /** Kept because its retry budget is spent: runs once the subscription next succeeds, `on` means nothing. */
+  held: boolean;
   subscriptionId: number | null;
   subscriptionName: string | null;
   informationTypeId: number;

@@ -7,6 +7,12 @@ public class DelayedRetryRow
 {
     public string Id { get; set; } = null!;
     public DateTime On { get; set; }
+
+    /// <summary>
+    /// Kept because its group's retry budget is spent: <see cref="On"/> is a placeholder, and it runs
+    /// once the subscription next succeeds or the budget is reset.
+    /// </summary>
+    public bool Held { get; set; }
     public int? SubscriptionId { get; set; }
     /// <summary>Null alongside a null SubscriptionId.</summary>
     public string? SubscriptionName { get; set; }

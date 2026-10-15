@@ -1466,4 +1466,63 @@ public class RetryPolicyTests(BitweenFixture fixture)
         Assert.Empty(await db.Set<RetryGroupUsage>().AsNoTracking()
             .Where(u => u.SubscriptionId == sub.Id).ToListAsync());
     }
+
+    /// <summary>
+    /// A group set to hold keeps what it can't retry once its total is spent, and the success that
+    /// lifts the total makes those due at once. Another subscription's held retry stays held.
+    /// </summary>
+    [Fact]
+    public async Task Held_retries_are_released_when_a_success_lifts_the_spent_total()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+
+        var doc = new Document(null, "Held Doc", DocumentFormat.Json);
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+        var sub = new Subscription("Held Sub", doc.Id);
+        var otherSub = new Subscription("Held Other Sub", doc.Id);
+        db.Set<Subscription>().AddRange(sub, otherSub);
+        await db.SaveChangesAsync();
+
+        var group = new RetryGroup
+        {
+            Name = "Timeout",
+            Priority = 10,
+            AppliesTo = [XchangeResultType.Error],
+            Matchers = [new ContainsMatcher { Value = "timeout" }],
+            Budget = new RetryBudget
+            {
+                MaxAttemptsPerError = 5,
+                MaxAttemptsTotal = 1,
+                DelayStrategy = new FixedDelayStrategy { DelayMs = 60_000 },
+                WhenExhausted = RetryExhaustedAction.Hold
+            }
+        };
+        sub.SetRetryPolicy(null, new CustomRetryPolicy { Groups = [group] });
+        await db.SaveChangesAsync();
+
+        var held = new Xchange(sub, new XchangeFile("{}"));
+        var othersHeld = new Xchange(otherSub, new XchangeFile("{}"));
+        db.Set<Xchange>().AddRange(held, othersHeld);
+        db.Set<DelayedRetry>().AddRange(
+            new DelayedRetry { Id = held.Id, On = DelayedRetry.HeldOn },
+            new DelayedRetry { Id = othersHeld.Id, On = DelayedRetry.HeldOn });
+        db.Set<RetryGroupUsage>().Add(new RetryGroupUsage
+        {
+            SubscriptionId = sub.Id,
+            GroupId = group.Id,
+            AttemptsUsed = 1,
+            LastAttemptOn = DateTime.UtcNow.AddMinutes(-1)
+        });
+        await db.SaveChangesAsync();
+
+        Assert.Equal(1, await new RetryGroupBudget(db, scope.ServiceProvider, sub.Id)
+            .ReleaseExhaustedBudgets(DateTime.UtcNow));
+
+        var released = await db.Set<DelayedRetry>().AsNoTracking().SingleAsync(r => r.Id == held.Id);
+        Assert.False(released.Held);
+        Assert.True(released.On <= DateTime.UtcNow);
+        Assert.True((await db.Set<DelayedRetry>().AsNoTracking().SingleAsync(r => r.Id == othersHeld.Id)).Held);
+    }
 }

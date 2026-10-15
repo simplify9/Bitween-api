@@ -115,4 +115,26 @@ public class RetryBudget
 
     /// <summary>Calculates the wait duration before each successive retry attempt.</summary>
     public required DelayStrategy DelayStrategy { get; init; }
+
+    /// <summary>
+    /// What happens to a failure the group would retry once <see cref="MaxAttemptsTotal"/> is spent.
+    /// <see cref="RetryExhaustedAction.Fail"/>, the default and how every group behaved before, fails
+    /// it for good. <see cref="RetryExhaustedAction.Hold"/> keeps it and retries it as soon as the
+    /// subscription next succeeds, which is when the spent total is lifted.
+    /// </summary>
+    public RetryExhaustedAction WhenExhausted { get; init; } = RetryExhaustedAction.Fail;
+}
+
+/// <summary>What a group does with a failure it can't retry because its shared total is spent.</summary>
+public enum RetryExhaustedAction
+{
+    /// <summary>The failure is final.</summary>
+    Fail = 0,
+
+    /// <summary>
+    /// The failure waits, and is retried once the subscription succeeds again or the budget is
+    /// reset. For an outage longer than the total covers: a sync gateway answered 202 for these, so
+    /// the caller was told Bitween has them, and failing them when the total ran out broke that.
+    /// </summary>
+    Hold = 1,
 }

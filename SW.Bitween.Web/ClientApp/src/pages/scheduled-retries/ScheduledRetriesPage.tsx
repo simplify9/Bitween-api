@@ -149,12 +149,18 @@ export function ScheduledRetriesPage() {
             {
               header: "Runs",
               className: "whitespace-nowrap",
-              cell: (r) => (
-                <>
-                  <span className="font-medium text-ink-800">{timeUntil(r.on)}</span>
-                  <span className="block text-xs text-ink-500">{formatDateTime(r.on)}</span>
-                </>
-              ),
+              cell: (r) =>
+                r.held ? (
+                  <>
+                    <span className="font-medium text-ink-800">Held</span>
+                    <span className="block text-xs text-ink-500">When the destination recovers</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-medium text-ink-800">{timeUntil(r.on)}</span>
+                    <span className="block text-xs text-ink-500">{formatDateTime(r.on)}</span>
+                  </>
+                ),
             },
             {
               // Same identity rule as the Exchanges list: what it carries first,

@@ -402,6 +402,49 @@ public class RetryPolicyEvaluatorTests
     }
 
     [TestMethod]
+    public async Task Evaluator_MaxAttemptsTotal_HoldsAfterGroupCap_WhenSetToHold()
+    {
+        var group = ErrorGroup("transient", new ContainsMatcher { Value = "err" }, maxPerError: 100, maxTotal: 1);
+        group = new RetryGroup
+        {
+            Name = group.Name, Priority = group.Priority, Enabled = true, AppliesTo = group.AppliesTo,
+            Action = group.Action, Matchers = group.Matchers,
+            Budget = new RetryBudget
+            {
+                MaxAttemptsPerError = 100, MaxAttemptsTotal = 1,
+                DelayStrategy = new FixedDelayStrategy { DelayMs = 1000 },
+                WhenExhausted = RetryExhaustedAction.Hold
+            }
+        };
+        var ev = Evaluator(PolicyWith(group));
+
+        Assert.IsTrue((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
+        var held = await ev.Evaluate(XchangeResultType.Error, "err", 0);
+        Assert.IsFalse(held.ShouldRetry);
+        Assert.IsTrue(held.Held);
+    }
+
+    [TestMethod]
+    public async Task Evaluator_PerMessageCap_IsNeverHeld()
+    {
+        var ev = Evaluator(PolicyWith(new RetryGroup
+        {
+            Name = "transient", Priority = 1, Enabled = true, AppliesTo = [XchangeResultType.Error],
+            Action = RetryAction.Allow, Matchers = [new ContainsMatcher { Value = "err" }],
+            Budget = new RetryBudget
+            {
+                MaxAttemptsPerError = 2, MaxAttemptsTotal = 100,
+                DelayStrategy = new FixedDelayStrategy { DelayMs = 1000 },
+                WhenExhausted = RetryExhaustedAction.Hold
+            }
+        }));
+
+        var decision = await ev.Evaluate(XchangeResultType.Error, "err", 2);
+        Assert.IsFalse(decision.ShouldRetry);
+        Assert.IsFalse(decision.Held);
+    }
+
+    [TestMethod]
     public async Task Evaluator_NoTotal_OnlyPerMessageCapApplies()
     {
         var policy = PolicyWith(ErrorGroup("transient", new ContainsMatcher { Value = "err" },

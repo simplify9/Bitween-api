@@ -75,6 +75,10 @@ public class RetryPolicyEvaluator(IRetryPolicy policy, IRetryGroupBudget groupBu
         if (budget.MaxAttemptsTotal is { } maxAttemptsTotal)
         {
             var claim = await groupBudget.TryConsume(group.Id, maxAttemptsTotal);
+            if (!claim.Granted && budget.WhenExhausted == RetryExhaustedAction.Hold)
+                return RetryDecision.Hold(
+                    $"Group total cap reached ({maxAttemptsTotal}) for group '{group.Name}'; held until " +
+                    "the subscription next succeeds", group, claim.JustExhausted);
             if (!claim.Granted)
                 return RetryDecision.Block(
                     $"Group total cap reached ({maxAttemptsTotal}) for group '{group.Name}'", group,
@@ -138,6 +142,21 @@ public class RetryDecision
     /// the same subscription and group until the budget is reset.
     /// </summary>
     public bool BudgetJustExhausted { get; private init; }
+
+    /// <summary>
+    /// <c>true</c> when the failure is kept to be retried once the group's spent total is lifted,
+    /// rather than dropped. <see cref="ShouldRetry"/> is <c>false</c>: nothing is scheduled to run.
+    /// </summary>
+    public bool Held { get; private init; }
+
+    /// <summary>Creates a Hold decision - the failure waits for the group's total to be lifted.</summary>
+    public static RetryDecision Hold(string reason, RetryGroup group, bool budgetJustExhausted) => new()
+    {
+        Held = true,
+        Reason = reason,
+        MatchedGroup = group,
+        BudgetJustExhausted = budgetJustExhausted
+    };
 
     /// <summary>Creates an Allow decision - a retry will be scheduled after <paramref name="delay"/>.</summary>
     public static RetryDecision Allow(TimeSpan delay, RetryGroup group) => new()

@@ -86,6 +86,7 @@ interface RawBulkRetryPlan {
 interface RawDelayedRetryRow {
   id: string;
   on: string;
+  held?: boolean;
   subscriptionId: number | null;
   subscriptionName: string | null;
   documentId: number;
@@ -153,6 +154,7 @@ const toExchangeRow = (raw: RawXchangeRow, partnerNameById: Map<number, string>)
 const toScheduledRetryRow = (raw: RawDelayedRetryRow): ScheduledRetryRow => ({
   id: raw.id,
   on: raw.on,
+  held: raw.held ?? false,
   subscriptionId: raw.subscriptionId,
   subscriptionName: raw.subscriptionName,
   informationTypeId: raw.documentId,

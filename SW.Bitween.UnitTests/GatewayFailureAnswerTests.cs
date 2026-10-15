@@ -29,6 +29,16 @@ public class GatewayFailureAnswerTests
     }
 
     [TestMethod]
+    public void A_failure_held_for_the_budget_is_accepted_as_held_with_no_attempt_time()
+    {
+        var answer = GatewayFailureAnswers.For(GatewayFailureAnswer.Accurate, "x1", hasMapper: true, mapped: true,
+            SW.Bitween.Domain.DelayedRetry.HeldOn);
+        Assert.AreEqual(202, answer.Status);
+        Assert.AreEqual("held", (string)Body(answer)["status"]);
+        Assert.IsNull(Body(answer)["nextAttemptOn"]);
+    }
+
+    [TestMethod]
     public void A_failure_Bitween_will_retry_is_accepted_so_the_caller_does_not_send_it_again()
     {
         var answer = GatewayFailureAnswers.For(GatewayFailureAnswer.Accurate, "x1", hasMapper: true, mapped: true, Next);

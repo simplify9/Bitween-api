@@ -1,4 +1,5 @@
 using System;
+using SW.Bitween.Domain;
 using SW.Bitween.Model;
 
 namespace SW.Bitween.Controllers;
@@ -19,6 +20,14 @@ public static class GatewayFailureAnswers
     public static Answer For(GatewayFailureAnswer mode, string exchangeId, bool hasMapper, bool mapped, DateTime? retryOn)
     {
         if (mode == GatewayFailureAnswer.Legacy) return new Answer(400, null);
+
+        // Kept until the destination's retry budget is lifted: Bitween has it, and will try it again.
+        if (retryOn >= DelayedRetry.HeldOn)
+            return new Answer(202, new
+            {
+                exchangeId, status = "held",
+                error = "The destination has been failing past its retry budget. Bitween keeps the message and tries it again once the destination recovers.",
+            });
 
         // Bitween has the message and will deliver it again: sending it again would make a second one.
         if (retryOn is { } next)

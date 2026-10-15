@@ -1285,6 +1285,9 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                 On = DateTime.UtcNow + RetryDelay(decision.Delay, resultType == XchangeResultType.Error ? content : null,
                     BitweenSettings.MaxRetryAfterSeconds)
             });
+        else if (decision.Held)
+            // Kept, not dropped: released when the subscription next succeeds. See RetryExhaustedAction.Hold.
+            dbContext.Add(new DelayedRetry { Id = xchange.Id, On = DelayedRetry.HeldOn });
         else
             // A policy applied but refused. Recorded so an exhausted budget is distinguishable
             // from an error no group was ever configured to catch.

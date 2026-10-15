@@ -32,6 +32,7 @@ namespace SW.Bitween.Resources.DelayedRetries
                         {
                             Id = delayedRetry.Id,
                             On = delayedRetry.On,
+                            Held = delayedRetry.On >= DelayedRetry.HeldOn,
                             SubscriptionId = xchange.SubscriptionId,
                             SubscriptionName = subscriber.Name,
                             DocumentId = xchange.DocumentId,
