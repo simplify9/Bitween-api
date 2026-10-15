@@ -310,7 +310,7 @@ public static class SettingsCatalog
         // Email adapter reads these on each send, so a change applies to the next email.
         new("Bitween.MailServer.Host", "Mail server",
             "Server",
-            "The SMTP server Email notification channels send through, e.g. smtp.office365.com. While it's empty, Email channels can't send.",
+            "The SMTP server that Email notification channels, member invites and password resets send through, e.g. smtp.office365.com. While it's empty, none of them can be emailed.",
             SettingKind.String, false,
             t => t.Bitween.MailServer.Host,
             (t, v) => t.Bitween.MailServer.Host = Trimmed(v)),

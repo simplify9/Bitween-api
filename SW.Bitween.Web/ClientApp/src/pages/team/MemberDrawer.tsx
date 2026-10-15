@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, KeyRound, LockOpen, Trash2, UserRoundCheck, UserRoundX, X } from "lucide-react";
-import { api } from "../../api";
+import { Check, KeyRound, LockOpen, Send, Trash2, UserRoundCheck, UserRoundX, X } from "lucide-react";
+import { api, getAppConfig, type InviteResult, type User } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSession } from "../../auth/useSession";
 import { HistoryList } from "../../components/config/HistoryCard";
@@ -13,9 +13,18 @@ import { isNotFound } from "../../components/ui/isNotFound";
 import { Checkbox, PasswordInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { useModalFocus } from "../../components/ui/useModalFocus";
-import { formatDate, timeAgo, timeUntil } from "../../lib/dates";
-import { statusBadge } from "./memberStatus";
+import { formatDate, formatDateTime, timeAgo, timeUntil } from "../../lib/dates";
+import { inviteActive, statusBadge } from "./memberStatus";
 import { keys } from "../../api/queryKeys";
+
+/** Where a member's invite stands, in a sentence. */
+function inviteLine(u: User) {
+  if (!u.invite) return "They have no password yet, and no invite has been made.";
+  if (!inviteActive(u)) return `Their invite expired ${timeAgo(u.invite.expiresOn)}.`;
+  if (u.invite.emailedOn)
+    return `Invite emailed ${timeAgo(u.invite.emailedOn)}. The link works until ${formatDateTime(u.invite.expiresOn)}.`;
+  return `An invite link was made to send by hand. It works until ${formatDateTime(u.invite.expiresOn)}.`;
+}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -32,7 +41,13 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
 
   const user = useQuery({ queryKey: keys.users.detail(userId), queryFn: () => api.getUser(userId), retry: false });
   const roles = useQuery({ queryKey: keys.roles.list, queryFn: () => api.listRoles() });
+  const appConfig = useQuery({ queryKey: keys.appConfig, queryFn: getAppConfig });
+  const mailOn = Boolean(appConfig.data?.mailServerConfigured);
+  const passwordsOff = Boolean(appConfig.data?.disableEmailPasswordLogin);
+  const resetAvailable = Boolean(appConfig.data?.passwordResetAvailable);
   const [draftRoleIds, setDraftRoleIds] = useState<string[] | null>(null);
+  // The invite just made: a link to pass on is shown once, as a password just set is.
+  const [issuedInvite, setIssuedInvite] = useState<InviteResult | null>(null);
   const [confirming, setConfirming] = useState<"remove" | null>(null);
   const [newPassword, setNewPassword] = useState("");
   // The password that was just set, kept on screen deliberately. Bitween sends no
@@ -68,6 +83,14 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
   const unlock = useMutation({
     mutationFn: () => api.unlockUser(userId),
     onSuccess: invalidate,
+  });
+
+  const invite = useMutation({
+    mutationFn: () => api.inviteUser(userId),
+    onSuccess: (result) => {
+      setIssuedInvite(result);
+      invalidate();
+    },
   });
 
   const setPassword = useMutation({
@@ -109,9 +132,46 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
               {isSelf && <Badge tone="crimson">You</Badge>}
             </div>
             <p className="truncate font-mono text-[13px] text-ink-500">{u.email}</p>
-            <div className="mt-1.5">{statusBadge(u.status, u.lockedUntil)}</div>
+            <div className="mt-1.5">{statusBadge(u, passwordsOff)}</div>
           </div>
         </div>
+
+        {!u.hasPassword && !passwordsOff && !isSelf && can("users.create") && (
+          <Section title="Invite">
+            <div className="space-y-2.5">
+              <p className="text-sm text-ink-700">{inviteLine(u)}</p>
+              {u.invite?.emailError && !issuedInvite && (
+                <FormError>The invite email couldn&apos;t be sent: {u.invite.emailError}</FormError>
+              )}
+              {issuedInvite?.emailed && (
+                <p className="flex items-center gap-1.5 text-[13px] font-medium text-ok-800">
+                  <Check className="size-4 shrink-0" aria-hidden />
+                  Sent to {u.email}
+                </p>
+              )}
+              {issuedInvite?.link && (
+                <div className="space-y-2 rounded-lg border border-ok-200 bg-ok-50 p-3">
+                  {issuedInvite.emailError && (
+                    <FormError>The email couldn&apos;t be sent: {issuedInvite.emailError}</FormError>
+                  )}
+                  <CopyField value={issuedInvite.link} label="Invite link" />
+                  <p className="text-[13px] text-ink-600">
+                    Send it to them yourself. It works once, and Bitween keeps no copy, so it won&apos;t be
+                    shown again once you close this.
+                  </p>
+                </div>
+              )}
+              <Button size="sm" busy={invite.isPending} onClick={() => invite.mutate()}>
+                <Send className="size-3.5" />
+                {mailOn ? (u.invite ? "Resend invite" : "Send invite") : "Make a new invite link"}
+              </Button>
+              <p className="text-[13px] text-ink-500">
+                A new invite stops the earlier link working.
+              </p>
+              <FormError>{invite.error?.message}</FormError>
+            </div>
+          </Section>
+        )}
 
         <Section title="Roles">
           {editable ? (
@@ -176,8 +236,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                   </p>
                   <CopyField value={issuedPassword} label="New password" />
                   <p className="text-[13px] text-ink-600">
-                    Bitween sends no email, so copy it and pass it on yourself - it won't be shown
-                    again once you dismiss this.
+                    Copy it and pass it on yourself - it won't be shown again once you dismiss this.
                   </p>
                   {u.lockedUntil ? (
                     <div className="space-y-2 rounded-md border border-warn-400 bg-warn-100 p-2.5">
@@ -229,7 +288,9 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                     </Button>
                   </div>
                   <p className="text-[13px] text-ink-500">
-                    There's no reset email, so set it here and pass it on yourself.
+                    {resetAvailable
+                      ? "Pass it on yourself. They can also reset it themselves with Forgot password on the sign-in page."
+                      : "There's no reset email, so set it here and pass it on yourself."}
                   </p>
                   <FormError>{setPassword.error?.message}</FormError>
                 </form>

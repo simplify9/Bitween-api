@@ -12,6 +12,10 @@ export interface AppConfig {
   /** The provider's name for the button, as "Continue with {name}"; null for "single sign-on". */
   oidcDisplayName?: string | null;
   isRabbitMqManagementConfigured?: boolean;
+  /** Whether a mail server is set, so members can be emailed invites. */
+  mailServerConfigured?: boolean;
+  /** Whether the sign-in page can offer "Forgot password?": a mail server and a public address. */
+  passwordResetAvailable?: boolean;
   /** Effective brand values (any stored override already applied), keyed like `ThemeOptions`. */
   theme?: Record<string, string | boolean | null>;
   /** The same keys as configured, before any override - lets us tell "set" from "untouched". */

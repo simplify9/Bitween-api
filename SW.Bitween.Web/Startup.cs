@@ -130,6 +130,7 @@ namespace SW.Bitween.Web
             services.AddScoped<MappingContextFactory>();
             services.AddScoped<XchangeService>();
             services.AddScoped<NotificationChannelSender>();
+            services.AddSingleton<AccountMail>();
             services.AddSingleton<FileLinks>();
             services.AddScoped<OidcSignIn>();
             services.AddScoped<ReceiverBookmarks>();
@@ -832,7 +833,11 @@ namespace SW.Bitween.Web
             return value.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
                 && (value.EndsWith("/login", StringComparison.OrdinalIgnoreCase)
                     || value.EndsWith("/accounts/servicetoken", StringComparison.OrdinalIgnoreCase)
-                    || value.EndsWith("/accounts/oidcstart", StringComparison.OrdinalIgnoreCase));
+                    || value.EndsWith("/accounts/oidcstart", StringComparison.OrdinalIgnoreCase)
+                    // The password links: asking for one, reading one, and using one, all open to anyone.
+                    || value.EndsWith("/accounts/forgotpassword", StringComparison.OrdinalIgnoreCase)
+                    || value.EndsWith("/accounts/passwordlink", StringComparison.OrdinalIgnoreCase)
+                    || value.EndsWith("/accounts/usepasswordlink", StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>

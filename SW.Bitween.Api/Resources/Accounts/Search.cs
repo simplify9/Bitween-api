@@ -51,15 +51,36 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext)
                     Role = a.Role.ToString(),
                     LockoutEnd = a.LockoutEnd,
                     LastSignInOn = a.LastSignInOn,
-                    MicrosoftLinked = a.MicrosoftIdentity != null
+                    MicrosoftLinked = a.MicrosoftIdentity != null,
+                    HasPassword = a.Password != null && a.Password != ""
                 })
                 .ToListAsync();
 
             var accountIds = accounts.Select(a => a.Id).ToList();
             var rolesByAccount = await AccountRoles.For(dbContext, accountIds);
 
+            // The latest invite of each member still to choose a password. Expired ones too: the
+            // page says it expired, and offers another.
+            var waiting = accounts.Where(a => !a.HasPassword).Select(a => a.Id).ToList();
+            var invites = waiting.Count == 0
+                ? new List<AccountLink>()
+                : await dbContext.Set<AccountLink>().AsNoTracking()
+                    .Where(l => waiting.Contains(l.AccountId) && l.Purpose == AccountLinkPurpose.Invite)
+                    .ToListAsync();
+
             foreach (var account in accounts)
+            {
                 account.Roles = rolesByAccount.GetValueOrDefault(account.Id, []);
+                account.Invite = invites.Where(l => l.AccountId == account.Id)
+                    .OrderByDescending(l => l.CreatedOn)
+                    .Select(l => new AccountInviteModel
+                    {
+                        ExpiresOn = l.ExpiresOn,
+                        EmailedOn = l.EmailedOn,
+                        EmailError = l.EmailError
+                    })
+                    .FirstOrDefault();
+            }
 
             return new
             {

@@ -20,8 +20,14 @@ namespace SW.Bitween.Resources.Accounts
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Users.Create);
 
             if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Email) ||
-                (!_bitweenOptions.DisableEmailPasswordLogin && string.IsNullOrEmpty(request.Password)))
+                (!_bitweenOptions.DisableEmailPasswordLogin && !request.Invite && string.IsNullOrEmpty(request.Password)))
                 throw new SWValidationException("INVALID_PAYLOAD", "The payload is invalid");
+
+            // An invited member chooses their own password; one set here too would be a second
+            // way in that nobody asked them about.
+            if (request.Invite && !string.IsNullOrEmpty(request.Password))
+                throw new SWValidationException("INVITE_OR_PASSWORD",
+                    "Send either a password or an invite, not both.");
 
             if (await dbContext.Set<Account>().AnyAsync(a => a.Email == request.Email))
                 throw new SWValidationException("ACCOUNT_EXISTS", $"Account with email {request.Email} exists");
@@ -39,7 +45,7 @@ namespace SW.Bitween.Resources.Accounts
 
             // No password at all when this instance signs in through Microsoft only - the account
             // exists purely to be matched by email.
-            var password = _bitweenOptions.DisableEmailPasswordLogin
+            var password = _bitweenOptions.DisableEmailPasswordLogin || request.Invite
                 ? null
                 : SecurePasswordHasher.Hash(request.Password);
 
@@ -70,7 +76,8 @@ namespace SW.Bitween.Resources.Accounts
             {
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.Email).NotEmpty();
-                RuleFor(i => i.Password).Password().When(_ => !bitweenOptions.DisableEmailPasswordLogin);
+                // An invited member chooses their own password later, against the same rules.
+                RuleFor(i => i.Password).Password().When(i => !bitweenOptions.DisableEmailPasswordLogin && !i.Invite);
                 // The handler prefers explicit role ids and only falls back to the legacy coarse
                 // Role, so demanding Role unconditionally rejected the payload the UI actually
                 // sends - adding a member failed outright. Still required when no ids were sent,

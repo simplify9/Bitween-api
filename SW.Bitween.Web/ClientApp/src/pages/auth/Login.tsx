@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useLocation, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { api, getAppConfig, type Session } from "../../api";
 import { useSession } from "../../auth/useSession";
@@ -27,9 +27,11 @@ export function LoginPage() {
   const { session, signIn, signInWithMicrosoft } = useSession();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from;
+  const state = location.state as { from?: string; email?: string; notice?: string } | null;
+  const from = state?.from;
 
-  const [email, setEmail] = useState("");
+  // Arriving from a password just set with an emailed link: say so, and fill in the address.
+  const [email, setEmail] = useState(state?.email ?? "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -41,6 +43,7 @@ export function LoginPage() {
   // offering the form would only ever produce a failed sign-in.
   const passwordEnabled = !appConfig.data?.disableEmailPasswordLogin;
   const oidcEnabled = Boolean(appConfig.data?.oidcEnabled);
+  const resetAvailable = Boolean(appConfig.data?.passwordResetAvailable);
   const oidcName = appConfig.data?.oidcDisplayName || "single sign-on";
   const ssoEnabled = microsoftEnabled || oidcEnabled;
 
@@ -92,6 +95,12 @@ export function LoginPage() {
       <h1 className="text-xl font-semibold tracking-tight text-ink-900">Sign in</h1>
       <p className="mt-1 mb-6 text-sm text-ink-500">Welcome back to Bitween.</p>
 
+      {state?.notice && (
+        <p role="status" className="mb-4 rounded-md border border-ok-200 bg-ok-50 px-3 py-2 text-sm text-ok-800">
+          {state.notice}
+        </p>
+      )}
+
       {passwordEnabled && (
         <form onSubmit={submit} className="space-y-4">
           <Field label="Email" htmlFor="login-email">
@@ -114,6 +123,13 @@ export function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
             />
           </Field>
+          {resetAvailable && (
+            <div className="-mt-2 text-right">
+              <Link to="/forgot-password" state={{ email }} className="text-[13px] font-medium link">
+                Forgot password?
+              </Link>
+            </div>
+          )}
           <FormError>{error}</FormError>
           <Button type="submit" variant="primary" busy={busy} className="w-full">
             Sign in

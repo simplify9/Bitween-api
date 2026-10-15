@@ -53,6 +53,9 @@ See [Entry points](entry-points.md) for status codes.
 | `POST /api/accounts/servicetoken` | none | A service account signs in: `{ token }`, one of its `bwt_` tokens. Returns `{ jwt, expiresIn, id, name }`, with no refresh token: trade the token again when the session ends. Shares the sign-in rate limit; unknown tokens count toward the address's lockout. |
 | `GET /api/accounts/profile` | signed in | The current member, roles and permissions |
 | `POST /api/accounts/changePassword` | signed in | Change your own password |
+| `POST /api/accounts/forgotPassword` | none | `{ email }`. Emails a reset link when the address is a member's; answers the same either way. `400 PASSWORD_RESET_OFF` without a mail server or `Bitween:PublicUrl`. Shares the sign-in rate limit. |
+| `POST /api/accounts/passwordLink` | none | `{ token }`, from an invite or reset link. Returns `{ purpose, name, email, expiresOn }`, and changes nothing. `400 LINK_INVALID` once used or expired. |
+| `POST /api/accounts/usePasswordLink` | none | `{ token, password }`. Sets the password, spends the link and ends the member's sessions. Returns `{ email }`. |
 | `GET /api/settings/config` | none | Sign-in options and theme |
 | `GET /api/settings/myversion` | signed in | API version |
 | `GET /api/permissions` | signed in | The permission catalogue |
@@ -307,8 +310,9 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 
 | Method and path | Permission |
 |---|---|
-| `GET /api/accounts` | `users.view`. Each member carries `lastSignInOn` and `microsoftLinked`. |
-| `POST /api/accounts` | `users.create` |
+| `GET /api/accounts` | `users.view`. Each member carries `lastSignInOn`, `microsoftLinked`, `hasPassword`, and `invite` (`expiresOn`, `emailedOn`, `emailError`) while they are yet to choose a password. |
+| `POST /api/accounts` | `users.create`. `{ name, email, password, roleIds }`, or `invite: true` instead of `password`. |
+| `POST /api/accounts/{id}/invite` | `users.create`, and every permission the member holds. For a member with no password: returns `{ emailed, emailError, expiresOn, link }`, with `link` only when it wasn't emailed. |
 | `POST /api/accounts/{id}` | `users.edit`, or yourself for the display name |
 | `POST /api/accounts/{id}/setRoles` | `users.edit` |
 | `POST /api/accounts/{id}/setDisabled` | `users.edit` |

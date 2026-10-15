@@ -10,12 +10,12 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.Accounts;
 
 /// <summary>
-/// Sets a member's password on their behalf. Bitween has no outbound mail, so there's no
-/// self-service reset - without this, anyone who forgets their password is locked out for good.
+/// Sets a member's password on their behalf: for an instance without a mail server, where there is
+/// no self-service reset, and for anyone who can't wait for one.
 /// Changing your own password goes through ChangePassword, which asks for the current one.
 /// </summary>
 [HandlerName("setPassword")]
-public class SetPassword(BitweenDbContext dbContext, RequestContext requestContext)
+public class SetPassword(BitweenDbContext dbContext, RequestContext requestContext, Services.AccountMail mail)
     : ICommandHandler<int, SetAccountPasswordModel, object>
 {
     public async Task<object> Handle(int key, SetAccountPasswordModel request)
@@ -43,6 +43,9 @@ public class SetPassword(BitweenDbContext dbContext, RequestContext requestConte
         await dbContext.Set<RefreshToken>()
             .Where(t => t.AccountId == account.Id)
             .ExecuteDeleteAsync();
+
+        mail.SendInBackground(account.Email, Services.AccountEmails.PasswordChanged(
+            Services.AccountEmails.ChangedBy.Administrator, account.Email, mail.SignedInBase, mail.ResetAvailable));
 
         return null;
     }

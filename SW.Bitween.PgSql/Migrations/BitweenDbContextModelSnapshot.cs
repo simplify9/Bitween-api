@@ -145,6 +145,60 @@ namespace SW.Bitween.PgSql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("integer")
+                        .HasColumnName("account_id");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_on");
+
+                    b.Property<string>("EmailError")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("email_error");
+
+                    b.Property<DateTime?>("EmailedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("emailed_on");
+
+                    b.Property<DateTime>("ExpiresOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_on");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(64)")
+                        .HasColumnName("hash");
+
+                    b.Property<byte>("Purpose")
+                        .HasColumnType("smallint")
+                        .HasColumnName("purpose");
+
+                    b.HasKey("Id")
+                        .HasName("pk_account_links");
+
+                    b.HasIndex("AccountId")
+                        .HasDatabaseName("ix_account_links_account_id");
+
+                    b.HasIndex("Hash")
+                        .IsUnique()
+                        .HasDatabaseName("ix_account_links_hash");
+
+                    b.ToTable("AccountLinks", "infolink");
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountRoleLink", b =>
                 {
                     b.Property<int>("AccountId")
@@ -3584,6 +3638,16 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasDatabaseName("ix_qrtz_triggers_sched_name_job_name_job_group");
 
                     b.ToTable("qrtz_triggers", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountLink", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_account_links_accounts_account_id");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountRoleLink", b =>

@@ -11,7 +11,7 @@ namespace SW.Bitween.Resources.Accounts;
 
 [HandlerName("changePassword")]
 public class ChangePassword(BitweenDbContext dbContext, RequestContext requestContext, SignInThrottle throttle,
-    Microsoft.AspNetCore.Http.IHttpContextAccessor httpContextAccessor)
+    Microsoft.AspNetCore.Http.IHttpContextAccessor httpContextAccessor, Services.AccountMail mail)
     : ICommandHandler<ChangePasswordModel, object>
 {
     public async Task<object> Handle(ChangePasswordModel request)
@@ -53,6 +53,10 @@ public class ChangePassword(BitweenDbContext dbContext, RequestContext requestCo
         await dbContext.Set<RefreshToken>()
             .Where(t => t.AccountId == account.Id)
             .ExecuteDeleteAsync();
+
+        // Whoever holds a stolen session can change the password too; the owner hears of it.
+        mail.SendInBackground(account.Email, Services.AccountEmails.PasswordChanged(
+            Services.AccountEmails.ChangedBy.Themselves, account.Email, mail.SignedInBase, mail.ResetAvailable));
 
         return null;
     }
