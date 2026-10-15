@@ -1,6 +1,6 @@
 # Load test: synchronous gateway calls
 
-The harness from `docs/design/processing-performance.md` (finding 4, phase 0, and finding 10). It
+A load test for Bitween's synchronous gateway path. It
 measures one synchronous API gateway call (`POST /api/gateway/{urlName}/sync`) at a fixed
 throughput: end-to-end latency, exchanges per second, and database statements per exchange.
 
