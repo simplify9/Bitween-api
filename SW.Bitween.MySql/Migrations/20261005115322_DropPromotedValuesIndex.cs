@@ -10,9 +10,19 @@ namespace SW.Bitween.MySql.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_XchangePromotedProperties_PropertiesRaw",
-                table: "XchangePromotedProperties");
+            // Only if it is there: before this migration, dropping the index by hand was the way to
+            // stop long values failing to save, and on a database where that was done a plain drop
+            // failed and the app could not start. MySQL has no DROP INDEX IF EXISTS.
+            migrationBuilder.Sql("""
+                SET @drop = IF(EXISTS (
+                        SELECT 1 FROM information_schema.statistics
+                        WHERE table_schema = DATABASE() AND table_name = 'XchangePromotedProperties'
+                            AND index_name = 'IX_XchangePromotedProperties_PropertiesRaw'),
+                    'ALTER TABLE `XchangePromotedProperties` DROP INDEX `IX_XchangePromotedProperties_PropertiesRaw`', 'DO 0');
+                PREPARE drop_statement FROM @drop;
+                EXECUTE drop_statement;
+                DEALLOCATE PREPARE drop_statement;
+                """);
 
             migrationBuilder.AlterColumn<string>(
                 name: "PropertiesRaw",

@@ -4,13 +4,13 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using SW.Bitween.Services;
-using SW.EfCoreExtensions;
 using SW.Logger;
 
 namespace SW.Bitween.Web
@@ -27,7 +27,7 @@ namespace SW.Bitween.Web
             // failure (right code, wrong/stale database) indistinguishable from a code problem.
             try
             {
-                host.MigrateDatabase<BitweenDbContext>();
+                MigrateDatabase(host);
             }
             catch (Exception ex)
             {
@@ -42,6 +42,24 @@ namespace SW.Bitween.Web
 
             host.SecureSeededAdministrator().SecureSystemPartnerKey().HashStoredPartnerKeys()
                 .MoveRetryAlertsToChannels().ApplyStoredSettings().Run();
+        }
+
+        /// <summary>The longest one migration statement may run, such as an index build on a big table.</summary>
+        private static readonly TimeSpan MigrationCommandTimeout = TimeSpan.FromMinutes(30);
+
+        /// <remarks>
+        /// A migration that builds an index on the exchange tables runs for minutes on a database of
+        /// years of traffic, past the 30 seconds a connection string allows a command by default: on a
+        /// client's production upgrade it timed out and the pod restarted over and over. The longer
+        /// limit is for the migrations only; every other query keeps the connection string's. The
+        /// chart's startup probe allows longer than this, so a migration that does run out logs why.
+        /// </remarks>
+        private static void MigrateDatabase(IHost host)
+        {
+            using var scope = host.Services.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            db.Database.SetCommandTimeout(MigrationCommandTimeout);
+            db.Database.Migrate();
         }
 
         public static IHostBuilder CreateHostBuilder(string[] args) =>

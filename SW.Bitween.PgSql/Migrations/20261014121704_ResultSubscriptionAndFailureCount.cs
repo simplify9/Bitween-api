@@ -15,19 +15,14 @@ namespace SW.Bitween.PgSql.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<int>(
-                name: "consecutive_failures",
-                schema: "infolink",
-                table: "xchange_result",
-                type: "integer",
-                nullable: true);
+            // IF NOT EXISTS: the columns commit before the index build below, which runs outside the
+            // transaction. A build that fails part-way (a timeout, the pod restarted) leaves them
+            // without the migration recorded, and the next start must not fail on them.
+            migrationBuilder.Sql(
+                "ALTER TABLE infolink.xchange_result ADD COLUMN IF NOT EXISTS consecutive_failures integer;");
 
-            migrationBuilder.AddColumn<int>(
-                name: "subscription_id",
-                schema: "infolink",
-                table: "xchange_result",
-                type: "integer",
-                nullable: true);
+            migrationBuilder.Sql(
+                "ALTER TABLE infolink.xchange_result ADD COLUMN IF NOT EXISTS subscription_id integer;");
 
             // Outside the transaction, on what can be the largest table there is: see ConcurrentIndex.
             ConcurrentIndex.Create(migrationBuilder, "xchange_result", "ix_xchange_result_subscription_id_finished_on",

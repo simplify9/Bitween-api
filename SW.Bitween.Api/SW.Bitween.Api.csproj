@@ -9,7 +9,7 @@
     <!-- Aliased: another dependency brings the older BouncyCastle.Crypto, with the same type names. -->
     <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" Aliases="BouncyCastle2" />
     <PackageReference Include="NJsonSchema" Version="11.6.1" />
-    <PackageReference Include="SimplyWorks.Serverless" Version="10.2.2" />
+    <PackageReference Include="SimplyWorks.Serverless" Version="10.2.4" />
   </ItemGroup>
 
   <ItemGroup>

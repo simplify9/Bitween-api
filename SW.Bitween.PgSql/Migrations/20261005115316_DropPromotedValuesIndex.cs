@@ -10,10 +10,10 @@ namespace SW.Bitween.PgSql.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "ix_xchange_promoted_properties_properties_raw",
-                schema: "infolink",
-                table: "xchange_promoted_properties");
+            // IF EXISTS: before this migration, dropping the index by hand was the way to stop long
+            // values failing to save, and on a database where that was done a plain drop failed and
+            // the app could not start.
+            migrationBuilder.Sql("DROP INDEX IF EXISTS infolink.ix_xchange_promoted_properties_properties_raw;");
         }
 
         /// <inheritdoc />

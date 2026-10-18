@@ -55,7 +55,7 @@ Things to know about the chart:
 - The image tag is the chart version, so a chart must be packaged with the version of an image that exists.
 - The Service forwards port 80 to container port 8080.
 - The Ingress exposes `/api`, `/swagger` and `/` by default, so the admin UI and `/blank.html` are served from the same host as the API. A deployment that overrides `ingress.paths` replaces the whole list, so it has to include `/` itself.
-- Probes are on by default: a startup probe and a liveness probe on `/health/live`, which only checks that the process answers, and a readiness probe on `/health/ready`, which also checks the database and that the bus is connected to RabbitMQ. A pod whose broker is down starts and stays not ready until the bus connects; it does not restart. The startup probe allows five minutes for migrations (`probes.startupFailureThreshold`).
+- Probes are on by default: a startup probe and a liveness probe on `/health/live`, which only checks that the process answers, and a readiness probe on `/health/ready`, which also checks the database and that the bus is connected to RabbitMQ. A pod whose broker is down starts and stays not ready until the bus connects; it does not restart. The startup probe allows 40 minutes for migrations (`probes.startupFailureThreshold`).
 - A stopping pod lets the exchanges it is running finish for up to 30 seconds before it closes its queues, so they are acknowledged instead of run again elsewhere. The app waits up to 45 seconds to stop, and the chart gives the pod 60 (`terminationGracePeriodSeconds`); keep that value above 45.
 - The `rabbitmq` values are not used by any template.
 - `charts/default/README.md` explains the two routing modes.
@@ -122,6 +122,7 @@ Run several replicas behind a load balancer for throughput and availability, and
 ## Upgrading
 
 - Migrations apply at startup, so back up the database before deploying a new version.
+- Upgrading to this version needs a short downtime: stop every pod of the old version before deploying the new one.
 - Values already in the `Settings` table are not replaced by new configuration. Change them on the Settings page.
 - When upgrading from a version without work groups, set `Bitween__ConsumeLegacyEventMessages=true` until the old event queues are empty.
 
