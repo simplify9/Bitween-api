@@ -27,7 +27,7 @@ Set these too when they apply:
 - S3-compatible storage other than AWS: `AWS_REQUEST_CHECKSUM_CALCULATION` and `AWS_RESPONSE_CHECKSUM_VALIDATION`. See [Storage](#storage).
 - A RabbitMQ shared with another Bitween: `Bitween:QueuePrefix`.
 - MySQL without TLS: `SslMode` in the connection string. See [Databases](deployment.md#databases).
-- The Queue health page: `Bitween:RabbitMqManagementUrl`, `RabbitMqManagementUsername` and `RabbitMqManagementPassword`.
+- The Queue health page: `Bitween:RabbitMqManagementUrl`, `Bitween:RabbitMqManagementUsername` and `Bitween:RabbitMqManagementPassword`.
 
 ### `Token:Key` must be your own
 
