@@ -10,19 +10,31 @@ Some values are also **runtime settings** that administrators change in the UI. 
 |---|---|
 | `ConnectionStrings:BitweenDb` | `Host=db;Port=5432;Database=bitween;Username=bitween;Password=...` |
 | `ConnectionStrings:RabbitMQ` | `amqp://user:password@rabbitmq:5672/` |
+| `ASPNETCORE_ENVIRONMENT` | `Production`, or the value the other applications on the same RabbitMQ use: the bus names its exchanges and queues after it. On an upgrade, keep the running value. Use `Development` only on a developer's machine |
 | `Token:Key` | A random secret of at least 32 characters, unique to this deployment |
 | `Token:Issuer`, `Token:Audience` | Values used to sign and validate JWTs |
 | `Bitween:InitialAdminPassword` | New installations only: the password for `admin@Bitween.systems` |
+| `Bitween:SettingsEncryptionKey` | Recommended: a random secret of at least 32 characters that encrypts stored passwords. Without it they can't be saved from the Settings page. Never change it once set. See [Security](security.md#secrets) |
 | Storage settings | See [Storage](#storage) |
 
 The service stops at startup with a clear error when the database connection string is missing.
+
+Set these too when they apply:
+
+- Other applications publish to Bitween's bus: `Bus:OnInvalidUserToken`. See [Bus messages from other applications](#bus-messages-from-other-applications).
+- Upgrading, and partners must keep getting one call at a time, in order: `Bitween:BusDefaultConcurrency` set to `1`. See [Upgrading to parallel exchanges](deployment.md#upgrading-to-parallel-exchanges).
+- Upgrading from a version without work groups: `Bitween:ConsumeLegacyEventMessages`. See [Upgrading](deployment.md#upgrading).
+- S3-compatible storage other than AWS: `AWS_REQUEST_CHECKSUM_CALCULATION` and `AWS_RESPONSE_CHECKSUM_VALIDATION`. See [Storage](#storage).
+- A RabbitMQ shared with another Bitween: `Bitween:QueuePrefix`.
+- MySQL without TLS: `SslMode` in the connection string. See [Databases](deployment.md#databases).
+- The Queue health page: `Bitween:RabbitMqManagementUrl`, `RabbitMqManagementUsername` and `RabbitMqManagementPassword`.
 
 ### `Token:Key` must be your own
 
 Whoever holds this key can mint a token for any identity, including one with no account behind
 it. The service **refuses to start** when it is missing, or when it is still the sample value
-`6547647654764764767657658658758765876532542` - which ships as the chart default and is published
-in this repository, so a deployment that never overrode it was open to anyone who read it.
+`6547647654764764767657658658758765876532542`, which ships as the chart default and is published
+in this repository.
 
 The check runs in every environment, including Development, so **a local checkout needs its own
 key too**: put one in your gitignored `appsettings.Development.json` (or `appsettings.Local.json`).
@@ -126,6 +138,8 @@ Storage credentials live in the `CloudFiles` section and are read by the `Simply
 | `AS` | `AccountName`, `AccessKeyId`, `SecretAccessKey`, `ServiceUrl`, `BucketName`, `Managed`, `ManagedIdentityClientId`, `PublicServiceUrl`, and for deleting files by age `SubscriptionId`, `ResourceGroupName`, optionally `StorageAccountName` |
 | `OC` | `TenantId`, `FingerPrint`, `UserId`, `RSAKey`, `Region`, `NamespaceName`, `BucketName` |
 | `Local` | `BucketName`, and optionally `StoragePath` |
+
+For an S3-compatible store other than AWS, set `AWS_REQUEST_CHECKSUM_CALCULATION` and `AWS_RESPONSE_CHECKSUM_VALIDATION` to `when_required`. The AWS SDK otherwise uploads with a trailing checksum, which some of these stores save into the file itself.
 
 Azure keeps deletion rules in the storage account's lifecycle management policy, which is reached through Azure Resource Manager rather than the blob endpoint. With `SubscriptionId` and `ResourceGroupName` set, the storage library creates the temp-prefix rules at startup and the Settings page reads them. The managed identity, or a service principal in `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and `AZURE_CLIENT_SECRET`, needs `Microsoft.Storage/storageAccounts/managementPolicies/read` and `write`, for example through the Storage Account Contributor role. Without them the rules aren't created on Azure, and any policy set up by hand can't be read.
 
