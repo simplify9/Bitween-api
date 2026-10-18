@@ -23,8 +23,9 @@ service:
 probes:
   # Startup /health/live, liveness /health/live, readiness /health/ready (database and RabbitMQ).
   enabled: true
-  # Five-second checks: 60 gives a starting pod five minutes, for migrations, before it is restarted.
-  startupFailureThreshold: 60
+  # Five-second checks: 480 gives a starting pod 40 minutes, for migrations, before it is restarted.
+  # Longer than a migration statement may run (30 minutes), so one that runs out logs why.
+  startupFailureThreshold: 480
 
 # North-south routing. The chart uses ingress-nginx by default. Set
 # gateway.enabled=true to switch to Gateway API (HTTPRoute) instead - this
