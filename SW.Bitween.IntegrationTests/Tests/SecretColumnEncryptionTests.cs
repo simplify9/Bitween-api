@@ -93,6 +93,26 @@ public class SecretColumnEncryptionTests(BitweenFixture fixture)
         }
     }
 
+    /// <summary>A key rotation stopped half way leaves the older rows under the old key.</summary>
+    [Fact]
+    public async Task An_older_row_under_another_key_is_found_too()
+    {
+        SecretColumnCipher.Configure("the old key");
+        var older = await CreatePartnerAsync();
+        SecretColumnCipher.Configure("the new key");
+        var newer = await CreatePartnerAsync();
+        try
+        {
+            Assert.False(await AllReadableAsync());
+        }
+        finally
+        {
+            await DeletePartnerAsync(older);
+            await DeletePartnerAsync(newer);
+            SecretColumnCipher.Configure(null);
+        }
+    }
+
     private async Task DeletePartnerAsync(int id)
     {
         await using var scope = fixture.CreateScope();

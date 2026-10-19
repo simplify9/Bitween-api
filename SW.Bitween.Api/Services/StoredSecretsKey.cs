@@ -19,9 +19,9 @@ public static class StoredSecretsKey
 {
     public const string KeyLostSetting = "Bitween:SettingsEncryptionKeyLost";
 
-    // Every value is written with the same key, so a table's newest rows tell, being the likeliest
-    // written since encryption was turned on; the encryption pass reads all of them minutes later.
-    private const int Sample = 100;
+    // Every row, not a sample: a key rotation stopped half way leaves older rows under the old key.
+    // These are configuration tables, which the encryption pass reads whole on every start too.
+    private const int BatchSize = 100;
 
     /// <summary>
     /// Records a startup problem when they can't be read. Runs after the migrations, before anything
@@ -67,10 +67,13 @@ public static class StoredSecretsKey
         var key = db.Model.FindEntityType(typeof(T))!.FindPrimaryKey()!.Properties[0].Name;
         try
         {
-            await db.Set<T>().AsNoTracking()
-                .OrderByDescending(e => EF.Property<object>(e, key))
-                .Take(Sample).ToListAsync();
-            return true;
+            for (var skip = 0; ; skip += BatchSize)
+            {
+                var batch = await db.Set<T>().AsNoTracking()
+                    .OrderBy(e => EF.Property<object>(e, key))
+                    .Skip(skip).Take(BatchSize).ToListAsync();
+                if (batch.Count < BatchSize) return true;
+            }
         }
         catch (Exception ex) when (IsUnreadable(ex))
         {
