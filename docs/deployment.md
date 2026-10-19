@@ -119,6 +119,13 @@ See [Data sources](data-sources.md).
 
 Run several replicas behind a load balancer for throughput and availability, and tune prefetch, parallel exchanges and priority per work group. Read the [replica notes](architecture.md#running-more-than-one-replica) about the scheduler first.
 
+## When Bitween won't start
+
+Bitween checks its configuration and its database before it serves anything. When something is wrong it logs one entry, `Bitween can't start until these are fixed:`, with a numbered list of what to change, and exits. Fix everything on the list and redeploy.
+
+- Without `ConnectionStrings:BitweenDb` or `ConnectionStrings:RabbitMQ`, the list is written to the console and holds only the configuration problems; the database is checked on the next start.
+- A failed migration is logged on its own, as `Database migration failed on startup against {Host}:{Port}/{Database}`.
+
 ## Upgrading
 
 - Migrations apply at startup, so back up the database before deploying a new version.

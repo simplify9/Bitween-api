@@ -74,6 +74,29 @@ namespace SW.Bitween.Web
             var themeOptions = new ThemeOptions();
             Configuration.GetSection(BitweenOptions.ConfigurationSection).Bind(bitweenOptions);
             Configuration.GetSection(ThemeOptions.ConfigurationSection).Bind(themeOptions);
+
+            // Configuration mistakes are collected here, not thrown one at a time; Program logs them
+            // with the ones only the database can show, and refuses to start.
+            var problems = new StartupProblems();
+            services.AddSingleton(problems);
+            problems.Check(RejectSampleSigningKey);
+            if (string.Equals(bitweenOptions.StorageProvider, "Local", StringComparison.OrdinalIgnoreCase) &&
+                !Environment.IsDevelopment())
+                problems.Add("StorageProvider 'Local' stores files on the local filesystem and is only allowed when " +
+                             "ASPNETCORE_ENVIRONMENT is 'Development'.");
+            var unregistrable = false;
+            foreach (var (name, example) in new[]
+                     {
+                         (BitweenDbContext.ConnectionString, "the database's connection string"),
+                         ("RabbitMQ", "the broker's address, as amqp://user:password@rabbitmq:5672/")
+                     })
+            {
+                if (!string.IsNullOrWhiteSpace(Configuration.GetConnectionString(name))) continue;
+                problems.Add($"ConnectionStrings:{name} is not configured. Set it (env: ConnectionStrings__{name}) to {example}.");
+                unregistrable = true;
+            }
+            // Nothing past this point can be registered without them: report them with the rest now.
+            if (unregistrable) throw new StartupProblemException(problems.ToString());
             services.AddSingleton(themeOptions);
             services.AddSingleton(bitweenOptions);
             // The built-in mappers cannot see these options; the shared-parse switch reaches them here.
@@ -225,9 +248,6 @@ namespace SW.Bitween.Web
                     services.AddS3CloudFiles();
                     break;
                 case "LOCAL":
-                    if (!Environment.IsDevelopment())
-                        throw new InvalidOperationException(
-                            "StorageProvider 'Local' stores files on the local filesystem and is only allowed when ASPNETCORE_ENVIRONMENT is 'Development'.");
                     services.AddLocalTestsCloudFiles();
                     break;
                 default:
@@ -280,14 +300,8 @@ namespace SW.Bitween.Web
             }
             services.AddScoped<RequestContext>();
 
-            // Get and validate connection string
+            // Present: checked with the rest of the configuration at the top.
             var connectionString = Configuration.GetConnectionString(BitweenDbContext.ConnectionString);
-            if (string.IsNullOrWhiteSpace(connectionString))
-            {
-                throw new InvalidOperationException(
-                    $"Connection string '{BitweenDbContext.ConnectionString}' is not configured. " +
-                    "Please check your appsettings.json or environment configuration.");
-            }
 
             // MySQL connections are encrypted unless the connection string chooses otherwise: the driver's
             // default, Preferred, falls back to plain text against a server without TLS. Set here so the
@@ -357,10 +371,11 @@ namespace SW.Bitween.Web
                 if (!connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) &&
                     !connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new InvalidOperationException(
+                    problems.Add(
                         $"PostgreSQL connection string is missing 'Host=' or 'Server=' parameter. " +
                         // Never the connection string itself: it carries the password, and this goes to the log.
                         "Please check your ConnectionStrings:BitweenDb configuration.");
+                    throw new StartupProblemException(problems.ToString());
                 }
 
                 // Configure connection with Azure Managed Identity for PostgreSQL if enabled
@@ -486,7 +501,6 @@ namespace SW.Bitween.Web
             // {
             //     config.DefaultApiClientFactory = sp => sp.GetService<BitweenClient>();
             // });
-            RejectSampleSigningKey();
             AddRateLimiting(services);
             services.AddJwtTokenParameters();
             services.AddAuthorization();
@@ -683,19 +697,19 @@ namespace SW.Bitween.Web
             var key = Configuration["Token:Key"];
 
             if (string.IsNullOrWhiteSpace(key))
-                throw new InvalidOperationException(
-                    "Token:Key is not configured. Generate a random secret unique to this " +
-                    "deployment - tokens cannot be trusted without one.");
+                throw new StartupProblemException(
+                    "Token:Key is not configured. Set it (env: Token__Key) to a random secret unique to " +
+                    "this deployment - tokens cannot be trusted without one.");
 
             // The length our own configuration documents. A short key is brute-forceable offline
             // against any token the holder has seen, which is every token they were ever issued.
             if (key.Length < MinimumSigningKeyLength)
-                throw new InvalidOperationException(
+                throw new StartupProblemException(
                     $"Token:Key is {key.Length} characters; it must be at least " +
                     $"{MinimumSigningKeyLength}. Generate a random secret rather than choosing one.");
 
             if (key == SampleSigningKey)
-                throw new InvalidOperationException(
+                throw new StartupProblemException(
                     "Token:Key is still the sample value that ships as the default in the " +
                     "deployment chart, and it is published in a public repository - anyone can " +
                     "mint a valid token with it. Set Token:Key (env: Token__Key) to a random " +
