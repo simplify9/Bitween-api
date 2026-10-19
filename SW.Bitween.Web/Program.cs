@@ -55,7 +55,7 @@ namespace SW.Bitween.Web
             // These read partners and alerts, whose stored credentials need the encryption key.
             if (host.CanReadStoredSecrets())
                 host.SecureSystemPartnerKey().HashStoredPartnerKeys().MoveRetryAlertsToChannels();
-            host.ApplyStoredSettings().CheckBusEnvironment();
+            host.ApplyStoredSettings().CheckBusEnvironment().CheckStorage();
 
             if (RefusesToStart(host)) return;
             host.FindLegacyEventQueues().Run();

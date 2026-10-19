@@ -236,25 +236,36 @@ namespace SW.Bitween.Web
             );
 
             services.AddApiClient<BitweenClient, BitweenClientOptions>();
-            switch (bitweenOptions.StorageProvider.ToUpper())
+            // The storage libraries create the bucket and its deletion rules as they register, so
+            // wrong storage settings stop the start here, before anything else could be registered.
+            try
             {
-                case "AS":
-                    services.AddAsCloudFiles();
-                    // Azure decides privacy per container, and the storage library creates it public.
-                    services.AddHostedService<PrivateAzureContainer>();
-                    break;
-                case "OC":
-                    services.AddOracleCloudFiles();
-                    break;
-                case "S3":
-                    services.AddS3CloudFiles();
-                    break;
-                case "LOCAL":
-                    services.AddLocalTestsCloudFiles();
-                    break;
-                default:
-                    services.AddS3CloudFiles();
-                    break;
+                switch (bitweenOptions.StorageProvider.ToUpper())
+                {
+                    case "AS":
+                        services.AddAsCloudFiles();
+                        // Azure decides privacy per container, and the storage library creates it public.
+                        services.AddHostedService<PrivateAzureContainer>();
+                        break;
+                    case "OC":
+                        services.AddOracleCloudFiles();
+                        break;
+                    case "S3":
+                        services.AddS3CloudFiles();
+                        break;
+                    case "LOCAL":
+                        services.AddLocalTestsCloudFiles();
+                        break;
+                    default:
+                        services.AddS3CloudFiles();
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                problems.Add(StorageCheck.Problem(
+                    $"{bitweenOptions.StorageProvider}, bucket {Configuration["CloudFiles:BucketName"]}", ex.Message));
+                throw new StartupProblemException(problems.ToString());
             }
 
             services.AddServerless(configure =>
