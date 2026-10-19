@@ -10,7 +10,7 @@ Some values are also **runtime settings** that administrators change in the UI. 
 |---|---|
 | `ConnectionStrings:BitweenDb` | `Host=db;Port=5432;Database=bitween;Username=bitween;Password=...` |
 | `ConnectionStrings:RabbitMQ` | `amqp://user:password@rabbitmq:5672/` |
-| `ASPNETCORE_ENVIRONMENT` | `Production`, or the value the other applications on the same RabbitMQ use: the bus names its exchanges and queues after it. On an upgrade, keep the running value. Use `Development` only on a developer's machine |
+| `ASPNETCORE_ENVIRONMENT` | `Production`, or the value the other applications on the same RabbitMQ use: the bus names its exchanges and queues after it. On an upgrade, keep the running value: Bitween remembers it, and refuses to start under another until `Bitween:ConfirmBusEnvironment` names the new one. Use `Development` only on a developer's machine |
 | `Token:Key` | A random secret of at least 32 characters, unique to this deployment |
 | `Token:Issuer`, `Token:Audience` | Values used to sign and validate JWTs |
 | `Bitween:InitialAdminPassword` | New installations only: the password for `admin@Bitween.systems` |
@@ -103,6 +103,7 @@ applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
 | `ConsumeLegacyEventMessages` | `false` | Also drain the queues that versions before work groups published to. |
 | `CorsOrigins` | empty | Browser origins allowed to call the API with credentials. Set as `Bitween__CorsOrigins__0`, `Bitween__CorsOrigins__1` and so on. |
 | `SettingsEncryptionKey` | | Passphrase that encrypts secret settings and stored credentials in the database. See [Security](security.md#secrets). |
+| `ConfirmBusEnvironment` | | The new `ASPNETCORE_ENVIRONMENT`, after every application on the same RabbitMQ has moved to it. Bitween reads from new queues under a new name, and what waits in the old ones stays there. It only confirms the name it holds, so it can stay set. |
 | `SettingsEncryptionKeyLost` | `false` | Only when the key that encrypted the stored credentials is gone for good: start anyway, and show what it encrypted as empty until entered again. See [Security](security.md#secrets). |
 | `ReceiveAttemptRetentionDays` | `30` | Days to keep receive attempts. |
 | `AuditRetentionDays` | `0` | Days to keep audit entries; the daily clean-up deletes older ones. 0 keeps them indefinitely. |
