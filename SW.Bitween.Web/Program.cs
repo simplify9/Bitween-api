@@ -20,7 +20,18 @@ namespace SW.Bitween.Web
         public static void Main(string[] args)
         {
             //var id = (long)(DateTime.UtcNow.Subtract(new DateTime(2010, 1, 1)).TotalMilliseconds * 1000);
-            var host = CreateHostBuilder(args).Build();
+            IHost host;
+            try
+            {
+                host = CreateHostBuilder(args).Build();
+            }
+            catch (StartupProblemException ex)
+            {
+                // No database to check further, and no logger yet: the list is all there is to say.
+                Console.Error.WriteLine(ex.Message);
+                Environment.ExitCode = 1;
+                return;
+            }
 
             // Startup migration failures otherwise surface only as a bare unhandled exception with
             // no indication of which database was targeted, which makes an environment-specific
@@ -40,8 +51,30 @@ namespace SW.Bitween.Web
                 throw;
             }
 
-            host.SecureSeededAdministrator().SecureSystemPartnerKey().HashStoredPartnerKeys()
-                .MoveRetryAlertsToChannels().ApplyStoredSettings().Run();
+            host.SecureSeededAdministrator();
+            // These read partners and alerts, whose stored credentials need the encryption key.
+            if (host.CanReadStoredSecrets())
+                host.SecureSystemPartnerKey().HashStoredPartnerKeys().MoveRetryAlertsToChannels();
+            host.ApplyStoredSettings().CheckBusEnvironment().CheckStorage();
+
+            if (RefusesToStart(host)) return;
+            host.FindLegacyEventQueues().Run();
+        }
+
+        /// <summary>
+        /// Logs every problem found while starting as one list, configuration and database alike, and
+        /// exits without serving.
+        /// </summary>
+        private static bool RefusesToStart(IHost host)
+        {
+            var problems = host.Services.GetRequiredService<StartupProblems>();
+            if (!problems.Any) return false;
+
+            host.Services.GetRequiredService<ILogger<Program>>().LogCritical("{Problems}", problems.ToString());
+            // Flushes the log before the process ends.
+            host.Dispose();
+            Environment.ExitCode = 1;
+            return true;
         }
 
         /// <summary>The longest one migration statement may run, such as an index build on a big table.</summary>

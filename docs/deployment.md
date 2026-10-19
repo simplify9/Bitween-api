@@ -55,7 +55,7 @@ Things to know about the chart:
 - The image tag is the chart version, so a chart must be packaged with the version of an image that exists.
 - The Service forwards port 80 to container port 8080.
 - The Ingress exposes `/api`, `/swagger` and `/` by default, so the admin UI and `/blank.html` are served from the same host as the API. A deployment that overrides `ingress.paths` replaces the whole list, so it has to include `/` itself.
-- Probes are on by default: a startup probe and a liveness probe on `/health/live`, which only checks that the process answers, and a readiness probe on `/health/ready`, which also checks the database and that the bus is connected to RabbitMQ. A pod whose broker is down starts and stays not ready until the bus connects; it does not restart. The startup probe allows 40 minutes for migrations (`probes.startupFailureThreshold`).
+- Probes are on by default: a startup probe and a liveness probe on `/health/live`, which only checks that the process answers, and a readiness probe on `/health/ready`, which also checks the database and that the bus is connected to RabbitMQ. A pod whose broker is down starts and stays not ready until the bus connects; it does not restart. The exception is an installation's first start on a version that records the environment name its queues are made under: it [won't start](#when-bitween-wont-start) until RabbitMQ answers which name that was. The startup probe allows 40 minutes for migrations (`probes.startupFailureThreshold`).
 - A stopping pod lets the exchanges it is running finish for up to 30 seconds before it closes its queues, so they are acknowledged instead of run again elsewhere. The app waits up to 45 seconds to stop, and the chart gives the pod 60 (`terminationGracePeriodSeconds`); keep that value above 45.
 - The `rabbitmq` values are not used by any template.
 - `charts/default/README.md` explains the two routing modes.
@@ -93,6 +93,7 @@ For a user-assigned identity, set `Bitween__AzureManagedIdentityClientId` or `AZ
 
 Set `Bitween:StorageProvider` and the matching `CloudFiles` keys. See [Configuration](configuration.md#storage).
 
+- At each start Bitween writes `.access-check` under the document prefix and reads it back, and [won't start](#when-bitween-wont-start) when it can't. The same file tells the Settings page whether the bucket is open to everyone.
 - With the default `temp30/` document prefix, the storage libraries expire exchange files after 30 days. Choose `temp1/`, `temp7/` or `temp365/` for other retention, or a prefix outside those to keep files. The prefix can be changed later on the Settings page.
 - For Azure Blob, set `CloudFiles__SubscriptionId` and `CloudFiles__ResourceGroupName`, and give the identity a role that can manage the account's lifecycle policy. The rules are then created at startup. Without them the rules aren't created, and the Settings page can't show any set up by hand. See [Configuration](configuration.md#storage).
 - Keep the bucket private: Bitween reads and writes with its own credentials and serves file links itself. On Azure it switches its container to private at startup; with a managed identity, give it a role that can change the container's access level, or set it to Private yourself.
@@ -119,12 +120,18 @@ See [Data sources](data-sources.md).
 
 Run several replicas behind a load balancer for throughput and availability, and tune prefetch, parallel exchanges and priority per work group. Read the [replica notes](architecture.md#running-more-than-one-replica) about the scheduler first.
 
+## When Bitween won't start
+
+Bitween checks its configuration and its database before it serves anything. When something is wrong it logs one entry, `Bitween can't start until these are fixed:`, with a numbered list of what to change, and exits. Fix everything on the list and redeploy.
+
+- Without `ConnectionStrings:BitweenDb` or `ConnectionStrings:RabbitMQ`, the list is written to the console and holds only the configuration problems; the database is checked on the next start.
+- A failed migration is logged on its own, as `Database migration failed on startup against {Host}:{Port}/{Database}`.
+
 ## Upgrading
 
 - Migrations apply at startup, so back up the database before deploying a new version.
-- Upgrading to this version needs a short downtime: stop every pod of the old version before deploying the new one.
-- Values already in the `Settings` table are not replaced by new configuration. Change them on the Settings page.
-- When upgrading from a version without work groups, set `Bitween__ConsumeLegacyEventMessages=true` until the old event queues are empty.
+- Values already in the `Settings` table are not replaced by new configuration. Change them on the Settings page. A startup warning names each one configuration sets differently.
+- Upgrading from a version without work groups needs nothing set: at each start Bitween reads the queues that version left behind until they are empty, then removes them.
 
 ### Upgrading to parallel exchanges
 

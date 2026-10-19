@@ -119,6 +119,7 @@ Bitween logs to the console. SQL statements are logged without their parameter v
 
 Messages worth watching for:
 
+- `Bitween can't start until these are fixed:`, followed by what to change. See [When Bitween won't start](deployment.md#when-bitween-wont-start)
 - `Database migration failed on startup against {Host}:{Port}/{Database}`
 - A startup warning that the Microsoft sign-in redirect URI is not the sign-in landing page
 - `Auto-retry evaluation failed for xchange …`

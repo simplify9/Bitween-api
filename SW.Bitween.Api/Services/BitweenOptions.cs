@@ -324,7 +324,6 @@ namespace SW.Bitween
         /// <c>partnerkey</c> keeps working either way. Read per request.
         /// </summary>
         public string PartnerKeyHeader { get; set; }
-        public bool ConsumeLegacyEventMessages { get; set; }
         public string QueuePrefix { get; set; }
 
         /// <summary>

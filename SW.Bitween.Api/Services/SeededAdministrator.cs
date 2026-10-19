@@ -26,11 +26,11 @@ public static class SeededAdministrator
     public static IHost SecureSeededAdministrator(this IHost host)
     {
         using var scope = host.Services.CreateScope();
-        Secure(
+        host.Services.GetRequiredService<StartupProblems>().Check(() => Secure(
                 scope.ServiceProvider.GetRequiredService<BitweenDbContext>(),
                 scope.ServiceProvider.GetRequiredService<IConfiguration>()["Bitween:InitialAdminPassword"],
                 scope.ServiceProvider.GetRequiredService<ILogger<BitweenDbContext>>())
-            .GetAwaiter().GetResult();
+            .GetAwaiter().GetResult());
         return host;
     }
 
@@ -54,14 +54,14 @@ public static class SeededAdministrator
             if (await dbContext.Set<Account>().AnyAsync(a => a.Id != Id && !a.Deleted))
                 return;
 
-            throw new InvalidOperationException(
+            throw new StartupProblemException(
                 "This is a new installation and Bitween:InitialAdminPassword is not configured. Set it " +
                 $"(env: Bitween__InitialAdminPassword) to the password for the administrator, {admin.Email}. " +
                 "It is read on startup only while that account still has the default password.");
         }
 
         if (initialPassword == PublishedPassword)
-            throw new InvalidOperationException(
+            throw new StartupProblemException(
                 "Bitween:InitialAdminPassword is the default password, which is published in a public " +
                 "repository. Choose a different one.");
 
@@ -69,7 +69,7 @@ public static class SeededAdministrator
         policy.RuleFor(p => p).Password().OverridePropertyName("InitialAdminPassword");
         var result = policy.Validate(initialPassword);
         if (!result.IsValid)
-            throw new InvalidOperationException(
+            throw new StartupProblemException(
                 "Bitween:InitialAdminPassword does not meet the password policy: " +
                 string.Join(" ", result.Errors.Select(e => e.ErrorMessage)));
 

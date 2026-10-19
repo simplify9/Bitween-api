@@ -10,7 +10,7 @@ Some values are also **runtime settings** that administrators change in the UI. 
 |---|---|
 | `ConnectionStrings:BitweenDb` | `Host=db;Port=5432;Database=bitween;Username=bitween;Password=...` |
 | `ConnectionStrings:RabbitMQ` | `amqp://user:password@rabbitmq:5672/` |
-| `ASPNETCORE_ENVIRONMENT` | `Production`, or the value the other applications on the same RabbitMQ use: the bus names its exchanges and queues after it. On an upgrade, keep the running value. Use `Development` only on a developer's machine |
+| `ASPNETCORE_ENVIRONMENT` | `Production`, or the value the other applications on the same RabbitMQ use: the bus names its exchanges and queues after it. On an upgrade, keep the running value: Bitween remembers it, and refuses to start under another until `Bitween:ConfirmBusEnvironment` names the new one. Use `Development` only on a developer's machine |
 | `Token:Key` | A random secret of at least 32 characters, unique to this deployment |
 | `Token:Issuer`, `Token:Audience` | Values used to sign and validate JWTs |
 | `Bitween:InitialAdminPassword` | New installations only: the password for `admin@Bitween.systems` |
@@ -23,7 +23,6 @@ Set these too when they apply:
 
 - Other applications publish to Bitween's bus: `Bus:OnInvalidUserToken`. See [Bus messages from other applications](#bus-messages-from-other-applications).
 - Upgrading, and partners must keep getting one call at a time, in order: `Bitween:BusDefaultConcurrency` set to `1`. See [Upgrading to parallel exchanges](deployment.md#upgrading-to-parallel-exchanges).
-- Upgrading from a version without work groups: `Bitween:ConsumeLegacyEventMessages`. See [Upgrading](deployment.md#upgrading).
 - S3-compatible storage other than AWS: `AWS_REQUEST_CHECKSUM_CALCULATION` and `AWS_RESPONSE_CHECKSUM_VALIDATION`. See [Storage](#storage).
 - A RabbitMQ shared with another Bitween: `Bitween:QueuePrefix`.
 - MySQL without TLS: `SslMode` in the connection string. See [Databases](deployment.md#databases).
@@ -100,9 +99,10 @@ applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
 | `BusDefaultQueuePrefetch` | `12` | Default number of unacknowledged messages per consumer. Work groups can override it. |
 | `BusDefaultConcurrency` | the prefetch | How many messages of a lane run at once on a node, for the Ungrouped lane and the bus's other consumers (bus-enabled information types, retry and auto-pause alerts). A work group sets its own with **Parallel exchanges**. `1` runs them one at a time, in order, as before. |
 | `RabbitMqManagementUrl`, `RabbitMqManagementUsername`, `RabbitMqManagementPassword` | | RabbitMQ management API, needed for queue health. |
-| `ConsumeLegacyEventMessages` | `false` | Also drain the queues that versions before work groups published to. |
 | `CorsOrigins` | empty | Browser origins allowed to call the API with credentials. Set as `Bitween__CorsOrigins__0`, `Bitween__CorsOrigins__1` and so on. |
 | `SettingsEncryptionKey` | | Passphrase that encrypts secret settings and stored credentials in the database. See [Security](security.md#secrets). |
+| `ConfirmBusEnvironment` | | The new `ASPNETCORE_ENVIRONMENT`, after every application on the same RabbitMQ has moved to it. Bitween reads from new queues under a new name, and what waits in the old ones stays there. It only confirms the name it holds, so it can stay set. |
+| `SettingsEncryptionKeyLost` | `false` | Only when the key that encrypted the stored credentials is gone for good: start anyway, and show what it encrypted as empty until entered again. See [Security](security.md#secrets). |
 | `ReceiveAttemptRetentionDays` | `30` | Days to keep receive attempts. |
 | `AuditRetentionDays` | `0` | Days to keep audit entries; the daily clean-up deletes older ones. 0 keeps them indefinitely. |
 | `LogSqlParameterValues` | `false` | Write SQL parameter values into the logs. They hold passwords, partner keys and payloads, so it is off in every environment unless set; the repository's `launchSettings.json` turns it on for a developer's own machine. |
@@ -159,7 +159,7 @@ Logging lives in the `SwLogger` section.
 
 Settings are stored in the `Settings` table and edited on the Settings page.
 
-- On first boot, every editable setting is copied from configuration into the table. After that the table wins, and changing configuration has no effect.
+- On first boot, every editable setting is copied from configuration into the table. After that the table wins, and changing configuration has no effect: each start logs a warning naming every setting whose configured value differs from the stored one.
 - A saved change applies immediately on the instance that saved it, and reaches other instances through the cache revoke broadcast.
 - **Reset to default** writes the product default, not the configured value.
 - Values captured at startup, such as the bus, storage, CORS and database settings, are shown read-only. Credentials only show whether they are set.
@@ -193,7 +193,7 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.MailServer.Password` | Mail server | Yes, secret | empty |
 | `Bitween.MaxRetryAfterSeconds` | Reliability & jobs | Yes | `21600`, six hours |
 | `Bitween.RetryJobCron` | Reliability & jobs | Yes | `0 * * * * ?` |
-| `Bitween.QueuePrefix`, `BusDefaultQueuePrefetch`, `BusDefaultConcurrency`, `ConsumeLegacyEventMessages` | Messaging | Read-only | |
+| `Bitween.QueuePrefix`, `BusDefaultQueuePrefetch`, `BusDefaultConcurrency` | Messaging | Read-only | |
 | `Bitween.RabbitMqManagementUrl`, `Username`, `Password` | Messaging | Shows whether set | |
 | `Bitween.UseAzureManagedIdentity` | Database | Read-only | `false` |
 | `Bitween.AzureManagedIdentityClientId` | Database | Shows whether set | |

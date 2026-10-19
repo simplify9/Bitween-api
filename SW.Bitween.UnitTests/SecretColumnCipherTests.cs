@@ -1,4 +1,3 @@
-using System;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace SW.Bitween.UnitTests;
@@ -51,7 +50,17 @@ public class SecretColumnCipherTests
         var stored = SecretColumnCipher.Protect("secret");
 
         SecretColumnCipher.Configure("a different key");
-        var ex = Assert.ThrowsException<InvalidOperationException>(() => SecretColumnCipher.Unprotect(stored));
+        var ex = Assert.ThrowsException<UnreadableSecretException>(() => SecretColumnCipher.Unprotect(stored));
         StringAssert.Contains(ex.Message, "PreviousSettingsEncryptionKey");
+    }
+
+    [TestMethod]
+    public void With_the_key_lost_a_value_it_encrypted_reads_as_empty()
+    {
+        SecretColumnCipher.Configure("the lost key");
+        var stored = SecretColumnCipher.Protect("secret");
+
+        SecretColumnCipher.Configure("a new key", keyLost: true);
+        Assert.IsNull(SecretColumnCipher.Unprotect(stored));
     }
 }

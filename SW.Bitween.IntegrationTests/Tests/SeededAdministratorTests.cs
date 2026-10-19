@@ -56,7 +56,7 @@ public class SeededAdministratorTests(BitweenFixture fixture)
         await db.Set<Account>().Where(a => a.Id != SeededAdministrator.Id)
             .ExecuteUpdateAsync(s => s.SetProperty(a => a.Deleted, true));
 
-        var refused = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var refused = await Assert.ThrowsAsync<StartupProblemException>(() =>
             SeededAdministrator.Secure(db, null, NullLogger.Instance));
         Assert.Contains("Bitween__InitialAdminPassword", refused.Message);
     }
@@ -83,7 +83,7 @@ public class SeededAdministratorTests(BitweenFixture fixture)
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         await using var transaction = await db.Database.BeginTransactionAsync();
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<StartupProblemException>(() =>
             SeededAdministrator.Secure(db, SeededAdministrator.PublishedPassword, NullLogger.Instance));
     }
 
