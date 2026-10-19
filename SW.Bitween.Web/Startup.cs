@@ -104,7 +104,8 @@ namespace SW.Bitween.Web
 
             // The same passphrase the settings secrets use, now also for the credential columns.
             SecretColumnCipher.Configure(bitweenOptions.SettingsEncryptionKey,
-                Configuration["Bitween:PreviousSettingsEncryptionKey"]);
+                Configuration["Bitween:PreviousSettingsEncryptionKey"],
+                Configuration.GetValue<bool>(StoredSecretsKey.KeyLostSetting));
             // Keeps both option objects in sync with the Settings table, which owns every editable
             // setting; Program hands configuration over to it at boot. The protector encrypts
             // secret settings before they're stored.

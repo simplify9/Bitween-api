@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SW.Bitween.Domain;
 using SW.Bitween.IntegrationTests.Fixtures;
+using SW.Bitween.Services;
 using Xunit;
 
 namespace SW.Bitween.IntegrationTests.Tests;
@@ -24,15 +25,16 @@ public class SecretColumnEncryptionTests(BitweenFixture fixture)
     public async Task A_partner_credential_is_stored_encrypted_and_read_back_plain()
     {
         SecretColumnCipher.Configure("integration test passphrase");
+        var partnerId = await CreatePartnerAsync();
         try
         {
-            var partnerId = await CreatePartnerAsync();
-
             Assert.DoesNotContain(Secret, await RawAdapterPropertiesAsync(partnerId));
             Assert.Equal(Secret, (await ReadPartnerAsync(partnerId)).AdapterProperties["password"]);
         }
         finally
         {
+            // Unreadable to the rest of the collection once the key is gone.
+            await DeletePartnerAsync(partnerId);
             SecretColumnCipher.Configure(null);
         }
     }
@@ -62,6 +64,46 @@ public class SecretColumnEncryptionTests(BitweenFixture fixture)
             await decrypt.RunAsync(CancellationToken.None);
             SecretColumnCipher.Configure(null);
         }
+    }
+
+    [Fact]
+    public async Task A_key_that_did_not_encrypt_them_is_found_before_startup()
+    {
+        SecretColumnCipher.Configure("the key it was written with");
+        var partnerId = await CreatePartnerAsync();
+        try
+        {
+            Assert.True(await AllReadableAsync());
+
+            SecretColumnCipher.Configure("a different key");
+            Assert.False(await AllReadableAsync());
+
+            SecretColumnCipher.Configure(null);
+            Assert.False(await AllReadableAsync());
+
+            // Lost for good: what it encrypted reads as empty, so it can be entered again.
+            SecretColumnCipher.Configure("a different key", keyLost: true);
+            Assert.True(await AllReadableAsync());
+            Assert.Null((await ReadPartnerAsync(partnerId)).AdapterProperties);
+        }
+        finally
+        {
+            await DeletePartnerAsync(partnerId);
+            SecretColumnCipher.Configure(null);
+        }
+    }
+
+    private async Task DeletePartnerAsync(int id)
+    {
+        await using var scope = fixture.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<BitweenDbContext>()
+            .Set<Partner>().Where(p => p.Id == id).ExecuteDeleteAsync();
+    }
+
+    private async Task<bool> AllReadableAsync()
+    {
+        await using var scope = fixture.CreateScope();
+        return await StoredSecretsKey.AllReadable(scope.ServiceProvider.GetRequiredService<BitweenDbContext>());
     }
 
     private async Task<int> CreatePartnerAsync()

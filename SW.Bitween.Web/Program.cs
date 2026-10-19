@@ -51,8 +51,11 @@ namespace SW.Bitween.Web
                 throw;
             }
 
-            host.SecureSeededAdministrator().SecureSystemPartnerKey().HashStoredPartnerKeys()
-                .MoveRetryAlertsToChannels().ApplyStoredSettings();
+            host.SecureSeededAdministrator();
+            // These read partners and alerts, whose stored credentials need the encryption key.
+            if (host.CanReadStoredSecrets())
+                host.SecureSystemPartnerKey().HashStoredPartnerKeys().MoveRetryAlertsToChannels();
+            host.ApplyStoredSettings();
 
             if (RefusesToStart(host)) return;
             host.Run();

@@ -103,6 +103,7 @@ applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
 | `ConsumeLegacyEventMessages` | `false` | Also drain the queues that versions before work groups published to. |
 | `CorsOrigins` | empty | Browser origins allowed to call the API with credentials. Set as `Bitween__CorsOrigins__0`, `Bitween__CorsOrigins__1` and so on. |
 | `SettingsEncryptionKey` | | Passphrase that encrypts secret settings and stored credentials in the database. See [Security](security.md#secrets). |
+| `SettingsEncryptionKeyLost` | `false` | Only when the key that encrypted the stored credentials is gone for good: start anyway, and show what it encrypted as empty until entered again. See [Security](security.md#secrets). |
 | `ReceiveAttemptRetentionDays` | `30` | Days to keep receive attempts. |
 | `AuditRetentionDays` | `0` | Days to keep audit entries; the daily clean-up deletes older ones. 0 keeps them indefinitely. |
 | `LogSqlParameterValues` | `false` | Write SQL parameter values into the logs. They hold passwords, partner keys and payloads, so it is off in every environment unless set; the repository's `launchSettings.json` turns it on for a developer's own machine. |

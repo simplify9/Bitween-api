@@ -41,6 +41,10 @@ public class SecretColumnEncryptionPass(IServiceScopeFactory scopes, ILogger<Sec
             return;
         }
 
+        // Re-saving a row writes what it read, and with the key lost that is empty: the values the
+        // lost key encrypted would be gone for good, rather than readable should it be found.
+        if (SecretColumnCipher.KeyLost) return;
+
         try
         {
             await Task.Delay(Delay, stoppingToken);

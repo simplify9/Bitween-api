@@ -27,6 +27,11 @@ namespace SW.Bitween;
 /// change the key, move the old one to <c>Bitween:PreviousSettingsEncryptionKey</c>: values are read
 /// with either and written with the new one.
 /// </para>
+/// <para>
+/// A key that is gone for good leaves nothing to read them with. <c>Bitween:SettingsEncryptionKeyLost</c>
+/// then reads such a value as empty, so it can be entered again, and leaves what is stored in place
+/// until it is: should the key turn up after all, whatever wasn't entered again reads once more.
+/// </para>
 /// </remarks>
 public static class SecretColumnCipher
 {
@@ -41,14 +46,19 @@ public static class SecretColumnCipher
 
     private static byte[] _key;
     private static byte[] _previousKey;
+    private static bool _keyLost;
 
     /// <summary>Whether values are being encrypted as they are written.</summary>
     public static bool Enabled => _key is not null;
 
-    public static void Configure(string passphrase, string previousPassphrase = null)
+    /// <summary>Whether a value no key here can read is taken as empty rather than refused.</summary>
+    public static bool KeyLost => _keyLost;
+
+    public static void Configure(string passphrase, string previousPassphrase = null, bool keyLost = false)
     {
         _key = string.IsNullOrWhiteSpace(passphrase) ? null : Derive(passphrase);
         _previousKey = string.IsNullOrWhiteSpace(previousPassphrase) ? null : Derive(previousPassphrase);
+        _keyLost = keyLost;
     }
 
     public static string Protect(string plaintext)
@@ -66,7 +76,12 @@ public static class SecretColumnCipher
         return Prefix + Convert.ToBase64String(output);
     }
 
-    public static string Unprotect(string stored)
+    public static string Unprotect(string stored) => Unprotect(stored, unreadable: null);
+
+    /// <summary>The same for JSON, where a value that can't be read is JSON's own empty value.</summary>
+    private static string UnprotectJson(string stored) => Unprotect(stored, unreadable: "null");
+
+    private static string Unprotect(string stored, string unreadable)
     {
         if (stored is null || !stored.StartsWith(Prefix, StringComparison.Ordinal))
             return stored;
@@ -85,10 +100,8 @@ public static class SecretColumnCipher
             }
         }
 
-        throw new InvalidOperationException(
-            "A stored value is encrypted with a key this instance does not have. Set " +
-            "Bitween:SettingsEncryptionKey to the key it was written with, or put that key in " +
-            "Bitween:PreviousSettingsEncryptionKey while moving to a new one.");
+        if (_keyLost) return unreadable;
+        throw new UnreadableSecretException();
     }
 
     private static string Decrypt(byte[] key, byte[] input)
@@ -115,7 +128,7 @@ public static class SecretColumnCipher
                         $"{builder.Metadata.Name} has no converter to encrypt the output of; call StoreAsJson first.");
         var comparer = builder.Metadata.GetValueComparer();
 
-        var cipher = new ValueConverter<string, string>(v => Protect(v), v => Unprotect(v));
+        var cipher = new ValueConverter<string, string>(v => Protect(v), v => UnprotectJson(v));
         builder.Metadata.SetValueConverter(inner.ComposeWith(cipher));
         if (comparer is not null) builder.Metadata.SetValueComparer(comparer);
         return builder;
@@ -153,7 +166,7 @@ public static class SecretColumnCipher
     {
         if (stored is null) return null;
         var json = stored.TrimStart().StartsWith("\"" + Prefix, StringComparison.Ordinal)
-            ? Unprotect(JsonConvert.DeserializeObject<string>(stored))
+            ? UnprotectJson(JsonConvert.DeserializeObject<string>(stored))
             : stored;
         return JsonConvert.DeserializeObject<T>(json);
     }
@@ -184,3 +197,9 @@ public static class SecretColumnCipher
         return result;
     }
 }
+
+/// <summary>A stored credential that neither of this instance's keys can decrypt.</summary>
+public class UnreadableSecretException() : InvalidOperationException(
+    "A stored value is encrypted with a key this instance does not have. Set " +
+    "Bitween:SettingsEncryptionKey to the key it was written with, or put that key in " +
+    "Bitween:PreviousSettingsEncryptionKey while moving to a new one.");
