@@ -71,11 +71,18 @@ public class BusEnvironmentTests(BitweenFixture fixture) : IAsyncLifetime
         Assert.Null(await RecordedAsync());
     }
 
+    /// <summary>
+    /// A later start would find queues the bus had made under the new name by then, and take that
+    /// name for the old one.
+    /// </summary>
     [Fact]
-    public async Task An_unreachable_broker_leaves_the_check_to_a_later_start()
+    public async Task An_unreachable_broker_on_the_first_check_stops_the_start()
     {
-        Assert.Null(await CheckAsync("Production", confirmed: null,
-            formerName: () => throw new InvalidOperationException("broker down")));
+        var problem = await CheckAsync("Production", confirmed: null,
+            formerName: () => throw new InvalidOperationException("broker down"));
+
+        Assert.Contains("broker down", problem);
+        Assert.Contains("ConnectionStrings:RabbitMQ", problem);
         Assert.Null(await RecordedAsync());
     }
 

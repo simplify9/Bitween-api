@@ -67,9 +67,12 @@ public static class BusEnvironment
             }
             catch (Exception ex)
             {
-                logger.LogWarning(ex, "Could not reach RabbitMQ to tell which environment this Bitween ran as " +
-                                      "before; it is checked on a later start.");
-                return null;
+                // Not left to a later start: by then the bus has made queues under the new name, and they
+                // would be all that start finds. Without the broker the bus can't run anyway.
+                logger.LogWarning(ex, "Could not reach RabbitMQ to tell which environment this Bitween ran as before.");
+                return "RabbitMQ could not be reached to tell which ASPNETCORE_ENVIRONMENT this Bitween's queues were " +
+                       $"made under ({ex.GetBaseException().Message}). Check ConnectionStrings:RabbitMQ and that the " +
+                       "broker is up.";
             }
         }
 
