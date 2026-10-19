@@ -108,7 +108,7 @@ RabbitMQ carries all asynchronous work. Queue names are lower-cased and built fr
 | Front door | `BusService` | Each bus-enabled information type's message type name | Documents from other systems |
 | Control | `XchangeService` | `SubscriptionUnpausedEvent` | Releasing on-hold exchanges |
 | Control | `RetryAlertService` | `RetryBudgetExhaustedEvent` | Budget alerts |
-| Legacy | `XchangeService` | `ApiXchangeCreatedEvent` and four similar names | Only when `Bitween:ConsumeLegacyEventMessages` is on |
+| Legacy | `XchangeService` | `ApiXchangeCreatedEvent` and four similar names | Only while their queues, left by a version before work groups, still hold something. Bitween looks for them at each start and removes them once empty |
 
 Creating a work group or a bus-enabled information type asks every instance to refresh its consumers, so new queues are picked up without a restart. Queues left behind by deleted or renamed lanes appear on the Queue health page.
 

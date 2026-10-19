@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SW.Bitween.Services;
 using SW.Bitween.Services.Adapters;
 using SW.Bus.RabbitMqExtensions;
 
@@ -22,7 +23,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     ICloudFilesService cloudFiles, IServiceProvider serviceProvider,
     IPublishWithValues publish, ILogger<XchangeService> logger, IInfolinkCache BitweenCache,
     IAdapterInvoker adapterInvoker, NativeAdapterDiscoveryService nativeAdapterDiscovery,
-    FileLinks fileLinks, StorageRetention storageRetention, NotificationChannelSender channelSender) :
+    FileLinks fileLinks, StorageRetention storageRetention, NotificationChannelSender channelSender,
+    LegacyEventQueues legacyEventQueues) :
     // IConsume<ApiXchangeCreatedEvent>,
     // IConsume<InternalXchangeCreatedEvent>,
     // IConsume<AggregateXchangeCreatedEvent>,
@@ -1827,13 +1829,11 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             };
         }
 
-        if (!BitweenSettings.ConsumeLegacyEventMessages) return messageTypeNamesWithOptions;
-
-        messageTypeNamesWithOptions.Add(nameof(ApiXchangeCreatedEvent), new ConsumerOptions() { Priority = 10 });
-        messageTypeNamesWithOptions.Add(nameof(InternalXchangeCreatedEvent), new ConsumerOptions());
-        messageTypeNamesWithOptions.Add(nameof(ReceivingXchangeCreatedEvent), new ConsumerOptions());
-        messageTypeNamesWithOptions.Add(nameof(AggregateXchangeCreatedEvent), new ConsumerOptions());
-        messageTypeNamesWithOptions.Add(nameof(XchangeResultCreatedEvent), new ConsumerOptions());
+        foreach (var name in legacyEventQueues.ToDrain)
+            messageTypeNamesWithOptions.Add(name, new ConsumerOptions()
+            {
+                Priority = name == nameof(ApiXchangeCreatedEvent) ? 10 : null
+            });
         return messageTypeNamesWithOptions;
     }
 }

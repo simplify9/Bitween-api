@@ -25,7 +25,7 @@ public enum QueueLane
     /// <summary>A work group's <c>-Result</c> lane. Evaluates notifiers.</summary>
     Notifications,
 
-    /// <summary>A legacy event type, consumed only while that setting is on.</summary>
+    /// <summary>A legacy event type, consumed only while its queue still holds something.</summary>
     Legacy,
 
     /// <summary>Bookkeeping. No integration traffic.</summary>
@@ -50,7 +50,7 @@ public class LaneResolver(BitweenDbContext dbContext, BitweenOptions options)
         ["SubscriptionUnpausedEvent"] = "Resumed integrations",
     };
 
-    /// <summary>Only declared while <c>Bitween.ConsumeLegacyEventMessages</c> is on.</summary>
+    /// <summary>Only read while their queues still hold something; see <see cref="SW.Bitween.Services.LegacyEventQueues"/>.</summary>
     private static readonly Dictionary<string, string> Legacy = new(System.StringComparer.OrdinalIgnoreCase)
     {
         ["ApiXchangeCreatedEvent"] = "API exchange created",

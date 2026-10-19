@@ -117,6 +117,7 @@ namespace SW.Bitween.Web
             services.AddSingleton<GatewayActivity>();
             // The bell a sync gateway call waits on for its exchange's result.
             services.AddSingleton<ResultSignals>();
+            services.AddSingleton<LegacyEventQueues>();
             // Metrics: counted in memory as work happens, added to hourly rows once a minute per node.
             services.AddSingleton<SW.Bitween.Services.Metrics.MetricsRecorder>();
             services.AddSingleton<SW.Bitween.Services.Metrics.MetricsFlusher>();

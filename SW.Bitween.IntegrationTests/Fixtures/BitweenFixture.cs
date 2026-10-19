@@ -365,6 +365,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<Services.Connections.ConnectionTokens>();
                     services.AddSingleton<StorageRetention>();
                     services.AddSingleton<StorageAccess>();
+                    services.AddSingleton<LegacyEventQueues>();
                     services.AddScoped<ExchangeArchive>();
                     services.AddScoped<RetentionPlanner>();
                     services.AddScoped<ExchangeRetentionJob>();

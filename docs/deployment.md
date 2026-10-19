@@ -131,7 +131,7 @@ Bitween checks its configuration and its database before it serves anything. Whe
 - Migrations apply at startup, so back up the database before deploying a new version.
 - Upgrading to this version needs a short downtime: stop every pod of the old version before deploying the new one.
 - Values already in the `Settings` table are not replaced by new configuration. Change them on the Settings page.
-- When upgrading from a version without work groups, set `Bitween__ConsumeLegacyEventMessages=true` until the old event queues are empty.
+- Upgrading from a version without work groups needs nothing set: at each start Bitween reads the queues that version left behind until they are empty, then removes them.
 
 ### Upgrading to parallel exchanges
 

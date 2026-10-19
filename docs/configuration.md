@@ -23,7 +23,6 @@ Set these too when they apply:
 
 - Other applications publish to Bitween's bus: `Bus:OnInvalidUserToken`. See [Bus messages from other applications](#bus-messages-from-other-applications).
 - Upgrading, and partners must keep getting one call at a time, in order: `Bitween:BusDefaultConcurrency` set to `1`. See [Upgrading to parallel exchanges](deployment.md#upgrading-to-parallel-exchanges).
-- Upgrading from a version without work groups: `Bitween:ConsumeLegacyEventMessages`. See [Upgrading](deployment.md#upgrading).
 - S3-compatible storage other than AWS: `AWS_REQUEST_CHECKSUM_CALCULATION` and `AWS_RESPONSE_CHECKSUM_VALIDATION`. See [Storage](#storage).
 - A RabbitMQ shared with another Bitween: `Bitween:QueuePrefix`.
 - MySQL without TLS: `SslMode` in the connection string. See [Databases](deployment.md#databases).
@@ -100,7 +99,6 @@ applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
 | `BusDefaultQueuePrefetch` | `12` | Default number of unacknowledged messages per consumer. Work groups can override it. |
 | `BusDefaultConcurrency` | the prefetch | How many messages of a lane run at once on a node, for the Ungrouped lane and the bus's other consumers (bus-enabled information types, retry and auto-pause alerts). A work group sets its own with **Parallel exchanges**. `1` runs them one at a time, in order, as before. |
 | `RabbitMqManagementUrl`, `RabbitMqManagementUsername`, `RabbitMqManagementPassword` | | RabbitMQ management API, needed for queue health. |
-| `ConsumeLegacyEventMessages` | `false` | Also drain the queues that versions before work groups published to. |
 | `CorsOrigins` | empty | Browser origins allowed to call the API with credentials. Set as `Bitween__CorsOrigins__0`, `Bitween__CorsOrigins__1` and so on. |
 | `SettingsEncryptionKey` | | Passphrase that encrypts secret settings and stored credentials in the database. See [Security](security.md#secrets). |
 | `ConfirmBusEnvironment` | | The new `ASPNETCORE_ENVIRONMENT`, after every application on the same RabbitMQ has moved to it. Bitween reads from new queues under a new name, and what waits in the old ones stays there. It only confirms the name it holds, so it can stay set. |
@@ -195,7 +193,7 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.MailServer.Password` | Mail server | Yes, secret | empty |
 | `Bitween.MaxRetryAfterSeconds` | Reliability & jobs | Yes | `21600`, six hours |
 | `Bitween.RetryJobCron` | Reliability & jobs | Yes | `0 * * * * ?` |
-| `Bitween.QueuePrefix`, `BusDefaultQueuePrefetch`, `BusDefaultConcurrency`, `ConsumeLegacyEventMessages` | Messaging | Read-only | |
+| `Bitween.QueuePrefix`, `BusDefaultQueuePrefetch`, `BusDefaultConcurrency` | Messaging | Read-only | |
 | `Bitween.RabbitMqManagementUrl`, `Username`, `Password` | Messaging | Shows whether set | |
 | `Bitween.UseAzureManagedIdentity` | Database | Read-only | `false` |
 | `Bitween.AzureManagedIdentityClientId` | Database | Shows whether set | |

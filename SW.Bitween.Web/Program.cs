@@ -58,7 +58,7 @@ namespace SW.Bitween.Web
             host.ApplyStoredSettings().CheckBusEnvironment();
 
             if (RefusesToStart(host)) return;
-            host.Run();
+            host.FindLegacyEventQueues().Run();
         }
 
         /// <summary>
