@@ -156,6 +156,54 @@ public class SettingsService
     }
 
     /// <summary>
+    /// Names each setting configuration gives a value other than the one stored. The stored one is
+    /// used, so whoever deploys a changed value would otherwise see nothing happen. Startup only.
+    /// </summary>
+    public async Task WarnAboutIgnoredConfiguration(BitweenDbContext dbContext)
+    {
+        var rows = await dbContext.Set<Setting>().AsNoTracking()
+            .ToDictionaryAsync(s => s.Id, s => s.Value, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var definition in SettingsCatalog.All)
+        {
+            if (!definition.Stored || !rows.TryGetValue(definition.Key, out var stored)) continue;
+
+            var configured = _configured.GetValueOrDefault(definition.Key) ?? string.Empty;
+            // Configuration that sets nothing reads as the product default.
+            if (configured == DefaultOf(definition)) continue;
+
+            string current;
+            try
+            {
+                current = Normalized(definition, definition.Secret ? _protector.Unprotect(stored) : stored);
+            }
+            catch
+            {
+                // Unreadable or invalid: Reload has already said so.
+                continue;
+            }
+
+            if (Normalized(definition, configured) == current) continue;
+
+            if (definition.Secret)
+                _logger.LogWarning("{Key} is set in configuration, but the Settings page holds a different value, " +
+                                   "which is the one used. Change it on the Settings page.", definition.Key);
+            else
+                _logger.LogWarning("{Key} is {Configured} in configuration, but the Settings page holds {Stored}, " +
+                                   "which is the one used. Change it on the Settings page.",
+                    definition.Key, configured, current);
+        }
+    }
+
+    // As the options hold it, so "true" and "True" are the same value.
+    private static string Normalized(SettingDefinition definition, string value)
+    {
+        var target = new SettingsTarget(new BitweenOptions(), new ThemeOptions());
+        definition.Write(target, value);
+        return definition.Read(target) ?? string.Empty;
+    }
+
+    /// <summary>
     /// Writes <see cref="LegacyDocumentPrefixKey"/> the first time this version starts - before anyone
     /// could have changed the prefix, so it's the one every earlier exchange was written under. Runs
     /// after <see cref="Reload"/>, which has just applied the prefix imported from configuration.

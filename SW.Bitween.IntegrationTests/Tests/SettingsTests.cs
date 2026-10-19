@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using SW.Bitween.Domain;
 using SW.Bitween.IntegrationTests.Fixtures;
 using SW.Bitween.Model;
@@ -200,5 +202,45 @@ public class SettingsTests(BitweenFixture fixture) : IAsyncLifetime
 
         Assert.StartsWith("SETTING_INVALID_VALUE", ex.Message);
         Assert.Contains("not a valid cron expression", ex.Message);
+    }
+
+    /// <summary>
+    /// The stored value wins, so a deployment that changes only its configuration would otherwise
+    /// see nothing happen and nothing said.
+    /// </summary>
+    [Fact]
+    public async Task A_configured_value_the_stored_one_overrides_is_named_at_startup()
+    {
+        await Store(EditableKey, "60");
+
+        Assert.Contains(await IgnoredConfigurationWarnings(jwtExpiryMinutes: 45),
+            w => w.Contains(EditableKey) && w.Contains("45") && w.Contains("60"));
+        Assert.DoesNotContain(await IgnoredConfigurationWarnings(jwtExpiryMinutes: 60), w => w.Contains(EditableKey));
+    }
+
+    private async Task<List<string>> IgnoredConfigurationWarnings(int jwtExpiryMinutes)
+    {
+        var logger = new WarningLog();
+        var configured = new BitweenOptions { JwtExpiryMinutes = jwtExpiryMinutes };
+        var settings = new SettingsService(configured, new ThemeOptions(), new SettingsProtector(configured), logger);
+
+        await using var scope = fixture.CreateScope();
+        await settings.WarnAboutIgnoredConfiguration(scope.ServiceProvider.GetRequiredService<BitweenDbContext>());
+        return logger.Warnings;
+    }
+
+    private sealed class WarningLog : ILogger<SettingsService>
+    {
+        public List<string> Warnings { get; } = [];
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning) Warnings.Add(formatter(state, exception));
+        }
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
     }
 }

@@ -159,7 +159,7 @@ Logging lives in the `SwLogger` section.
 
 Settings are stored in the `Settings` table and edited on the Settings page.
 
-- On first boot, every editable setting is copied from configuration into the table. After that the table wins, and changing configuration has no effect.
+- On first boot, every editable setting is copied from configuration into the table. After that the table wins, and changing configuration has no effect: each start logs a warning naming every setting whose configured value differs from the stored one.
 - A saved change applies immediately on the instance that saved it, and reaches other instances through the cache revoke broadcast.
 - **Reset to default** writes the product default, not the configured value.
 - Values captured at startup, such as the bus, storage, CORS and database settings, are shown read-only. Credentials only show whether they are set.
