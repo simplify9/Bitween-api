@@ -88,7 +88,7 @@ namespace SW.Bitween.Web
             foreach (var (name, example) in new[]
                      {
                          (BitweenDbContext.ConnectionString, "the database's connection string"),
-                         ("RabbitMQ", "the broker's address, as amqp://user:password@rabbitmq:5672/")
+                         ("RabbitMQ", "the broker's amqp:// address, with its user and password")
                      })
             {
                 if (!string.IsNullOrWhiteSpace(Configuration.GetConnectionString(name))) continue;
