@@ -88,6 +88,8 @@ internal sealed class BulkRetryPlanner
 
         var plan = new XchangeBulkRetryPlan { Selected = selected.Count, Limit = Limit, MaxSelection = MaxSelection };
         var targets = new List<string>();
+        // The list keeps the order; the set answers "already in it" without walking up to MaxSelection entries.
+        var targeted = new HashSet<string>();
 
         foreach (var selectedId in selected)
         {
@@ -109,7 +111,7 @@ internal sealed class BulkRetryPlanner
 
             // Two selections in the same chain - an exchange and its own retry, say - come to the
             // same attempt, which is retried once.
-            if (!targets.Contains(targetId))
+            if (targeted.Add(targetId))
                 targets.Add(targetId);
         }
 
