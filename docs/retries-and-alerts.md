@@ -22,7 +22,7 @@ Content-Type: application/json
 
 `POST /api/xchanges/bulkretry` retries either a list of `ids`, or everything a search `filter` matches minus `excludeIds`. `POST /api/xchanges/bulkretrypreview` returns the same plan without running it, and the UI shows that plan before you confirm.
 
-- A bulk retry covers at most 500 exchanges. A larger selection is refused, so narrow the filter.
+- One retry request carries out at most 500 exchanges. The preview works out up to 5,000 and lists the attempts that will run in `targets`; the UI sends them back as `ids` in rounds of 500 and shows how far it has got. If a round fails, the rounds before it are done and the rest are not retried. Past 5,000, narrow the filter.
 - An exchange that was already retried is replaced by the newest attempt of its chain. Two selections that lead to the same attempt are retried once.
 - The plan skips, with a reason, exchanges that no longer exist, that succeeded, that have an automatic retry waiting, whose subscription is gone when `reset` is on, or whose input file cannot be read.
 - Exchanges with no result yet are included, so work stranded by an outage can be recovered. Make sure nothing is still processing before retrying it.

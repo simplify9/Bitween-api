@@ -318,6 +318,74 @@ public class RetryChainTests
     }
 
     /// <summary>
+    /// A selection bigger than one retry is sent back in rounds of the preview's targets: the attempts
+    /// themselves, already moved to the end of their chains, so a round retries exactly those.
+    /// </summary>
+    [Fact]
+    public async Task The_preview_lists_the_attempts_a_round_retries()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
+        var ctx = scope.Superuser();
+
+        var (sub, retried) = await FailedXchange(db, xs, "Targets Doc");
+        var newest = await RetryOnce(db, xs, ctx, retried.Id);
+        var other = await xs.CreateXchange(sub, new XchangeFile("{}"));
+        await db.SaveChangesAsync();
+        db.Set<XchangeResult>().Add(new XchangeResult(other.Id, null, null, exception: "boom"));
+        await db.SaveChangesAsync();
+
+        var plan = (XchangeBulkRetryPlan)await new Resources.Xchanges.BulkRetryPreview(db, ctx)
+            .Handle(new XchangeBulkRetry { Ids = [retried.Id, newest.Id, other.Id] });
+
+        Assert.Equal(new[] { newest.Id, other.Id }, plan.Targets);
+
+        var round = (XchangeBulkRetryPlan)await new Resources.Xchanges.BulkRetry(db, ctx, xs)
+            .Handle(new XchangeBulkRetry { Ids = plan.Targets });
+        await db.SaveChangesAsync();
+
+        Assert.Equal(2, round.WillRetry);
+        Assert.Empty(round.Substituted);
+        Assert.True(await db.Set<Xchange>().AnyAsync(x => x.RetryFor == newest.Id));
+        Assert.True(await db.Set<Xchange>().AnyAsync(x => x.RetryFor == other.Id));
+    }
+
+    /// <summary>
+    /// Past what one retry carries out, the preview still works the selection out so it can be
+    /// retried in rounds, while the retry itself takes no more than one round. Ids that don't exist
+    /// are enough to count with: the size is checked before any exchange is read.
+    /// </summary>
+    [Fact]
+    public async Task A_selection_past_one_retry_is_planned_whole_but_retried_a_round_at_a_time()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
+        var ctx = scope.Superuser();
+        var preview = new Resources.Xchanges.BulkRetryPreview(db, ctx);
+        var limits = (XchangeBulkRetryPlan)await preview.Handle(new XchangeBulkRetry { Ids = [] });
+        Assert.True(limits.MaxSelection > limits.Limit);
+
+        static System.Collections.Generic.List<string> Ids(int count) =>
+            Enumerable.Range(0, count).Select(_ => Guid.NewGuid().ToString("N")).ToList();
+
+        var pastOneRetry = Ids(limits.Limit + 1);
+        var plan = (XchangeBulkRetryPlan)await preview.Handle(new XchangeBulkRetry { Ids = pastOneRetry });
+        Assert.False(plan.OverLimit);
+        Assert.Equal(limits.Limit + 1, plan.Skipped.Count);
+
+        var refused = await Assert.ThrowsAsync<SWValidationException>(() =>
+            new Resources.Xchanges.BulkRetry(db, ctx, xs).Handle(new XchangeBulkRetry { Ids = pastOneRetry }));
+        Assert.Contains(refused.Validations, v => v.Key == "TOO_MANY");
+
+        var pastAnyRetry = (XchangeBulkRetryPlan)await preview.Handle(
+            new XchangeBulkRetry { Ids = Ids(limits.MaxSelection + 1) });
+        Assert.True(pastAnyRetry.OverLimit);
+        Assert.Equal(limits.MaxSelection + 1, pastAnyRetry.Selected);
+    }
+
+    /// <summary>
     /// Retrying is an operator's action, and until this was added the endpoints took anyone's word
     /// for it: the UI hid the button without a permission, but the API accepted the call from any
     /// signed-in account. <c>PermissionGuardTests</c> could not have caught it - those exercise

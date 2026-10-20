@@ -32,13 +32,13 @@ namespace SW.Bitween.Resources.Xchanges
         {
             await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Exchanges.Operate);
 
-            var prepared = await new BulkRetryPlanner(_dbContext).Prepare(request);
+            var prepared = await new BulkRetryPlanner(_dbContext).Prepare(request, BulkRetryPlanner.Limit);
             var plan = prepared.Plan;
 
             if (plan.OverLimit)
                 throw new SWValidationException("TOO_MANY",
                     $"{plan.Selected:n0} exchanges is more than the {BulkRetryPlanner.Limit} this can retry " +
-                    "in one go. Narrow the filter and retry the rest after.");
+                    $"in one go. Send the preview's targets back in rounds of {BulkRetryPlanner.Limit}.");
 
             var retried = 0;
             foreach (var id in prepared.Targets)

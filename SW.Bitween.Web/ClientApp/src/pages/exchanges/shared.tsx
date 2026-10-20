@@ -137,12 +137,17 @@ function ExchangeIdentity({
  * selection is rarely just itself: exchanges already retried hand over to their newest attempt,
  * ones that have since succeeded drop out, and two selections in one chain come to the same
  * attempt. All of that is shown before anyone commits, since a retry cannot be taken back.
+ *
+ * A selection past what one retry request carries out goes in rounds; `progress` says how far
+ * they have got.
  */
 export function RetryDialog({
   count,
   plan,
   planLoading = false,
   busy,
+  progress = null,
+  error = null,
   onConfirm,
   onResetChange,
   onClose,
@@ -152,6 +157,10 @@ export function RetryDialog({
   plan?: BulkRetryPlan | null;
   planLoading?: boolean;
   busy: boolean;
+  /** Bulk retries in rounds: the attempts retried so far, of all that will run. */
+  progress?: { done: number; total: number } | null;
+  /** Why the retry stopped, when it did. */
+  error?: string | null;
   onConfirm: (reset: boolean) => void;
   /**
    * Bulk retries only: the plan depends on this choice - re-resolving properties is impossible
@@ -163,6 +172,7 @@ export function RetryDialog({
   const [reset, setReset] = useState(false);
   const bulk = count !== 1;
   const nothingToDo = plan != null && !plan.overLimit && plan.willRetry === 0;
+  const rounds = plan != null && plan.selected > plan.limit ? Math.ceil(plan.willRetry / plan.limit) : 0;
 
   return (
     <Dialog
@@ -173,7 +183,7 @@ export function RetryDialog({
         {plan?.overLimit ? (
           <p className="text-sm text-ink-600">
             {plan.selected.toLocaleString()} exchanges match this filter, which is more than the{" "}
-            {plan.limit.toLocaleString()} a single retry will carry out. Narrow the filter - by
+            {plan.maxSelection.toLocaleString()} one retry can work through. Narrow the filter - by
             status, partner or date - and retry the rest after.
           </p>
         ) : (
@@ -191,6 +201,34 @@ export function RetryDialog({
                       count === 1 ? "a new exchange" : "new exchanges"
                     }.`}
             </p>
+
+            {rounds > 1 && !progress && (
+              <p className="text-sm text-ink-600">
+                That's more than one retry carries out, so they go in {rounds} rounds of up to{" "}
+                {plan!.limit.toLocaleString()}, one after another. Keep this page open until they finish.
+              </p>
+            )}
+
+            {progress && (
+              <div>
+                <p className="text-sm text-ink-700">
+                  Retried {progress.done.toLocaleString()} of {progress.total.toLocaleString()}…
+                </p>
+                <div
+                  role="progressbar"
+                  aria-label="Retried so far"
+                  aria-valuemin={0}
+                  aria-valuemax={progress.total}
+                  aria-valuenow={progress.done}
+                  className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-ink-100"
+                >
+                  <div
+                    className="h-full rounded-full bg-ink-700 transition-[width]"
+                    style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             {plan != null && plan.substituted.length > 0 && (
               <div className="rounded-lg border border-ink-200 bg-ink-50/60 px-3 py-2">
@@ -240,23 +278,33 @@ export function RetryDialog({
               </div>
             )}
 
-            <Checkbox
-              label="Re-resolve adapter properties"
-              description="Use the subscription's current configuration instead of the values captured when the exchange first ran."
-              checked={reset}
-              onChange={(e) => {
-                setReset(e.target.checked);
-                onResetChange?.(e.target.checked);
-              }}
-            />
+            {/* Not once rounds are under way: they keep the choice they started with. */}
+            {!progress && (
+              <Checkbox
+                label="Re-resolve adapter properties"
+                description="Use the subscription's current configuration instead of the values captured when the exchange first ran."
+                checked={reset}
+                onChange={(e) => {
+                  setReset(e.target.checked);
+                  onResetChange?.(e.target.checked);
+                }}
+              />
+            )}
           </>
+        )}
+
+        {error && (
+          <p role="alert" className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-800">
+            {error}
+          </p>
         )}
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
-            {plan?.overLimit || nothingToDo ? "Close" : "Cancel"}
+            {plan?.overLimit || nothingToDo || error ? "Close" : "Cancel"}
           </Button>
-          {!plan?.overLimit && !nothingToDo && (
+          {/* Not again after a failure: the plan it would repeat is out of date by the rounds already done. */}
+          {!plan?.overLimit && !nothingToDo && !error && (
             <Button variant="primary" busy={busy} disabled={planLoading} onClick={() => onConfirm(reset)}>
               Retry
             </Button>

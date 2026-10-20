@@ -23,9 +23,20 @@ internal sealed class BulkRetryPlanner
     /// The largest selection one request will carry out. Every exchange retried means reading its
     /// input back out of storage and writing a new exchange, in sequence, inside the one request -
     /// so the ceiling is about what can finish before something upstream gives up waiting, not
-    /// about the database. Past it the caller is asked to narrow the filter.
+    /// about the database. A bigger selection is retried in rounds of this many.
     /// </summary>
     internal const int Limit = 500;
+
+    /// <summary>
+    /// The largest selection a preview works out. Up to it, the plan lists every attempt that will
+    /// run, and the caller sends them back in rounds of <see cref="Limit"/>. Past it the caller is
+    /// asked to narrow the filter.
+    /// </summary>
+    /// <remarks>
+    /// Rounds rather than raising <see cref="Limit"/>: each round is its own request, so none of them
+    /// runs long, and a round that fails leaves the ones before it done.
+    /// </remarks>
+    internal const int MaxSelection = 5000;
 
     /// <summary>
     /// Guards the walk to the newest attempt against a cycle in the data, the same way
@@ -44,24 +55,29 @@ internal sealed class BulkRetryPlanner
         internal List<string> Targets { get; init; } = new List<string>();
     }
 
-    internal async Task<Prepared> Prepare(XchangeBulkRetry request)
+    /// <param name="upTo">
+    /// The largest selection to work out: <see cref="Limit"/> for a retry, <see cref="MaxSelection"/>
+    /// for a preview.
+    /// </param>
+    internal async Task<Prepared> Prepare(XchangeBulkRetry request, int upTo)
     {
         var selection = new XchangeSelection(_dbContext);
-        var selected = await selection.Resolve(request, Limit);
+        var selected = await selection.Resolve(request, upTo);
 
-        if (selected.Count > Limit)
+        if (selected.Count > upTo)
             return new Prepared
             {
                 Plan = new XchangeBulkRetryPlan
                 {
                     // A hand-picked list is already counted. A filter's selection was cut off at
-                    // Limit + 1 to notice it was too long without reading it all, so that one is
+                    // upTo + 1 to notice it was too long without reading it all, so that one is
                     // counted properly now - the caller is told how far past the line it is rather
                     // than just "501", and never a count of rows it did not ask about.
                     Selected = string.IsNullOrWhiteSpace(request.Filter)
                         ? selected.Count
                         : await selection.Count(request),
                     Limit = Limit,
+                    MaxSelection = MaxSelection,
                     OverLimit = true
                 }
             };
@@ -70,8 +86,10 @@ internal sealed class BulkRetryPlanner
         var state = await ReadState(newestAttempt.Values.Distinct().ToList());
         var reset = request.Reset;
 
-        var plan = new XchangeBulkRetryPlan { Selected = selected.Count, Limit = Limit };
+        var plan = new XchangeBulkRetryPlan { Selected = selected.Count, Limit = Limit, MaxSelection = MaxSelection };
         var targets = new List<string>();
+        // The list keeps the order; the set answers "already in it" without walking up to MaxSelection entries.
+        var targeted = new HashSet<string>();
 
         foreach (var selectedId in selected)
         {
@@ -93,11 +111,12 @@ internal sealed class BulkRetryPlanner
 
             // Two selections in the same chain - an exchange and its own retry, say - come to the
             // same attempt, which is retried once.
-            if (!targets.Contains(targetId))
+            if (targeted.Add(targetId))
                 targets.Add(targetId);
         }
 
         plan.WillRetry = targets.Count;
+        plan.Targets = targets;
         plan.Properties = await ReadPromotedProperties(plan);
         return new Prepared { Plan = plan, Targets = targets };
     }

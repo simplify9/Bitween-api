@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUp, Download, Pause, Play, Plus, RefreshCw, RotateCcw, TriangleAlert, X } from "lucide-react";
 import {
   api,
+  type BulkRetryPlan,
   type BulkRetrySelection,
   type ExchangeStatus,
   type ExportFilesCheck,
@@ -304,20 +305,74 @@ export function ExchangesPage() {
     staleTime: 30_000,
   });
 
+  /** How far a retry in rounds has got. */
+  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
+  /** Set when the confirm is closed mid-way: the rounds stop after the one under way. */
+  const stopRounds = useRef(false);
+  /**
+   * The run the open confirm belongs to. Closing it moves this on, so a run that ends afterwards
+   * reports what it did but can't close a confirm opened since, or clear a selection made since.
+   */
+  const bulkRun = useRef(0);
+
+  /**
+   * A selection past what one request carries out: the preview listed every attempt that will run,
+   * and they go back as ids, a round at a time. No request runs long, and a round that fails leaves
+   * the ones before it done. The attempts, not the selection, so a round can't reach past them to an
+   * attempt an earlier round just made.
+   */
+  async function retryInRounds(planned: BulkRetryPlan, reset: boolean) {
+    const done = { ...planned, willRetry: 0, skipped: [...planned.skipped], stoppedAt: null as number | null };
+    const total = planned.targets.length;
+    stopRounds.current = false;
+    setBulkProgress({ done: 0, total });
+    for (let at = 0; at < total; at += planned.limit) {
+      if (stopRounds.current) {
+        done.stoppedAt = at;
+        break;
+      }
+      let round: BulkRetryPlan;
+      try {
+        round = await api.bulkRetryExchanges({ ids: planned.targets.slice(at, at + planned.limit) }, { reset });
+      } catch (e) {
+        throw new Error(
+          `${done.willRetry.toLocaleString()} of ${total.toLocaleString()} were retried, then a round failed` +
+            ` (${e instanceof Error ? e.message : String(e)}). The rest were not retried.`,
+        );
+      }
+      done.willRetry += round.willRetry;
+      done.skipped.push(...round.skipped);
+      setBulkProgress({ done: Math.min(at + planned.limit, total), total });
+    }
+    return done;
+  }
+
   const bulkRetry = useMutation({
-    mutationFn: (reset: boolean) => api.bulkRetryExchanges(selection, { reset }),
-    onSuccess: (done) => {
-      setBulkConfirm(false);
-      setBulkReset(false);
-      clearSelection();
+    mutationFn: (reset: boolean) =>
+      plan && plan.selected > plan.limit
+        ? retryInRounds(plan, reset)
+        : api.bulkRetryExchanges(selection, { reset }).then((done) => ({ ...done, stoppedAt: null })),
+    onMutate: () => ({ run: ++bulkRun.current }),
+    onSuccess: (done, _reset, started) => {
+      setBulkProgress(null);
+      if (started?.run === bulkRun.current) {
+        setBulkConfirm(false);
+        setBulkReset(false);
+        clearSelection();
+      }
       setBulkResult(
         `${done.willRetry.toLocaleString()} retr${done.willRetry === 1 ? "y" : "ies"} started` +
           (done.substituted.length > 0 ? `, ${done.substituted.length} continuing an existing chain` : "") +
           (done.skipped.length > 0 ? `, ${done.skipped.length} skipped` : "") +
+          (done.stoppedAt != null
+            ? `. Stopped after ${done.stoppedAt.toLocaleString()} of ${done.targets.length.toLocaleString()}; the rest were not retried`
+            : "") +
           ".",
       );
       void queryClient.invalidateQueries({ queryKey: keys.exchanges.all });
     },
+    // The list changed as far as the rounds got.
+    onError: () => void queryClient.invalidateQueries({ queryKey: keys.exchanges.all }),
   });
 
   // Asked first, so someone hears that some exchanges are past the files storage keeps before choosing to
@@ -654,10 +709,18 @@ export function ExchangesPage() {
           plan={plan ?? null}
           planLoading={planLoading}
           busy={bulkRetry.isPending}
+          progress={bulkProgress}
+          error={bulkRetry.error?.message ?? null}
           onConfirm={(reset) => bulkRetry.mutate(reset)}
           onResetChange={setBulkReset}
           onClose={() => {
+            stopRounds.current = true;
+            bulkRun.current++;
             setBulkConfirm(false);
+            setBulkProgress(null);
+            // Not while rounds are still under way: Retry would be offered again, and a second run
+            // beside the first would retry what the first just did.
+            if (bulkRetry.isError) bulkRetry.reset();
             // The dialog starts unticked each time it opens, so the mirrored copy has to as well.
             setBulkReset(false);
           }}
