@@ -9,7 +9,7 @@ Not valid JSON: The reader's MaxDepth of 64 has been exceeded. Path 'd.d.d.d.d.d
 === schema-xml
 Not valid XML: Data at the root level is invalid. Line 1, position 1.
 === enriched
-!Newtonsoft.Json.JsonReaderException: The reader's MaxDepth of 64 has been exceeded. Path 'd.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d', line 1, position 333.
+(not an object, not enriched)
 === enriched-scriban
 !Newtonsoft.Json.JsonReaderException: The reader's MaxDepth of 64 has been exceeded. Path 'd.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d', line 1, position 333.
 === scriban

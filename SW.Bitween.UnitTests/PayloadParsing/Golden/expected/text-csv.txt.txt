@@ -11,7 +11,7 @@ Not valid JSON: Unexpected character encountered while parsing value: i. Path ''
 === schema-xml
 Not valid XML: Data at the root level is invalid. Line 1, position 1.
 === enriched
-!Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: i. Path '', line 0, position 0.
+(not an object, not enriched)
 === enriched-scriban
 !Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: i. Path '', line 0, position 0.
 === scriban

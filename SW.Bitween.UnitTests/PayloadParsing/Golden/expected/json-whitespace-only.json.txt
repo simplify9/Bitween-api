@@ -11,7 +11,7 @@ Not valid JSON: Error reading JToken from JsonReader. Path '', line 2, position 
 === schema-xml
 Not valid XML: Root element is missing.
 === enriched
-!Newtonsoft.Json.JsonReaderException: Error reading JToken from JsonReader. Path '', line 2, position 1.
+(not an object, not enriched)
 === enriched-scriban
 !Newtonsoft.Json.JsonReaderException: Error reading JToken from JsonReader. Path '', line 2, position 1.
 === scriban

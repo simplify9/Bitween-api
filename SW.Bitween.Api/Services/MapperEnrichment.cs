@@ -17,8 +17,8 @@ namespace SW.Bitween;
 public static class MapperEnrichment
 {
     /// <summary>
-    /// The payload as the enrichment reads it: <c>JToken.Parse</c>, which throws on what is not JSON,
-    /// and null for JSON that is not an object (a root array, a string), which is not enriched.
+    /// The payload as the enrichment reads it: null for what is not a JSON object, which is not
+    /// enriched - other JSON (a root array, a string), and what is not JSON at all.
     /// </summary>
     /// <remarks>
     /// <paramref name="shared"/> says the object is the pipeline's shared parse, which
@@ -35,7 +35,16 @@ public static class MapperEnrichment
 
         shared = false;
         NativeAdapters.PayloadParseTally.Parsed();
-        return JToken.Parse(file.Data) as JObject;
+        try
+        {
+            return JToken.Parse(file.Data) as JObject;
+        }
+        catch (JsonReaderException)
+        {
+            // XML or CSV from a receiver, read by a custom mapper. Failing it here failed every such
+            // exchange before its mapper ran, for values it had no use for.
+            return null;
+        }
     }
 
     /// <summary>

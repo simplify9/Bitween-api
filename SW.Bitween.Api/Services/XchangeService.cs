@@ -421,9 +421,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         // A mapper that takes its context separately gets the payload exactly as it arrived. Anything
         // else keeps the enrichment below, unchanged - every template already written reads
         // __partner__ out of the payload, so this is load-bearing behaviour, not an implementation
-        // detail. Note the JToken.Parse: it runs before anything knows which mapper is configured,
-        // and it throws on a payload that is not JSON, which is why a mapper that wants to handle
-        // XML or CSV has to be able to opt out of this entire block.
+        // detail. A payload that is not JSON goes to the mapper as it arrived.
         string mappingContextJson = null;
 
         if (nativeAdapterDiscovery.MapperReceivesOwnContext(xchange.MapperId))
@@ -434,8 +432,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         {
             // Inject __partner__ adapter properties into the input JSON so Scriban templates
             // can reference them as {{ __partner__?.propkey }}
-            // Only applies when the data is a JSON object; skip enrichment for non-object payloads
-            // (e.g. a receiver returning a JSON-encoded string).
+            // Only applies when the data is a JSON object; skip enrichment for anything else
+            // (e.g. a receiver returning a JSON-encoded string, or XML).
             var jObjEnriched = MapperEnrichment.Read(xchangeFile, out var shared);
 
             if (jObjEnriched != null)
