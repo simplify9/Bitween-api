@@ -231,6 +231,31 @@ describe("the exchanges list", () => {
         expect(retry.sent.map((r) => r.ids)).toEqual([targets.slice(0, 2), targets.slice(2, 4), targets.slice(4)]);
       });
 
+      it("closed mid-way, stops after the round under way and leaves a confirm opened since alone", async () => {
+        const retry = rounds({ holds: 1 });
+        const { user } = renderApp("/exchanges?status=failed", {
+          handlers: [exchanges({ total: 60 }).handler, ...filterOptions, preview, retry.handler],
+        });
+
+        await selectAllMatching(user);
+        await user.click(screen.getByRole("button", { name: "Retry selected…" }));
+        const dialog = await screen.findByRole("dialog");
+        await within(dialog).findByText(/they go in 3 rounds/);
+        await user.click(within(dialog).getByRole("button", { name: "Retry" }));
+        await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+        await user.click(screen.getByRole("button", { name: "Retry selected…" }));
+        await screen.findByRole("dialog");
+        retry.release();
+
+        expect(
+          await screen.findByText("2 retries started, 1 skipped. Stopped after 2 of 5; the rest were not retried."),
+        ).toBeVisible();
+        expect(retry.sent).toHaveLength(1);
+        expect(screen.getByRole("dialog")).toBeVisible();
+        expect(screen.getByRole("button", { name: "Retry selected…" })).toBeVisible();
+      });
+
       it("stops at a round that fails, says how far it got, and doesn't offer to go again", async () => {
         const retry = rounds({ fails: 2 });
         const { user } = renderApp("/exchanges?status=failed", {

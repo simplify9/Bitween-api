@@ -309,6 +309,11 @@ export function ExchangesPage() {
   const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
   /** Set when the confirm is closed mid-way: the rounds stop after the one under way. */
   const stopRounds = useRef(false);
+  /**
+   * The run the open confirm belongs to. Closing it moves this on, so a run that ends afterwards
+   * reports what it did but can't close a confirm opened since, or clear a selection made since.
+   */
+  const bulkRun = useRef(0);
 
   /**
    * A selection past what one request carries out: the preview listed every attempt that will run,
@@ -347,11 +352,14 @@ export function ExchangesPage() {
       plan && plan.selected > plan.limit
         ? retryInRounds(plan, reset)
         : api.bulkRetryExchanges(selection, { reset }).then((done) => ({ ...done, stoppedAt: null })),
-    onSuccess: (done) => {
-      setBulkConfirm(false);
-      setBulkReset(false);
+    onMutate: () => ({ run: ++bulkRun.current }),
+    onSuccess: (done, _reset, started) => {
       setBulkProgress(null);
-      clearSelection();
+      if (started?.run === bulkRun.current) {
+        setBulkConfirm(false);
+        setBulkReset(false);
+        clearSelection();
+      }
       setBulkResult(
         `${done.willRetry.toLocaleString()} retr${done.willRetry === 1 ? "y" : "ies"} started` +
           (done.substituted.length > 0 ? `, ${done.substituted.length} continuing an existing chain` : "") +
@@ -707,6 +715,7 @@ export function ExchangesPage() {
           onResetChange={setBulkReset}
           onClose={() => {
             stopRounds.current = true;
+            bulkRun.current++;
             setBulkConfirm(false);
             setBulkProgress(null);
             // Not while rounds are still under way: Retry would be offered again, and a second run
