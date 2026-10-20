@@ -12,7 +12,7 @@ Not valid JSON: Unexpected character encountered while parsing value: <. Path ''
 line 1, position 95: The element 'order' has invalid child element 'raw'. List of possible elements expected: 'lines'.
 Not valid XML: An error occurred while parsing EntityName. Line 1, position 104.
 === enriched
-!Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
+(not an object, not enriched)
 === enriched-scriban
 !Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
 === scriban

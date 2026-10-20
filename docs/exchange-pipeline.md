@@ -92,7 +92,7 @@ When the exchange has a mapper, the mapper turns the input into the output file.
 How the mapper sees partner and global values depends on the mapper.
 
 - The **rules-based mapper**, `NativeMapper`, receives partner and global values as separate context. The payload reaches it untouched, so it can map XML as well as JSON.
-- **Every other mapper**, including the legacy JSON mapper and custom mappers, gets them written into the payload as `__partner__` and `__globals__` keys, and only when the payload is a JSON object. A payload that is not JSON fails the exchange before the mapper runs. A real payload key with either name is overwritten.
+- **Every other mapper**, including the legacy JSON mapper and custom mappers, gets them written into the payload as `__partner__` and `__globals__` keys, and only when the payload is a JSON object. Any other payload, such as XML or CSV, reaches the mapper as it arrived. A real payload key with either name is overwritten.
 
 A mapper that returns nothing fails the exchange. See [Mapping](mapping.md).
 

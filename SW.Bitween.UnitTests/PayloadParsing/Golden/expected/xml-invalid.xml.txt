@@ -11,7 +11,7 @@ Not valid JSON: Unexpected character encountered while parsing value: <. Path ''
 === schema-xml
 Not valid XML: The 'id' start tag on line 1 position 9 does not match the end tag of 'order'. Line 1, position 17.
 === enriched
-!Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
+(not an object, not enriched)
 === enriched-scriban
 !Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
 === scriban

@@ -17,7 +17,7 @@ Not valid JSON: Unexpected character encountered while parsing value: <. Path ''
 === schema-xml
 Not valid XML: For security reasons DTD is prohibited in this XML document. To enable DTD processing set the DtdProcessing property on XmlReaderSettings to Parse and pass the settings into XmlReader.Create method.
 === enriched
-!Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
+(not an object, not enriched)
 === enriched-scriban
 !Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
 === scriban

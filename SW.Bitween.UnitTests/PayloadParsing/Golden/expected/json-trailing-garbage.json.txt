@@ -9,7 +9,7 @@ Not valid JSON: Additional text encountered after finished reading JSON content:
 === schema-xml
 Not valid XML: Data at the root level is invalid. Line 1, position 1.
 === enriched
-!Newtonsoft.Json.JsonReaderException: Additional text encountered after finished reading JSON content: x. Path '', line 1, position 12.
+(not an object, not enriched)
 === enriched-scriban
 !Newtonsoft.Json.JsonReaderException: Additional text encountered after finished reading JSON content: x. Path '', line 1, position 12.
 === scriban

@@ -9,7 +9,7 @@ Not valid JSON: Unexpected end of content while loading JObject. Path 'id', line
 === schema-xml
 Not valid XML: Data at the root level is invalid. Line 1, position 1.
 === enriched
-!Newtonsoft.Json.JsonReaderException: Unexpected end of content while loading JObject. Path 'id', line 1, position 7.
+(not an object, not enriched)
 === enriched-scriban
 !Newtonsoft.Json.JsonReaderException: Unexpected end of content while loading JObject. Path 'id', line 1, position 7.
 === scriban

@@ -17,7 +17,7 @@ Not valid JSON: Unexpected character encountered while parsing value: <. Path ''
 === schema-xml
 Not valid XML: '', hexadecimal value 0x07, is an invalid character. Line 1, position 30.
 === enriched
-!Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
+(not an object, not enriched)
 === enriched-scriban
 !Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
 === scriban
