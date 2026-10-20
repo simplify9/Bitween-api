@@ -1544,9 +1544,14 @@ export interface ExportFilesCheck {
 export interface BulkRetryPlan {
   selected: number;
   willRetry: number;
+  /** The most one retry request carries out; a bigger selection goes in rounds of this many. */
   limit: number;
-  /** True when the selection is past `limit`; nothing else is filled in. */
+  /** The most a preview works out. */
+  maxSelection: number;
+  /** True when the selection is past `maxSelection` (or, for a retry, past `limit`); nothing else is filled in. */
   overLimit: boolean;
+  /** The attempts that will run - what the rounds send back as ids when `selected` is past `limit`. */
+  targets: string[];
   substituted: RetrySubstitution[];
   skipped: RetrySkip[];
   /**

@@ -79,7 +79,9 @@ interface RawBulkRetryPlan {
   selected: number;
   willRetry: number;
   limit: number;
+  maxSelection: number;
   overLimit: boolean;
+  targets: string[] | null;
   substituted: { selectedId: string; retryId: string }[] | null;
   skipped: { id: string; reason: string }[] | null;
   properties: Record<string, Record<string, string | null>> | null;
@@ -262,7 +264,9 @@ async function postBulkRetry(
     selected: plan.selected,
     willRetry: plan.willRetry,
     limit: plan.limit,
+    maxSelection: plan.maxSelection,
     overLimit: plan.overLimit,
+    targets: plan.targets ?? [],
     substituted: plan.substituted ?? [],
     skipped: plan.skipped ?? [],
     properties: plan.properties ?? {},

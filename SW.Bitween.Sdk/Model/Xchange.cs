@@ -113,15 +113,28 @@ namespace SW.Bitween.Model
         /// <summary>Distinct exchanges that will be (or were) retried.</summary>
         public int WillRetry { get; set; }
 
-        /// <summary>The largest selection this endpoint will carry out in one request.</summary>
+        /// <summary>
+        /// The largest selection one retry request carries out. A bigger one is retried in rounds of
+        /// this many, from <see cref="Targets"/>.
+        /// </summary>
         public int Limit { get; set; }
 
+        /// <summary>The largest selection a preview works out; past it, narrow the selection.</summary>
+        public int MaxSelection { get; set; }
+
         /// <summary>
-        /// <c>true</c> when the selection is past <see cref="Limit"/>. Nothing else is filled in
-        /// then - resolving thousands of chains to describe a request that will be refused
-        /// costs more than the answer is worth.
+        /// <c>true</c> when the selection is past <see cref="MaxSelection"/> for a preview, or past
+        /// <see cref="Limit"/> for a retry. Nothing else is filled in then - resolving thousands of
+        /// chains to describe a request that will be refused costs more than the answer is worth.
         /// </summary>
         public bool OverLimit { get; set; }
+
+        /// <summary>
+        /// The attempts that will run: each selection's newest attempt, once per chain, minus the
+        /// skipped. Sent back as <c>ids</c> in rounds of <see cref="Limit"/> when there are
+        /// more than one retry carries out.
+        /// </summary>
+        public List<string> Targets { get; set; } = new List<string>();
 
         /// <summary>
         /// Selections that had already been retried, and the later attempt standing in for each.
