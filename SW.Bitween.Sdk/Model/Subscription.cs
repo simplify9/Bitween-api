@@ -338,6 +338,30 @@ namespace SW.Bitween.Model
         public int Id { get; set; }
         public string DocumentName { get; set; } = null!;
         public bool? IsRunning { get; set; }
+
+        /// <summary>
+        /// The global values and partner properties its adapters reference. The list leaves the
+        /// adapter properties themselves out, since they hold credentials, so this is how a reader
+        /// of the list tells which subscriptions use a value set or a partner property.
+        /// </summary>
+        public SubscriptionReferences References { get; set; } = new();
+    }
+
+    /// <summary>What a subscription's adapter properties reference, by name only.</summary>
+    public class SubscriptionReferences
+    {
+        /// <summary>Each value set named in a <c>{{globals.SET.KEY}}</c> token, with the keys used from it.</summary>
+        public List<GlobalValuesReference> Globals { get; set; } = new();
+
+        /// <summary>The keys named in <c>{{partner.KEY}}</c> tokens.</summary>
+        public List<string> PartnerProperties { get; set; } = new();
+    }
+
+    public class GlobalValuesReference
+    {
+        /// <summary>As written in the token. Matched ignoring case, as the resolver does.</summary>
+        public string SetId { get; set; } = null!;
+        public List<string> Keys { get; set; } = new();
     }
 
     public class SubscriptionUpdate : SubscriptionConfiguration

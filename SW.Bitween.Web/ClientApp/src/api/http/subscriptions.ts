@@ -28,7 +28,7 @@ import { documentMethods } from "./documents";
 import { deriveStatus, exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
 import { partnerMethods } from "./partners";
-import { scanReferenceTokens } from "./references";
+import { referencesFrom, type RawReferences } from "./references";
 import { get, post, request } from "./request";
 import { buildListQuery, SEARCHY_RULE, SEARCHY_SORT } from "./searchQuery";
 import { toMatchGroup, toRawMatchExpression, type RawMatchSpec } from "./matchExpression";
@@ -89,6 +89,8 @@ interface RawSubscription {
   mapperProperties: RawKeyAndValue[] | null;
   receiverProperties: RawKeyAndValue[] | null;
   validatorProperties: RawKeyAndValue[] | null;
+  /** List rows only: what the withheld adapter properties reference. */
+  references?: RawReferences | null;
   documentFilter: RawKeyAndValue[] | null;
   matchExpression: RawMatchSpec | null;
   workGroupId: number | null;
@@ -396,16 +398,8 @@ export const subscriptionMethods = {
         .map(([kind, adapterId, version]) => ({ kind, adapterId: adapterId!, version: version ?? null })),
       responseMessageTypeName: raw.responseMessageTypeName ?? null,
       responseSubscriptionId: raw.responseSubscriptionId ?? null,
-      // No backend endpoint indexes reference tokens, but the search rows carry
-      // every adapter property, so the scan costs nothing extra here.
-      ...scanReferenceTokens(
-        [
-          raw.receiverProperties,
-          raw.validatorProperties,
-          raw.mapperProperties,
-          raw.handlerProperties,
-        ].flatMap((props) => (props ?? []).map((p) => p.value)),
-      ),
+      // The list withholds adapter property values, so it says what they reference instead.
+      ...referencesFrom(raw.references),
     }));
   },
 
@@ -461,7 +455,7 @@ export const subscriptionMethods = {
       fetchRaw(id),
       gatewayMethods.listApiGateways(),
       gatewayMethods.listBusGateways(),
-      exchangeMethods.searchExchanges({ subscriptionId: id, offset: 0, limit: 8 }),
+      exchangeMethods.searchExchanges({ subscriptionIds: [id], offset: 0, limit: 8 }),
     ]);
     const infoType = await documentMethods.getInformationType(raw.documentId).catch(() => null);
     return {

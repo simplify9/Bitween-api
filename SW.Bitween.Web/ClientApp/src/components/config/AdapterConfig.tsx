@@ -259,8 +259,10 @@ function ReferenceHints({
   // Set ids and keys are free-form (spaces included) on the backend - match on the
   // `{{…}}` delimiters themselves, not a restrictive charset, or refs with a space
   // in the id/key (e.g. "schedule source url") silently fail to match here.
-  const globalRefs = [...new Set([...value.matchAll(/\{\{globals\.[^}]+\}\}/g)].map((m) => m[0]))];
-  const partnerRefs = [...new Set([...value.matchAll(/\{\{partner\.([^}]+)\}\}/g)].map((m) => m[1]))];
+  // Case-insensitive throughout, as the server resolves them: `{{GLOBALS.Set.KEY}}` runs fine, so
+  // calling it "not found" here would send someone hunting for a problem that isn't there.
+  const globalRefs = [...new Set([...value.matchAll(/\{\{globals\.[^}]+\}\}/gi)].map((m) => m[0]))];
+  const partnerRefs = [...new Set([...value.matchAll(/\{\{partner\.([^}]+)\}\}/gi)].map((m) => m[1]))];
   const sourceRefs = source
     ? [...new Set([...value.matchAll(/\{\{source\.([^}]+)\}\}/gi)].map((m) => m[1]))]
     : [];
@@ -278,8 +280,9 @@ function ReferenceHints({
   return (
     <div className="mt-1.5 space-y-1">
       {globalRefs.map((token) => {
-        const ref = globals.find((g) => g.token === token);
-        const setId = token.match(/\{\{globals\.([^.]+)\./)?.[1];
+        const ref = globals.find((g) => sameName(g.token, token));
+        // The set's own id when it is found, since that is the address its page is at.
+        const setId = (ref?.token ?? token).match(/\{\{globals\.([^.]+)\./i)?.[1];
         return (
           <div key={token} className="flex flex-wrap items-center gap-1.5 text-xs">
             <Link
@@ -301,7 +304,8 @@ function ReferenceHints({
       })}
 
       {partnerRefs.map((key) => {
-        const withValue = realPartners.filter((p) => p.propertyKeys.includes(key));
+        const keyOf = (p: PartnerRow) => p.propertyKeys.find((k) => sameName(k, key));
+        const withValue = realPartners.filter((p) => keyOf(p) !== undefined);
         const without = realPartners.length - withValue.length;
         const open = openKeys.has(key);
         return (
@@ -332,7 +336,7 @@ function ReferenceHints({
                       {p.name}
                     </Link>
                     <span className="text-ink-300">→</span>
-                    <PartnerPropValue partnerId={p.id} propKey={key} />
+                    <PartnerPropValue partnerId={p.id} propKey={keyOf(p)!} />
                   </li>
                 ))}
                 {without > 0 && (
@@ -383,6 +387,9 @@ function ReferenceHints({
     </div>
   );
 }
+
+/** Set ids, keys and whole tokens compare ignoring case, as the server's resolver does. */
+const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 /**
  * Whether a value is a reference and nothing else. Substitution happens on the

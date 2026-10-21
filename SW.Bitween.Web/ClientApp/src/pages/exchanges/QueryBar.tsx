@@ -8,7 +8,10 @@ import {
   RANGE_PRESETS,
   filterChips,
   hasTimeFilter,
+  idList,
   parseBound,
+  propertyFilters,
+  withPropertyFilters,
   parseRelativeRange,
   searchSuggestions,
   timeLabel,
@@ -17,10 +20,11 @@ import {
   type ChipLookups,
   type FilterChip,
   type FilterKind,
+  type ParamChanges,
   type SavedView,
 } from "./exchangeFilters";
 
-type Changes = Record<string, string | null>;
+type Changes = ParamChanges;
 
 export interface FilterOptions {
   subscriptions: SearchSelectOption[];
@@ -53,10 +57,10 @@ export function QueryBar({
         <Search className="size-4 shrink-0 text-ink-500" aria-hidden />
         <TimeMenu searchParams={searchParams} apply={apply} />
         {chips.map((chip) => (
-          <ChipEditor key={chip.kind} chip={chip} searchParams={searchParams} apply={apply} options={options} />
+          <ChipEditor key={chip.id} chip={chip} searchParams={searchParams} apply={apply} options={options} />
         ))}
         <AddFilterMenu searchParams={searchParams} apply={apply} options={options} />
-        <SearchField apply={apply} />
+        <SearchField searchParams={searchParams} apply={apply} />
       </div>
       <ViewsMenu searchParams={searchParams} apply={apply} />
     </div>
@@ -183,20 +187,22 @@ function ChipEditor({
   apply: (c: Changes) => void;
   options: FilterOptions;
 }) {
-  const remove = () => apply(Object.fromEntries(chip.keys.map((k) => [k, null])));
+  const remove = () => apply(chip.remove);
   const editable = !["retry", "scheduled", "aggregated"].includes(chip.kind);
-  const text = (
-    <>
-      <span className="text-ink-500">{chip.field}</span>
-      {chip.op && <span className="text-ink-400">{chip.op}</span>}
-      {chip.value && (
-        <strong className={`max-w-56 truncate font-semibold text-ink-900 ${chip.mono ? "font-mono text-xs" : ""}`}>{chip.value}</strong>
-      )}
-    </>
+  const value = chip.value && (
+    <strong className={`max-w-56 truncate font-semibold text-ink-900 ${chip.mono ? "font-mono text-xs" : ""}`}>{chip.value}</strong>
   );
 
+  // Laid out as Linear lays a filter out: what it is, how it matches (a menu of its own when it
+  // can be turned round), and what was picked, which opens the editor.
   return (
     <span className="inline-flex h-8 items-center rounded-lg border border-crimson-200 bg-crimson-50 text-[13px]">
+      <span className="pl-2.5 pr-1 text-ink-500">{chip.field}</span>
+      {chip.turn ? (
+        <OperatorMenu chip={chip} onTurn={(negated) => apply(chip.turn!.set(negated))} />
+      ) : (
+        chip.op && <span className="pr-1 text-ink-400">{chip.op}</span>
+      )}
       {editable ? (
         <Dropdown
           width="w-80"
@@ -206,15 +212,17 @@ function ChipEditor({
               onClick={toggle}
               aria-expanded={open}
               aria-label={`Edit filter: ${chip.field} ${chip.op} ${chip.value}`.trim()}
-              className="inline-flex h-8 items-center gap-1 rounded-l-lg pl-2.5 pr-1 hover:bg-crimson-100/60"
+              title={chip.title ?? "Change what this filter picks"}
+              className="inline-flex h-8 items-center gap-1 px-1 hover:bg-crimson-100/60"
             >
-              {text}
+              {value}
             </button>
           )}
         >
           {(close) => (
             <FilterEditor
               kind={chip.kind}
+              index={chip.index}
               searchParams={searchParams}
               options={options}
               onApply={(changes) => {
@@ -225,12 +233,13 @@ function ChipEditor({
           )}
         </Dropdown>
       ) : (
-        <span className="inline-flex items-center gap-1 pl-2.5 pr-1">{text}</span>
+        <span className="inline-flex items-center pr-1">{value}</span>
       )}
       <button
         type="button"
         onClick={remove}
-        aria-label={`Remove filter ${chip.field}`}
+        aria-label={`Remove filter ${chip.name}`}
+        title="Remove this filter"
         className="mr-0.5 inline-flex size-6 items-center justify-center rounded-md text-crimson-700 hover:bg-crimson-100"
       >
         <X className="size-3.5" aria-hidden />
@@ -238,6 +247,131 @@ function ChipEditor({
     </span>
   );
 }
+
+/** How a filter matches - "is" or "is not", "contains" or "does not contain" - picked on its chip. */
+function OperatorMenu({ chip, onTurn }: { chip: FilterChip; onTurn: (negated: boolean) => void }) {
+  const turn = chip.turn!;
+  return (
+    <Dropdown
+      width="w-64"
+      trigger={({ open, toggle }) => (
+        <button
+          type="button"
+          onClick={toggle}
+          aria-expanded={open}
+          aria-label={`How ${chip.name} matches: ${chip.op}`}
+          title="Change how this filter matches"
+          className="inline-flex h-8 items-center gap-0.5 px-1 text-ink-500 hover:bg-crimson-100/60 hover:text-ink-800"
+        >
+          {chip.op}
+          <ChevronDown className="size-3" aria-hidden />
+        </button>
+      )}
+    >
+      {(close) => (
+        <div role="menu" aria-label={`How ${chip.name} matches`} className="p-1.5">
+          {turn.ops.map((op, i) => {
+            const negated = i === 1;
+            const current = turn.negated === negated;
+            return (
+              <button
+                key={op}
+                type="button"
+                role="menuitemradio"
+                aria-checked={current}
+                onClick={() => {
+                  if (!current) onTurn(negated);
+                  close();
+                }}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-ink-800 hover:bg-ink-50"
+              >
+                <span className="flex-1">
+                  {op}
+                  {negated && turn.hint && <span className="block text-xs text-ink-500">{turn.hint}</span>}
+                </span>
+                {current && <Check className="size-4 text-crimson-600" aria-hidden />}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </Dropdown>
+  );
+}
+
+/**
+ * Several of a kind picked at once - "is any of" - with what is picked listed first, so a long
+ * list never hides it. Applying with nothing picked removes the filter.
+ */
+function MultiPicker({
+  label,
+  options,
+  initial,
+  onApply,
+}: {
+  label: string;
+  options: SearchSelectOption[];
+  initial: string[];
+  onApply: (values: string[]) => void;
+}) {
+  const [chosen, setChosen] = useState<string[]>(initial);
+  const [find, setFind] = useState("");
+  const needle = find.trim().toLowerCase();
+  const known = new Map(options.map((o) => [o.value, o]));
+  const matches = (o: SearchSelectOption) =>
+    !needle || [o.label, o.code, o.sublabel].some((text) => text?.toLowerCase().includes(needle));
+  // One picked earlier but gone since still shows, by its id, so it can be unpicked.
+  const picked = chosen.map((v) => known.get(v) ?? { value: v, label: `#${v}` }).filter(matches);
+  const rest = options.filter((o) => !chosen.includes(o.value) && matches(o));
+  const shown = rest.slice(0, MULTI_PICK_ROWS);
+  const toggle = (v: string) => setChosen((c) => (c.includes(v) ? c.filter((x) => x !== v) : [...c, v]));
+
+  return (
+    <form
+      className="flex flex-col gap-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        onApply(chosen);
+      }}
+    >
+      <input
+        autoFocus
+        aria-label={`Find ${label.toLowerCase()}`}
+        placeholder="Search..."
+        className={inputClass}
+        value={find}
+        onChange={(e) => setFind(e.target.value)}
+      />
+      <div role="group" aria-label={label} className="max-h-64 overflow-y-auto rounded-lg border border-ink-100 py-1">
+        {[...picked, ...shown].map((o) => (
+          <label key={o.value} title={o.title} className="flex cursor-pointer items-center gap-2 px-2.5 py-1.5 text-sm text-ink-800 hover:bg-ink-50">
+            <input
+              type="checkbox"
+              checked={chosen.includes(o.value)}
+              onChange={() => toggle(o.value)}
+              className="size-4 shrink-0 cursor-pointer rounded accent-crimson-600"
+            />
+            <span className="min-w-0 flex-1 truncate">{o.label}</span>
+            {o.hint && <span className="shrink-0 text-xs text-ink-500">{o.hint}</span>}
+          </label>
+        ))}
+        {picked.length + shown.length === 0 && <p className="px-2.5 py-1.5 text-xs text-ink-500">Nothing matches.</p>}
+        {rest.length > shown.length && (
+          <p className="px-2.5 py-1.5 text-xs text-ink-500">{rest.length - shown.length} more - search to narrow the list.</p>
+        )}
+      </div>
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs text-ink-500">{chosen.length === 0 ? "None picked" : `${chosen.length} picked`}</span>
+        <Button type="submit" size="sm" variant="primary">
+          Apply
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+/** How many unpicked rows the picker lists before asking for a search. */
+const MULTI_PICK_ROWS = 100;
 
 /** Where a picker inside a filter panel goes, so each editor reads the same. */
 function EditorShell({ title, children }: { title: string; children: ReactNode }) {
@@ -309,37 +443,38 @@ function TextFilterForm({
 
 function FilterEditor({
   kind,
+  index,
   searchParams,
   options,
   onApply,
 }: {
   kind: FilterKind;
+  /** Which promoted property a property chip edits; none adds one. */
+  index?: number;
   searchParams: URLSearchParams;
   options: FilterOptions;
   onApply: (changes: Changes) => void;
 }) {
-  const pick = (label: string, key: string, opts: SearchSelectOption[], clearLabel: string) => (
+  const pick = (label: string, key: string, opts: SearchSelectOption[]) => (
     <EditorShell title={label}>
-      <SearchSelect
-        aria-label={`Filter by ${label.toLowerCase()}`}
-        size="sm"
-        clearLabel={clearLabel}
-        value={searchParams.get(key) ?? ""}
-        onChange={(v) => onApply({ [key]: v || null })}
+      <MultiPicker
+        label={label}
         options={opts}
+        initial={idList(searchParams.get(key)).map(String)}
+        onApply={(values) => onApply({ [key]: values.join(",") || null })}
       />
     </EditorShell>
   );
 
   switch (kind) {
     case "subscription":
-      return pick("Subscription", "subscriptionId", options.subscriptions, "Any subscription");
+      return pick("Subscriptions", "subscriptionId", options.subscriptions);
     case "partner":
-      return pick("Partner", "partnerId", options.partners, "Any partner");
+      return pick("Partners", "partnerId", options.partners);
     case "informationType":
-      return pick("Information type", "informationTypeId", options.informationTypes, "Any information type");
+      return pick("Information types", "informationTypeId", options.informationTypes);
     case "property":
-      return <PropertyEditor searchParams={searchParams} options={options} onApply={onApply} />;
+      return <PropertyEditor index={index} searchParams={searchParams} options={options} onApply={onApply} />;
     case "ids":
       return (
         <EditorShell title="Exchange ids">
@@ -395,16 +530,20 @@ function FilterEditor({
 }
 
 function PropertyEditor({
+  index,
   searchParams,
   options,
   onApply,
 }: {
+  index?: number;
   searchParams: URLSearchParams;
   options: FilterOptions;
   onApply: (changes: Changes) => void;
 }) {
-  const [key, setKey] = useState(searchParams.get("propertyKey") ?? "");
-  const [value, setValue] = useState(searchParams.get("property") ?? "");
+  const list = propertyFilters(searchParams);
+  const editing = index === undefined ? undefined : list[index];
+  const [key, setKey] = useState(editing?.key ?? "");
+  const [value, setValue] = useState(editing?.text ?? "");
   const valueId = useId();
   const source = options.propertyKeys.find((o) => o.value === key);
 
@@ -414,7 +553,9 @@ function PropertyEditor({
         className="flex flex-col gap-3"
         onSubmit={(e) => {
           e.preventDefault();
-          onApply({ propertyKey: key || null, property: value.trim() || null });
+          // Kept the way round it was; a new one is added beside the others.
+          const edited = { key: key || null, text: value.trim() || null, negated: editing?.negated ?? false };
+          onApply(withPropertyFilters(searchParams, editing ? list.map((p, i) => (i === index ? edited : p)) : [...list, edited]));
         }}
       >
         <div className={labelClass}>
@@ -605,7 +746,8 @@ function AddFilterMenu({
                             title={o.title}
                             className={itemClass}
                             onClick={() => {
-                              apply({ propertyKey: o.value, property: null });
+                              const list = propertyFilters(searchParams);
+                              apply(withPropertyFilters(searchParams, [...list, { key: o.value, text: null, negated: false }]));
                               close();
                             }}
                           >
@@ -632,11 +774,11 @@ function AddFilterMenu({
 
 // --- search ---
 
-function SearchField({ apply }: { apply: (c: Changes) => void }) {
+function SearchField({ searchParams, apply }: { searchParams: URLSearchParams; apply: (c: Changes) => void }) {
   const [text, setText] = useState("");
   const [active, setActive] = useState(0);
   const [focused, setFocused] = useState(false);
-  const suggestions = useMemo(() => searchSuggestions(text), [text]);
+  const suggestions = useMemo(() => searchSuggestions(text, searchParams), [text, searchParams]);
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
   const open = focused && suggestions.length > 0;
@@ -769,7 +911,7 @@ function ViewsMenu({ searchParams, apply }: { searchParams: URLSearchParams; app
   const go = (view: SavedView) => {
     const target = new URLSearchParams(view.search);
     const changes: Changes = {};
-    for (const k of new Set([...searchParams.keys(), ...target.keys()])) if (k !== "open") changes[k] = target.get(k);
+    for (const k of new Set([...searchParams.keys(), ...target.keys()])) if (k !== "open") changes[k] = target.getAll(k);
     apply(changes);
   };
 

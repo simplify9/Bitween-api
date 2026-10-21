@@ -1561,11 +1561,36 @@ export interface BulkRetryPlan {
   properties: Record<string, Record<string, string | null> | undefined>;
 }
 
+/** The exchange filters that can be asked the other way round: "is not", "does not contain", "is missing". */
+export type NegatableExchangeFilter =
+  | "subscription"
+  | "partner"
+  | "informationType"
+  | "property"
+  | "error"
+  | "retry"
+  | "scheduled"
+  | "aggregated";
+
+/** One promoted-property filter. With a key, the text is looked for in that key's value; without one, in any. */
+export interface ExchangePropertyFilter {
+  key: string | null;
+  /** Null with a key asks only whether the exchange promoted it. */
+  text: string | null;
+  negated: boolean;
+}
+
 export interface ExchangeQuery {
   status?: ExchangeStatus;
-  subscriptionId?: number;
-  partnerId?: number;
-  informationTypeId?: number;
+  /** One is "is", several are "is any of" - or, turned round by `not`, "is not" and "is none of". */
+  subscriptionIds?: number[];
+  partnerIds?: number[];
+  informationTypeIds?: number[];
+  /**
+   * The filters turned round. A turned-round filter keeps the exchanges with no value at all:
+   * "Subscription is not A" keeps the ones with no subscription.
+   */
+  not?: NegatableExchangeFilter[];
   /** Comma/pipe/newline separated; matches id, retryFor OR aggregationXchangeId. */
   ids?: string;
   /**
@@ -1580,13 +1605,8 @@ export interface ExchangeQuery {
    * attempts it took, so this turns a list of failures into a list of things still to deal with.
    */
   latest?: boolean;
-  /** Substring match against promoted property keys and values. */
-  property?: string;
-  /**
-   * Narrows `property` to one promoted key. Set on its own it asks "has this key at
-   * all", which is worth being able to ask.
-   */
-  propertyKey?: string;
+  /** Promoted properties, any number of them, all of which have to hold. */
+  properties?: ExchangePropertyFilter[];
   /** Case-insensitive substring of the exception text. */
   errorContains?: string;
   /** Only exchanges that are a retry of another one. */

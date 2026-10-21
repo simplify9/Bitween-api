@@ -1,6 +1,6 @@
 import type { ApiClient } from "../client";
 import type { GlobalValuesSet, GlobalValuesSetDetail, GlobalValuesSetRow, SubscriptionType, ValueSetUsage } from "../types";
-import { referencesGlobal, scanReferenceTokens } from "./references";
+import { referencesFrom, referencesGlobal, type RawReferences } from "./references";
 import { get, getEnrichment, post } from "./request";
 
 interface SearchyResponse<T> {
@@ -13,18 +13,11 @@ interface RawValueSet {
   values: Record<string, string> | null;
   secretProperties?: string[] | null;
 }
-interface RawKeyAndValue {
-  key: string;
-  value: string;
-}
 interface RawSubscriptionForUsage {
   id: number;
   name: string;
   type: number | string;
-  mapperProperties: RawKeyAndValue[] | null;
-  handlerProperties: RawKeyAndValue[] | null;
-  receiverProperties: RawKeyAndValue[] | null;
-  validatorProperties: RawKeyAndValue[] | null;
+  references?: RawReferences | null;
 }
 
 const SUB_TYPE_BY_NUM: Record<number, SubscriptionType> = {
@@ -66,11 +59,7 @@ async function fetchAllSubscriptionsForUsage(): Promise<RawSubscriptionForUsage[
 }
 
 function globalKeysReferencedBy(sub: RawSubscriptionForUsage, setId: string): string[] {
-  const { globals } = scanReferenceTokens(
-    [sub.mapperProperties, sub.handlerProperties, sub.receiverProperties, sub.validatorProperties].flatMap(
-      (props) => (props ?? []).map((p) => p.value),
-    ),
-  );
+  const { globals } = referencesFrom(sub.references);
   return globals.find((g) => referencesGlobal({ globals: [g] }, setId))?.keys ?? [];
 }
 

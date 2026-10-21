@@ -1,6 +1,10 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Query;
 using SW.EfCoreExtensions;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
@@ -204,7 +208,9 @@ internal static class XchangeFilters
         foreach (var retryFilter in retryFilters)
         {
             if (IsOn(retryFilter))
-                query = query.Where(i => i.RetryFor != null);
+                query = Negated(retryFilter)
+                    ? query.Where(i => i.RetryFor == null)
+                    : query.Where(i => i.RetryFor != null);
 
             condition.Filters.Remove(retryFilter);
         }
@@ -218,7 +224,9 @@ internal static class XchangeFilters
         foreach (var scheduledFilter in scheduledFilters)
         {
             if (IsOn(scheduledFilter))
-                query = query.Where(i => dbContext.Set<DelayedRetry>().Any(d => d.Id == i.Id));
+                query = Negated(scheduledFilter)
+                    ? query.Where(i => !dbContext.Set<DelayedRetry>().Any(d => d.Id == i.Id))
+                    : query.Where(i => dbContext.Set<DelayedRetry>().Any(d => d.Id == i.Id));
 
             condition.Filters.Remove(scheduledFilter);
         }
@@ -229,7 +237,9 @@ internal static class XchangeFilters
         foreach (var aggregatedFilter in aggregatedFilters)
         {
             if (IsOn(aggregatedFilter))
-                query = query.Where(i => i.AggregationXchangeId != null);
+                query = Negated(aggregatedFilter)
+                    ? query.Where(i => i.AggregationXchangeId == null)
+                    : query.Where(i => i.AggregationXchangeId != null);
 
             condition.Filters.Remove(aggregatedFilter);
         }
@@ -247,7 +257,11 @@ internal static class XchangeFilters
             if (!string.IsNullOrEmpty(value))
             {
                 value = value.ToLower();
-                query = query.Where(i => i.Exception.ToLower().Contains(value));
+                // An exchange with no error doesn't contain the text either, so "does not contain"
+                // keeps it - as "is not" on a subscription keeps the exchanges that have none.
+                query = Negated(errorFilter)
+                    ? query.Where(i => i.Exception == null || !i.Exception.ToLower().Contains(value))
+                    : query.Where(i => i.Exception.ToLower().Contains(value));
             }
 
             condition.Filters.Remove(errorFilter);
@@ -258,47 +272,133 @@ internal static class XchangeFilters
         // that starts with what was typed: "SO-1001" was found by "SO", never by "1001".
         var keyFilters = condition.Filters.Where(f => f.Field == "PromotedPropertyKey").ToList();
         var key = keyFilters.Select(f => f.Value?.ToString()).FirstOrDefault(v => !string.IsNullOrEmpty(v))?.ToLower();
+        var propertiesFilters = condition.Filters
+            .Where(f => f.Field == "PromotedPropertiesRaw").ToList();
+
+        // The key and the values below are one question - "orderId contains 1001" - so "not" turns
+        // the whole of it round, never one part: an exchange whose orderId doesn't contain 1001, or
+        // that has no orderId at all. Asked for one way in one part and the other way in another,
+        // it has no reading worth guessing at, and bulk retry acts on whatever this selects.
+        var negations = keyFilters.Concat(propertiesFilters).Select(Negated).Distinct().ToList();
+        if (negations.Count > 1)
+            throw new SWValidationException("NOT_SUPPORTED",
+                "A promoted property filter is negated as a whole: send its key and its value with the same rule.");
+        var negate = negations.SingleOrDefault();
+
         foreach (var keyFilter in keyFilters)
             condition.Filters.Remove(keyFilter);
+        foreach (var propertyFilter in propertiesFilters)
+            condition.Filters.Remove(propertyFilter);
 
+        // An empty value is no filter, as with the error text above.
+        var match = PropertyMatch(key, propertiesFilters
+            .Select(f => f.Value?.ToString())
+            .Where(v => !string.IsNullOrEmpty(v))
+            .Select(v => v.ToLower()));
+        if (match != null)
+            query = query.Where(negate ? NoneOrNot(match) : match);
+
+        // Any number of properties at once - "orderNo contains 1001" and "city is Paris" - each with
+        // its key and text in the one filter, as they are stored: PromotedProperty:4:orderNo:1001.
+        // A key alone asks whether the exchange promoted it. Every one has to hold, and rule 2 turns
+        // each round on its own. The pair above stays for links and callers made before this; it can
+        // only ask about one key, since it has no way to say which value goes with which.
+        var pairFilters = condition.Filters.Where(f => f.Field == "PromotedProperty").ToList();
+        foreach (var pairFilter in pairFilters)
+        {
+            var text = pairFilter.Value?.ToString();
+            if (!string.IsNullOrEmpty(text))
+            {
+                if (pairFilter.Rule is not (SearchyRule.EqualsTo or SearchyRule.Contains or SearchyRule.NotEqualsTo))
+                    throw new SWValidationException("NOT_SUPPORTED",
+                        "A promoted property is asked for with rule 1 or 4, or rule 2 to turn it round.");
+
+                var colon = text.IndexOf(':');
+                var pairKey = (colon < 0 ? text : text[..colon]).ToLower();
+                var pairValue = colon < 0 ? "" : text[(colon + 1)..].ToLower();
+                if (pairKey.Length == 0)
+                    throw new SWValidationException("NOT_SUPPORTED",
+                        "Name the promoted property: PromotedProperty:4:key:text. Text in any property is PromotedPropertiesRaw.");
+
+                var pair = PropertyMatch(pairKey, pairValue.Length == 0 ? [] : [pairValue]);
+                query = query.Where(Negated(pairFilter) ? NoneOrNot(pair) : pair);
+            }
+
+            condition.Filters.Remove(pairFilter);
+        }
+
+        return query;
+    }
+
+    /// <summary>
+    /// An exchange whose promoted properties include <paramref name="key"/> (when there is one)
+    /// and contain each of <paramref name="values"/> - inside that key's value when there is a key,
+    /// anywhere when there is not. Both already lower-cased. Null when there is nothing to ask.
+    /// </summary>
+    private static Expression<Func<XchangeRow, bool>> PropertyMatch(string key, IEnumerable<string> values)
+    {
         // Stored as "key:value,key:value": the key comes first or after a comma, which keeps "id"
         // from matching "orderId:". Asked of lower(properties_raw) as it is, not with a comma put in
         // front: Postgres keeps statistics for that expression (its trigram index), and without them
         // it guessed almost nothing matched, so a common key fetched and sorted every match rather
         // than reading the newest 25 - 6s against 1M exchanges.
         var keyTag = "," + key + ":";
+        Expression<Func<XchangeRow, bool>> match = null;
         if (key != null)
-            query = query.Where(i => i.PromotedPropertiesRaw.ToLower().StartsWith(key + ":")
-                                     || i.PromotedPropertiesRaw.ToLower().Contains(keyTag));
+            match = i => i.PromotedPropertiesRaw.ToLower().StartsWith(key + ":")
+                         || i.PromotedPropertiesRaw.ToLower().Contains(keyTag);
 
-        var propertiesFilters = condition.Filters
-            .Where(f => f.Field == "PromotedPropertiesRaw").ToList();
-        foreach (var propertyFilter in propertiesFilters)
+        foreach (var value in values)
         {
-            var value = propertyFilter.Value.ToString()!.ToLower();
-
             // Both sides lower-cased at query time. Promoted values keep the case the
             // payload had (see FilterService), so the column has to be folded here for
             // the search to stay case-insensitive. No index is lost: a Contains is a
             // leading-wildcard LIKE, which the b-tree on this column could never serve.
-            query = query.Where(i => i.PromotedPropertiesRaw.ToLower().Contains(value));
+            match = match.And(i => i.PromotedPropertiesRaw.ToLower().Contains(value));
 
             // With a key, only inside that key's value: what follows ",key:" up to the next comma.
             // A value that itself holds a comma is only searched up to it, since the stored text
             // cannot tell that comma from the one before the next key. IndexOf rather than Contains
             // for the same estimate reason as the key above: Postgres guesses a third of rows pass
-            // an unknown comparison but under 1% pass an unknown LIKE.
+            // an unknown comparison but under 1% pass an unknown LIKE. "rest" - what follows the
+            // key, with a comma added - is written out twice, as a query's `let` would inline it.
             if (key != null)
-                query = from i in query
-                        let rest = ("," + i.PromotedPropertiesRaw.ToLower())
-                            .Substring(("," + i.PromotedPropertiesRaw.ToLower()).IndexOf(keyTag) + keyTag.Length) + ","
-                        where rest.Substring(0, rest.IndexOf(",")).IndexOf(value) >= 0
-                        select i;
-
-            condition.Filters.Remove(propertyFilter);
+                match = match.And(i =>
+                    (("," + i.PromotedPropertiesRaw.ToLower())
+                        .Substring(("," + i.PromotedPropertiesRaw.ToLower()).IndexOf(keyTag) + keyTag.Length) + ",")
+                    .Substring(0, (("," + i.PromotedPropertiesRaw.ToLower())
+                        .Substring(("," + i.PromotedPropertiesRaw.ToLower()).IndexOf(keyTag) + keyTag.Length) + ",")
+                        .IndexOf(","))
+                    .IndexOf(value) >= 0);
         }
 
-        return query;
+        return match;
+    }
+
+    /// <summary>A special filter asked for the other way round: rule 2, "not".</summary>
+    private static bool Negated(SearchyFilter filter) => filter.Rule == SearchyRule.NotEqualsTo;
+
+    /// <summary>Both, as one predicate - which the property filter needs, to be able to turn it round whole.</summary>
+    private static Expression<Func<XchangeRow, bool>> And(this Expression<Func<XchangeRow, bool>> left,
+        Expression<Func<XchangeRow, bool>> right) =>
+        left == null
+            ? right
+            : Expression.Lambda<Func<XchangeRow, bool>>(
+                Expression.AndAlso(left.Body,
+                    ReplacingExpressionVisitor.Replace(right.Parameters[0], left.Parameters[0], right.Body)),
+                left.Parameters);
+
+    /// <summary>
+    /// The property filter turned round, keeping the exchanges that promoted nothing. Spelt out
+    /// rather than left to the negation: SQL's NOT of a LIKE over a null is null, which drops the row.
+    /// </summary>
+    private static Expression<Func<XchangeRow, bool>> NoneOrNot(Expression<Func<XchangeRow, bool>> match)
+    {
+        var row = match.Parameters[0];
+        var raw = Expression.Property(row, nameof(XchangeRow.PromotedPropertiesRaw));
+        return Expression.Lambda<Func<XchangeRow, bool>>(
+            Expression.OrElse(Expression.Equal(raw, Expression.Constant(null, typeof(string))), Expression.Not(match.Body)),
+            row);
     }
 
     /// <summary>

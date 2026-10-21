@@ -104,7 +104,7 @@ async function fetchDetail(id: number): Promise<InformationTypeDetail> {
     get<RawDocument>(`/documents/${id}`),
     enrichment(fetchSubscriptionsByDocument(id), []),
     enrichment(gatewayMethods.listBusGateways(), []),
-    enrichment(exchangeMethods.searchExchanges({ informationTypeId: id, offset: 0, limit: 8 }), {
+    enrichment(exchangeMethods.searchExchanges({ informationTypeIds: [id], offset: 0, limit: 8 }), {
       result: [],
       total: 0,
     }),

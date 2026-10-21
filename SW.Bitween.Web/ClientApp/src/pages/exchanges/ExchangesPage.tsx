@@ -36,6 +36,7 @@ import {
   toLocalInput,
   viewSearch,
   withParams,
+  type ParamChanges,
 } from "./exchangeFilters";
 
 /** The most exchanges one files export takes: `XchangeExportController.Limit` on the server. */
@@ -88,7 +89,7 @@ export function ExchangesPage() {
   const queryClient = useQueryClient();
 
   const apply = useCallback(
-    (changes: Record<string, string | null>, opts?: { resetOffset?: boolean }) =>
+    (changes: ParamChanges, opts?: { resetOffset?: boolean }) =>
       setSearchParams((prev) => withParams(prev, changes, opts), { replace: true }),
     [setSearchParams],
   );
@@ -151,11 +152,14 @@ export function ExchangesPage() {
    * Read off the list already fetched for the information-type filter, so offering the
    * keys costs nothing - and picking from real names beats remembering how one was spelled.
    *
-   * Narrowed to the picked information type when there is one: a short list of its own keys
-   * beats the whole catalogue with a disambiguating line on every row.
+   * Narrowed to the picked information types when there are some: a short list of their own keys
+   * beats the whole catalogue with a disambiguating line on every row. Not when they are turned
+   * round, since the list is then everything but them.
    */
+  const pickedTypes = query.not?.includes("informationType") ? undefined : query.informationTypeIds;
+  const onePickedType = pickedTypes?.length === 1;
   const propertyKeyOptions = useMemo(() => {
-    const scoped = query.informationTypeId ? infoTypes.filter((t) => t.id === query.informationTypeId) : infoTypes;
+    const scoped = pickedTypes ? infoTypes.filter((t) => pickedTypes.includes(t.id)) : infoTypes;
     const owners = new Map<string, { type: string; path: string }[]>();
     for (const t of scoped)
       for (const p of t.promotedProperties ?? []) {
@@ -172,12 +176,12 @@ export function ExchangesPage() {
         // A second line rather than text beside the name: these run long enough
         // ("InventoryTransactionPosted") that sharing one line left the name with no room at
         // all. Dropped once a type is picked above - naming it again on every row says nothing.
-        sublabel: query.informationTypeId ? undefined : carriers.map((c) => c.type).join(", "),
+        sublabel: onePickedType ? undefined : carriers.map((c) => c.type).join(", "),
         // What the key actually reads out of the payload. The thing you want when a filter
         // comes back empty and you can't tell whether the key or the value is wrong.
         title: carriers.map((c) => `${c.type}: ${c.path}`).join("\n"),
       }));
-  }, [infoTypes, query.informationTypeId]);
+  }, [infoTypes, pickedTypes, onePickedType]);
 
   const filterOptions: FilterOptions = {
     subscriptions: subscriptions.map((i) => ({ value: String(i.id), label: i.name })),

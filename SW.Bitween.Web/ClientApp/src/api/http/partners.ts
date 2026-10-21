@@ -139,7 +139,7 @@ export const partnerMethods = {
       requireDetail(id),
       enrichment(gatewayMethods.listApiGateways(), []),
       enrichment(gatewayMethods.listBusGateways(), []),
-      enrichment(exchangeMethods.searchExchanges({ partnerId: id, offset: 0, limit: 8 }), { result: [], total: 0 }),
+      enrichment(exchangeMethods.searchExchanges({ partnerIds: [id], offset: 0, limit: 8 }), { result: [], total: 0 }),
     ]);
     return {
       id,
