@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse, type JsonBodyType } from "msw";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 import { apiPath } from "../../../__tests__/support/renderApp";
 import { server } from "../../../__tests__/support/server";
@@ -84,6 +85,42 @@ describe("AdapterConfig source values", () => {
 
     expect(await screen.findByDisplayValue("http://host/{{source.order.number}}")).toBeInTheDocument();
     expect(screen.queryByText(/original document/i)).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The hint under a field says what its references resolve to. The server looks set ids, keys and
+ * partner properties up ignoring case, so a token spelled differently still resolves - and the
+ * hint has to agree, or it reports a working reference as broken.
+ */
+describe("AdapterConfig reference hints", () => {
+  it("resolves a reference spelled in another case, as the server does", async () => {
+    server.use(
+      handlerCatalog,
+      json("/globaladaptervaluessets", {
+        result: [{ id: "zz-usedby", name: "zz", values: { host: "api.example.test" }, secretProperties: [] }],
+        totalCount: 1,
+      }),
+      json("/partners", { result: [{ id: 7, name: "Acme", propertyKeys: ["apiKey"] }], totalCount: 1 }),
+    );
+    render(
+      <MemoryRouter>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <AdapterConfig
+            kind="handler"
+            adapterId="NativeHttpHandler"
+            properties={{ Url: "https://{{GLOBALS.ZZ-USEDBY.Host}}/orders?key={{partner.APIKEY}}" }}
+            onChange={() => {}}
+            disabled={false}
+          />
+        </QueryClientProvider>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("api.example.test")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "{{GLOBALS.ZZ-USEDBY.Host}}" })).toHaveAttribute("href", "/global-values/zz-usedby");
+    expect(screen.queryByText(/not found/)).not.toBeInTheDocument();
+    expect(screen.getByText("defined by 1 of 1 partner")).toBeInTheDocument();
   });
 });
 
