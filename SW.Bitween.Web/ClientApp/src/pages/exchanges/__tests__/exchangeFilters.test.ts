@@ -153,6 +153,8 @@ describe("several values, and filters turned round", () => {
 
   it("counts a not only for a filter that is set", () => {
     expect(readQuery(sp("not=subscription,bogus"), NOW).not).toBeUndefined();
+    // A name every object has is not a filter either.
+    expect(readQuery(sp("subscriptionId=16&not=constructor,toString"), NOW).not).toBeUndefined();
   });
 
   it("drops a filter's not with the filter, so adding it again starts the right way round", () => {

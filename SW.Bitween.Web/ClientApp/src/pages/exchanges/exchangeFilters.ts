@@ -68,7 +68,8 @@ const NEGATABLE: Record<NegatableExchangeFilter, string[]> = {
   aggregated: ["aggregated"],
 };
 
-const isNegatable = (kind: string): kind is NegatableExchangeFilter => kind in NEGATABLE;
+// Own keys only: the URL is anyone's, and `in` would also take "constructor".
+const isNegatable = (kind: string): kind is NegatableExchangeFilter => Object.hasOwn(NEGATABLE, kind);
 
 /** The filters turned round, counting only those that are set. */
 export function negatedFilters(sp: URLSearchParams): NegatableExchangeFilter[] {

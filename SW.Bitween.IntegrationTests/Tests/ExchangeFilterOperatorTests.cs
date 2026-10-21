@@ -177,6 +177,9 @@ public class ExchangeFilterOperatorTests(BitweenFixture fixture)
         // No key: in no property at all.
         Assert.Equal(Ids(none), await Search(scope, inDoc, "PromotedPropertiesRaw:2:1001"));
         Assert.Equal(Ids(b, none), await Search(scope, inDoc, "PromotedPropertiesRaw:2:acme"));
+        // Empty text is no filter, either way round, rather than "promoted anything".
+        Assert.Equal(Ids(a, b, none), await Search(scope, inDoc, "PromotedPropertiesRaw:4:"));
+        Assert.Equal(Ids(a, b, none), await Search(scope, inDoc, "PromotedPropertiesRaw:2:"));
 
         // One part turned round and the other not has no reading worth guessing at.
         await Assert.ThrowsAsync<SWValidationException>(() =>

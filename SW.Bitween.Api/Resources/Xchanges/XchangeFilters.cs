@@ -290,7 +290,11 @@ internal static class XchangeFilters
         foreach (var propertyFilter in propertiesFilters)
             condition.Filters.Remove(propertyFilter);
 
-        var match = PropertyMatch(key, propertiesFilters.Select(f => f.Value.ToString()!.ToLower()));
+        // An empty value is no filter, as with the error text above.
+        var match = PropertyMatch(key, propertiesFilters
+            .Select(f => f.Value?.ToString())
+            .Where(v => !string.IsNullOrEmpty(v))
+            .Select(v => v.ToLower()));
         if (match != null)
             query = query.Where(negate ? NoneOrNot(match) : match);
 
