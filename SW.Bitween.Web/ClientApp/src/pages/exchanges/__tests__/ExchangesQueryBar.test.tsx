@@ -323,13 +323,88 @@ describe("refresh", () => {
 });
 
 describe("promoted property", () => {
-  it("sends the picked key apart from the value, so any part of that key's value matches", async () => {
+  it("sends each property with its own key, so any part of that key's value matches", async () => {
     const api = backend();
+    // How a link named its one property before there could be several.
     renderApp("/exchanges?propertyKey=orderNo&property=1001", { handlers: api.handlers });
 
     await waitFor(() => expect(api.listed.length).toBeGreaterThan(0));
-    const sent = filters(api.listed.at(-1)!);
-    expect(sent).toContain("PromotedPropertyKey:1:orderNo");
-    expect(sent).toContain("PromotedPropertiesRaw:4:1001");
+    expect(filters(api.listed.at(-1)!)).toEqual(["PromotedProperty:4:orderNo:1001"]);
+  });
+
+  it("adds a second property beside the first from the search box", async () => {
+    const api = backend();
+    const { user, router } = renderApp("/exchanges?prop=orderNo:1001", { handlers: api.handlers });
+
+    await user.type(await screen.findByRole("combobox", { name: "Search exchanges" }), "city:paris{Enter}");
+
+    expect(new URLSearchParams(router.state.location.search).getAll("prop")).toEqual(["orderNo:1001", "city:paris"]);
+    await waitFor(() =>
+      expect(filters(api.listed.at(-1))).toEqual(["PromotedProperty:4:orderNo:1001", "PromotedProperty:4:city:paris"]),
+    );
+    expect(screen.getByRole("button", { name: "Remove filter orderNo" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Remove filter city" })).toBeVisible();
+  });
+});
+
+/**
+ * Filters that can be turned round - "is not", "does not contain" - from the operator on their
+ * chip, and Subscription, Partner and Information type picking several at once.
+ */
+describe("turning a filter round, and picking several", () => {
+  it("turns a filter round from its chip, and the list and its counts ask for everything else", async () => {
+    const api = backend();
+    const { user, router } = renderApp("/exchanges?subscriptionId=16", { handlers: api.handlers });
+
+    await user.click(await screen.findByRole("button", { name: "How Subscription matches: is" }));
+    await user.click(screen.getByRole("menuitemradio", { name: /is not/ }));
+
+    expect(new URLSearchParams(router.state.location.search).get("not")).toBe("subscription");
+    await waitFor(() => expect(filters(api.listed.at(-1))).toEqual(["SubscriptionId:2:16"]));
+    expect(filters(api.summarised.at(-1))).toContain("SubscriptionId:2:16");
+    expect(screen.getByRole("button", { name: "How Subscription matches: is not" })).toBeVisible();
+  });
+
+  it("picks several subscriptions, then none of them", async () => {
+    const api = backend();
+    const two = http.get(apiPath("/subscriptions"), () =>
+      HttpResponse.json({
+        result: [
+          { id: 16, name: "Push orders", type: "Internal", partnerId: null },
+          { id: 17, name: "Pull returns", type: "Internal", partnerId: null },
+        ],
+        totalCount: 2,
+      }),
+    );
+    const { user, router } = renderApp("/exchanges", { handlers: [two, ...api.handlers] });
+
+    await user.click(await screen.findByRole("button", { name: "Filter" }));
+    await user.click(within(screen.getByRole("menu", { name: "Add a filter" })).getByRole("menuitem", { name: "Subscription" }));
+    const list = screen.getByRole("group", { name: "Subscriptions" });
+    await user.click(await within(list).findByRole("checkbox", { name: "Push orders" }));
+    await user.click(within(list).getByRole("checkbox", { name: "Pull returns" }));
+    await user.click(screen.getByRole("button", { name: "Apply" }));
+
+    expect(new URLSearchParams(router.state.location.search).get("subscriptionId")).toBe("16,17");
+    await waitFor(() => expect(filters(api.listed.at(-1))).toEqual(["SubscriptionId:9:numeric|16|17"]));
+    expect(screen.getByRole("button", { name: "Edit filter: Subscription is any of 2 subscriptions" })).toHaveAttribute(
+      "title",
+      "Push orders, Pull returns",
+    );
+
+    await user.click(screen.getByRole("button", { name: "How Subscription matches: is any of" }));
+    await user.click(screen.getByRole("menuitemradio", { name: /is none of/ }));
+    await waitFor(() => expect(filters(api.listed.at(-1))).toEqual(["SubscriptionId:2:16", "SubscriptionId:2:17"]));
+  });
+
+  it("sends the server's own filters turned round", async () => {
+    const api = backend();
+    renderApp("/exchanges?error=timeout&prop=!orderNo:1001&retry=1&not=error,retry", { handlers: api.handlers });
+
+    await waitFor(() => expect(api.listed.length).toBeGreaterThan(0));
+    expect(filters(api.listed.at(-1))).toEqual(
+      expect.arrayContaining(["ErrorContains:2:timeout", "PromotedProperty:2:orderNo:1001", "IsRetry:2:true"]),
+    );
+    expect(await screen.findByRole("button", { name: "How Error matches: does not contain" })).toBeVisible();
   });
 });

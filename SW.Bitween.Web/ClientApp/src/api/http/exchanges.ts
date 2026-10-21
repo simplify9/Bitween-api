@@ -4,6 +4,7 @@ import type {
   BulkRetrySelection,
   ExchangeBreakdown,
   ExchangeQuery,
+  NegatableExchangeFilter,
   ExchangeRow,
   ExchangeStatus,
   ExportFilesCheck,
@@ -186,10 +187,19 @@ const toScheduledRetryRow = (raw: RawDelayedRetryRow): ScheduledRetryRow => ({
  */
 function buildExchangeFilters(query: ExchangeQuery): URLSearchParams {
   const params = new URLSearchParams();
+  const not = (filter: NegatableExchangeFilter) => query.not?.includes(filter) ?? false;
+  const oneOf = (field: string, values: number[] | undefined, negated: boolean) => {
+    if (!values?.length) return;
+    // "is none of" is one "is not" (rule 2) per value, all of which have to hold.
+    if (negated) for (const v of values) params.append("filter", `${field}:2:${v}`);
+    else if (values.length === 1) params.append("filter", `${field}:1:${values[0]}`);
+    else params.append("filter", `${field}:9:numeric|${values.join("|")}`);
+  };
+
   if (query.status) params.append("filter", `StatusFilter:1:${STATUS_FILTER[query.status]}`);
-  if (query.subscriptionId !== undefined) params.append("filter", `SubscriptionId:1:${query.subscriptionId}`);
-  if (query.partnerId !== undefined) params.append("filter", `PartnerId:1:${query.partnerId}`);
-  if (query.informationTypeId !== undefined) params.append("filter", `DocumentId:1:${query.informationTypeId}`);
+  oneOf("SubscriptionId", query.subscriptionIds, not("subscription"));
+  oneOf("PartnerId", query.partnerIds, not("partner"));
+  oneOf("DocumentId", query.informationTypeIds, not("informationType"));
   if (query.ids?.trim()) {
     const ids = query.ids.split(/[\s,|]+/).filter(Boolean);
     params.append("filter", `Id:4:text|${ids.join("|")}`);
@@ -200,15 +210,19 @@ function buildExchangeFilters(query: ExchangeQuery): URLSearchParams {
     params.append("filter", `ReceiveAttemptId:1:${query.receiveAttemptId}`);
   if (query.correlationId?.trim()) params.append("filter", `CorrelationId:1:${query.correlationId.trim()}`);
   if (query.latest) params.append("filter", "LatestOnly:1:true");
-  // The key goes apart from the value so the server can look anywhere inside that key's value.
-  // Sent as one "key:value" term it only matched values starting with what was typed.
-  if (query.propertyKey) params.append("filter", `PromotedPropertyKey:1:${query.propertyKey}`);
-  const propertyValue = query.property?.trim();
-  if (propertyValue) params.append("filter", `PromotedPropertiesRaw:4:${propertyValue}`);
-  if (query.errorContains?.trim()) params.append("filter", `ErrorContains:4:${query.errorContains.trim()}`);
-  if (query.isRetry) params.append("filter", "IsRetry:1:true");
-  if (query.scheduledRetry) params.append("filter", "HasScheduledRetry:1:true");
-  if (query.aggregated) params.append("filter", "Aggregated:1:true");
+  // Each named property carries its own key and text, so the server looks for the text inside that
+  // key's value, and every one has to hold. Text to find in any property has no key to pair with.
+  // Rule 2 turns each of the server's own filters round.
+  for (const p of query.properties ?? []) {
+    const text = p.text?.trim();
+    if (p.key) params.append("filter", `PromotedProperty:${p.negated ? 2 : text ? 4 : 1}:${p.key}${text ? `:${text}` : ""}`);
+    else if (text) params.append("filter", `PromotedPropertiesRaw:${p.negated ? 2 : 4}:${text}`);
+  }
+  if (query.errorContains?.trim())
+    params.append("filter", `ErrorContains:${not("error") ? 2 : 4}:${query.errorContains.trim()}`);
+  if (query.isRetry) params.append("filter", `IsRetry:${not("retry") ? 2 : 1}:true`);
+  if (query.scheduledRetry) params.append("filter", `HasScheduledRetry:${not("scheduled") ? 2 : 1}:true`);
+  if (query.aggregated) params.append("filter", `Aggregated:${not("aggregated") ? 2 : 1}:true`);
   if (query.from) params.append("filter", `StartedOn:6:${query.from}`);
   if (query.to) params.append("filter", `StartedOn:8:${query.to}`);
   return params;

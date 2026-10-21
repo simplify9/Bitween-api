@@ -12,7 +12,7 @@ The sign-in page offers email and password, Microsoft, an [OpenID Connect provid
 
 | Page | What it does |
 |---|---|
-| **Exchanges** | Search and filter every exchange with live refresh, optionally showing only the latest attempt of each retry chain. Expand a row to see each stage's file, formatted or raw, plus the exception, promoted properties and the retry chain. Retry one exchange, a selection, or every match of the current filters after previewing the plan. Create an exchange by hand. |
+| **Exchanges** | Search and filter every exchange with live refresh, optionally showing only the latest attempt of each retry chain. A filter's operator is picked on its chip: *is* or *is not*, *contains* or *does not contain*; subscription, partner and information type can pick several (*is any of*, *is none of*), and any number of promoted properties can be filtered on at once. Expand a row to see each stage's file, formatted or raw, plus the exception, promoted properties and the retry chain. Retry one exchange, a selection, or every match of the current filters after previewing the plan. Create an exchange by hand. |
 | **Scheduled retries** | Automatic retries waiting to run, with the policy that scheduled each one. Run one now. |
 | **Queue health** | Live RabbitMQ lanes, backlogs, dead letters, alerts and orphaned queues. |
 

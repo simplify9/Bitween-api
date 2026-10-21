@@ -93,12 +93,19 @@ All need the global values permissions: `global-values.view` to read, `.create`,
 | `GET /api/delayedretries` | `exchanges.view` or `dashboard.view` | Searchy. Waiting automatic retries. |
 | `POST /api/delayedretries/{id}/runnow` | `exchanges.operate` | Run a waiting retry now |
 
-Exchange search filters, besides ordinary fields:
+Exchange search filters, besides ordinary fields such as `SubscriptionId`, `PartnerId` and `DocumentId`. Those take rule 1 (is), 2 (is not) and 9 (is any of, as `SubscriptionId:9:numeric|4|7`). "Is none of" is one rule-2 filter per value. "Is not" keeps the exchanges with no value at all, for example no subscription.
 
 | Filter | Meaning |
 |---|---|
 | `StatusFilter:1:{n}` | 0 processing, 1 success, 2 bad response, 3 failed. Other values are refused. |
 | `LatestOnly:1:true` | Only the newest attempt of each retry chain |
+| `ErrorContains:4:{text}` | The error contains the text, ignoring case |
+| `PromotedProperty:4:{key}:{text}` | That key's value contains the text, ignoring case. Without `:{text}` (rule 1), the exchange promoted the key. Send one per property; every one has to hold. |
+| `PromotedPropertiesRaw:4:{text}` | A promoted value contains the text, ignoring case |
+| `PromotedPropertyKey:1:{key}` | The older form for one property. With `PromotedPropertiesRaw`, the text is looked for in that key's value only. |
+| `IsRetry:1:true`, `HasScheduledRetry:1:true`, `Aggregated:1:true` | A retry of another exchange; an automatic retry is booked; rolled up into an aggregation |
+
+Rule 2 turns each of these round except `StatusFilter` and `LatestOnly`: `ErrorContains:2:timeout` is "the error does not contain timeout", and it keeps the exchanges with no error. Each `PromotedProperty` turns round on its own. In the older form, send the key and the text with the same rule, since they turn round together.
 
 Bulk retry takes `{ ids, filter, excludeIds, reason, reset }`. `filter` is the same query-string fragment the search takes, such as `filter=StatusFilter:1:3&filter=LatestOnly:1:true`, and it replaces `ids` when present. The plan returned by both endpoints lists how many were selected and will be retried, attempts substituted with the end of their chain, and skipped exchanges with reasons, plus `targets`, the attempts that will run. The retry carries out at most `limit` (500) per request; the preview plans up to `maxSelection` (5,000), so a larger selection is retried by sending `targets` back as `ids`, `limit` at a time.
 

@@ -1,4 +1,7 @@
-import type { ExchangeQuery, ExchangeStatus } from "../../api";
+import type { ExchangePropertyFilter, ExchangeQuery, ExchangeStatus, NegatableExchangeFilter } from "../../api";
+
+/** Parameters to set, drop (null) or, for one that repeats, set to several values. */
+export type ParamChanges = Record<string, string | string[] | null | undefined>;
 
 /**
  * Everything the exchanges list can be narrowed by lives in the URL, so a view is a link: it
@@ -33,6 +36,7 @@ export const FILTER_KEYS = [
   "correlationId",
   "propertyKey",
   "property",
+  "prop",
   "error",
   "retry",
   "scheduled",
@@ -41,9 +45,94 @@ export const FILTER_KEYS = [
   "from",
   "to",
   "latest",
+  "not",
 ] as const;
 
 export type FilterKey = (typeof FILTER_KEYS)[number];
+
+// --- turned round ---
+
+/**
+ * The parameters each filter that can be turned round is set by. `not` lists the filters turned
+ * round - `not=subscription,error` - while each keeps its own parameter, so every link made before
+ * there was a `not` still means what it did.
+ */
+const NEGATABLE: Record<NegatableExchangeFilter, string[]> = {
+  subscription: ["subscriptionId"],
+  partner: ["partnerId"],
+  informationType: ["informationTypeId"],
+  property: ["propertyKey", "property"],
+  error: ["error"],
+  retry: ["retry"],
+  scheduled: ["scheduled"],
+  aggregated: ["aggregated"],
+};
+
+const isNegatable = (kind: string): kind is NegatableExchangeFilter => kind in NEGATABLE;
+
+/** The filters turned round, counting only those that are set. */
+export function negatedFilters(sp: URLSearchParams): NegatableExchangeFilter[] {
+  return (sp.get("not") ?? "")
+    .split(",")
+    .filter(isNegatable)
+    .filter((kind) => NEGATABLE[kind].some((p) => sp.has(p)));
+}
+
+/** The `not` parameter with one filter turned round, or back. */
+export function notWith(sp: URLSearchParams, kind: NegatableExchangeFilter, negated: boolean): string | null {
+  const kinds = new Set(negatedFilters(sp));
+  if (negated) kinds.add(kind);
+  else kinds.delete(kind);
+  return [...kinds].sort().join(",") || null;
+}
+
+// --- promoted properties ---
+
+/**
+ * Promoted properties, any number at once, all of which have to hold. Each named one is a `prop`
+ * parameter of its own - `prop=orderNo:1001`, `prop=city`, `prop=!customer:zed` - its key, then
+ * the text to find in that key's value, and a leading "!" to turn it round. Text to find in any
+ * property has no key to pair with, so it keeps `property`, turned round by `not=property`.
+ *
+ * `propertyKey` is how a link named its one property before there could be several. It is still
+ * read, with `property` as its text, and written over the first time the properties change.
+ */
+const parseProp = (raw: string): ExchangePropertyFilter => {
+  const negated = raw.startsWith("!");
+  const body = negated ? raw.slice(1) : raw;
+  // The first colon ends the key, as it does where the values are stored; the text may hold more.
+  const colon = body.indexOf(":");
+  return colon < 0
+    ? { key: body, text: null, negated }
+    : { key: body.slice(0, colon), text: body.slice(colon + 1) || null, negated };
+};
+
+const formatProp = (p: ExchangePropertyFilter) => `${p.negated ? "!" : ""}${p.key}${p.text ? `:${p.text}` : ""}`;
+
+/** The promoted-property filters, named ones first and text in any property last. */
+export function propertyFilters(sp: URLSearchParams): ExchangePropertyFilter[] {
+  const named = sp.getAll("prop").map(parseProp).filter((p) => p.key);
+  const legacyKey = sp.get("propertyKey");
+  const text = sp.get("property");
+  const negated = (sp.get("not") ?? "").split(",").includes("property");
+  if (legacyKey) return [{ key: legacyKey, text: text || null, negated }, ...named];
+  return text ? [...named, { key: null, text, negated }] : named;
+}
+
+/** The parameters that say `list`, replacing whatever said the properties before. */
+export function withPropertyFilters(sp: URLSearchParams, list: ExchangePropertyFilter[]): ParamChanges {
+  const named = list.filter((p) => p.key);
+  // Text in any property is one filter: a second replaces the first.
+  const any = list.filter((p) => !p.key).at(-1);
+  const not = new Set<NegatableExchangeFilter>(negatedFilters(sp).filter((kind) => kind !== "property"));
+  if (any?.negated) not.add("property");
+  return {
+    prop: named.length > 0 ? named.map(formatProp) : null,
+    propertyKey: null,
+    property: any?.text ?? null,
+    not: [...not].sort().join(",") || null,
+  };
+}
 
 /** Shown as "10,000+" past the cap. */
 export const countLabel = (n: number) => (n > COUNT_CAP ? `${COUNT_CAP.toLocaleString()}+` : n.toLocaleString());
@@ -146,6 +235,17 @@ export const hasTimeFilter = (sp: URLSearchParams) => sp.has("range") || sp.has(
 const num = (v: string | null) => (v && !Number.isNaN(Number(v)) ? Number(v) : undefined);
 const flag = (v: string | null) => v === "1" || undefined;
 
+/** A parameter holding one id or several, comma-separated: "16" or "16,17". */
+export const idList = (v: string | null): number[] =>
+  (v ?? "")
+    .split(",")
+    .map(Number)
+    .filter((n) => Number.isInteger(n) && n > 0);
+const ids = (v: string | null) => {
+  const list = idList(v);
+  return list.length > 0 ? list : undefined;
+};
+
 /** The list's query, as of `now` - which only matters for a relative `range`. */
 export function readQuery(sp: URLSearchParams, now: Date = new Date()): ExchangeQuery {
   const range = sp.get("range");
@@ -153,18 +253,20 @@ export function readQuery(sp: URLSearchParams, now: Date = new Date()): Exchange
   const from = resolved ? resolved.from : parseBound(sp.get("from"), "from");
   const to = resolved ? resolved.to : parseBound(sp.get("to"), "to");
   const status = sp.get("status");
+  const not = negatedFilters(sp);
+  const properties = propertyFilters(sp);
 
   return {
     status: STATUSES.includes(status as ExchangeStatus) ? (status as ExchangeStatus) : undefined,
-    subscriptionId: num(sp.get("subscriptionId")),
-    partnerId: num(sp.get("partnerId")),
-    informationTypeId: num(sp.get("informationTypeId")),
+    subscriptionIds: ids(sp.get("subscriptionId")),
+    partnerIds: ids(sp.get("partnerId")),
+    informationTypeIds: ids(sp.get("informationTypeId")),
+    not: not.length > 0 ? not : undefined,
     ids: sp.get("ids") ?? undefined,
     receiveAttemptId: num(sp.get("receiveAttemptId")),
     correlationId: sp.get("correlationId") ?? undefined,
     latest: flag(sp.get("latest")),
-    propertyKey: sp.get("propertyKey") ?? undefined,
-    property: sp.get("property") ?? undefined,
+    properties: properties.length > 0 ? properties : undefined,
     errorContains: sp.get("error") ?? undefined,
     isRetry: flag(sp.get("retry")),
     scheduledRetry: flag(sp.get("scheduled")),
@@ -182,20 +284,29 @@ export function readQuery(sp: URLSearchParams, now: Date = new Date()): Exchange
  */
 export function withParams(
   sp: URLSearchParams,
-  changes: Record<string, string | null | undefined>,
+  changes: ParamChanges,
   { resetOffset = true }: { resetOffset?: boolean } = {},
 ): URLSearchParams {
   const next = new URLSearchParams(sp);
   for (const [key, value] of Object.entries(changes)) {
-    if (value === null || value === undefined || value === "") next.delete(key);
-    else next.set(key, value);
+    next.delete(key);
+    // A list is a parameter that repeats, one value each: `prop=orderNo:1&prop=city`.
+    for (const v of Array.isArray(value) ? value : [value]) if (v) next.append(key, v);
   }
   if (resetOffset) next.delete("offset");
+
+  // A filter that is gone takes its "not" with it, so the same filter added again later starts
+  // the right way round rather than silently turned.
+  if (next.has("not")) {
+    const not = [...new Set(negatedFilters(next))].sort().join(",");
+    if (not) next.set("not", not);
+    else next.delete("not");
+  }
   return next;
 }
 
 /** The filters alone, in a fixed order, so two URLs that select the same rows compare equal. */
-export const filterSignature = (sp: URLSearchParams) => FILTER_KEYS.map((k) => sp.get(k) ?? "").join("\u0000");
+export const filterSignature = (sp: URLSearchParams) => FILTER_KEYS.map((k) => sp.getAll(k).join("\u0001")).join("\u0000");
 
 export const activeFilterCount = (sp: URLSearchParams) => FILTER_KEYS.filter((k) => sp.has(k)).length;
 
@@ -216,13 +327,29 @@ export type FilterKind =
   | "aggregated";
 
 export interface FilterChip {
+  /** Tells two chips of one kind apart: there can be several promoted properties. */
+  id: string;
   kind: FilterKind;
+  /** Which promoted property it is, for its editor. */
+  index?: number;
+  /** What it is called whichever way round it reads, for its remove button: "Subscription". */
+  name: string;
   field: string;
   op: string;
   value: string;
   mono?: boolean;
-  /** The parameters removing it drops. */
-  keys: string[];
+  /** The names behind a count such as "3 subscriptions", shown on hover. */
+  title?: string;
+  /** What removing it changes in the URL. */
+  remove: ParamChanges;
+  /** For a filter that can be turned round: its two readings, which one it is now, and how to change it. */
+  turn?: {
+    negated: boolean;
+    ops: [string, string];
+    /** What the turned-round reading also keeps, which is easy to forget. */
+    hint?: string;
+    set: (negated: boolean) => ParamChanges;
+  };
 }
 
 export interface ChipLookups {
@@ -231,53 +358,93 @@ export interface ChipLookups {
   informationTypeName: (id: number) => string | undefined;
 }
 
+const drop = (...keys: string[]): ParamChanges => Object.fromEntries(keys.map((k) => [k, null]));
+
 /**
  * The active filters as chips, except the two with controls of their own: status (the tabs) and
  * time (its own chip), and "latest", which is a switch beside the tabs.
  */
 export function filterChips(sp: URLSearchParams, lookups: ChipLookups): FilterChip[] {
   const chips: FilterChip[] = [];
-  const id = (key: string) => num(sp.get(key));
+  const negated = negatedFilters(sp);
+  // The two readings of a filter turned round by `not`, and which it is now.
+  const turn = (kind: NegatableExchangeFilter, ops: [string, string], hint?: string) => {
+    const now = negated.includes(kind);
+    return {
+      op: ops[now ? 1 : 0],
+      turn: { negated: now, ops, hint, set: (to: boolean): ParamChanges => ({ not: notWith(sp, kind, to) }) },
+    };
+  };
 
-  const sub = id("subscriptionId");
-  if (sub !== undefined)
-    chips.push({ kind: "subscription", field: "Subscription", op: "is", value: lookups.subscriptionName(sub) ?? `#${sub}`, keys: ["subscriptionId"] });
-  const partner = id("partnerId");
-  if (partner !== undefined)
-    chips.push({ kind: "partner", field: "Partner", op: "is", value: lookups.partnerName(partner) ?? `#${partner}`, keys: ["partnerId"] });
-  const type = id("informationTypeId");
-  if (type !== undefined)
-    chips.push({ kind: "informationType", field: "Information type", op: "is", value: lookups.informationTypeName(type) ?? `#${type}`, keys: ["informationTypeId"] });
+  // One picked reads by its name; several, by how many, with the names on hover.
+  const picked = (
+    kind: "subscription" | "partner" | "informationType",
+    key: string,
+    name: string,
+    plural: string,
+    nameOf: (id: number) => string | undefined,
+    hint?: string,
+  ) => {
+    const list = idList(sp.get(key));
+    if (list.length === 0) return;
+    const names = list.map((id) => nameOf(id) ?? `#${id}`);
+    chips.push({
+      id: kind,
+      kind,
+      name,
+      field: name,
+      value: list.length === 1 ? names[0] : `${list.length} ${plural}`,
+      title: list.length === 1 ? undefined : names.join(", "),
+      remove: drop(key),
+      ...turn(kind, list.length === 1 ? ["is", "is not"] : ["is any of", "is none of"], hint),
+    });
+  };
+  picked("subscription", "subscriptionId", "Subscription", "subscriptions", lookups.subscriptionName, "Also keeps exchanges with no subscription.");
+  picked("partner", "partnerId", "Partner", "partners", lookups.partnerName, "Also keeps exchanges with no partner.");
+  picked("informationType", "informationTypeId", "Information type", "information types", lookups.informationTypeName);
 
-  const key = sp.get("propertyKey");
-  const property = sp.get("property");
-  if (key || property)
+  // One chip per promoted property, each removed and turned round on its own.
+  const properties = propertyFilters(sp);
+  properties.forEach((p, index) => {
+    const replaced = (by: ExchangePropertyFilter | null) =>
+      withPropertyFilters(sp, properties.flatMap((q, i) => (i !== index ? [q] : by ? [by] : [])));
+    const reads = (ops: [string, string], hint?: string) => ({
+      op: ops[p.negated ? 1 : 0],
+      turn: { negated: p.negated, ops, hint, set: (to: boolean) => replaced({ ...p, negated: to }) },
+    });
+    const base = { id: `property-${index}`, kind: "property" as const, index, remove: replaced(null) };
     chips.push(
-      key && property
-        ? { kind: "property", field: key, op: "contains", value: property, mono: true, keys: ["propertyKey", "property"] }
-        : key
-          ? { kind: "property", field: key, op: "is", value: "present", keys: ["propertyKey", "property"] }
-          : { kind: "property", field: "Any property", op: "contains", value: property!, mono: true, keys: ["propertyKey", "property"] },
+      p.key && p.text
+        ? { ...base, name: p.key, field: p.key, value: p.text, mono: true, ...reads(["contains", "does not contain"], `Also keeps exchanges without ${p.key}.`) }
+        : p.key
+          ? { ...base, name: p.key, field: p.key, value: "present", ...reads(["is", "is not"]) }
+          : { ...base, name: "Properties", field: "Properties", value: p.text!, mono: true, ...reads(["contain", "do not contain"], "Also keeps exchanges that promoted nothing.") },
     );
+  });
 
   const ids = sp.get("ids");
   if (ids) {
     const list = ids.split(/[\s,|]+/).filter(Boolean);
     chips.push(
       list.length === 1
-        ? { kind: "ids", field: "Exchange", op: "is", value: list[0], mono: true, keys: ["ids"] }
-        : { kind: "ids", field: "Exchange", op: "is any of", value: `${list.length} ids`, keys: ["ids"] },
+        ? { id: "ids", kind: "ids", name: "Exchange ids", field: "Exchange", op: "is", value: list[0], mono: true, remove: drop("ids") }
+        : { id: "ids", kind: "ids", name: "Exchange ids", field: "Exchange", op: "is any of", value: `${list.length} ids`, remove: drop("ids") },
     );
   }
   const correlation = sp.get("correlationId");
-  if (correlation) chips.push({ kind: "correlationId", field: "Correlation id", op: "is", value: correlation, mono: true, keys: ["correlationId"] });
+  if (correlation)
+    chips.push({ id: "correlationId", kind: "correlationId", name: "Correlation id", field: "Correlation id", op: "is", value: correlation, mono: true, remove: drop("correlationId") });
   const run = sp.get("receiveAttemptId");
-  if (run) chips.push({ kind: "receiveAttempt", field: "Created by run", op: "", value: `#${run}`, keys: ["receiveAttemptId"] });
+  if (run) chips.push({ id: "receiveAttempt", kind: "receiveAttempt", name: "Created by run", field: "Created by run", op: "", value: `#${run}`, remove: drop("receiveAttemptId") });
   const error = sp.get("error");
-  if (error) chips.push({ kind: "error", field: "Error", op: "contains", value: error, mono: true, keys: ["error"] });
-  if (sp.get("retry") === "1") chips.push({ kind: "retry", field: "Is a retry", op: "", value: "", keys: ["retry"] });
-  if (sp.get("scheduled") === "1") chips.push({ kind: "scheduled", field: "Auto-retry scheduled", op: "", value: "", keys: ["scheduled"] });
-  if (sp.get("aggregated") === "1") chips.push({ kind: "aggregated", field: "Part of an aggregation", op: "", value: "", keys: ["aggregated"] });
+  if (error)
+    chips.push({ id: "error", kind: "error", name: "Error", field: "Error", value: error, mono: true, remove: drop("error"), ...turn("error", ["contains", "does not contain"], "Also keeps exchanges with no error.") });
+  if (sp.get("retry") === "1")
+    chips.push({ id: "retry", kind: "retry", name: "Is a retry", field: "Exchange", value: "a retry", remove: drop("retry"), ...turn("retry", ["is", "is not"]) });
+  if (sp.get("scheduled") === "1")
+    chips.push({ id: "scheduled", kind: "scheduled", name: "Auto-retry scheduled", field: "Auto-retry", value: "scheduled", remove: drop("scheduled"), ...turn("scheduled", ["is", "is not"]) });
+  if (sp.get("aggregated") === "1")
+    chips.push({ id: "aggregated", kind: "aggregated", name: "Part of an aggregation", field: "Exchange", value: "part of an aggregation", remove: drop("aggregated"), ...turn("aggregated", ["is", "is not"]) });
   return chips;
 }
 
@@ -296,7 +463,7 @@ export interface SearchSuggestion {
   label: string;
   value: string;
   hint: string;
-  changes: Record<string, string | null>;
+  changes: ParamChanges;
 }
 
 /**
@@ -304,7 +471,7 @@ export interface SearchSuggestion {
  * value: someone holding an order number rarely knows whether Bitween calls it a promoted
  * property, a correlation id or the text of an error.
  */
-export function searchSuggestions(text: string): SearchSuggestion[] {
+export function searchSuggestions(text: string, sp: URLSearchParams = new URLSearchParams()): SearchSuggestion[] {
   const value = text.trim();
   if (!value) return [];
 
@@ -330,10 +497,17 @@ export function searchSuggestions(text: string): SearchSuggestion[] {
       label: `Property ${keyed[1]} contains`,
       value: keyed[2].trim(),
       hint: "Promoted property, by name",
-      changes: { propertyKey: keyed[1].trim(), property: keyed[2].trim() || null },
+      // Added beside any properties already filtered on, not instead of them.
+      changes: withPropertyFilters(sp, [...propertyFilters(sp), { key: keyed[1].trim(), text: keyed[2].trim() || null, negated: false }]),
     });
   suggestions.push(
-    { key: "property", label: "Any property contains", value, hint: "Across every promoted property", changes: { property: value, propertyKey: null } },
+    {
+      key: "property",
+      label: "Any property contains",
+      value,
+      hint: "Across every promoted property",
+      changes: withPropertyFilters(sp, [...propertyFilters(sp).filter((p) => p.key), { key: null, text: value, negated: false }]),
+    },
     { key: "correlationId", label: "Correlation id is", value, hint: "Every exchange in the same flow", changes: { correlationId: value } },
     { key: "error", label: "Error message contains", value, hint: "Searches the exception text of failed exchanges", changes: { error: value } },
   );
@@ -362,9 +536,6 @@ export const BUILT_IN_VIEWS: SavedView[] = [
 /** Just the filters, in the order FILTER_KEYS lists them, for saving and comparing views. */
 export function viewSearch(sp: URLSearchParams): string {
   const out = new URLSearchParams();
-  for (const k of FILTER_KEYS) {
-    const v = sp.get(k);
-    if (v !== null) out.set(k, v);
-  }
+  for (const k of FILTER_KEYS) for (const v of sp.getAll(k)) out.append(k, v);
   return out.toString();
 }

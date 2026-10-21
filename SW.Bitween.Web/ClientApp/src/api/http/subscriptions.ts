@@ -455,7 +455,7 @@ export const subscriptionMethods = {
       fetchRaw(id),
       gatewayMethods.listApiGateways(),
       gatewayMethods.listBusGateways(),
-      exchangeMethods.searchExchanges({ subscriptionId: id, offset: 0, limit: 8 }),
+      exchangeMethods.searchExchanges({ subscriptionIds: [id], offset: 0, limit: 8 }),
     ]);
     const infoType = await documentMethods.getInformationType(raw.documentId).catch(() => null);
     return {

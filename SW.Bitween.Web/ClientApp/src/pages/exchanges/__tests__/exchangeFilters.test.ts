@@ -3,7 +3,9 @@ import {
   filterChips,
   filterSignature,
   idsIn,
+  notWith,
   parseBound,
+  propertyFilters,
   parseRelativeRange,
   rangeLabel,
   readQuery,
@@ -12,6 +14,7 @@ import {
   timeLabel,
   viewSearch,
   withParams,
+  withPropertyFilters,
 } from "../exchangeFilters";
 
 /**
@@ -36,14 +39,14 @@ describe("reading an older link", () => {
     expect(q).toMatchObject({
       status: "failed",
       latest: true,
-      subscriptionId: 16,
-      partnerId: 3,
-      informationTypeId: 5,
+      subscriptionIds: [16],
+      partnerIds: [3],
+      informationTypeIds: [5],
       ids: "a,b",
       receiveAttemptId: 9,
       correlationId: "c-1",
-      propertyKey: "orderNo",
-      property: "SO-1",
+      // How a link named its one property before there could be several.
+      properties: [{ key: "orderNo", text: "SO-1", negated: false }],
       offset: 25,
       limit: 25,
     });
@@ -117,7 +120,7 @@ describe("chips", () => {
       ["Partner", "is", "#99"],
       ["orderNo", "contains", "SO-1"],
       ["Error", "contains", "timeout"],
-      ["Auto-retry scheduled", "", ""],
+      ["Auto-retry", "is", "scheduled"],
     ]);
   });
 
@@ -128,12 +131,98 @@ describe("chips", () => {
   it("says how many ids rather than listing them", () => {
     const [chip] = filterChips(sp("ids=a,b,c"), lookups);
     expect(chip.value).toBe("3 ids");
-    expect(chip.keys).toEqual(["ids"]);
+    expect(chip.remove).toEqual({ ids: null });
   });
 
   it("asks for a key on its own as 'has this property'", () => {
     const [chip] = filterChips(sp("propertyKey=orderNo"), lookups);
     expect([chip.field, chip.op, chip.value]).toEqual(["orderNo", "is", "present"]);
+  });
+});
+
+/**
+ * A filter can be turned round - "is not", "does not contain" - and Subscription, Partner and
+ * Information type can pick several. Each keeps its own parameter, a list meaning "any of", and
+ * `not` names the filters turned round, so a link made before either still means what it did.
+ */
+describe("several values, and filters turned round", () => {
+  it("reads a list as any of, and not as the filters turned round", () => {
+    const q = readQuery(sp("subscriptionId=16,17&partnerId=3&error=timeout&not=subscription,error"), NOW);
+    expect(q).toMatchObject({ subscriptionIds: [16, 17], partnerIds: [3], errorContains: "timeout", not: ["subscription", "error"] });
+  });
+
+  it("counts a not only for a filter that is set", () => {
+    expect(readQuery(sp("not=subscription,bogus"), NOW).not).toBeUndefined();
+  });
+
+  it("drops a filter's not with the filter, so adding it again starts the right way round", () => {
+    const removed = withParams(sp("subscriptionId=16&error=x&not=error,subscription"), { error: null });
+    expect(removed.get("not")).toBe("subscription");
+    expect(withParams(removed, { subscriptionId: null }).has("not")).toBe(false);
+  });
+
+  it("turns one filter round and back without touching the others", () => {
+    const q = sp("subscriptionId=16&retry=1&not=retry");
+    expect(notWith(q, "subscription", true)).toBe("retry,subscription");
+    expect(notWith(q, "retry", false)).toBeNull();
+  });
+
+  it("reads each kind of filter both ways round", () => {
+    const read = (q: string) => filterChips(sp(q), lookups).map((c) => [c.field, c.op, c.value]);
+    expect(read("subscriptionId=16,99&not=subscription")).toEqual([["Subscription", "is none of", "2 subscriptions"]]);
+    expect(read("subscriptionId=16,99")).toEqual([["Subscription", "is any of", "2 subscriptions"]]);
+    expect(read("partnerId=3&not=partner")).toEqual([["Partner", "is not", "Northwind"]]);
+    expect(read("propertyKey=orderNo&property=SO-1&not=property")).toEqual([["orderNo", "does not contain", "SO-1"]]);
+    expect(read("propertyKey=orderNo&not=property")).toEqual([["orderNo", "is not", "present"]]);
+    expect(read("property=SO-1&not=property")).toEqual([["Properties", "do not contain", "SO-1"]]);
+    expect(read("error=timeout&not=error")).toEqual([["Error", "does not contain", "timeout"]]);
+    expect(read("retry=1&scheduled=1&aggregated=1&not=retry,scheduled,aggregated")).toEqual([
+      ["Exchange", "is not", "a retry"],
+      ["Auto-retry", "is not", "scheduled"],
+      ["Exchange", "is not", "part of an aggregation"],
+    ]);
+  });
+
+  it("names every pick behind a count on hover", () => {
+    const [chip] = filterChips(sp("subscriptionId=16,99"), lookups);
+    expect(chip.title).toBe("Push orders, #99");
+  });
+
+  it("keeps several promoted properties, each with its own key and its own way round", () => {
+    const q = sp("prop=orderNo:1001&prop=!customer:zed&prop=city&property=acme&not=property");
+    expect(readQuery(q, NOW).properties).toEqual([
+      { key: "orderNo", text: "1001", negated: false },
+      { key: "customer", text: "zed", negated: true },
+      { key: "city", text: null, negated: false },
+      { key: null, text: "acme", negated: true },
+    ]);
+    expect(filterChips(q, lookups).map((c) => [c.field, c.op, c.value])).toEqual([
+      ["orderNo", "contains", "1001"],
+      ["customer", "does not contain", "zed"],
+      ["city", "is", "present"],
+      ["Properties", "do not contain", "acme"],
+    ]);
+  });
+
+  it("removes or turns round one property and leaves the others", () => {
+    const q = sp("prop=orderNo:1001&prop=customer:zed");
+    const [orderNo, customer] = filterChips(q, lookups);
+    expect(withParams(q, orderNo.remove).getAll("prop")).toEqual(["customer:zed"]);
+    expect(withParams(q, customer.turn!.set(true)).getAll("prop")).toEqual(["orderNo:1001", "!customer:zed"]);
+    // The text ends at nothing but the end: a colon in it is part of it.
+    expect(readQuery(sp("prop=orderNo:SO:1"), NOW).properties).toEqual([{ key: "orderNo", text: "SO:1", negated: false }]);
+  });
+
+  it("writes an older link's one property in the new form the first time the properties change", () => {
+    const q = sp("propertyKey=orderNo&property=1001&not=property,error&error=x");
+    const changes = withPropertyFilters(q, [...propertyFilters(q), { key: "city", text: null, negated: false }]);
+    const next = withParams(q, changes);
+    expect(next.getAll("prop")).toEqual(["!orderNo:1001", "city"]);
+    expect([next.has("propertyKey"), next.has("property"), next.get("not")]).toEqual([false, false, "error"]);
+  });
+
+  it("keeps not in a saved view, as one of the filters", () => {
+    expect(viewSearch(sp("subscriptionId=16&not=subscription&open=x"))).toBe("subscriptionId=16&not=subscription");
   });
 });
 
@@ -157,8 +246,8 @@ describe("the search box", () => {
     expect(searchSuggestions("  ")).toEqual([]);
   });
 
-  it("reads key:value as a promoted property by name", () => {
-    const [first] = searchSuggestions("orderNo: SO-1");
-    expect(first.changes).toEqual({ propertyKey: "orderNo", property: "SO-1" });
+  it("reads key:value as a promoted property by name, added beside the ones already set", () => {
+    const [first] = searchSuggestions("orderNo: SO-1", sp("prop=city:paris"));
+    expect(first.changes).toEqual({ prop: ["city:paris", "orderNo:SO-1"], propertyKey: null, property: null, not: null });
   });
 });
