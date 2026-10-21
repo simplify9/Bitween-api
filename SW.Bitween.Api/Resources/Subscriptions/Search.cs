@@ -134,7 +134,10 @@ namespace SW.Bitween.Resources.Subscriptions
             };
         }
 
-        /// <summary>Empties the adapter property collections on every returned row.</summary>
+        /// <summary>
+        /// Empties the adapter property collections on every returned row, keeping only the names
+        /// of the global values and partner properties they reference.
+        /// </summary>
         /// <remarks>
         /// Adapter properties hold credentials - a storage key, an OAuth secret, the password for a
         /// partner system. <c>Subscriptions/Get</c> replaces those with a sentinel before answering;
@@ -152,11 +155,22 @@ namespace SW.Bitween.Resources.Subscriptions
         /// <c>[Secure]</c>, and the external adapters declare nothing - masking here would have
         /// looked like a fix while leaving those integrations exactly as exposed.
         /// </para>
+        /// <para>
+        /// The references are read here, from the same properties, because the admin UI answers
+        /// "used by" for value sets and partner properties from this list. When it scanned the
+        /// properties itself, emptying them left every value set looking unused and safe to delete.
+        /// </para>
         /// </remarks>
         private static void StripAdapterProperties(List<SubscriptionSearch> rows)
         {
             foreach (var row in rows)
             {
+                row.References = StartupValuesFiller.ReferencesIn(
+                    new[] { row.HandlerProperties, row.MapperProperties, row.ReceiverProperties, row.ValidatorProperties }
+                        .Where(properties => properties != null)
+                        .SelectMany(properties => properties)
+                        .Select(property => property.Value));
+
                 row.HandlerProperties = [];
                 row.MapperProperties = [];
                 row.ReceiverProperties = [];

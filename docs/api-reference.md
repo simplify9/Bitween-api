@@ -110,7 +110,7 @@ The retry tree returns `{ rootId, nodes, truncated }`. Each node has its id, `re
 
 | Method and path | Permission |
 |---|---|
-| `GET /api/subscriptions` | `subscriptions.view`. Searchy. |
+| `GET /api/subscriptions` | `subscriptions.view`. Searchy. Adapter properties come back empty, since they hold credentials; read them from `GET /api/subscriptions/{id}`. Each row's `references` names what they referenced instead: `{ globals: [{ setId, keys }], partnerProperties }`, as written in the tokens. |
 | `GET /api/subscriptions/{id}` | `subscriptions.view` |
 | `POST /api/subscriptions` | `subscriptions.create` |
 | `POST /api/subscriptions/{id}` | `subscriptions.edit`. Replaces the whole configuration. |
@@ -280,7 +280,7 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `GET /api/globaladaptervaluessets`, `GET /api/globaladaptervaluessets/{id}` | `global-values.view` |
 | `POST /api/globaladaptervaluessets` | `global-values.create`. `{ id, name, values }` |
 | `POST /api/globaladaptervaluessets/{id}` | `global-values.edit` |
-| `POST /api/globaladaptervaluessets/{id}/delete` | `global-values.delete` |
+| `POST /api/globaladaptervaluessets/{id}/delete` | `global-values.delete`. Refused with `GLOBAL_VALUES_IN_USE` while a subscription or notification channel references the set in a `{{globals.…}}` token. |
 | `GET /api/workgroups?name=&offset=&limit=` | `workgroups.view`. Includes live queue metrics. |
 | `POST /api/workgroups` | `workgroups.create`. `{ name, busMessageName, options: { rabbitMqOptions: { prefetch, priority } } }` |
 | `POST /api/workgroups/{id}` | `workgroups.edit` |
