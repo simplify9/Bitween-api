@@ -243,6 +243,32 @@ public class Planner(Context ctx, ConfigFile config)
         }
     }
 
+    /// <summary>
+    /// Every change it can make, carrying on past one that fails, and why each that failed did: for a
+    /// copy of a whole Bitween, where one subscription waiting for its adapter shouldn't hold up the
+    /// rest. A change that names what failed before it fails too, and says so.
+    /// </summary>
+    public async Task<List<(Change Change, string Error)>> ApplyAllAsync(Plan plan)
+    {
+        var failed = new List<(Change, string)>();
+        try
+        {
+            foreach (var change in plan.Changes)
+            {
+                try { await CarryOutAsync(change); }
+                catch (Exception ex) when (ex is BitweenApiException or ConfigException or HttpRequestException)
+                {
+                    failed.Add((change, ex.Message));
+                }
+            }
+        }
+        finally
+        {
+            await SaveManagedAsync(plan, TextWriter.Null);
+        }
+        return failed;
+    }
+
     async Task CarryOutAsync(Change change)
     {
         switch (change.Op)
