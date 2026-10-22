@@ -46,6 +46,40 @@ public class Parity(BitweenDbContext dbContext, RequestContext requestContext, M
     }
 }
 
+/// <summary>
+/// The samples of prod's exchanges staging holds, faked, each file with a link that opens it, and how a
+/// taking under way is going.
+/// </summary>
+[HandlerName("samples")]
+public class Samples(BitweenDbContext dbContext, RequestContext requestContext, MirrorService mirror, MirrorSampler sampler) : IQueryHandler<object>
+{
+    public async Task<object> Handle()
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.View);
+        return await mirror.SamplesAsync(sampler);
+    }
+}
+
+public class MirrorTakeSamplesRequest;
+
+/// <summary>
+/// Starts taking samples of prod's exchanges, in the background: a few recent ones for each
+/// subscription, faked as they arrive. The page follows it through <see cref="Samples"/>. Only on a
+/// Bitween its deployment marks as a mirror.
+/// </summary>
+[HandlerName("takesamples")]
+public class TakeSamples(BitweenDbContext dbContext, RequestContext requestContext, BitweenOptions options, MirrorService mirror, MirrorSampler sampler)
+    : ICommandHandler<MirrorTakeSamplesRequest, object>
+{
+    public async Task<object> Handle(MirrorTakeSamplesRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.Operate);
+        if (!options.Mirror.Target) throw new SWValidationException("MIRROR_NOT_TARGET", MirrorService.NotTarget);
+        sampler.Start();
+        return await mirror.SamplesAsync(sampler);
+    }
+}
+
 public class MirrorCopyRequest
 {
     /// <summary>Also remove what staging has and prod doesn't. Off unless asked, since it deletes.</summary>

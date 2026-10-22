@@ -2392,3 +2392,50 @@ export interface MirrorCopyResult {
   failed: { section: string; noun: string; key: string; error: string }[];
   after: MirrorParity;
 }
+
+/** One of prod's exchange files as staging keeps it: faked, or not kept and why. */
+export interface MirrorSampleFile {
+  /** Null when it isn't kept. */
+  key: string | null;
+  /** Its name, faked. */
+  name: string | null;
+  /** json, xml, html, csv, xlsx or text when kept; what it is when it isn't: pdf, zip, edi, binary, large... */
+  format: string | null;
+  size: number;
+  notCopied: string | null;
+  /** Opens the faked file on staging. */
+  url: string | null;
+}
+
+/** One of prod's exchanges, faked, and how it ended on prod. */
+export interface MirrorSample {
+  prodExchangeId: string;
+  startedOn: string;
+  outcome: "success" | "badResponse" | "failed";
+  /** The partner's HTTP status, when prod's error names one. */
+  status: number | null;
+  /** The kinds of error prod's error names, outermost first. Its message isn't kept: it can hold prod's data. */
+  errorTypes: string[];
+  input: MirrorSampleFile | null;
+  output: MirrorSampleFile | null;
+  response: MirrorSampleFile | null;
+}
+
+export interface MirrorSubscriptionSamples {
+  subscription: string;
+  prodId: string;
+  samples: MirrorSample[];
+  /** Why it has none. */
+  reason: string | null;
+}
+
+/** The samples staging holds, and how the last taking went. */
+export interface MirrorSamples {
+  state: "none" | "running" | "done" | "failed";
+  startedOn: string | null;
+  finishedOn: string | null;
+  done: number;
+  total: number;
+  error: string | null;
+  subscriptions: MirrorSubscriptionSamples[];
+}

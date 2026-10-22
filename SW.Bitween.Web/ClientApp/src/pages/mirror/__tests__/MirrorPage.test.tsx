@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
-import type { MirrorItem, MirrorParity } from "../../../api";
+import type { MirrorItem, MirrorParity, MirrorSamples } from "../../../api";
 import { apiPath, renderApp } from "../../../__tests__/support/renderApp";
 
 const status = (over = {}) =>
@@ -67,6 +67,39 @@ const parity: MirrorParity = {
 
 const parityHandler = (answer: MirrorParity | { error: string } = parity) => http.get(apiPath("/mirror/parity"), () => HttpResponse.json(answer));
 
+const noSamples: MirrorSamples = { state: "none", startedOn: null, finishedOn: null, done: 0, total: 0, error: null, subscriptions: [] };
+
+const samplesHandler = (answer: MirrorSamples = noSamples) => http.get(apiPath("/mirror/samples"), () => HttpResponse.json(answer));
+
+const taken: MirrorSamples = {
+  state: "done",
+  startedOn: new Date().toISOString(),
+  finishedOn: new Date().toISOString(),
+  done: 2,
+  total: 2,
+  error: null,
+  subscriptions: [
+    {
+      subscription: "Push labels",
+      prodId: "12",
+      reason: null,
+      samples: [
+        {
+          prodExchangeId: "a1b2",
+          startedOn: "2026-10-20T10:00:00Z",
+          outcome: "failed",
+          status: 500,
+          errorTypes: ["HttpRequestException"],
+          input: { key: "mirror/samples/x/a1b2/input", name: "ORD_2025-04-11.xml", format: "xml", size: 120, notCopied: null, url: "https://staging.acme.test/api/files/s/in" },
+          output: null,
+          response: { key: null, name: "label.pdf", format: "pdf", size: 0, notCopied: "PDFs can't be faked.", url: null },
+        },
+      ],
+    },
+    { subscription: "Nightly report", prodId: "13", reason: "Prod has no exchanges of it.", samples: [] },
+  ],
+};
+
 describe("prod mirror", () => {
   it("asks for prod's address and a login before anything else", async () => {
     renderApp("/mirror", { handlers: [status({ configured: false, sourceUrl: null, signIn: null, target: false })] });
@@ -77,7 +110,7 @@ describe("prod mirror", () => {
   });
 
   it("answers first, then says what needs you, what the test can't cover and what differs on purpose", async () => {
-    renderApp("/mirror", { handlers: [status(), parityHandler()] });
+    renderApp("/mirror", { handlers: [status(), parityHandler(), samplesHandler()] });
 
     const verdict = await screen.findByRole("status", { name: "Readiness" });
     expect(within(verdict).getByText("Not ready to test yet")).toBeVisible();
@@ -96,7 +129,7 @@ describe("prod mirror", () => {
   });
 
   it("opens the section a note points at", async () => {
-    const { user } = renderApp("/mirror", { handlers: [status(), parityHandler()] });
+    const { user } = renderApp("/mirror", { handlers: [status(), parityHandler(), samplesHandler()] });
 
     // Folded until asked for, so the page leads with what to do.
     await screen.findByRole("status", { name: "Readiness" });
@@ -106,7 +139,7 @@ describe("prod mirror", () => {
   });
 
   it("lists each kind's items with a way to each, on staging and on prod", async () => {
-    const { user } = renderApp("/mirror", { handlers: [status(), parityHandler()] });
+    const { user } = renderApp("/mirror", { handlers: [status(), parityHandler(), samplesHandler()] });
 
     await user.click(await screen.findByRole("button", { name: /^subscriptions: 40 same/ }));
     const row = screen.getByText("Push labels").parentElement!;
@@ -127,6 +160,7 @@ describe("prod mirror", () => {
       handlers: [
         status(),
         parityHandler(),
+        samplesHandler(),
         http.post(apiPath("/mirror/copy"), async ({ request }) => {
           asked = await request.json();
           return HttpResponse.json({
@@ -155,6 +189,7 @@ describe("prod mirror", () => {
       handlers: [
         status(),
         parityHandler(),
+        samplesHandler(),
         http.post(apiPath("/mirror/copy"), async ({ request }) => {
           asked = await request.json();
           return HttpResponse.json({ created: 0, updated: 0, removed: 1, adapterSteps: 0, failed: [], after: parity });
@@ -171,9 +206,48 @@ describe("prod mirror", () => {
     expect(asked).toEqual({ removeExtras: true });
   });
 
+  it("takes samples, follows the taking and lists each one with its faked files and the exchange on prod", async () => {
+    let samples: MirrorSamples = noSamples;
+    let asked = 0;
+    const { user } = renderApp("/mirror", {
+      handlers: [
+        status(),
+        parityHandler(),
+        http.get(apiPath("/mirror/samples"), () => HttpResponse.json(samples)),
+        http.post(apiPath("/mirror/takesamples"), () => {
+          asked++;
+          samples = { ...noSamples, state: "running", done: 1, total: 2 };
+          return HttpResponse.json(samples);
+        }),
+      ],
+    });
+
+    expect(await screen.findByText("No samples yet.")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Take samples" }));
+    expect(await screen.findByText(/Taking samples: 1 of 2 subscriptions read/)).toBeVisible();
+    expect(asked).toBe(1);
+
+    // The taking ends; the page follows it on its own.
+    samples = taken;
+    expect(await screen.findByText(/1 sample from 1 of prod's 2 subscriptions/, {}, { timeout: 4000 })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "See the samples" }));
+    await user.click(screen.getByRole("button", { name: "Push labels: 1 samples" }));
+    expect(screen.getByText("Failed 500")).toBeVisible();
+    expect(screen.getByText("HttpRequestException")).toBeVisible();
+    expect(screen.getByRole("link", { name: "In (xml)" })).toHaveAttribute("href", "https://staging.acme.test/api/files/s/in");
+    expect(screen.getByTitle("PDFs can't be faked.")).toHaveTextContent("Answer: not kept (pdf)");
+    const onProd = screen.getAllByRole("link", { name: /On prod/ }).find((a) => a.getAttribute("href")?.includes("ids=a1b2"));
+    expect(onProd).toHaveAttribute("href", "https://bitween.acme.test/exchanges?ids=a1b2");
+
+    // A subscription without samples says why, when asked to show it.
+    await user.click(screen.getByRole("checkbox", { name: /without samples too/ }));
+    expect(screen.getByText("Prod has no exchanges of it.")).toBeVisible();
+  });
+
   it("says why prod can't be compared, with a way to fix the connection", async () => {
     renderApp("/mirror", {
-      handlers: [status(), parityHandler({ error: "Prod runs r8 or older. The mirror copies prods on r10.0 or later; move this client to r10 first." })],
+      handlers: [status(), samplesHandler(), parityHandler({ error: "Prod runs r8 or older. The mirror copies prods on r10.0 or later; move this client to r10 first." })],
     });
 
     expect(await screen.findByText(/Prod runs r8 or older/)).toBeVisible();

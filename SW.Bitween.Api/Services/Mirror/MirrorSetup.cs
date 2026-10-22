@@ -124,6 +124,51 @@ public static class MirrorSetup
                 values[name] = faker.Datum(name, value, $"{where}/{name}", kept(name, value));
     }
 
+    // ------------------------------------------------------------------ the words it names
+
+    /// <summary>
+    /// Every word staging's copy of prod's setup names, outside the data in it - partners' properties,
+    /// global values, logins: a filter's 'SHIPPED', a file pattern's ORD, a global value's key, names.
+    /// Read from the copy, after its addresses and data are faked, so a word of it is one staging holds
+    /// already. Faking keeps these as they are (see <see cref="MirrorFaker"/>), so a value of prod's that
+    /// is one of them takes the path the real one took.
+    /// </summary>
+    public static HashSet<string> Words(Dictionary<string, List<JsonObject>> sections)
+    {
+        var words = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (section, items) in sections)
+        foreach (var item in items)
+            Walk(item, [], (path, text) =>
+            {
+                if (!IsData(section, path)) AddWords(words, text);
+            });
+        // A global value's key is what a payload looks it up by.
+        foreach (var set in sections.GetValueOrDefault("globalValues") ?? [])
+        foreach (var (name, _) in set["values"] as JsonObject ?? [])
+            AddWords(words, name);
+        return words;
+    }
+
+    static bool IsData(string section, IReadOnlyList<string> path) => path.Count > 0 && section switch
+    {
+        "partners" => path[0] is "properties" or "loginIdentity" or "keys",
+        "globalValues" => path[0] == "values",
+        "connections" => path[0] is "clientId" or "username" or "clientSecret" or "password",
+        _ => false,
+    };
+
+    static void AddWords(HashSet<string> words, string text)
+    {
+        var trimmed = text.Trim();
+        if (trimmed.Length is > 0 and <= MaxWord) words.Add(trimmed);
+        foreach (Match m in QuotedPattern.Matches(text)) words.Add(m.Groups["q"].Value);
+        foreach (Match m in WordInPattern.Matches(text)) words.Add(m.Value);
+    }
+
+    const int MaxWord = 64;
+    static readonly Regex QuotedPattern = new(@"'(?<q>[^'\r\n]{1,64})'|""(?<q>[^""\r\n]{1,64})""", RegexOptions.Compiled);
+    static readonly Regex WordInPattern = new(@"[\p{L}\p{M}\p{Nd}]{2,64}", RegexOptions.Compiled);
+
     public static string PartnerKey(string property) => $"partner:{property}";
 
     public static string GlobalKey(string set, string key) => $"global:{set}/{key}";

@@ -126,6 +126,50 @@ public class MirrorFakerTests
     }
 
     [TestMethod]
+    public void Words_the_setup_names_are_kept_wherever_they_turn_up()
+    {
+        var faker = new MirrorFaker(Encoding.UTF8.GetBytes("a key only these tests use"), ["SHIPPED", "ORD"]);
+
+        Assert.AreEqual("SHIPPED", faker.Fake("SHIPPED"));
+        StringAssert.Contains(faker.Fake("Order SO-1001 SHIPPED today"), " SHIPPED ");
+        Assert.IsFalse(faker.Fake("Order SO-1001 SHIPPED today").Contains("SO-1001"));
+
+        // A file pattern's word and extension stay, so ORD_*.csv still matches; the date stays a date.
+        var name = faker.FileName("ORD_2026-10-20_0042.csv");
+        StringAssert.StartsWith(name, "ORD_");
+        StringAssert.EndsWith(name, ".csv");
+        Assert.IsTrue(DateTime.TryParse(name[4..14], out _), name);
+        Assert.AreNotEqual("ORD_2026-10-20_0042.csv", name);
+    }
+
+    [TestMethod]
+    public void A_word_is_the_same_stand_in_alone_and_inside_a_text()
+    {
+        var alone = Faker.Fake("C123");
+        Assert.AreEqual(alone, Faker.Fake("Ref C123").Split(' ')[1]);
+        Assert.AreEqual(alone + ".xml", Faker.FileName("C123.xml"));
+    }
+
+    [TestMethod]
+    public void A_day_written_without_dashes_moves_with_the_same_day_written_with_them()
+    {
+        var dashed = Faker.Fake("2026-10-20");
+        Assert.AreEqual(dashed.Replace("-", ""), Faker.Fake("20261020"));
+        Assert.AreEqual(dashed.Replace("-", "") + "101500", Faker.Fake("20261020101500"));
+    }
+
+    [TestMethod]
+    public void Digits_of_any_script_are_faked_and_stay_that_script()
+    {
+        const string phone = "٠٧٩١٢٣٤٥٦٧";
+        var fake = Faker.Fake(phone);
+        Assert.AreNotEqual(phone, fake);
+        Assert.AreEqual(phone.Length, fake.Length);
+        Assert.IsTrue(fake.All(c => c is >= '٠' and <= '٩'), fake);
+        Assert.AreEqual('٠', fake[0]);
+    }
+
+    [TestMethod]
     public void Data_is_faked_unless_kept_and_addresses_never_are()
     {
         Assert.AreNotEqual("Europe/Paris", Faker.Datum("timeZone", "Europe/Paris", "x"));

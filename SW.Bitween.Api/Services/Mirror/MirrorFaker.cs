@@ -20,8 +20,15 @@ namespace SW.Bitween.Services.Mirror;
 /// becomes the same stand-in under one key, so a code named in two places still matches, and copying
 /// again changes nothing.
 /// </summary>
-public sealed class MirrorFaker(byte[] key)
+/// <param name="keep">
+/// Words staging's own copy of prod's setup already names - a filter's 'SHIPPED', a file pattern's ORD -
+/// kept as they are wherever they turn up, so a faked value takes the path the real one took. Keeping
+/// one tells staging nothing it doesn't hold already.
+/// </param>
+public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
 {
+    readonly HashSet<string> keep = new(keep ?? [], StringComparer.OrdinalIgnoreCase);
+
     /// <summary>Where every mock address lives: a name reserved never to resolve (RFC 2606).</summary>
     public const string MockDomain = "mirror.invalid";
 
@@ -89,7 +96,7 @@ public sealed class MirrorFaker(byte[] key)
     {
         if (string.IsNullOrEmpty(value)) return value;
         var trimmed = value.Trim();
-        if (KeptWords.Contains(trimmed)) return value;
+        if (Kept(trimmed)) return value;
         if (trimmed.Length > 1 && trimmed[0] is '{' or '[' && Json(trimmed) is { } json) return json;
 
         var text = new StringBuilder(value.Length);
@@ -112,13 +119,40 @@ public sealed class MirrorFaker(byte[] key)
 
     string Plain(string text)
     {
-        if (text.Length == 0 || KeptWords.Contains(text.Trim())) return text;
+        if (text.Length == 0 || Kept(text.Trim())) return text;
         if (IsoDate.Match(text) is { Success: true } date) return Date(text, date);
         if (Hex.IsMatch(text) || Guid.IsMatch(text)) return HexShape(text);
-        return Shape(text);
+        return Words(text);
     }
 
-    /// <summary>Letters stay letters of the same case, digits stay digits; a number keeps a leading digit that isn't 0.</summary>
+    /// <summary>
+    /// Each word on its own, so a word is the same stand-in wherever it stands - alone, in a sentence
+    /// or in a file name: one the setup names is kept, a date or a GUID keeps its form, the rest is
+    /// shaped. What is between words stays.
+    /// </summary>
+    string Words(string text)
+    {
+        var result = new StringBuilder(text.Length);
+        var at = 0;
+        foreach (Match m in WordPattern.Matches(text))
+        {
+            result.Append(text, at, m.Index - at);
+            var word = m.Value;
+            result.Append(
+                Kept(word) ? word
+                : m.Groups["date"].Success ? Date(word, IsoDate.Match(word))
+                : m.Groups["guid"].Success || Hex.IsMatch(word) ? HexShape(word)
+                : CompactDate(word) ?? Shape(word));
+            at = m.Index + m.Length;
+        }
+        result.Append(text, at, text.Length - at);
+        return result.ToString();
+    }
+
+    /// <summary>
+    /// Letters stay letters of the same case, digits stay digits of the same script; a number keeps a
+    /// leading digit that isn't 0.
+    /// </summary>
     string Shape(string text)
     {
         var bytes = Bytes("shape", text, text.Length);
@@ -129,13 +163,20 @@ public sealed class MirrorFaker(byte[] key)
         {
             var c = text[i];
             var b = bytes[i];
-            if (i == 0 || !char.IsAsciiDigit(text[i - 1])) leading = true;
-            var first = leading && c != '0';
-            if (char.IsAsciiDigit(c) && c != '0') leading = false;
+            if (i == 0 || !char.IsDigit(text[i - 1])) leading = true;
+            if (char.IsDigit(c))
+            {
+                // Any script's digits - Arabic-Indic ones too - counted from that script's zero.
+                var value = CharUnicodeInfo.GetDigitValue(c);
+                var zero = (char)(c - value);
+                result[i] = value == 0 && leading ? c
+                    : leading ? (char)(zero + 1 + b % 9)
+                    : (char)(zero + b % 10);
+                if (value != 0) leading = false;
+                continue;
+            }
             result[i] = c switch
             {
-                _ when char.IsAsciiDigit(c) => c == '0' && leading ? '0'
-                    : first ? (char)('1' + b % 9) : (char)('0' + b % 10),
                 _ when char.IsAsciiLetterUpper(c) => (char)('A' + b % 26),
                 _ when char.IsAsciiLetterLower(c) => (char)('a' + b % 26),
                 // Another script's letters, which have no case to keep: a letter all the same.
@@ -145,6 +186,29 @@ public sealed class MirrorFaker(byte[] key)
         }
         return new string(result);
     }
+
+    /// <summary>
+    /// yyyyMMdd, with the time after it or not, as file names and fixed-width records write a date:
+    /// moved as the same day written 2026-10-20 is, so both forms stay the same day. Null when it isn't one.
+    /// </summary>
+    string CompactDate(string word)
+    {
+        if (word.Length is not (8 or 12 or 14) || !word.All(char.IsAsciiDigit)) return null;
+        if (!DateTime.TryParseExact(word[..8], "yyyyMMdd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day) ||
+            day.Year is < 1990 or > 2099)
+            return null;
+        return Shift(day).ToString("yyyyMMdd", CultureInfo.InvariantCulture) + word[8..];
+    }
+
+    /// <summary>A file's name: faked as any text is, with its extension kept, so ORD_*.csv still matches when the setup names ORD.</summary>
+    public string FileName(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return name;
+        var dot = name.LastIndexOf('.');
+        return dot > 0 ? Plain(name[..dot]) + name[dot..] : Plain(name);
+    }
+
+    bool Kept(string word) => KeptWords.Contains(word) || keep.Contains(word);
 
     string Digits(string number)
     {
@@ -174,21 +238,36 @@ public sealed class MirrorFaker(byte[] key)
     {
         if (!DateTime.TryParseExact(match.Value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var day))
             return Shape(text);
-        var shift = BitConverter.ToUInt16(Bytes("date", match.Value, 2)) % 731 - 365;
         var rest = text[match.Length..];
-        return day.AddDays(shift).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + (TimeOfDay.IsMatch(rest) ? rest : Shape(rest));
+        return Shift(day).ToString("yyyy-MM-dd", CultureInfo.InvariantCulture) + (TimeOfDay.IsMatch(rest) ? rest : Shape(rest));
     }
+
+    /// <summary>A day moved by up to a year either way: the same day always by the same amount.</summary>
+    DateTime Shift(DateTime day) =>
+        day.AddDays(BitConverter.ToUInt16(Bytes("date", day.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture), 2)) % 731 - 365);
+
+    /// <summary>A JSON document faked as a value holding one is; null when the text isn't JSON.</summary>
+    public string FakeJson(string text) => Json(text.Trim());
+
+    /// <summary>A number's digits faked, its sign, point and exponent kept, as a spreadsheet holds one.</summary>
+    public string Number(string number) => string.IsNullOrEmpty(number) || Kept(number) ? number : Digits(number);
 
     string Json(string text)
     {
-        JsonNode node;
-        try { node = JsonNode.Parse(text); }
-        catch (JsonException) { return null; }
-        return node == null ? null : FakeNode(node)?.ToJsonString(new JsonSerializerOptions
+        try
         {
-            WriteIndented = text.Contains('\n'),
-            Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
-        });
+            var node = JsonNode.Parse(text);
+            return node == null ? null : FakeNode(node)?.ToJsonString(new JsonSerializerOptions
+            {
+                WriteIndented = text.Contains('\n'),
+                Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+            });
+        }
+        // Not JSON after all, or JSON naming a key twice, which a JsonObject can't hold: read as text.
+        catch (Exception ex) when (ex is JsonException or ArgumentException or InvalidOperationException)
+        {
+            return null;
+        }
     }
 
     JsonNode FakeNode(JsonNode node) => node switch
@@ -433,4 +512,11 @@ public sealed class MirrorFaker(byte[] key)
     static readonly Regex Hex = new(@"^(?:(?=[0-9]*[a-f])[0-9a-f]{8,}|(?=[0-9]*[A-F])[0-9A-F]{8,})$", RegexOptions.Compiled);
     static readonly Regex TimeOfDay = new(@"^([T ]\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?)?$", RegexOptions.Compiled);
     static readonly Regex Guid = new(@"^[{(]?[0-9a-fA-F]{8}-([0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12}[)}]?$", RegexOptions.Compiled);
+    // A date with its time, a GUID, or a run of letters and digits: what Words fakes one at a time.
+    // Bounded by what can't continue them rather than \b, which an underscore defeats: ORD_2026-10-20.
+    static readonly Regex WordPattern = new(
+        @"(?<date>(?<![0-9])[0-9]{4}-[0-9]{2}-[0-9]{2}(?:[T ][0-9]{2}:[0-9]{2}(?::[0-9]{2}(?:\.[0-9]+)?)?(?:Z|[+-][0-9]{2}:?[0-9]{2})?)?(?![0-9]))" +
+        @"|(?<guid>(?<![0-9a-fA-F])[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}(?![0-9a-fA-F]))" +
+        @"|[\p{L}\p{M}\p{Nd}]+",
+        RegexOptions.Compiled);
 }

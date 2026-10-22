@@ -76,11 +76,14 @@ public record MirrorCopyResult(int Created, int Updated, int Removed, int Adapte
 /// as prod has them (see <see cref="MirrorCopyGate"/>). Works with a prod on r10.0 or later; anything
 /// older is refused with the reason.
 /// </summary>
-public sealed class MirrorService(BitweenOptions options, FileLinks links, IHttpContextAccessor httpContextAccessor, IConfiguration configuration,
-    NativeAdapterDiscoveryService nativeAdapters)
+public sealed partial class MirrorService(BitweenOptions options, FileLinks links, IHttpContextAccessor httpContextAccessor, IConfiguration configuration,
+    NativeAdapterDiscoveryService nativeAdapters, ICloudFilesService cloudFiles)
 {
     /// <summary>The configuration name staging's copy is recorded under, so a later copy removes what prod no longer has.</summary>
     public const string ConfigurationName = "prod-mirror";
+
+    internal const string NotTarget =
+        "This Bitween isn't marked as a mirror, so nothing of prod's is copied onto it. Set Bitween__Mirror__Target=true in its deployment.";
 
     static readonly string[] AdapterPrefixes = ["receivers", "validators", "mappers", "handlers"];
 
@@ -99,8 +102,7 @@ public sealed class MirrorService(BitweenOptions options, FileLinks links, IHttp
     public async Task<MirrorCopyResult> CopyAsync(bool removeExtras, CancellationToken cancellation = default)
     {
         if (!options.Mirror.Target)
-            throw new SWValidationException("MIRROR_NOT_TARGET",
-                "This Bitween isn't marked as a mirror, so nothing is copied onto it. Set Bitween__Mirror__Target=true in its deployment.");
+            throw new SWValidationException("MIRROR_NOT_TARGET", NotTarget);
 
         var key = MirrorCopyGate.OpenKey();
         List<(Change Change, string Error)> failed;
@@ -158,7 +160,7 @@ public sealed class MirrorService(BitweenOptions options, FileLinks links, IHttp
         var prodCtx = new Context(prod);
         var renamed = new List<string>();
         var skipped = await ReadAsync(prodCtx, renamed);
-        var copy = MirrorSetup.Copy(prodCtx.Current, Faker(), KeepList());
+        var (copy, _) = CopyOf(prodCtx);
         var used = AdapterUses(copy.Sections);
         var prodAdapters = await AdaptersAsync(prod, used.Keys);
 
@@ -666,8 +668,20 @@ public sealed class MirrorService(BitweenOptions options, FileLinks links, IHttp
 
     // ------------------------------------------------------------------ this Bitween
 
-    MirrorFaker Faker() => new(HKDF.DeriveKey(HashAlgorithmName.SHA256,
-        Encoding.UTF8.GetBytes(configuration["Token:Key"] ?? string.Empty), 32, info: Encoding.UTF8.GetBytes("bitween-mirror-fakes")));
+    MirrorFaker Faker(IEnumerable<string> keep = null) => new(HKDF.DeriveKey(HashAlgorithmName.SHA256,
+        Encoding.UTF8.GetBytes(configuration["Token:Key"] ?? string.Empty), 32, info: Encoding.UTF8.GetBytes("bitween-mirror-fakes")), keep);
+
+    /// <summary>
+    /// Prod's setup as staging gets it, and the faker that made it, in two passes: the first fakes it to
+    /// find the words it names (see <see cref="MirrorSetup.Words"/>), the second keeps those words
+    /// wherever prod's data has them. Exchanges' files are faked by the same faker, so they keep them too.
+    /// </summary>
+    (MirrorSetupCopy Copy, MirrorFaker Faker) CopyOf(Context prod)
+    {
+        var keep = KeepList();
+        var faker = Faker(MirrorSetup.Words(MirrorSetup.Copy(prod.Current, Faker(), keep).Sections));
+        return (MirrorSetup.Copy(prod.Current, faker, keep), faker);
+    }
 
     HashSet<string> KeepList() =>
         (options.Mirror.KeepRealValues ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)

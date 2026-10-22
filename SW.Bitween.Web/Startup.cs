@@ -162,6 +162,7 @@ namespace SW.Bitween.Web
             services.AddScoped<SW.Bitween.Services.Marketplace.KitInstaller>();
             services.AddScoped<SW.Bitween.Services.Mirror.MirrorService>();
             services.AddSingleton<SW.Bitween.Services.Mirror.MirrorCopyGate>();
+            services.AddSingleton<SW.Bitween.Services.Mirror.MirrorSampler>();
             services.AddSingleton<SealedState>();
             services.AddScoped<Services.Connections.ConnectionTokens>();
             services.AddSingleton<StorageRetention>();

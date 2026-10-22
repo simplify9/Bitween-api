@@ -38,6 +38,26 @@ A field prod sends that this release doesn't know, from a newer or a customised 
 
 Prod may hold several items of a kind under one name. Each after the oldest is named apart on the staging: `test`, `test (2)`, `test (3)`. References to them still point at the right one.
 
+## Samples of prod's traffic
+
+**Take samples** takes a few of prod's recent exchanges for each subscription: up to five, mostly ones that worked, with one the partner answered badly and one that failed when prod has them, never a retry or one still running. For each it keeps what came in, what Bitween sent and what the partner answered, and how the exchange ended. The rehearsal runs them through the staging's flows.
+
+Each file is faked the moment it arrives, in its own format, before it is saved:
+
+| Format | Kept as it was | Faked |
+|---|---|---|
+| JSON | keys, structure, `true`, `false`, `null` | strings, and numbers' digits |
+| XML | element and attribute names, namespaces, `xsi:type`, the declared encoding | text, CDATA, comments, attribute values; XML escaped inside an element is faked as XML |
+| CSV | the delimiter, quoting, line endings | every field |
+| Excel | sheets, styles, formulas, booleans | shared strings, numbers, text in cells, comments, the author |
+| HTML and other text | tags, entities, punctuation, spacing | the words between them |
+
+Values are faked the way partner properties are, so the same value is the same fake in a file and in the setup. A word the staging's setup itself names stays as it is wherever it turns up: a filter's `'SHIPPED'`, the `ORD` of a file pattern `ORD_*.csv`, a global value's key. So a faked file takes the path the real one took, and keeping such a word tells the staging nothing it doesn't already hold. File names are faked too, keeping their extension.
+
+A file that can't be faked safely isn't kept, and the page says why: PDFs, archives, Word files, EDI files, workbooks with pictures, charts or pivot tables, binary files and files over 5 MB. Of prod's error only the partner's HTTP status and the kinds of error it names, such as `HttpRequestException`, are kept: the message can hold prod's data, so the page links to the exchange on prod to read it.
+
+Prod is read gently: one subscription at a time, one page of its recent exchanges, then each file. Taking samples again replaces the ones taken before.
+
 ## Adapters
 
 Built-in adapters come with the release. One that prod uses and this release doesn't have is flagged, since it would stop working after the upgrade. Marketplace adapters are installed by the copy at the version prod runs. Simplify9's database and broker adapters (`bitween.db.…`, `bitween.bus.…`) are on the marketplace too; when prod doesn't say which version it runs, the page asks for one to be installed from the **Marketplace** tab. Custom adapters can't be read from prod: the page names each one, with the version prod runs, to upload on the **Adapters** page. Subscriptions that use one wait for it rather than fail.
@@ -48,15 +68,15 @@ It answers first: **Ready to test the upgrade**, or **Not ready to test yet**, w
 
 - **Needs you**: what only a person can do, such as installing an adapter, each with where it is done.
 - **Copy prod's setup**: what copying will do, and the button. It creates what the staging lacks and updates what differs, carries on past an item that fails, and lists each one with Bitween's reason. Tick **Also remove** to delete what only the staging has.
+- **Samples of prod's traffic**: how many samples the staging holds and when they were taken, and the button that takes them again. While it runs, how far it has got.
 - **Not covered by the test**: what is on prod but not on the staging, or not all of it: items waiting for an adapter, items the staging couldn't create, and fields this release doesn't know.
 - **Different on staging, on purpose**: paused subscriptions, switched-off data sources and bus gateways, fake values, test addresses, stand-in secrets and names told apart. None of it is a problem.
 
-Then the details, folded: **Prod's setup, item by item** (per kind, what is the same, differs, is missing or is only on the staging), **Adapters**, **Fake values** (where a value can be kept as it is) and **Test addresses** (each with what uses it).
+Then the details, folded: **Prod's setup, item by item** (per kind, what is the same, differs, is missing or is only on the staging), **Samples, subscription by subscription** (how each ended on prod, a link to each faked file and to the exchange on prod), **Adapters**, **Fake values** (where a value can be kept as it is) and **Test addresses** (each with what uses it).
 
 When the staging can't create one of prod's items, the page says so, with what Bitween said. That is all it knows: an upgrade doesn't create items again, so a refusal here says nothing about how prod will behave.
 
 ## Not covered yet
 
-- Running prod's flows on the staging against mock servers, and comparing the results. Until then the mock addresses lead nowhere.
-- Exchanges and their files. Only the setup is copied.
+- Running prod's flows on the staging against mock servers, and comparing the results. Until then the mock addresses lead nowhere, and the samples are only kept.
 - Runtime settings, roles, members and service accounts, which differ between environments on purpose.
