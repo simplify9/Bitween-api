@@ -459,6 +459,63 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
         return AddressWords.Any(k.Contains);
     }
 
+    /// <summary>
+    /// Every host a setting names, in lower case and without its port: in URLs and email addresses
+    /// anywhere in it, by the server a connection string names, and as a bare host, IP or list of them
+    /// where the setting is named for an address. A host built from a {{token}} isn't one yet.
+    /// </summary>
+    public static IEnumerable<string> HostsIn(string key, string value) => AllHostsIn(key, value).Distinct();
+
+    static IEnumerable<string> AllHostsIn(string key, string value)
+    {
+        if (string.IsNullOrEmpty(value)) yield break;
+        foreach (Match m in UrlPattern.Matches(value))
+        {
+            var authority = m.Groups["auth"].Value;
+            if (authority.Contains("{{")) continue;
+            if (authority.LastIndexOf('@') is var at and >= 0) authority = authority[(at + 1)..];
+            if (Bare(SplitPort(authority).Host) is { } host) yield return host;
+        }
+        foreach (Match m in EmailPattern.Matches(value))
+            yield return m.Value[(m.Value.LastIndexOf('@') + 1)..].ToLowerInvariant();
+        if (value.Contains("://")) yield break;
+
+        IEnumerable<string> parts =
+            LooksLikeConnectionString(value) ? value.Split(';').Select(p => p.Split('=', 2)).Where(p => p.Length == 2 && ConnectionHostKeys.Contains(p[0].Trim().ToLowerInvariant().Replace(" ", ""))).SelectMany(p => p[1].Split(','))
+            : IsAddressKey(key) ? value.Split(',', ';')
+            : [];
+        foreach (var part in parts)
+        {
+            var p = part.Trim();
+            if (p.StartsWith("tcp:", StringComparison.OrdinalIgnoreCase)) p = p[4..];
+            if (Bare(SplitPort(p).Host) is { } host) yield return host;
+        }
+
+        static string Bare(string host)
+        {
+            var h = host.Trim().Trim('[', ']').ToLowerInvariant();
+            return h.Length > 0 && !h.Contains("{{") && (IsHost(h) || IPAddress.TryParse(h, out _)) ? h : null;
+        }
+    }
+
+    /// <summary>
+    /// One of the addresses a copy puts in place of prod's: a name under <see cref="MockDomain"/>, or an
+    /// IP kept for documentation (192.0.2.0/24, 2001:db8::/32), which routes nowhere.
+    /// </summary>
+    public static bool IsMockHost(string host)
+    {
+        var h = (host ?? "").Trim().Trim('[', ']').TrimEnd('.').ToLowerInvariant();
+        if (h.EndsWith("." + MockDomain, StringComparison.Ordinal)) return true;
+        if (!IPAddress.TryParse(h, out var ip)) return false;
+        var bytes = ip.GetAddressBytes();
+        return ip.AddressFamily == AddressFamily.InterNetwork
+            ? bytes[0] == 192 && bytes[1] == 0 && bytes[2] == 2
+            : bytes[0] == 0x20 && bytes[1] == 0x01 && bytes[2] == 0x0d && bytes[3] == 0xb8;
+    }
+
+    static readonly HashSet<string> ConnectionHostKeys =
+        ["host", "server", "datasource", "address", "addr", "networkaddress", "endpoint", "hostname"];
+
     static bool IsPortKey(string key) => (key ?? "").EndsWith("port", StringComparison.OrdinalIgnoreCase);
 
     static bool IsConnectionStringKey(string key)

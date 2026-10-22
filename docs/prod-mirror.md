@@ -58,6 +58,21 @@ A file that can't be faked safely isn't kept, and the page says why: PDFs, archi
 
 Prod is read gently: one subscription at a time, one page of its recent exchanges, then each file. Taking samples again replaces the ones taken before.
 
+## Calls the staging answers
+
+On a mirror, the staging answers some of the calls its flows make itself, so nothing on the staging reaches prod's partners:
+
+- **Test addresses**: every address the copy put in place of one of prod's.
+- **Hosts the staging's setup doesn't name**: an address written inside an adapter's code, say. It may be one of prod's partners, so it is answered rather than reached.
+
+A host the setup names, such as a team's own staging API, is called for real. So is any host listed under **Settings, Prod mirror, Hosts called for real**, for an address inside an adapter that is safe to reach from the staging.
+
+A login (an OAuth token request, or a login URL a subscription signs in at) gets a token of the staging's own, where the subscription's settings say its reply keeps one. Any other call gets the newest answer prod's partner gave a subscription that uses the address, as the samples keep it, faked; with no sample, an empty `200`. **Calls staging answered** on the page lists each host, how many calls it answered and what it answered last.
+
+Bitween's own adapters are answered inside Bitween. Adapters that run in their own process reach the staging through a catcher it runs on `127.0.0.1`: when it starts, the staging sets `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` for the processes it starts, and points `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE` and `NODE_EXTRA_CA_CERTS` at a certificate authority it makes for that run, so .NET, Python, Node and curl trust the answers. Bitween's own calls, to prod and to its storage, don't go through the catcher. Nothing needs setting up.
+
+What the catcher can't reach: an adapter that turns its HTTP proxy off, or checks certificates its own way, fails its calls to test addresses instead of being answered, and the page lists the call as failed. Calls that aren't HTTP, such as SFTP or mail written inside an adapter, aren't caught yet.
+
 ## Adapters
 
 Built-in adapters come with the release. One that prod uses and this release doesn't have is flagged, since it would stop working after the upgrade. Marketplace adapters are installed by the copy at the version prod runs. Simplify9's database and broker adapters (`bitween.db.…`, `bitween.bus.…`) are on the marketplace too; when prod doesn't say which version it runs, the page asks for one to be installed from the **Marketplace** tab. Custom adapters can't be read from prod: the page names each one, with the version prod runs, to upload on the **Adapters** page. Subscriptions that use one wait for it rather than fail.
@@ -78,5 +93,6 @@ When the staging can't create one of prod's items, the page says so, with what B
 
 ## Not covered yet
 
-- Running prod's flows on the staging against mock servers, and comparing the results. Until then the mock addresses lead nowhere, and the samples are only kept.
+- Running prod's flows on the staging and comparing the results with prod's. Until then the samples are only kept.
+- SFTP, FTP and mail test servers. Until then those addresses lead nowhere.
 - Runtime settings, roles, members and service accounts, which differ between environments on purpose.

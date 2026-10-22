@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Threading.Tasks;
 using SW.Bitween.Services.Mirror;
 using SW.PrimitiveTypes;
@@ -77,6 +78,25 @@ public class TakeSamples(BitweenDbContext dbContext, RequestContext requestConte
         if (!options.Mirror.Target) throw new SWValidationException("MIRROR_NOT_TARGET", MirrorService.NotTarget);
         sampler.Start();
         return await mirror.SamplesAsync(sampler);
+    }
+}
+
+/// <summary>
+/// The calls staging answered in place of the addresses they were for, since this node started: by
+/// host, and the latest ones. Empty on a Bitween that isn't a mirror, which answers none.
+/// </summary>
+[HandlerName("calls")]
+public class Calls(BitweenDbContext dbContext, RequestContext requestContext, BitweenOptions options, MirrorMock mock) : IQueryHandler<object>
+{
+    public async Task<object> Handle()
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.View);
+        return new
+        {
+            Catching = options.Mirror.Target,
+            Hosts = options.Mirror.Target ? await mock.HostsAsync() : [],
+            Recent = mock.Recent.Take(50).ToList(),
+        };
     }
 }
 

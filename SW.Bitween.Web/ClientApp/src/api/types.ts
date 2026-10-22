@@ -2429,6 +2429,36 @@ export interface MirrorSubscriptionSamples {
   reason: string | null;
 }
 
+/** The calls to one host staging answered in place of the network. */
+export interface MirrorHostCalls {
+  host: string;
+  /** One of prod's addresses as the copy faked it; otherwise a host staging's setup doesn't name. */
+  test: boolean;
+  calls: number;
+  lastAt: string;
+  lastWhy: string;
+  /** Subscriptions on staging that use it. */
+  usedBy: string[];
+}
+
+export interface MirrorCall {
+  at: string;
+  method: string;
+  host: string;
+  path: string;
+  /** 0 when the call failed before staging could answer. */
+  status: number;
+  why: string;
+  from: string;
+}
+
+export interface MirrorCalls {
+  /** Whether this Bitween is a mirror, and so answers calls. */
+  catching: boolean;
+  hosts: MirrorHostCalls[];
+  recent: MirrorCall[];
+}
+
 /** The samples staging holds, and how the last taking went. */
 export interface MirrorSamples {
   state: "none" | "running" | "done" | "failed";

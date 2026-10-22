@@ -57,7 +57,15 @@ public class ConnectionTokens(IServiceScopeFactory scopes, SealedState sealedSta
     /// <summary>For tests: answers in place of the network, as <see cref="OidcSignIn"/>'s does.</summary>
     internal static Func<HttpMessageHandler> HandlerOverride { get; set; }
 
-    static HttpClient Client => HandlerOverride is { } handler ? new HttpClient(handler()) : Http;
+    static HttpClient caught;
+
+    /// <summary>
+    /// On a staging that mirrors prod, token requests go through <paramref name="handler"/>, which
+    /// answers those for test addresses itself (see <see cref="Mirror.MirrorCatchingHandler"/>).
+    /// </summary>
+    public static void CatchWith(HttpMessageHandler handler) => caught = new HttpClient(handler) { Timeout = Http.Timeout };
+
+    static HttpClient Client => HandlerOverride is { } handler ? new HttpClient(handler()) : caught ?? Http;
 
     /// <summary>Whether any of <paramref name="values"/> refers to a connection.</summary>
     public static bool Refers(IEnumerable<string> values) => values?.Any(v => v != null && Reference.IsMatch(v)) == true;

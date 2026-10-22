@@ -22,7 +22,7 @@ public sealed partial class MirrorService
     /// <summary>Where staging keeps prod's samples, faked, in its own storage.</summary>
     public const string SamplesPrefix = "mirror/samples";
 
-    const string SamplesManifest = SamplesPrefix + "/samples.json";
+    internal const string SamplesManifest = SamplesPrefix + "/samples.json";
 
     static readonly JsonSerializerOptions ManifestJson = new(JsonSerializerDefaults.Web);
 

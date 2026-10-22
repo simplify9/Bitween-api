@@ -195,7 +195,7 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
         var kinds = Kinds.All.Select(kind => KindRow(kind, copy.Sections.GetValueOrDefault(kind.Section) ?? [], plan, extras, waiting, skipped,
             prodCtx, selfCtx)).ToList();
         var unknown = Unknown(prodCtx, selfCtx, skipped);
-        var notes = Notes(kinds, adapters, plan, extras.Count, renamed, unknown, copy);
+        var notes = Notes(kinds, adapters, plan, extras.Count, renamed, unknown, copy, catching: options.Mirror.Target);
         var parity = new MirrorParity(
             DateTimeOffset.UtcNow,
             new MirrorSide(prod.Url, prodVersion, await ExchangesAsync(prod)),
@@ -562,7 +562,7 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
     /// Bitween said when staging tried to create the item, never a forecast of what prod will do.
     /// </summary>
     static List<MirrorNote> Notes(List<MirrorKind> kinds, List<MirrorAdapter> adapters, Plan plan, int extras, List<string> renamed,
-        List<MirrorUnknownField> unknown, MirrorSetupCopy copy)
+        List<MirrorUnknownField> unknown, MirrorSetupCopy copy, bool catching)
     {
         var notes = new List<MirrorNote>();
 
@@ -642,6 +642,10 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
             notes.Add(new MirrorNote("addresses", "onPurpose",
                 $"{Capital(Count(copy.Addresses.Count, "address"))} prod uses lead{(copy.Addresses.Count == 1 ? "s" : "")} to a test address on staging, which goes nowhere.",
                 Action: "addresses"));
+        if (catching)
+            notes.Add(new MirrorNote("calls", "onPurpose",
+                "Staging answers calls to test addresses itself, and calls to any host its setup doesn't name, such as one written inside an adapter. A host the setup names, like your own staging API, is called for real.",
+                Action: "calls"));
         if ((copy.Sections.GetValueOrDefault("partners")?.Count ?? 0) > 0)
             notes.Add(new MirrorNote("secrets", "onPurpose", "Secrets are stand-ins, and partners' API keys are staging's own."));
         notes.AddRange(renamed.Select(r => new MirrorNote($"renamed:{r}", "onPurpose", r)));

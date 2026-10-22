@@ -1,5 +1,5 @@
 import type { ApiClient } from "../client";
-import type { MirrorCopyResult, MirrorParityAnswer, MirrorSamples, MirrorStatus } from "../types";
+import type { MirrorCalls, MirrorCopyResult, MirrorParityAnswer, MirrorSamples, MirrorStatus } from "../types";
 import { get, post } from "./request";
 
 export const mirrorMethods = {
@@ -19,6 +19,11 @@ export const mirrorMethods = {
 
   getMirrorSamples(): Promise<MirrorSamples> {
     return get<MirrorSamples>("/mirror/samples");
+  },
+
+  /** The calls staging answered in place of the network, since this node started. */
+  getMirrorCalls(): Promise<MirrorCalls> {
+    return get<MirrorCalls>("/mirror/calls");
   },
 
   /** Starts taking samples of prod's exchanges in the background; follow it with getMirrorSamples. */

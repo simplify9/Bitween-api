@@ -245,6 +245,35 @@ describe("prod mirror", () => {
     expect(screen.getByText("Prod has no exchanges of it.")).toBeVisible();
   });
 
+  it("lists the calls staging answered, each with what it answered last", async () => {
+    const withCalls: MirrorParity = {
+      ...parity,
+      notes: [...parity.notes, { id: "calls", group: "onPurpose", text: "Staging answers calls to test addresses itself.", section: null, key: null, action: "calls" }],
+    };
+    const { user } = renderApp("/mirror", {
+      handlers: [
+        status(),
+        parityHandler(withCalls),
+        samplesHandler(),
+        http.get(apiPath("/mirror/calls"), () =>
+          HttpResponse.json({
+            catching: true,
+            recent: [],
+            hosts: [
+              { host: "m1a2b3c4d.mirror.invalid", test: true, calls: 3, lastAt: new Date().toISOString(), lastWhy: "Prod's answer to “Push labels”, faked.", usedBy: ["Push labels"] },
+              { host: "api.zohoapis.eu", test: false, calls: 1, lastAt: new Date().toISOString(), lastWhy: "Nothing of prod's to answer with, so an empty reply.", usedBy: [] },
+            ],
+          }),
+        ),
+      ],
+    });
+
+    await user.click(await screen.findByRole("button", { name: "See the calls it answered" }));
+    expect(await screen.findByText("m1a2b3c4d.mirror.invalid")).toBeVisible();
+    expect(screen.getByText("Prod's answer to “Push labels”, faked.")).toBeVisible();
+    expect(screen.getByTitle(/Staging's setup doesn't name it/)).toHaveTextContent("Not in staging's setup");
+  });
+
   it("says why prod can't be compared, with a way to fix the connection", async () => {
     renderApp("/mirror", {
       handlers: [status(), samplesHandler(), parityHandler({ error: "Prod runs r8 or older. The mirror copies prods on r10.0 or later; move this client to r10 first." })],

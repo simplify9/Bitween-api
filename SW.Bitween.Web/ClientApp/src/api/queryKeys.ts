@@ -218,6 +218,7 @@ export const keys = {
     status: ["mirror", "status"] as const,
     parity: ["mirror", "parity"] as const,
     samples: ["mirror", "samples"] as const,
+    calls: ["mirror", "calls"] as const,
   },
 
   settings: {

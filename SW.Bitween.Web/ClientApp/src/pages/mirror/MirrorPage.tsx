@@ -8,6 +8,7 @@ import {
   type MirrorAddress,
   type MirrorCopyResult,
   type MirrorFakedKey,
+  type MirrorHostCalls,
   type MirrorItem,
   type MirrorKind,
   type MirrorNote,
@@ -158,7 +159,7 @@ export function MirrorPage() {
   );
 }
 
-type FoldId = "setup" | "samples" | "adapters" | "faked" | "addresses";
+type FoldId = "setup" | "samples" | "calls" | "adapters" | "faked" | "addresses";
 
 function Comparison({ parity, status, onConnection }: { parity: MirrorParity; status: MirrorStatus; onConnection: () => void }) {
   const [open, setOpen] = useState<Set<FoldId>>(new Set(["setup"]));
@@ -167,6 +168,13 @@ function Comparison({ parity, status, onConnection }: { parity: MirrorParity; st
     queryKey: keys.mirror.samples,
     queryFn: () => api.getMirrorSamples(),
     refetchInterval: (q) => (q.state.data?.state === "running" ? 2000 : false),
+  });
+  // Read while the list is open, and again every ten seconds: calls come in as flows run.
+  const calls = useQuery({
+    queryKey: keys.mirror.calls,
+    queryFn: () => api.getMirrorCalls(),
+    enabled: open.has("calls"),
+    refetchInterval: 10_000,
   });
   const toggle = (id: FoldId) =>
     setOpen((now) => {
@@ -231,6 +239,15 @@ function Comparison({ parity, status, onConnection }: { parity: MirrorParity; st
           summary={`${whole(samples.data.subscriptions.filter((s) => s.samples.length > 0).length)} of ${whole(samples.data.subscriptions.length)} subscriptions have samples`}
           description="How each sample ended on prod, and its files as staging keeps them, faked. Open a file to see what staging holds, or the exchange on prod.">
           <SamplesList samples={samples.data} prodUrl={parity.prod.url} items={items} />
+        </Fold>
+      )}
+
+      {status.target && (
+        <Fold id="calls" open={open.has("calls")} onToggle={toggle} title="Calls staging answered"
+          summary={calls.data ? `${plural(calls.data.hosts.reduce((n, h) => n + h.calls, 0), "call", "calls")} to ${plural(calls.data.hosts.length, "host", "hosts")}` : "since this staging started"}
+          description="What flows on staging called and staging answered itself: test addresses, and hosts its setup doesn't name, such as one written inside an adapter. To let a host through for real, add it in Settings, under Prod mirror, Hosts called for real.">
+          {calls.isPending ? <LoadingBlock /> : calls.isError ? <LoadError error={calls.error} what="the calls" onRetry={() => void calls.refetch()} />
+            : <CallsList hosts={calls.data.hosts} prodUrl={parity.prod.url} items={items} />}
         </Fold>
       )}
 
@@ -347,6 +364,7 @@ function NoteLinks({ note, context }: { note: MirrorNote; context: NoteContext }
     : note.action === "adapters-installed" ? <Link to="/adapters?tab=installed" className="link">Open Adapters</Link>
     : note.action === "faked" ? <button type="button" className="link cursor-pointer" onClick={() => context.show("faked")}>See the fake values</button>
     : note.action === "addresses" ? <button type="button" className="link cursor-pointer" onClick={() => context.show("addresses")}>See the test addresses</button>
+    : note.action === "calls" ? <button type="button" className="link cursor-pointer" onClick={() => context.show("calls")}>See the calls it answered</button>
     : null;
   if (!item && !action) return null;
   return (
@@ -603,6 +621,31 @@ function SamplesList({ samples, prodUrl, items }: { samples: MirrorSamples; prod
         );
       })}
     </div>
+  );
+}
+
+/** Each host staging answered calls to, and what it answered last. */
+function CallsList({ hosts, prodUrl, items }: { hosts: MirrorHostCalls[]; prodUrl: string; items: Map<string, MirrorItem> }) {
+  if (hosts.length === 0) return <p className="text-[13px] text-ink-500">No calls yet. They come in as flows run on staging.</p>;
+  return (
+    <ul className="divide-y divide-ink-100 text-[12.5px]">
+      {hosts.map((h) => (
+        <li key={h.host} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 py-1.5">
+          <span className="font-mono text-ink-900">{h.host}</span>
+          <Badge tone={h.test ? "neutral" : "warn"} title={h.test ? "One of prod's addresses, as the copy faked it" : "Staging's setup doesn't name it: written inside an adapter, most likely"}>
+            {h.test ? "Test address" : "Not in staging's setup"}
+          </Badge>
+          <span className="text-ink-600">
+            {plural(h.calls, "call", "calls")}, last {timeAgo(h.lastAt)}
+          </span>
+          {h.usedBy.map((name) => {
+            const item = items.get(`subscriptions\u0000${name}`);
+            return item ? <ItemLinks key={name} section="subscriptions" item={item} prodUrl={prodUrl} /> : null;
+          })}
+          <span className="basis-full text-ink-500">{h.lastWhy}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
