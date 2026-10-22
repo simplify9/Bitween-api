@@ -97,6 +97,7 @@ applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
 | `InboundMessagePruneCron` | `0 30 3 * * ?` | Quartz cron for deleting expired broker deduplication keys. |
 | `QueuePrefix` | `bitween` | Part of every queue name. Give each deployment sharing a broker its own value. |
 | `BusDefaultQueuePrefetch` | `12` | Default number of unacknowledged messages per consumer. Work groups can override it. |
+| `Mirror:Target` | `false` | Whether a copy of a prod may replace this Bitween's setup, on a staging that mirrors one. Set it on the staging's deployment only. See [Prod mirror](prod-mirror.md). |
 | `BusDefaultConcurrency` | the prefetch | How many messages of a lane run at once on a node, for the Ungrouped lane and the bus's other consumers (bus-enabled information types, retry and auto-pause alerts). A work group sets its own with **Parallel exchanges**. `1` runs them one at a time, in order, as before. |
 | `RabbitMqManagementUrl`, `RabbitMqManagementUsername`, `RabbitMqManagementPassword` | | RabbitMQ management API, needed for queue health. |
 | `CorsOrigins` | empty | Browser origins allowed to call the API with credentials. Set as `Bitween__CorsOrigins__0`, `Bitween__CorsOrigins__1` and so on. |
@@ -191,6 +192,9 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.RegistryUsageReports` | Marketplace | Yes | `false` |
 | `Bitween.MailServer.Host`, `Port`, `UseTls`, `CertificateThumbprint`, `Username`, `From`, `FromName` | Mail server | Yes | port `587`, `UseTls` `true`, the rest empty |
 | `Bitween.MailServer.Password` | Mail server | Yes, secret | empty |
+| `Bitween.Mirror.Target` | Prod mirror | Read-only | `false` |
+| `Bitween.Mirror.SourceUrl`, `SourceEmail`, `KeepRealValues` | Prod mirror | Yes | empty |
+| `Bitween.Mirror.SourceToken`, `SourcePassword` | Prod mirror | Yes, secret | empty |
 | `Bitween.MaxRetryAfterSeconds` | Reliability & jobs | Yes | `21600`, six hours |
 | `Bitween.RetryJobCron` | Reliability & jobs | Yes | `0 * * * * ?` |
 | `Bitween.QueuePrefix`, `BusDefaultQueuePrefetch`, `BusDefaultConcurrency` | Messaging | Read-only | |

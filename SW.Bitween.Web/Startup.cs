@@ -160,6 +160,7 @@ namespace SW.Bitween.Web
             services.AddScoped<OidcSignIn>();
             services.AddScoped<ReceiverBookmarks>();
             services.AddScoped<SW.Bitween.Services.Marketplace.KitInstaller>();
+            services.AddScoped<SW.Bitween.Services.Mirror.MirrorService>();
             services.AddSingleton<SW.Bitween.Services.Mirror.MirrorCopyGate>();
             services.AddSingleton<SealedState>();
             services.AddScoped<Services.Connections.ConnectionTokens>();

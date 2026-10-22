@@ -2251,3 +2251,144 @@ export interface ConnectionInput {
   username?: string | null;
   password?: string | null;
 }
+
+// ── Prod mirror ──
+
+/** Whether this Bitween is a mirror and how it reaches prod - known without calling prod. */
+export interface MirrorStatus {
+  /** Set by the deployment: only a mirror can be copied onto. */
+  target: boolean;
+  sourceUrl: string | null;
+  signIn: "token" | "member" | null;
+  configured: boolean;
+}
+
+export interface MirrorSide {
+  url: string;
+  version: string;
+  exchanges: number | null;
+}
+
+/** inSync, differs, missing; waiting for an adapter staging lacks; extra: only on staging. */
+export type MirrorItemState = "inSync" | "differs" | "missing" | "waiting" | "extra";
+
+/**
+ * One of prod's items and how staging's compares, with where each is: its id on staging and on
+ * prod, and a subscription's type, which decides its page. A SQL statement's ids are its data
+ * source's, the page it is on.
+ */
+export interface MirrorItem {
+  key: string;
+  state: MirrorItemState;
+  fields: string[];
+  reason: string | null;
+  /** The last copy tried it and Bitween turned it down: copying again won't change that. */
+  refused: boolean;
+  stagingId: string | null;
+  prodId: string | null;
+  type: string | null;
+}
+
+export interface MirrorKind {
+  section: string;
+  noun: string;
+  plural: string;
+  inSync: number;
+  differs: number;
+  missing: number;
+  extra: number;
+  /** Why prod's were not read: its release lacks them, or the login can't see them. */
+  skipped: string | null;
+  items: MirrorItem[];
+}
+
+export interface MirrorAdapter {
+  id: string;
+  source: "builtin" | "marketplace" | "custom";
+  prodVersion: string | null;
+  stagingVersion: string | null;
+  state: "same" | "missing" | "different";
+  usedBy: number;
+}
+
+/**
+ * One line on the page. needsYou: only a person can do it. copy: copying does it. notCovered: what
+ * the test can't include, and why. onPurpose: how staging differs from prod by design.
+ */
+export interface MirrorNote {
+  id: string;
+  group: "needsYou" | "copy" | "notCovered" | "onPurpose";
+  text: string;
+  /** The item it is about, to open it. */
+  section: string | null;
+  key: string | null;
+  /** Where it is done: adapters-installed, adapters-marketplace, faked or addresses. */
+  action: string | null;
+}
+
+export interface MirrorVerdict {
+  ready: boolean;
+  /** Prod's items staging has as prod has them. */
+  matching: number;
+  total: number;
+  needsYou: number;
+  toCopy: number;
+  notCovered: number;
+}
+
+/** An item that uses something, and where in it. */
+export interface MirrorUse {
+  section: string;
+  noun: string;
+  key: string;
+  where: string;
+}
+
+/** A test address that stands in for one of prod's, and what uses it. */
+export interface MirrorAddress {
+  mock: string;
+  kind: string;
+  usedBy: MirrorUse[];
+}
+
+/** A partner property or global value that is faked, unless kept because it is a setting. */
+export interface MirrorFakedKey {
+  id: string;
+  label: string;
+  count: number;
+  kept: boolean;
+}
+
+/** A field prod sends that this release doesn't know, from a newer or a changed build: not copied. */
+export interface MirrorUnknownField {
+  section: string;
+  plural: string;
+  field: string;
+  items: number;
+  examples: string[];
+}
+
+export interface MirrorParity {
+  checkedOn: string;
+  prod: MirrorSide;
+  staging: MirrorSide;
+  verdict: MirrorVerdict;
+  notes: MirrorNote[];
+  kinds: MirrorKind[];
+  adapters: MirrorAdapter[];
+  addresses: MirrorAddress[];
+  fakedKeys: MirrorFakedKey[];
+  unknown: MirrorUnknownField[];
+}
+
+/** A prod that can't be reached, or is too old, answers with why. */
+export type MirrorParityAnswer = MirrorParity | { error: string };
+
+export interface MirrorCopyResult {
+  created: number;
+  updated: number;
+  removed: number;
+  adapterSteps: number;
+  failed: { section: string; noun: string; key: string; error: string }[];
+  after: MirrorParity;
+}

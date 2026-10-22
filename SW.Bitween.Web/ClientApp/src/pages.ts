@@ -7,6 +7,7 @@ import {
   Database,
   FileStack,
   FileText,
+  GitCompareArrows,
   KeyRound,
   LayoutDashboard,
   Handshake,
@@ -446,6 +447,14 @@ export const PAGES = definePages({
     permission: "settings.view",
     nav: { group: "administration", icon: Server },
     keywords: ["cluster", "servers"],
+  },
+  // On a staging: how close it is to the prod it mirrors, and the copy that closes the gap.
+  mirror: {
+    path: "mirror",
+    title: "Prod mirror",
+    permission: "mirror.view",
+    nav: { group: "administration", icon: GitCompareArrows },
+    keywords: ["staging", "rehearsal", "upgrade", "copy", "parity", "prod"],
   },
   // Last: it reports on everything above it rather than configuring anything, and it is the one
   // page whose value is that nobody can quietly change it.

@@ -213,6 +213,12 @@ export const keys = {
     insights: ["metrics", "insights"] as const,
   },
 
+  mirror: {
+    all: ["mirror"] as const,
+    status: ["mirror", "status"] as const,
+    parity: ["mirror", "parity"] as const,
+  },
+
   settings: {
     all: ["settings"] as const,
     list: ["settings", "list"] as const,

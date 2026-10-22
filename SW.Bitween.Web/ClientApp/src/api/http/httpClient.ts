@@ -22,6 +22,7 @@ import { queueHealthMethods } from "./queueHealth";
 import { retryPolicyMethods } from "./retryPolicies";
 import { sessionMethods } from "./session";
 import { settingsMethods } from "./settings";
+import { mirrorMethods } from "./mirror";
 import { serviceAccountMethods } from "./serviceAccounts";
 import { teamMethods } from "./team";
 import { workGroupMethods } from "./workGroups";
@@ -57,4 +58,5 @@ export const httpClient: ApiClient = {
   ...teamMethods,
   ...serviceAccountMethods,
   ...settingsMethods,
+  ...mirrorMethods,
 };

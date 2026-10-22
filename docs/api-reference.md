@@ -345,6 +345,9 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `GET /api/retention?refresh=` | `settings.view`. What the retention settings do; `refresh=true` reads the bucket's rules again. |
 | `POST /api/retention/preview` | `settings.view`. The same for proposed values, without saving them. |
 | `GET /api/audit?offset=&limit=&entityName=&entityKey=&userId=&correlationId=&from=&to=` | `audit.view` |
+| `GET /api/mirror` | `mirror.view`. Whether this Bitween is a mirror (`target`), prod's address and how it signs in, without calling prod. |
+| `GET /api/mirror/parity` | `mirror.view`. Reads prod and this Bitween now: `verdict` (`ready`, `matching`, `total`, `needsYou`, `toCopy`, `notCovered`), `notes` (each in `needsYou`, `copy`, `notCovered` or `onPurpose`, with the item or page it is about), per kind what is the same, differs, is missing or is only here with each item's id on both sides, `adapters`, `addresses` (the test ones, with what uses each), `fakedKeys` and `unknown` (fields prod sends that this release doesn't know). A prod that can't be reached or is older than r10.0 answers `{ error }`. See [Prod mirror](prod-mirror.md). |
+| `POST /api/mirror/copy` | `mirror.operate`, and edit rights on what it copies. `{ removeExtras }`. Copies prod's setup with every value faked and answers `{ created, updated, removed, adapterSteps, failed, after }`. Refused with `MIRROR_NOT_TARGET` unless the deployment sets `Bitween:Mirror:Target`. |
 
 ## Monitoring
 

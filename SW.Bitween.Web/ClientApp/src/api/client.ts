@@ -1,5 +1,8 @@
 import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
+  MirrorCopyResult,
+  MirrorParityAnswer,
+  MirrorStatus,
   InviteResult,
   PasswordLinkInfo,
   AdapterInfo,
@@ -654,6 +657,11 @@ export interface ApiClient {
     policyId: number,
     input: { subscriptionId: number; groupId: string } & RetryAlertConfig,
   ): Promise<void>;
+
+  // - prod mirror -
+  getMirror(): Promise<MirrorStatus>;
+  getMirrorParity(): Promise<MirrorParityAnswer>;
+  copyFromProd(removeExtras: boolean): Promise<MirrorCopyResult>;
 
   // - settings -
   listSettings(): Promise<SettingRow[]>;

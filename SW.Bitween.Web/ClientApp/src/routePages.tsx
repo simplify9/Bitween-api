@@ -16,6 +16,7 @@ export const AdaptersPage = lazy(() => import("./pages/adapters/AdaptersPage").t
 export const ProfilePage = lazy(() => import("./pages/ProfilePage").then((m) => ({ default: m.ProfilePage })));
 export const AuditPage = lazy(() => import("./pages/audit/AuditPage").then((m) => ({ default: m.AuditPage })));
 export const NodesPage = lazy(() => import("./pages/nodes/NodesPage").then((m) => ({ default: m.NodesPage })));
+export const MirrorPage = lazy(() => import("./pages/mirror/MirrorPage").then((m) => ({ default: m.MirrorPage })));
 export const SettingsPage = lazy(() => import("./pages/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 export const DashboardPage = lazy(() => import("./pages/dashboard/DashboardPage").then((m) => ({ default: m.DashboardPage })));
 export const ExchangeNewPage = lazy(() => import("./pages/exchanges/ExchangeNewPage").then((m) => ({ default: m.ExchangeNewPage })));

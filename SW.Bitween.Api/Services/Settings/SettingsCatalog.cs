@@ -364,6 +364,48 @@ public static class SettingsCatalog
             t => t.Bitween.MailServer.FromName,
             (t, v) => t.Bitween.MailServer.FromName = Trimmed(v)),
 
+        // --- Prod mirror ---
+        // Where this staging copies prod's setup from, faked, to rehearse an upgrade on. Whether it
+        // may be overwritten at all is the deployment's to say, never a setting's.
+        View("Bitween.Mirror.Target", "Prod mirror", "This Bitween is a mirror",
+            "Whether a copy of prod may replace this Bitween's setup. Set by the deployment (Bitween__Mirror__Target=true), so a prod can't be overwritten from here.",
+            SettingKind.Boolean, t => Str(t.Bitween.Mirror.Target)),
+
+        new("Bitween.Mirror.SourceUrl", "Prod mirror",
+            "Prod's address",
+            "The prod this staging copies, e.g. https://bitween.acme.com. Read only, through its own API: nothing is installed or changed there.",
+            SettingKind.String, false,
+            t => t.Bitween.Mirror.SourceUrl,
+            (t, v) => t.Bitween.Mirror.SourceUrl = AbsoluteUrl(v)),
+
+        new("Bitween.Mirror.SourceToken", "Prod mirror",
+            "Service account token",
+            "A token of a service account on prod whose role only views, such as the built-in Viewer. Used instead of an email and password when both are set.",
+            SettingKind.String, true,
+            t => t.Bitween.Mirror.SourceToken,
+            (t, v) => t.Bitween.Mirror.SourceToken = Trimmed(v)),
+
+        new("Bitween.Mirror.SourceEmail", "Prod mirror",
+            "Viewer email",
+            "For a prod on r10.0, which has no service accounts: the email of a member with the Viewer role.",
+            SettingKind.String, false,
+            t => t.Bitween.Mirror.SourceEmail,
+            (t, v) => t.Bitween.Mirror.SourceEmail = Trimmed(v)),
+
+        new("Bitween.Mirror.SourcePassword", "Prod mirror",
+            "Viewer password",
+            "That member's password.",
+            SettingKind.String, true,
+            t => t.Bitween.Mirror.SourcePassword,
+            (t, v) => t.Bitween.Mirror.SourcePassword = v),
+
+        new("Bitween.Mirror.KeepRealValues", "Prod mirror",
+            "Values copied as they are",
+            "Partner properties and global values that are settings rather than data, such as a time zone, one per line: partner:timeZone or global:formats/date. Everything else of theirs is faked. Addresses and secrets are never copied.",
+            SettingKind.String, false,
+            t => t.Bitween.Mirror.KeepRealValues,
+            (t, v) => t.Bitween.Mirror.KeepRealValues = Trimmed(v)),
+
         // --- Reliability & jobs ---
         new("Bitween.MaxRetryAfterSeconds", "Reliability & jobs",
             "Longest wait an adapter can ask for (seconds)",
@@ -624,6 +666,16 @@ public static class SettingsCatalog
 
     /// <summary>Empty clears it.</summary>
     private static string Trimmed(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>Empty clears it. Otherwise an absolute http(s) address, kept without a trailing slash.</summary>
+    private static string AbsoluteUrl(string value)
+    {
+        var url = Trimmed(value);
+        if (url == null) return null;
+        return Uri.TryCreate(url, UriKind.Absolute, out var parsed) && parsed.Scheme is "https" or "http" && parsed.Host.Length > 0
+            ? url.TrimEnd('/')
+            : throw new FormatException($"'{url}' isn't an address. Use one like https://bitween.acme.com.");
+    }
 
     /// <summary>Empty clears it. Otherwise one plain address, without the display name, which has a setting of its own.</summary>
     private static string EmailAddress(string value)

@@ -25,6 +25,7 @@ public class SettingsCatalogTests
                 "Adapters",
                 "Marketplace",
                 "Mail server",
+                "Prod mirror",
                 "Reliability & jobs",
                 "Messaging",
                 "Database",
