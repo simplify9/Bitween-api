@@ -174,6 +174,9 @@ namespace SW.Bitween
         /// </summary>
         public SW.Bitween.NativeAdapters.ChannelMessages.MailServerOptions MailServer { get; } = new();
 
+        /// <summary>The prod this staging copies its setup from, faked, to rehearse upgrades on.</summary>
+        public global::SW.Bitween.Services.Mirror.MirrorOptions Mirror { get; } = new();
+
         /// <summary>Days an exchange is kept before the retention job removes it. 0 keeps exchanges for ever.</summary>
         public int ExchangeRetentionDays { get; set; }
 

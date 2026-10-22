@@ -80,7 +80,7 @@ namespace SW.Bitween.Resources.Subscriptions
 
         private class Validate : AbstractValidator<SubscriptionCreate>
         {
-            public Validate(BitweenDbContext dbContext, AdapterRequirements adapterRequirements)
+            public Validate(BitweenDbContext dbContext, AdapterRequirements adapterRequirements, Services.Mirror.MirrorCopyGate mirrorCopy)
             {
                 // Same rule Documents enforces on BusMessageTypeName. Publishing to a name no
                 // information type carries is legitimate - the consumer may be another product -
@@ -93,7 +93,8 @@ namespace SW.Bitween.Resources.Subscriptions
 
                 RuleFor(i => i.ResponseSubscriptionId).CustomAsync(async (responseSubId, context, _) =>
                 {
-                    var failure = await ResponseRoutingValidation.CheckDestination(dbContext, responseSubId);
+                    var failure = await ResponseRoutingValidation.CheckDestination(dbContext, responseSubId,
+                        recreatingProd: mirrorCopy.RecreatingProd);
                     if (failure != null)
                         context.AddFailure(nameof(SubscriptionCreate.ResponseSubscriptionId), failure);
                 });
