@@ -248,9 +248,24 @@ The rules editor has three panels.
 - **Output.** A tree of target fields and lists. Each row picks a source kind and opens the transform, lookup and type steps. Lists have filters and fixed entries. A new list gets its content from **+ Value**, **+ Field** or **+ List**. Choosing + Value makes a list of plain values, whose value is a row of its own.
 - **Preview.** The server's output for the current rules, with failing rows marked.
 
-**Build from a sample** reads a target sample and adds rules for fields not yet mapped, filling in sources it can recognise. **Preview as** chooses a partner for resolving partner values. Save with Ctrl+S or Cmd+S.
+**Build from a sample** reads a target sample and adds rules for fields not yet mapped, filling in sources it can recognise. **Generate with AI** writes every rule from both samples; see below. **Preview as** chooses a partner for resolving partner values. Save with Ctrl+S or Cmd+S.
 
-The toolbar's format chip, as **JSON → XML**, opens what the mapping reads and writes: each side's format, and its settings for [CSV](#csv) (separator, header, the byte-order mark Excel wants), [fixed-width text](#fixed-width-text) (a table of columns, lines to skip, trimming, and on the written side each column's alignment and padding) and [Excel](#excel) (the sheet and the header).
+### Generate with AI
+
+**Generate with AI** asks the provider under [Settings, AI](configuration.md#ai) for the rules that turn a source sample into an output sample. It opens a dialog with both samples, which are the editor's own, and an optional **Instructions** box for what the samples don't show, such as codes a lookup needs that the sample doesn't contain. Until Settings has an API key, the dialog says so and links there.
+
+- What is sent: both samples, the instructions, and the names, never the values, of the previewed partner's properties and the global values. Secret properties aren't named either. A rule the model writes from a name is filled in with the real value when the mapping runs, like any other.
+- The generated rules replace the editor's rules as one step. The formats and their settings are kept as the editor has them. The toolbar then says what was replaced, which model wrote the rules and how long it took, with **Undo** beside it. Rules it wrote differently light up for a moment.
+- Before answering, the server previews the rules against the source sample and compares the result with the output sample. The toolbar says **Matches the output sample**, or lists the differences. Each one marks its row, and clicking it in the list brings the row into view.
+- A fixed value, or the text of a `concat`, `replace` or `defaultIfEmpty`, that the source sample holds as data counts as a difference even when the output matches: it would be the same for every document. A constant the source doesn't have, such as a currency code, is fine.
+- A blank value in the output sample (empty, only spaces, or null) is a placeholder: any value written there counts as a match. The field itself still has to be written.
+- **Fix with AI**, under the differences, sends the editor's rules back with what was wrong, and asks for corrected ones.
+- While it runs, the dialog counts the seconds, usually 10 to 30, and **Cancel** stops waiting. The model finishes the call it started; its answer is dropped.
+- One generation is one model call. A second is made only when the first answer isn't readable rules, with the reason.
+- Values from the original document of a response subscription aren't used: the model can't see them. Add those rules by hand.
+- Nothing is saved until you save.
+
+`POST /api/mappingsuggestions` does the work: `{ mappingRules, sourceDocument, targetDocument, partnerId, refine, instructions }`, replying with `mappingRules`, the preview's `outputDocument`, `ruleErrors` and `error`, `differences` (each a `target` path and a `reason`), `matchesTarget` and `model`.
 
 ## Legacy JSON mapper
 

@@ -42,6 +42,11 @@ export interface RulesEditorState {
   /** What the last "match the source fields" did, for the line under that button. */
   match: MatchTally | null;
   /**
+   * How close the rules "Generate with AI" put in came to the output sample. Only true of
+   * those rules, so any later change to the mapping or the samples clears it.
+   */
+  ai: AiTally | null;
+  /**
    * Whose partner values the preview resolves against.
    *
    * A question about this preview rather than about the mapping, so it is not in
@@ -68,11 +73,27 @@ export const initialRulesEditorState: RulesEditorState = {
   loadError: null,
   scaffold: null,
   match: null,
+  ai: null,
   testPartnerId: null,
   dirty: false,
   past: [],
   future: [],
 };
+
+/** What the server found when it checked generated rules against the samples, and what they replaced. */
+export interface AiTally {
+  matchesTarget: boolean;
+  differences: { target: string; reason: string }[];
+  /** Each row's differences, by the row's error key, for the row to show. */
+  byRow: Record<string, string[]>;
+  /** Rows the AI wrote differently from the rules it replaced, lit for a moment. */
+  changed: string[];
+  /** Rules before and after, for "Replaced 25 rules with 13". */
+  before: number;
+  after: number;
+  model: string | null;
+  seconds: number;
+}
 
 export type RulesEditorAction =
   | { type: "LOAD"; rules: EditorRules; sourceSample: string; targetSample: string; error?: string }
@@ -87,6 +108,7 @@ export type RulesEditorAction =
   | { type: "SCAFFOLD_FROM_TARGET" }
   | { type: "MATCH_SOURCES" }
   | { type: "CLEAR_RULES" }
+  | { type: "APPLY_AI_RULES"; rules: EditorRules; tally: AiTally }
   | { type: "SET_TEST_PARTNER"; partnerId: number | null }
   | { type: "ADD_FIELD"; listId: RuleId | null; target?: string[] }
   | { type: "UPDATE_FIELD"; id: RuleId; changes: Partial<Omit<EditorFieldRule, "id">> }
@@ -248,6 +270,7 @@ function changesTheMapping(action: RulesEditorAction): boolean {
     case "SCAFFOLD_FROM_TARGET":
     case "MATCH_SOURCES":
     case "CLEAR_RULES":
+    case "APPLY_AI_RULES":
       return true;
     default:
       return false;
@@ -264,6 +287,13 @@ export function rulesEditorReducer(
       draft.future = [];
       draft.dirty = true;
     }
+
+    // The AI's note describes the rules and samples it saw; after any change it would be stale.
+    if (
+      changesTheMapping(action) ||
+      ["LOAD", "SET_SOURCE_SAMPLE", "SET_TARGET_SAMPLE", "UNDO", "REDO"].includes(action.type)
+    )
+      draft.ai = null;
 
     switch (action.type) {
       case "LOAD":
@@ -357,6 +387,16 @@ export function rulesEditorReducer(
           sourceExcel: draft.rules.sourceExcel,
           targetExcel: draft.rules.targetExcel,
         };
+        draft.selectedId = null;
+        draft.scaffold = null;
+        draft.match = null;
+        break;
+
+      // Every rule is replaced, as one step Undo takes back. The server kept the editor's
+      // formats, so the rules arrive already speaking them.
+      case "APPLY_AI_RULES":
+        draft.rules = action.rules;
+        draft.ai = action.tally;
         draft.selectedId = null;
         draft.scaffold = null;
         draft.match = null;

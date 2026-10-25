@@ -1,4 +1,4 @@
-import { cleanup, screen, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RetentionStatus, SettingRow } from "../../../api";
@@ -352,6 +352,36 @@ describe("the settings page", () => {
     answer();
     expect(await dialog.findByText(warning)).toBeVisible();
     expect(dialog.getByRole("button", { name: "Save changes" })).toBeEnabled();
+  });
+
+  it("offers a setting with fixed choices as a dropdown, and saves the one picked", async () => {
+    let posted: unknown;
+    const { user } = renderApp(`/settings?section=AI`, {
+      handlers: [
+        http.get(apiPath("/settings"), () =>
+          HttpResponse.json([
+            {
+              ...editable({ key: "Bitween.Ai.Provider", section: "AI", label: "Provider", kind: "string", defaultValue: "Anthropic" }),
+              choices: ["Anthropic", "OpenAI"],
+            },
+          ]),
+        ),
+        http.post(apiPath("/settings/Bitween.Ai.Provider"), async ({ request }) => {
+          posted = await request.json();
+          return new HttpResponse(null, { status: 204 });
+        }),
+        ...pageHandlers.slice(1),
+      ],
+    });
+
+    const provider = await screen.findByRole("combobox", { name: "Provider" });
+    expect(provider).toHaveValue("Anthropic");
+    expect(within(provider).getAllByRole("option").map((o) => o.textContent)).toEqual(["Anthropic", "OpenAI"]);
+
+    await user.selectOptions(provider, "OpenAI");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(posted).toEqual({ value: "OpenAI" }));
   });
 
   it("keeps an invalid retry schedule as an unsaved draft when the backend refuses it", async () => {

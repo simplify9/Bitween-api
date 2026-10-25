@@ -16,6 +16,8 @@ export interface AppConfig {
   mailServerConfigured?: boolean;
   /** Whether the sign-in page can offer "Forgot password?": a mail server and a public address. */
   passwordResetAvailable?: boolean;
+  /** Whether Settings, AI has a provider key, so AI features are offered. */
+  aiConfigured?: boolean;
   /** Effective brand values (any stored override already applied), keyed like `ThemeOptions`. */
   theme?: Record<string, string | boolean | null>;
   /** The same keys as configured, before any override - lets us tell "set" from "untouched". */
