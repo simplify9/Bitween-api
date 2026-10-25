@@ -40,6 +40,7 @@ import { useCurrentPage } from "../../lib/currentPage";
 import { SUBSCRIPTION_PAGE, SUBSCRIPTION_PAGES, subscriptionPath } from "../../lib/subscriptionPaths";
 import { PAGES, pathOf } from "../../pages";
 import { usePageTitle } from "../../lib/pageTitle";
+import { ProdBadge, ProdSection } from "../mirror/ProdSection";
 
 type RunState = "running" | "paused" | "off";
 
@@ -635,6 +636,7 @@ function SubscriptionStudio() {
                 saved later and quietly, while Pause, which keeps the work, asked
                 first and applied at once. */}
             <SubscriptionStatusBadges enabled={s.enabled} paused={paused} />
+            <ProdBadge subscriptionId={s.id} />
           </h1>
           <p className="mt-1 text-sm text-ink-500">
             Carries{" "}
@@ -771,6 +773,8 @@ function SubscriptionStudio() {
           </button>
         </div>
       )}
+
+      <ProdSection subscriptionId={s.id} name={s.name} type={s.type} />
 
       {canEdit && dirty && (
         <UnsavedBar

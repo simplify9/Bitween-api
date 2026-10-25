@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Services.Mirror;
 using SW.PrimitiveTypes;
 
@@ -77,8 +78,8 @@ public class TakeSamples(BitweenDbContext dbContext, RequestContext requestConte
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.Operate);
         if (!options.Mirror.Target) throw new SWValidationException("MIRROR_NOT_TARGET", MirrorService.NotTarget);
-        if (work.Start(MirrorWork.Sampling, (m, progress, ct) => m.TakeSamplesAsync(progress, ct)) == MirrorWork.Rehearsing)
-            throw new SWValidationException("MIRROR_BUSY", "A rehearsal is running on the samples there are. Take samples once it finishes.");
+        if (MirrorBusy.Why(work.Start(MirrorWork.Sampling, (m, progress, ct) => m.TakeSamplesAsync(progress, ct)), MirrorWork.Sampling) is { } busy)
+            throw new SWValidationException("MIRROR_BUSY", busy);
         return await mirror.SamplesAsync(work);
     }
 }
@@ -113,9 +114,129 @@ public class Rehearse(BitweenDbContext dbContext, RequestContext requestContext,
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.Operate);
         if (!options.Mirror.Target) throw new SWValidationException("MIRROR_NOT_TARGET", MirrorService.NotTarget);
         var token = mirror.CallerToken();
-        if (work.Start(MirrorWork.Rehearsing, (m, progress, ct) => m.RehearseAsync(progress, token, ct)) == MirrorWork.Sampling)
-            throw new SWValidationException("MIRROR_BUSY", "Samples are being taken. Rehearse once that finishes.");
+        if (MirrorBusy.Why(work.Start(MirrorWork.Rehearsing, (m, progress, ct) => m.RehearseAsync(progress, token, ct)), MirrorWork.Rehearsing) is { } busy)
+            throw new SWValidationException("MIRROR_BUSY", busy);
         return await mirror.RehearsalAsync(work);
+    }
+}
+
+/// <summary>Why the mirror's work can't start while other work runs.</summary>
+static class MirrorBusy
+{
+    /// <returns>Null when nothing else runs, or the work under way is the same work, which then carries on.</returns>
+    public static string Why(MirrorProgress running, string kind, string subject = null) =>
+        running == null || (running.Kind == kind && running.Subject == subject) ? null
+        : $"{MirrorWork.Describe(running)} is under way. Start this once it finishes.";
+}
+
+public class MirrorSubscriptionRequest
+{
+    /// <summary>The subscription, by its id on this staging.</summary>
+    public int Id { get; set; }
+
+    /// <summary>Its name, which is what prod's is found by: one this staging doesn't have is refused.</summary>
+    internal static async Task<string> NameAsync(BitweenDbContext dbContext, MirrorSubscriptionRequest request) =>
+        await dbContext.Subscriptions().AsNoTracking().Where(s => s.Id == request.Id).Select(s => s.Name).FirstOrDefaultAsync()
+        ?? throw new SWNotFoundException($"There's no subscription {request?.Id} on this staging.");
+}
+
+/// <summary>
+/// One of this staging's subscriptions beside prod's of the same name: it and each item it needs to run
+/// as on prod, the same, faked, different field by field or not on staging; what bringing it would do; and
+/// what only a person can do first. Prod is only read; one that can't be read answers <c>{ error }</c>.
+/// </summary>
+[HandlerName("subscription")]
+public class Subscription(BitweenDbContext dbContext, RequestContext requestContext, MirrorService mirror)
+    : IQueryHandler<MirrorSubscriptionRequest, object>
+{
+    public async Task<object> Handle(MirrorSubscriptionRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.View);
+        var name = await MirrorSubscriptionRequest.NameAsync(dbContext, request);
+        try
+        {
+            return await mirror.SubscriptionAsync(name);
+        }
+        catch (MirrorRefusal refusal)
+        {
+            return new { Error = refusal.Message };
+        }
+    }
+}
+
+/// <summary>
+/// A subscription's test with prod's traffic: prod's latest arrivals it takes part in, how they last ran
+/// on staging, and how work for it under way is going. Followed by the page while it runs.
+/// </summary>
+[HandlerName("test")]
+public class Test(BitweenDbContext dbContext, RequestContext requestContext, MirrorService mirror, MirrorWork work)
+    : IQueryHandler<MirrorSubscriptionRequest, object>
+{
+    public async Task<object> Handle(MirrorSubscriptionRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.View);
+        return await mirror.TestAsync(await MirrorSubscriptionRequest.NameAsync(dbContext, request), work);
+    }
+}
+
+/// <summary>
+/// Starts taking prod's latest arrivals a subscription takes part in, faked, in the background; they
+/// replace the ones taken before. Only on a Bitween its deployment marks as a mirror, and not while other
+/// work of the mirror runs.
+/// </summary>
+[HandlerName("testtake")]
+public class TestTake(BitweenDbContext dbContext, RequestContext requestContext, BitweenOptions options, MirrorService mirror, MirrorWork work)
+    : ICommandHandler<MirrorSubscriptionRequest, object>
+{
+    public async Task<object> Handle(MirrorSubscriptionRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.Operate);
+        if (!options.Mirror.Target) throw new SWValidationException("MIRROR_NOT_TARGET", MirrorService.NotTarget);
+        var name = await MirrorSubscriptionRequest.NameAsync(dbContext, request);
+        if (MirrorBusy.Why(work.Start(MirrorWork.Sampling, (m, progress, ct) => m.TakeTestAsync(name, progress, ct), name), MirrorWork.Sampling, name) is { } busy)
+            throw new SWValidationException("MIRROR_BUSY", busy);
+        return await mirror.TestAsync(name, work);
+    }
+}
+
+/// <summary>
+/// Starts a subscription's test in the background: each of prod's arrivals sent in on staging the way it
+/// came in on prod, and every exchange it led to compared with its twin. Only on a Bitween its deployment
+/// marks as a mirror, and not while other work of the mirror runs.
+/// </summary>
+[HandlerName("testrun")]
+public class TestRun(BitweenDbContext dbContext, RequestContext requestContext, BitweenOptions options, MirrorService mirror, MirrorWork work)
+    : ICommandHandler<MirrorSubscriptionRequest, object>
+{
+    public async Task<object> Handle(MirrorSubscriptionRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.Operate);
+        if (!options.Mirror.Target) throw new SWValidationException("MIRROR_NOT_TARGET", MirrorService.NotTarget);
+        var name = await MirrorSubscriptionRequest.NameAsync(dbContext, request);
+        var token = mirror.CallerToken();
+        if (MirrorBusy.Why(work.Start(MirrorWork.Rehearsing, (m, progress, ct) => m.RunTestAsync(name, progress, token, ct), name), MirrorWork.Rehearsing, name) is { } busy)
+            throw new SWValidationException("MIRROR_BUSY", busy);
+        return await mirror.TestAsync(name, work);
+    }
+}
+
+/// <summary>
+/// Removes what a subscription's test made on staging: every exchange its runs started, with their files,
+/// and how they compared. Prod's arrivals stay, to run again. Not while the test runs.
+/// </summary>
+[HandlerName("testclear")]
+public class TestClear(BitweenDbContext dbContext, RequestContext requestContext, BitweenOptions options, MirrorService mirror, MirrorWork work)
+    : ICommandHandler<MirrorSubscriptionRequest, object>
+{
+    public async Task<object> Handle(MirrorSubscriptionRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.Operate);
+        if (!options.Mirror.Target) throw new SWValidationException("MIRROR_NOT_TARGET", MirrorService.NotTarget);
+        var name = await MirrorSubscriptionRequest.NameAsync(dbContext, request);
+        if (work.Running?.Subject == name)
+            throw new SWValidationException("MIRROR_BUSY", "The test is running. Clear what it made once it finishes.");
+        await mirror.ClearTestAsync(name);
+        return await mirror.TestAsync(name, work);
     }
 }
 

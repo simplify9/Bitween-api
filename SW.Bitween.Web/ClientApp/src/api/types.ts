@@ -2651,6 +2651,53 @@ export interface MirrorPiece {
   type: string | null;
 }
 
+/**
+ * One of staging's subscriptions beside prod's of the same name: it and what it needs, each the same,
+ * faked, different field by field or not on staging, then the adapters they run; what bringing it
+ * would do; and what only a person can do first.
+ */
+export interface MirrorSubscriptionView {
+  key: string;
+  /** Whether prod has a subscription of this name: without one there is nothing to compare or test with. */
+  onProd: boolean;
+  prodId: string | null;
+  prodUrl: string;
+  used: MirrorDiff[];
+  toBring: MirrorPiece[];
+  needsYou: MirrorNote[];
+}
+
+export type MirrorSubscriptionAnswer = MirrorSubscriptionView | { error: string };
+
+/** A run of a subscription's test whose exchanges are still on staging. */
+export interface MirrorTestRun {
+  correlation: string;
+  startedOn: string;
+}
+
+/**
+ * A subscription's test with prod's traffic: prod's latest arrivals it takes part in, each sent in on
+ * staging the way it came in on prod, and how they last ran.
+ */
+export interface MirrorTest {
+  state: "idle" | "taking" | "running" | "failed";
+  /** Other work of the mirror under way, which this test waits for, in words: The test of “Push labels”. */
+  busy: string | null;
+  done: number;
+  total: number;
+  error: string | null;
+  takenOn: string | null;
+  /** Why prod had none to take. */
+  reason: string | null;
+  families: MirrorFamily[];
+  ranOn: string | null;
+  runs: MirrorFamilyRun[];
+  setupError: string | null;
+  made: MirrorTestRun[];
+  /** How many exchanges the test's runs have left on staging. */
+  exchanges: number;
+}
+
 /** What bringing the picked items does, or did. */
 export interface MirrorBring {
   applied: boolean;

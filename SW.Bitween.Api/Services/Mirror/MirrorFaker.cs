@@ -76,11 +76,14 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
         return k is "pass" or "key" or "pin" || SecretWords.Any(k.Contains);
     }
 
+    /// <summary>How every stand-in secret starts, which tells one from a secret set on staging.</summary>
+    public const string SecretPrefix = "mirror-";
+
     /// <summary>A stand-in for a secret Bitween wouldn't show: the same each time for the same place.</summary>
     public string Secret(string where)
     {
         var bytes = Bytes("secret", where ?? "", 20);
-        var text = new StringBuilder("mirror-");
+        var text = new StringBuilder(SecretPrefix);
         foreach (var b in bytes) text.Append(Base36[b % Base36.Length]);
         return text.ToString();
     }

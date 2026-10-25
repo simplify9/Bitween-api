@@ -10,6 +10,8 @@ import type {
   MirrorRehearsal,
   MirrorSamples,
   MirrorStatus,
+  MirrorSubscriptionAnswer,
+  MirrorTest,
   InviteResult,
   PasswordLinkInfo,
   AdapterInfo,
@@ -677,6 +679,11 @@ export interface ApiClient {
   getMirrorProdKinds(): Promise<MirrorProdKinds>;
   getMirrorProd(section: MirrorBringSection, type?: string): Promise<MirrorProdListAnswer>;
   bringFromProd(section: MirrorBringSection, keys: string[], apply: boolean): Promise<MirrorBring>;
+  getMirrorSubscription(id: number): Promise<MirrorSubscriptionAnswer>;
+  getMirrorTest(id: number): Promise<MirrorTest>;
+  takeMirrorTest(id: number): Promise<MirrorTest>;
+  runMirrorTest(id: number): Promise<MirrorTest>;
+  clearMirrorTest(id: number): Promise<MirrorTest>;
 
   // - settings -
   listSettings(): Promise<SettingRow[]>;

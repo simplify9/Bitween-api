@@ -72,7 +72,8 @@ public record MirrorSamples(string State, DateTimeOffset? StartedOn, DateTimeOff
 /// <summary>How far the mirror's work under way is.</summary>
 /// <param name="Kind">samples or rehearsal.</param>
 /// <param name="Done">Done so far, of <paramref name="Total"/>: subscriptions read, or samples run.</param>
-public record MirrorProgress(string Kind, DateTimeOffset StartedOn, int Done, int Total);
+/// <param name="Subject">The subscription whose test it is, by name; null for work on every subscription.</param>
+public record MirrorProgress(string Kind, DateTimeOffset StartedOn, int Done, int Total, string Subject = null);
 
 /// <summary>
 /// Runs the mirror's long work in the background - taking prod's samples, or rehearsing them - one at a
@@ -91,26 +92,37 @@ public sealed class MirrorWork(IServiceScopeFactory scopes, ILogger<MirrorWork> 
     /// <summary>The work under way; null when none is.</summary>
     public MirrorProgress Running { get; private set; }
 
-    /// <summary>Why the last work of a kind stopped, until it starts again; null when it finished.</summary>
-    public string LastError(string kind)
+    /// <summary>Why the last work of a kind stopped, for a subscription's test or for all, until it starts again; null when it finished.</summary>
+    public string LastError(string kind, string subject = null)
     {
-        lock (gate) return lastErrors.GetValueOrDefault(kind);
+        lock (gate) return lastErrors.GetValueOrDefault(ErrorKey(kind, subject));
     }
 
-    /// <summary>Starts work of a kind, unless work is under way: then says which kind is, and starts nothing.</summary>
-    public string Start(string kind, Func<MirrorService, Action<int, int>, CancellationToken, Task> work)
+    /// <summary>What work under way is, in words for the page: a subscription's test, taking samples, or a rehearsal.</summary>
+    public static string Describe(MirrorProgress running) =>
+        running.Subject != null ? $"The test of “{running.Subject}”"
+        : running.Kind == Sampling ? "Taking samples of prod's exchanges"
+        : "A rehearsal";
+
+    static string ErrorKey(string kind, string subject) => subject == null ? kind : $"{kind}\u0000{subject}";
+
+    /// <summary>
+    /// Starts work of a kind, for one subscription's test or for all, unless work is under way: then says
+    /// what is - which kind, and for which subscription - and starts nothing.
+    /// </summary>
+    public MirrorProgress Start(string kind, Func<MirrorService, Action<int, int>, CancellationToken, Task> work, string subject = null)
     {
         lock (gate)
         {
-            if (running is { IsCompleted: false }) return Running?.Kind;
-            Running = new MirrorProgress(kind, DateTimeOffset.UtcNow, 0, 0);
-            lastErrors.Remove(kind);
-            running = Task.Run(() => RunAsync(kind, work));
+            if (running is { IsCompleted: false }) return Running;
+            Running = new MirrorProgress(kind, DateTimeOffset.UtcNow, 0, 0, subject);
+            lastErrors.Remove(ErrorKey(kind, subject));
+            running = Task.Run(() => RunAsync(kind, subject, work));
             return null;
         }
     }
 
-    async Task RunAsync(string kind, Func<MirrorService, Action<int, int>, CancellationToken, Task> work)
+    async Task RunAsync(string kind, string subject, Func<MirrorService, Action<int, int>, CancellationToken, Task> work)
     {
         var startedOn = Running.StartedOn;
         string error = null;
@@ -118,7 +130,7 @@ public sealed class MirrorWork(IServiceScopeFactory scopes, ILogger<MirrorWork> 
         {
             using var scope = scopes.CreateScope();
             var mirror = scope.ServiceProvider.GetRequiredService<MirrorService>();
-            await work(mirror, (done, total) => Running = new MirrorProgress(kind, startedOn, done, total), CancellationToken.None);
+            await work(mirror, (done, total) => Running = new MirrorProgress(kind, startedOn, done, total, subject), CancellationToken.None);
         }
         catch (MirrorRefusal refusal)
         {
@@ -127,13 +139,14 @@ public sealed class MirrorWork(IServiceScopeFactory scopes, ILogger<MirrorWork> 
         catch (Exception ex)
         {
             logger.LogError(ex, "The prod mirror's {Kind} stopped", kind);
-            error = $"{(kind == Sampling ? "Taking samples" : "The rehearsal")} stopped: {ex.Message}";
+            var what = kind == Sampling ? subject == null ? "Taking samples" : "Taking prod's arrivals" : subject == null ? "The rehearsal" : "The test";
+            error = $"{what} stopped: {ex.Message}";
         }
         finally
         {
             lock (gate)
             {
-                if (error != null) lastErrors[kind] = error;
+                if (error != null) lastErrors[ErrorKey(kind, subject)] = error;
                 Running = null;
             }
         }

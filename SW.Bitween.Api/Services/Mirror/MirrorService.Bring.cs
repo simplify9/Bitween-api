@@ -172,40 +172,53 @@ public sealed partial class MirrorService
         try
         {
             using var comparison = await CompareAsync(removeExtras: false, copyKey);
-            var index = Index(comparison.Copy.Sections);
-            if (keys.FirstOrDefault(k => !index.ContainsKey((kind.Section, k))) is { } gone)
-                throw new MirrorRefusal($"Prod doesn't have the {kind.Noun} “{gone}” any more.");
+            var bringing = await PlanBringingAsync(comparison, kind, keys);
+            if (!apply) return new MirrorBring(false, bringing.Pieces, bringing.NeedsYou, []);
 
-            var needs = Needs(comparison.Copy.Sections, keys.Select(k => (kind.Section, k)));
-            var (pieces, wants) = Pieces(comparison, index, needs);
-            var uses = AdapterUses(needs.Keys.GroupBy(n => n.Section)
-                .ToDictionary(g => g.Key, g => g.Select(n => index[n]).ToList()));
-            var adapters = comparison.Parity.Adapters.Where(a => uses.ContainsKey(a.Id)).Select(a => a with { UsedBy = uses[a.Id] }).ToList();
-            foreach (var a in adapters.Where(a => a.State == "missing" && a.Source == "marketplace" && a.ProdVersion != null))
-            {
-                pieces.Add(new MirrorPiece(Kinds.Adapters, "adapter", $"{a.Id} {a.ProdVersion}", "install",
-                    $"{Capital(Count(a.UsedBy, "item"))} brought here use{(a.UsedBy == 1 ? "s" : "")} it."));
-                Add(wants, Kinds.Adapters, new JsonObject { ["install"] = a.Id, ["version"] = a.ProdVersion, ["current"] = true });
-            }
-
-            var config = comparison.Config;
-            config.Sections.Clear();
-            foreach (var (s, items) in wants) config.Sections[s] = items;
-            var plan = await comparison.Planner.PlanAsync(prune: false);
-            var needsYou = AdapterNotes(adapters);
-            needsYou.AddRange(plan.Problems.Distinct().Select(p => new MirrorNote($"problem:{p}", "needsYou", $"On staging: {p}")));
-            if (!apply) return new MirrorBring(false, pieces, needsYou, []);
-
-            var failed = await comparison.Planner.ApplyAllAsync(plan);
-            foreach (var change in plan.Changes) LastFailures.TryRemove((change.Section, change.Key), out _);
+            var failed = await comparison.Planner.ApplyAllAsync(bringing.Plan);
+            foreach (var change in bringing.Plan.Changes) LastFailures.TryRemove((change.Section, change.Key), out _);
             foreach (var (change, error) in failed) LastFailures[(change.Section, change.Key)] = error;
-            var made = pieces.Select(p => p.State == "new" ? p with { StagingId = IdOn(comparison.Staging, p.Section, p.Key, index) } : p).ToList();
-            return new MirrorBring(true, made, needsYou, failed.Select(f => new MirrorFailure(f.Change.Section, f.Change.Noun, f.Change.Key, f.Error)).ToList());
+            var made = bringing.Pieces.Select(p => p.State == "new" ? p with { StagingId = IdOn(comparison.Staging, p.Section, p.Key, bringing.Index) } : p).ToList();
+            return new MirrorBring(true, made, bringing.NeedsYou, failed.Select(f => new MirrorFailure(f.Change.Section, f.Change.Noun, f.Change.Key, f.Error)).ToList());
         }
         finally
         {
             MirrorCopyGate.CloseKey(copyKey);
         }
+    }
+
+    /// <summary>What bringing some of prod's items takes, worked out on a comparison, with the plan that brings them.</summary>
+    /// <param name="Needs">The picked items and everything that comes with them, each with why.</param>
+    /// <param name="Index">Prod's items, as the copy has them, by kind and key.</param>
+    /// <param name="Adapters">The adapters what comes runs, prod's beside staging's.</param>
+    sealed record Bringing(List<MirrorPiece> Pieces, List<MirrorNote> NeedsYou, Plan Plan, Dictionary<(string Section, string Key), string> Needs,
+        Dictionary<(string Section, string Key), JsonObject> Index, List<MirrorAdapter> Adapters);
+
+    async Task<Bringing> PlanBringingAsync(Comparison comparison, Kind kind, IReadOnlyCollection<string> keys)
+    {
+        var index = Index(comparison.Copy.Sections);
+        if (keys.FirstOrDefault(k => !index.ContainsKey((kind.Section, k))) is { } gone)
+            throw new MirrorRefusal($"Prod doesn't have the {kind.Noun} “{gone}” any more.");
+
+        var needs = Needs(comparison.Copy.Sections, keys.Select(k => (kind.Section, k)));
+        var (pieces, wants) = Pieces(comparison, index, needs);
+        var uses = AdapterUses(needs.Keys.GroupBy(n => n.Section)
+            .ToDictionary(g => g.Key, g => g.Select(n => index[n]).ToList()));
+        var adapters = comparison.Parity.Adapters.Where(a => uses.ContainsKey(a.Id)).Select(a => a with { UsedBy = uses[a.Id] }).ToList();
+        foreach (var a in adapters.Where(a => a.State == "missing" && a.Source == "marketplace" && a.ProdVersion != null))
+        {
+            pieces.Add(new MirrorPiece(Kinds.Adapters, "adapter", $"{a.Id} {a.ProdVersion}", "install",
+                $"{Capital(Count(a.UsedBy, "item"))} brought here use{(a.UsedBy == 1 ? "s" : "")} it."));
+            Add(wants, Kinds.Adapters, new JsonObject { ["install"] = a.Id, ["version"] = a.ProdVersion, ["current"] = true });
+        }
+
+        var config = comparison.Config;
+        config.Sections.Clear();
+        foreach (var (s, items) in wants) config.Sections[s] = items;
+        var plan = await comparison.Planner.PlanAsync(prune: false);
+        var needsYou = AdapterNotes(adapters);
+        needsYou.AddRange(plan.Problems.Distinct().Select(p => new MirrorNote($"problem:{p}", "needsYou", $"On staging: {p}")));
+        return new Bringing(pieces, needsYou, plan, needs, index, adapters);
     }
 
     /// <summary>Where staging has an item now, as its page opens it: a SQL statement's is its data source's.</summary>

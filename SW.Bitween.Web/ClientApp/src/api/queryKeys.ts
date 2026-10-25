@@ -222,6 +222,8 @@ export const keys = {
     rehearsal: ["mirror", "rehearsal"] as const,
     prodKinds: ["mirror", "prodKinds"] as const,
     prod: (section: string, type?: string) => ["mirror", "prod", section, type ?? "all"] as const,
+    subscription: (id: number) => ["mirror", "subscription", id] as const,
+    test: (id: number) => ["mirror", "test", id] as const,
   },
 
   settings: {

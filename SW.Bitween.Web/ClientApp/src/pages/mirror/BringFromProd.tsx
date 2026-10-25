@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, CircleCheck, Download } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import {
   api,
@@ -13,14 +13,13 @@ import {
   type MirrorProdItem,
 } from "../../api";
 import { keys } from "../../api/queryKeys";
-import { useSessionCan } from "../../auth/useSessionCan";
 import { Sparkline } from "../../components/charts/Sparkline";
 import { Badge, Button, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Dialog } from "../../components/ui/overlays";
 import { SearchBox } from "../../components/ui/SearchBox";
 import { timeAgo } from "../../lib/dates";
 import { whole } from "../../lib/numbers";
-import { itemPath, plural } from "./shared";
+import { itemPath, plural, useMirror } from "./shared";
 
 /** Whether staging has one of prod's items, as the picker says it. */
 const ON_STAGING: Record<Exclude<MirrorItemState, "extra">, { label: string; tone: "ok" | "neutral" | "crimson" | "warn"; title: string }> = {
@@ -44,9 +43,8 @@ const PIECES: { state: MirrorPieceState; title: string; description: string }[] 
  * picker then says. Opens the picker.
  */
 export function BringFromProd({ section, type, label }: { section: MirrorBringSection; type?: string; label: string }) {
-  const canOperate = useSessionCan("mirror.operate");
-  const status = useQuery({ queryKey: keys.mirror.status, queryFn: () => api.getMirror(), enabled: canOperate, staleTime: 5 * 60_000 });
-  const ready = canOperate && !!status.data?.target && !!status.data.configured;
+  const mirror = useMirror();
+  const ready = mirror.ready && mirror.canOperate;
   const kinds = useQuery({ queryKey: keys.mirror.prodKinds, queryFn: () => api.getMirrorProdKinds(), enabled: ready, staleTime: 60_000 });
   const [open, setOpen] = useState(false);
 
@@ -66,12 +64,29 @@ export function BringFromProd({ section, type, label }: { section: MirrorBringSe
   );
 }
 
-function BringDialog({ section, type, label, onClose }: { section: MirrorBringSection; type?: string; label: string; onClose: () => void }) {
+/**
+ * The picker, then what comes, then what was brought. Given `picked`, it opens on what comes with
+ * those, and going back closes it.
+ */
+export function BringDialog({ section, type, label, picked: given, onClose }: {
+  section: MirrorBringSection;
+  type?: string;
+  label: string;
+  picked?: string[];
+  onClose: () => void;
+}) {
   const queryClient = useQueryClient();
-  const list = useQuery({ queryKey: keys.mirror.prod(section, type), queryFn: () => api.getMirrorProd(section, type) });
-  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const list = useQuery({ queryKey: keys.mirror.prod(section, type), queryFn: () => api.getMirrorProd(section, type), enabled: !given });
+  const [picked, setPicked] = useState<Set<string>>(() => new Set(given ?? []));
   const [shown, setShown] = useState<MirrorBring | null>(null);
   const preview = useMutation({ mutationFn: () => api.bringFromProd(section, [...picked], false), onSuccess: setShown });
+  // Asked for once, when it opens on what comes.
+  const started = useRef(false);
+  useEffect(() => {
+    if (!given || started.current) return;
+    started.current = true;
+    preview.mutate();
+  }, [given, preview]);
   const bring = useMutation({
     mutationFn: () => api.bringFromProd(section, [...picked], true),
     onSuccess: (result) => {
@@ -90,9 +105,15 @@ function BringDialog({ section, type, label, onClose }: { section: MirrorBringSe
           result={shown}
           busy={bring.isPending}
           error={bring.error?.message}
-          onBack={() => setShown(null)}
+          onBack={given ? onClose : () => setShown(null)}
           onBring={() => bring.mutate()}
         />
+      </Dialog>
+    );
+  if (given)
+    return (
+      <Dialog title={title} onClose={onClose} wide>
+        {preview.isError ? <FormError>{preview.error.message}</FormError> : <LoadingBlock label="Working out what comes…" />}
       </Dialog>
     );
   return (

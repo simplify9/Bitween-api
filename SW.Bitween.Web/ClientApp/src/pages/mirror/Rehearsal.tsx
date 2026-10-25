@@ -26,9 +26,9 @@ import { exchangePath, itemPath, ItemLinks, OUTCOME, plural, SampleFile } from "
 
 const FileCompare = lazy(() => import("./FileCompare"));
 
-type Verdict = "different" | "check" | "same" | "notRun";
+export type Verdict = "different" | "check" | "same" | "notRun";
 
-const VERDICT: Record<Verdict, { label: string; tone: "danger" | "warn" | "ok" | "neutral"; title: string }> = {
+export const VERDICT: Record<Verdict, { label: string; tone: "danger" | "warn" | "ok" | "neutral"; title: string }> = {
   different: { label: "Different", tone: "danger", title: "It ended another way than on prod, or what it sent or got back changed: its format, its fields, or how a value is written" },
   check: { label: "Check", tone: "warn", title: "Only values' text changed, and each kept its look. Fake data explains that when a mapping works values out; a wrong field taken doesn't" },
   same: { label: "Same", tone: "ok", title: "It ended as on prod, and sent and got back the same" },
@@ -48,7 +48,7 @@ const ENTRY: Record<MirrorFamily["entry"], { label: string; title: string }> = {
 };
 
 /** One of prod's families, and its run on staging when the last rehearsal ran it. */
-interface Entry {
+export interface Entry {
   family: MirrorFamily;
   run: MirrorFamilyRun | undefined;
   verdict: Verdict;
@@ -278,13 +278,15 @@ export function RehearsalList({ samples, rehearsal, prodUrl, items }: {
   );
 }
 
-function FamilyRow({ entry, open, onToggle, prodUrl, items, rehearsed }: {
+export function FamilyRow({ entry, open, onToggle, prodUrl, items, rehearsed, pending }: {
   entry: Entry;
   open: boolean;
   onToggle: () => void;
   prodUrl: string;
   items: Map<string, MirrorItem>;
   rehearsed: boolean;
+  /** What to say of a family with no run yet, in place of the rehearsal's words. */
+  pending?: string;
 }) {
   const { family, run, verdict } = entry;
   const exchanges = pathOf("exchanges");
@@ -292,7 +294,7 @@ function FamilyRow({ entry, open, onToggle, prodUrl, items, rehearsed }: {
   const prodEnding = worst(family.members.map((m) => m.outcome));
   const stagingEnding = run ? worst(run.members.map((m) => m.outcome)) : null;
   const name = family.door ?? first.subscription ?? first.informationType ?? "";
-  const notRun = run?.notRun ?? (rehearsed ? "It wasn't in the last rehearsal: rehearse again." : "Not rehearsed yet.");
+  const notRun = run?.notRun ?? pending ?? (rehearsed ? "It wasn't in the last rehearsal: rehearse again." : "Not rehearsed yet.");
   return (
     <li className="text-[13px]">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 py-1.5">
@@ -507,7 +509,7 @@ function filesOf(diff: MirrorDiff, run: MirrorRun | undefined, sample: MirrorSam
   return null;
 }
 
-function DiffLine({ diff, run, sample }: { diff: MirrorDiff; run?: MirrorRun; sample?: MirrorSample }) {
+export function DiffLine({ diff, run, sample }: { diff: MirrorDiff; run?: MirrorRun; sample?: MirrorSample }) {
   const [open, setOpen] = useState(false);
   const [comparing, setComparing] = useState(false);
   const files = filesOf(diff, run, sample);

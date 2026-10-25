@@ -1,9 +1,20 @@
+import { useQuery } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
 import { Link } from "react-router";
-import type { MirrorItem, MirrorSample, MirrorSampleFile, SubscriptionType } from "../../api";
+import { api, type MirrorItem, type MirrorSample, type MirrorSampleFile, type SubscriptionType } from "../../api";
+import { keys } from "../../api/queryKeys";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { whole } from "../../lib/numbers";
 import { subscriptionPath } from "../../lib/subscriptionPaths";
 import { pathOf, type PageId } from "../../pages";
+
+/** Whether this Bitween is a mirror whose prod is set, and what the signed-in person may do with it there. */
+export function useMirror() {
+  const canView = useSessionCan("mirror.view");
+  const canOperate = useSessionCan("mirror.operate");
+  const status = useQuery({ queryKey: keys.mirror.status, queryFn: () => api.getMirror(), enabled: canView, staleTime: 5 * 60_000 });
+  return { ready: canView && !!status.data?.target && !!status.data.configured, canOperate, prodUrl: status.data?.sourceUrl ?? "" };
+}
 
 /** Where an item of each kind opens. Subscription categories have no page of their own. */
 const KIND_PAGE: Record<string, PageId> = {

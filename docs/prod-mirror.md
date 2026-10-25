@@ -57,6 +57,21 @@ What the staging doesn't have comes as prod has it, faked as a copy fakes it, so
 
 **Bring** then brings them. It carries on past an item that fails, and lists each failure with Bitween's reason.
 
+## Against prod, on a subscription's page
+
+On a mirror, every subscription's page ends with **Against prod**. A badge by its name says how it stands: **Same as prod**, **Differs from prod**, **Prod: to do**, or **Only on staging** when prod has no subscription of its name.
+
+- **What differs** lists the subscription and every item it needs to run as on prod (the items bringing it would bring), each beside prod's: the same, the same with faked values, different field by field, or not on staging. The adapters they run come last. What is the same folds into one line.
+- **Left to do** lists what only a person can do, such as uploading an adapter, and what staging doesn't have yet, with **Bring them from prod**, which opens on what comes.
+- **Test with prod's traffic**:
+  - **Take prod's arrivals** takes up to five of the subscription's latest exchanges on prod, each with what came in and everything it led to, faked as samples are.
+  - **Run the test** sends each arrival in on staging the way it came in on prod, and compares every exchange it leads to with its twin, as a rehearsal does. The page follows it as it runs. An arrival counts as **Same** when every exchange ends as prod's did and sends and gets back the same.
+  - **Clear test data** removes what the test made on staging: each exchange its runs started, with its files, and how the runs compared. Prod's arrivals stay, to run again.
+
+Tests run one at a time across the staging, and not while samples are taken or a rehearsal runs.
+
+A test calls a gateway as the partner, with the stand-in key the copy gave it. Stand-ins come from the staging's `Token:Key`, so one made before that key changed no longer matches: the test sets it to the current stand-in when it needs it. A key set on the staging is never touched, and a partner that has only those can't be called as.
+
 ## Samples of prod's traffic
 
 **Take samples** takes a few of prod's recent exchanges for each subscription: up to five, mostly ones that worked, with one the partner answered badly and one that failed when prod has them, never a retry or one still running. Each comes with its **arrival**: the thing that came in on prod and every exchange it led to there. That is a partner's call through a gateway or the partner API, a document routed to the subscriptions that want it, a file a receiver read, or an aggregation, followed by the answers it handed on to response subscriptions and the messages bus gateways took. For each exchange it keeps what came in, what Bitween sent and what the partner answered, and how the exchange ended.

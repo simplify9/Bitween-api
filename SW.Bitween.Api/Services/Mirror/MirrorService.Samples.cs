@@ -87,7 +87,7 @@ public sealed partial class MirrorService
             Subscriptions = samples.Subscriptions.Select(s => s with { Families = s.Families ?? [] }).ToList(),
             Families = (samples.Families ?? []).Select(f => f with { Members = f.Members.Select(Linked).ToList() }).ToList(),
         };
-        if (work.Running is { Kind: MirrorWork.Sampling } running)
+        if (work.Running is { Kind: MirrorWork.Sampling, Subject: null } running)
             return samples with { State = "running", StartedOn = running.StartedOn, FinishedOn = null, Done = running.Done, Total = running.Total, Error = null };
         return work.LastError(MirrorWork.Sampling) is { } error ? samples with { State = "failed", Error = error } : samples;
     }
@@ -116,13 +116,17 @@ public sealed partial class MirrorService
 
     // ------------------------------------------------------------------ one subscription
 
-    /// <summary>One taking: what it reads prod with, and the families it has found so far, by their first exchange.</summary>
-    sealed class Taking(BitweenApi prod, Context ctx, HttpClient files, MirrorFaker faker)
+    /// <summary>
+    /// One taking: what it reads prod with, where it keeps the files, and the families it has found so far,
+    /// by their first exchange.
+    /// </summary>
+    sealed class Taking(BitweenApi prod, Context ctx, HttpClient files, MirrorFaker faker, string prefix = SamplesPrefix)
     {
         public BitweenApi Prod { get; } = prod;
         public Context Ctx { get; } = ctx;
         public HttpClient Files { get; } = files;
         public MirrorFaker Faker { get; } = faker;
+        public string Prefix { get; } = prefix;
         public Dictionary<string, MirrorFamily> Families { get; } = new(StringComparer.Ordinal);
 
         /// <summary>Each exchange already in a family, with the family's id.</summary>
@@ -343,7 +347,7 @@ public sealed partial class MirrorService
         var type = (string)row["documentName"];
         // Named by staging, never by a path prod could choose: the subscription by a hash of its name, the
         // exchange by its id when that is only letters and digits.
-        var folder = $"{SamplesPrefix}/{Folder(subscription ?? type ?? "")}/{(SafeId.IsMatch(id) ? id : Folder(id))}";
+        var folder = $"{taking.Prefix}/{Folder(subscription ?? type ?? "")}/{(SafeId.IsMatch(id) ? id : Folder(id))}";
         var (status, errorTypes) = ErrorOf((string)row["exception"]);
         var (files, faker) = (taking.Files, taking.Faker);
         var rolled = (string)SubscriptionOf(taking, row)?.File["type"] == "Aggregation"
