@@ -17,81 +17,125 @@ public record MirrorSampleFile(string Key, string Name, string Format, int Size,
 
 /// <summary>
 /// One of prod's exchanges, faked: what came in, what Bitween sent, what the partner answered, and how
-/// it ended on prod. A rehearsal runs what came in on staging and compares the ending.
+/// it ended on prod. A rehearsal runs it on staging, as part of its family, and compares the ending.
 /// </summary>
 /// <param name="ProdExchangeId">The exchange on prod, so the page can open it there.</param>
+/// <param name="Subscription">Its subscription, by name; null for a document being routed.</param>
+/// <param name="InformationType">The type of what came in, by name.</param>
+/// <param name="Parent">The exchange on prod whose answer, or whose message, started it; null for the one that came in.</param>
 /// <param name="Outcome">success, badResponse or failed: how it ended on prod.</param>
 /// <param name="Status">The partner's HTTP status, where prod's error names one.</param>
 /// <param name="ErrorTypes">
 /// The kinds of error prod's error names, outermost first: HttpRequestException, SocketException. Its
 /// message isn't kept - it can hold prod's data - so the page opens the exchange on prod to read it.
 /// </param>
+/// <param name="Partner">The partner it ran as, by name: a partner calling an API gateway, or the subscription's own.</param>
+/// <param name="Handler">The handler it ran, as prod recorded it: the adapter, and its version where one was pinned.</param>
+/// <param name="Mapper">The mapper it ran, the same way.</param>
+/// <param name="Rolled">For an aggregation: a few of the files it rolled up, faked, for staging to roll up the like.</param>
 public record MirrorSample(string ProdExchangeId, DateTime StartedOn, string Outcome, int? Status, IReadOnlyList<string> ErrorTypes,
-    MirrorSampleFile Input, MirrorSampleFile Output, MirrorSampleFile Response);
+    MirrorSampleFile Input, MirrorSampleFile Output, MirrorSampleFile Response,
+    string Partner = null, string Handler = null, string Mapper = null,
+    string Subscription = null, string InformationType = null, string Parent = null,
+    IReadOnlyList<MirrorSampleFile> Rolled = null);
 
-/// <summary>A subscription's samples, or why it has none.</summary>
+/// <summary>
+/// One thing that came in on prod and every exchange it led to: a document routed to the subscriptions
+/// that wanted it, a partner's call through a gateway, a file a receiver read, an aggregation - then the
+/// answers those handed on, to response subscriptions or as messages to bus gateways. A rehearsal sends
+/// the first in the way it came in, and staging runs the rest by itself.
+/// </summary>
+/// <param name="Id">The first exchange's id on prod.</param>
+/// <param name="Entry">How it came in: document, gateway, api (the partner API), receiver, aggregation or direct.</param>
+/// <param name="Door">What it came in through, by name: the information type, the gateway, the receiving subscription.</param>
+/// <param name="Partner">The partner who called, for a gateway or the partner API.</param>
+/// <param name="Members">Its exchanges, in the order they started on prod; the first is the one that came in.</param>
+/// <param name="Cut">How many more exchanges prod's family had than the sample keeps.</param>
+/// <param name="Unlinked">
+/// Prod doesn't say which subscriptions a document of it went to - it came in without a correlation
+/// id - so the subscriptions staging routes it to are run, but not counted as more than prod's.
+/// </param>
+public record MirrorFamily(string Id, string Entry, string Door, string Partner, IReadOnlyList<MirrorSample> Members, int Cut = 0,
+    bool Unlinked = false);
+
+/// <summary>A subscription's place in the samples: the families it takes part in, or why there are none.</summary>
 /// <param name="ProdId">The subscription on prod.</param>
-public record MirrorSubscriptionSamples(string Subscription, string ProdId, IReadOnlyList<MirrorSample> Samples, string Reason);
+public record MirrorSubscriptionSamples(string Subscription, string ProdId, IReadOnlyList<string> Families, string Reason);
 
 /// <summary>The samples staging holds, and how the last taking went: what the page shows.</summary>
 /// <param name="State">none (never taken), running, done or failed.</param>
 /// <param name="Done">Subscriptions read so far, of <paramref name="Total"/>.</param>
 /// <param name="Error">Why the last taking stopped, when it did.</param>
 public record MirrorSamples(string State, DateTimeOffset? StartedOn, DateTimeOffset? FinishedOn, int Done, int Total, string Error,
-    IReadOnlyList<MirrorSubscriptionSamples> Subscriptions);
+    IReadOnlyList<MirrorSubscriptionSamples> Subscriptions, IReadOnlyList<MirrorFamily> Families = null);
 
-/// <summary>How far a taking under way is.</summary>
-public record MirrorSamplingProgress(DateTimeOffset StartedOn, int Done, int Total);
+/// <summary>How far the mirror's work under way is.</summary>
+/// <param name="Kind">samples or rehearsal.</param>
+/// <param name="Done">Done so far, of <paramref name="Total"/>: subscriptions read, or samples run.</param>
+public record MirrorProgress(string Kind, DateTimeOffset StartedOn, int Done, int Total);
 
 /// <summary>
-/// Takes prod's samples in the background, one taking at a time, so the page can follow it: on a big
-/// prod it takes longer than a request may wait. How it is going is known to the node doing it, and a
-/// staging runs one node.
+/// Runs the mirror's long work in the background - taking prod's samples, or rehearsing them - one at a
+/// time, so the page can follow it: on a big prod it takes longer than a request may wait, and a
+/// rehearsal running while its samples are replaced would compare the wrong files. How it is going is
+/// known to the node doing it, and a staging runs one node.
 /// </summary>
-public sealed class MirrorSampler(IServiceScopeFactory scopes, ILogger<MirrorSampler> logger)
+public sealed class MirrorWork(IServiceScopeFactory scopes, ILogger<MirrorWork> logger)
 {
+    public const string Sampling = "samples", Rehearsing = "rehearsal";
+
     readonly Lock gate = new();
+    readonly Dictionary<string, string> lastErrors = new(StringComparer.Ordinal);
     Task running;
 
-    /// <summary>The taking under way; null when none is.</summary>
-    public MirrorSamplingProgress Running { get; private set; }
+    /// <summary>The work under way; null when none is.</summary>
+    public MirrorProgress Running { get; private set; }
 
-    /// <summary>Why the last taking stopped, until another starts; null when it finished.</summary>
-    public string LastError { get; private set; }
+    /// <summary>Why the last work of a kind stopped, until it starts again; null when it finished.</summary>
+    public string LastError(string kind)
+    {
+        lock (gate) return lastErrors.GetValueOrDefault(kind);
+    }
 
-    /// <summary>Starts a taking, unless one is under way.</summary>
-    public void Start()
+    /// <summary>Starts work of a kind, unless work is under way: then says which kind is, and starts nothing.</summary>
+    public string Start(string kind, Func<MirrorService, Action<int, int>, CancellationToken, Task> work)
     {
         lock (gate)
         {
-            if (running is { IsCompleted: false }) return;
-            Running = new MirrorSamplingProgress(DateTimeOffset.UtcNow, 0, 0);
-            LastError = null;
-            running = Task.Run(RunAsync);
+            if (running is { IsCompleted: false }) return Running?.Kind;
+            Running = new MirrorProgress(kind, DateTimeOffset.UtcNow, 0, 0);
+            lastErrors.Remove(kind);
+            running = Task.Run(() => RunAsync(kind, work));
+            return null;
         }
     }
 
-    async Task RunAsync()
+    async Task RunAsync(string kind, Func<MirrorService, Action<int, int>, CancellationToken, Task> work)
     {
         var startedOn = Running.StartedOn;
+        string error = null;
         try
         {
             using var scope = scopes.CreateScope();
             var mirror = scope.ServiceProvider.GetRequiredService<MirrorService>();
-            await mirror.TakeSamplesAsync((done, total) => Running = new MirrorSamplingProgress(startedOn, done, total));
+            await work(mirror, (done, total) => Running = new MirrorProgress(kind, startedOn, done, total), CancellationToken.None);
         }
         catch (MirrorRefusal refusal)
         {
-            LastError = refusal.Message;
+            error = refusal.Message;
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "Taking prod's samples stopped");
-            LastError = $"Taking samples stopped: {ex.Message}";
+            logger.LogError(ex, "The prod mirror's {Kind} stopped", kind);
+            error = $"{(kind == Sampling ? "Taking samples" : "The rehearsal")} stopped: {ex.Message}";
         }
         finally
         {
-            Running = null;
+            lock (gate)
+            {
+                if (error != null) lastErrors[kind] = error;
+                Running = null;
+            }
         }
     }
 }

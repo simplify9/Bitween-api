@@ -17,10 +17,15 @@ public record MirrorUse(string Section, string Noun, string Key, string Where);
 public record MirrorFakedKey(string Id, string Label, int Count, bool Kept);
 
 /// <summary>Prod's setup as staging gets it: every value handled, and what that turned up.</summary>
+/// <param name="SwitchedOff">
+/// The data sources and bus gateways prod has on and the copy switched off, as section/key: a rehearsal's
+/// traffic still goes through them, as prod's does.
+/// </param>
 public record MirrorSetupCopy(
     Dictionary<string, List<JsonObject>> Sections,
     IReadOnlyList<MirrorAddress> Addresses,
-    IReadOnlyList<MirrorFakedKey> FakedKeys);
+    IReadOnlyList<MirrorFakedKey> FakedKeys,
+    IReadOnlySet<string> SwitchedOff = null);
 
 /// <summary>
 /// Prod's setup, read as a configuration file would say it, with what staging must not hold taken out:
@@ -42,8 +47,11 @@ public static class MirrorSetup
         foreach (var (section, items) in prod)
             sections[section] = items.Where(e => e.Key != null).OrderBy(e => e.Key, StringComparer.Ordinal)
                 .Select(e => Handle(section, e.Key, (JsonObject)e.File.DeepClone(), faker, keep)).ToList();
+        var switchedOff = prod.Where(p => p.Key is "dataSources" or "busGateways")
+            .SelectMany(p => p.Value.Where(e => e.Key != null && !Values.Same(e.File["inactive"], true)).Select(e => $"{p.Key}/{e.Key}"))
+            .ToHashSet(StringComparer.Ordinal);
 
-        return new MirrorSetupCopy(sections, AddressesIn(sections), FakedKeys(prod, keep));
+        return new MirrorSetupCopy(sections, AddressesIn(sections), FakedKeys(prod, keep), switchedOff);
     }
 
     static JsonObject Handle(string section, string key, JsonObject item, MirrorFaker faker, ISet<string> keep)

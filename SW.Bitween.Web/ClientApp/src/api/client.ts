@@ -3,6 +3,7 @@ import type {
   MirrorCalls,
   MirrorCopyResult,
   MirrorParityAnswer,
+  MirrorRehearsal,
   MirrorSamples,
   MirrorStatus,
   InviteResult,
@@ -667,6 +668,8 @@ export interface ApiClient {
   getMirrorSamples(): Promise<MirrorSamples>;
   takeMirrorSamples(): Promise<MirrorSamples>;
   getMirrorCalls(): Promise<MirrorCalls>;
+  getMirrorRehearsal(): Promise<MirrorRehearsal>;
+  rehearseMirror(): Promise<MirrorRehearsal>;
 
   // - settings -
   listSettings(): Promise<SettingRow[]>;

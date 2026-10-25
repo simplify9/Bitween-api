@@ -164,7 +164,9 @@ public class BitweenApi : IDisposable
     async Task<JsonNode> SendAsync(Func<HttpRequestMessage> make)
     {
         var token = profile.AccessToken;
-        if (Expired(token)) await RenewAsync(token);
+        // A token it can't renew - one handed over with no way to sign in again - is sent as it is: the
+        // server allows for clocks a little apart, and says itself when it won't take it.
+        if (Expired(token) && CanRenew) await RenewAsync(token);
         var response = await SendOnceAsync(make());
         if (response.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -181,6 +183,8 @@ public class BitweenApi : IDisposable
             return string.IsNullOrWhiteSpace(text) ? null : JsonNode.Parse(text);
         }
     }
+
+    bool CanRenew => serviceToken != null || member != null || !string.IsNullOrEmpty(profile.RefreshToken);
 
     Task<HttpResponseMessage> SendOnceAsync(HttpRequestMessage request)
     {

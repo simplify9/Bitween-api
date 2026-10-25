@@ -106,8 +106,11 @@ namespace SW.Bitween.Resources.Xchanges
             var xchangeId = string.IsNullOrEmpty(idempotencyKey)
                 ? null
                 : await IdempotencyGuard.FindAsync(dbContext, idempotencyScope, idempotencyKey);
+            // A mirror's rehearsal calls as prod's partner did, under a correlation of its own, and
+            // sends what the rehearsal before it sent.
+            var rehearsal = Services.Mirror.MirrorTraffic.CorrelationFor(BitweenSettings, httpContextAccessor?.HttpContext?.Request.Headers);
             // Not for a replayed call: its payload is a repeat by definition, and it is answered already.
-            var duplicate = xchangeId is null
+            var duplicate = xchangeId is null && rehearsal is null
                 ? await new DuplicateArrivals(dbContext).CheckAsync(document, par.Partner.Id, xchangeFile)
                 : null;
             if (duplicate?.Drop == true)
@@ -120,7 +123,7 @@ namespace SW.Bitween.Resources.Xchanges
                 if (duplicate != null && duplicate.FitsWith(xchangeReferences)) xchangeReferences.Add(duplicate.Reference);
                 var subscription = await cache.SubscriptionByIdAsync(sub.Id);
                 var xchange = await xchangeService.CreateXchange(subscription, xchangeFile,
-                    xchangeReferences.ToArray(), Guid.NewGuid().ToString("N"));
+                    xchangeReferences.ToArray(), rehearsal ?? Guid.NewGuid().ToString("N"));
                 if (string.IsNullOrEmpty(idempotencyKey))
                 {
                     await dbContext.SaveChangesAsync();

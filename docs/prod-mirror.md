@@ -40,7 +40,9 @@ Prod may hold several items of a kind under one name. Each after the oldest is n
 
 ## Samples of prod's traffic
 
-**Take samples** takes a few of prod's recent exchanges for each subscription: up to five, mostly ones that worked, with one the partner answered badly and one that failed when prod has them, never a retry or one still running. For each it keeps what came in, what Bitween sent and what the partner answered, and how the exchange ended. The rehearsal runs them through the staging's flows.
+**Take samples** takes a few of prod's recent exchanges for each subscription: up to five, mostly ones that worked, with one the partner answered badly and one that failed when prod has them, never a retry or one still running. Each comes with its **arrival**: the thing that came in on prod and every exchange it led to there. That is a partner's call through a gateway or the partner API, a document routed to the subscriptions that want it, a file a receiver read, or an aggregation, followed by the answers it handed on to response subscriptions and the messages bus gateways took. For each exchange it keeps what came in, what Bitween sent and what the partner answered, and how the exchange ended.
+
+Prod records how its exchanges are linked: a document's subscriptions share its correlation id and its input, and an answer handed on or a message names the exchange it came from. The samples follow those links only. Each search on prod is bound to the minutes around the exchange it starts from, which prod has indexed, so a big prod isn't searched end to end. An arrival keeps up to 25 exchanges. A subscription whose handler reads values from the exchange that started it (`{{source.…}}`) runs only inside that exchange's arrival; when prod doesn't say which exchange that was, the page says so.
 
 Each file is faked the moment it arrives, in its own format, before it is saved:
 
@@ -56,7 +58,38 @@ Values are faked the way partner properties are, so the same value is the same f
 
 A file that can't be faked safely isn't kept, and the page says why: PDFs, archives, Word files, EDI files, workbooks with pictures, charts or pivot tables, binary files and files over 5 MB. Of prod's error only the partner's HTTP status and the kinds of error it names, such as `HttpRequestException`, are kept: the message can hold prod's data, so the page links to the exchange on prod to read it.
 
+An aggregation also keeps a few of the files it rolled up, faked, read through prod's own links to them. Staging never fetches an address that prod's data merely names.
+
 Prod is read gently: one subscription at a time, one page of its recent exchanges, then each file. Taking samples again replaces the ones taken before.
+
+## Rehearsal
+
+**Rehearse** sends each arrival in on the staging the way it came in on prod, with prod's input as the staging keeps it, faked. The staging then runs everything after it by itself, as prod did:
+
+| It came in on prod as | The rehearsal sends it in |
+|---|---|
+| A partner's call to an API gateway | As that partner, to the staging's gateway: with the key the copy gave the partner, or, for a gateway that checks tokens, a token the staging signs as the partner's login server would |
+| A partner's call to the partner API | As that partner, to the staging's partner API |
+| A document | To the staging, which routes it to the subscriptions that want it |
+| A file a receiver read | Handed straight to the receiving subscription; reading it from the server comes with the test servers |
+| An aggregation | **Aggregate now**, rolling up what the staging ran of the subscription it aggregates; when it ran none, the files prod rolled up, faked |
+| An exchange started by hand | Started the same way |
+
+The staging's subscriptions stay paused, and its data sources and bus gateways switched off, so nothing runs on its own. Only the rehearsal's traffic gets through: it carries a correlation id of its own, which every exchange it leads to carries on, across the bus too, and calls through a gateway carry a key the rehearsal opens for as long as it runs. That traffic passes paused subscriptions, goes through the bus gateways prod has on, and is never taken for a duplicate of the rehearsal before it. Anyone else's traffic meets the staging as it is.
+
+When an exchange calls a partner, the staging answers with what prod's partner answered its twin, faked: the same body, `400` for an answer prod's partner gave with an error, the status prod's error names, or a call that fails to connect when prod's never got through. Arrivals run one at a time, so each exchange gets its own twin's answer, and they appear on the staging's **Exchanges** page under their correlation id.
+
+Each of the staging's exchanges is paired with its twin on prod (the same subscription, in the order they started) and compared, and gets one of three verdicts:
+
+- **Different**: it ended another way (worked, answered badly, failed), or what it sent or got back changed its format, lost or gained a field, has a list of another length, or writes a value another way: a date in another format, a number turned text, a value left empty. An exchange one side ran and the other didn't is different too, and so is a call the staging's gateway turned away.
+- **Check**: only values' text changed, and each kept its look. Fake data explains that when a mapping works values out, such as a sum or a cut; a wrong field taken doesn't, so it is worth a look.
+- **Same**: nothing changed.
+
+An arrival's verdict is the worst of its exchanges'. Both sides go through the same faker, so a value that is only faked reads the same on both. Opening an arrival shows how it came in, then its exchanges, the ones that differ first. Opening an exchange shows what changed first, prod beside staging, and folds what is the same into one line. A changed file opens field by field, and side by side. **What it used** compares the subscription, its information type, the partner it ran as, the global values it names and its adapters with prod's: prod's setup as it is today, faked as the copy fakes it, since prod's API doesn't give the setup an exchange ran with, only its adapters. These only explain a verdict. So do **Calls it made**: a call to a host sent for real (one the staging's setup names, the staging itself or this machine) gets that host's answer, not prod's partner's, and the page says so.
+
+An arrival doesn't run when it can't be sent in the way it came in on prod, and the page says why: a subscription, partner, gateway or information type the staging doesn't have yet, or an input that isn't kept.
+
+Taking samples and rehearsing don't run at the same time. A rehearsal replaces the one before it.
 
 ## Calls the staging answers
 
@@ -83,16 +116,18 @@ It answers first: **Ready to test the upgrade**, or **Not ready to test yet**, w
 
 - **Needs you**: what only a person can do, such as installing an adapter, each with where it is done.
 - **Copy prod's setup**: what copying will do, and the button. It creates what the staging lacks and updates what differs, carries on past an item that fails, and lists each one with Bitween's reason. Tick **Also remove** to delete what only the staging has.
-- **Samples of prod's traffic**: how many samples the staging holds and when they were taken, and the button that takes them again. While it runs, how far it has got.
+- **Rehearse prod's traffic**: how many samples the staging holds, and how the last rehearsal compared, with the buttons that take samples and rehearse. While either runs, how far it has got.
 - **Not covered by the test**: what is on prod but not on the staging, or not all of it: items waiting for an adapter, items the staging couldn't create, and fields this release doesn't know.
 - **Different on staging, on purpose**: paused subscriptions, switched-off data sources and bus gateways, fake values, test addresses, stand-in secrets and names told apart. None of it is a problem.
 
-Then the details, folded: **Prod's setup, item by item** (per kind, what is the same, differs, is missing or is only on the staging), **Samples, subscription by subscription** (how each ended on prod, a link to each faked file and to the exchange on prod), **Adapters**, **Fake values** (where a value can be kept as it is) and **Test addresses** (each with what uses it).
+Then the details, folded: **Prod's setup, item by item** (per kind, what is the same, differs, is missing or is only on the staging), **Arrival by arrival** (each arrival with its verdict, how it came in, prod's ending beside the staging's, the staging's exchanges and prod's, the different ones first), **Calls staging answered**, **Adapters**, **Fake values** (where a value can be kept as it is) and **Test addresses** (each with what uses it).
 
 When the staging can't create one of prod's items, the page says so, with what Bitween said. That is all it knows: an upgrade doesn't create items again, so a refusal here says nothing about how prod will behave.
 
 ## Not covered yet
 
-- Running prod's flows on the staging and comparing the results with prod's. Until then the samples are only kept.
-- SFTP, FTP and mail test servers. Until then those addresses lead nowhere.
+- SFTP, FTP and mail test servers. Until then those addresses lead nowhere, and a receiver's rehearsal starts from the file prod's receiver read.
+- Databases: a flow that reads or writes one, and data sources. They will answer with what they returned on prod, with a note that a test database tests more.
+- Files that can't be faked, such as PDFs: they will get stand-ins of the same kind, with a note asking for real test files.
+- Comparing a rehearsal with one run on the staging before the upgrade. The first upgrade with the mirror compares with prod's own results, which is why faked values that a mapping works out read as **Check**.
 - Runtime settings, roles, members and service accounts, which differ between environments on purpose.

@@ -1,5 +1,5 @@
-import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
-import { CircleCheck, ChevronDown, ChevronRight, ExternalLink, GitCompareArrows, TriangleAlert } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { CircleCheck, ChevronDown, ChevronRight, GitCompareArrows, TriangleAlert } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import {
@@ -13,12 +13,10 @@ import {
   type MirrorKind,
   type MirrorNote,
   type MirrorParity,
-  type MirrorSample,
-  type MirrorSampleFile,
+  type MirrorRehearsal,
   type MirrorSamples,
   type MirrorStatus,
   type SettingRow,
-  type SubscriptionType,
 } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { useSessionCan } from "../../auth/useSessionCan";
@@ -29,36 +27,12 @@ import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { Panel } from "../../components/ui/Panel";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { MiniTable } from "../../components/ui/Table";
-import { formatDateTime, timeAgo } from "../../lib/dates";
+import { timeAgo } from "../../lib/dates";
 import { whole } from "../../lib/numbers";
-import { subscriptionPath } from "../../lib/subscriptionPaths";
-import { pathOf, type PageId } from "../../pages";
+import { ItemLinks, plural } from "./shared";
+import { RehearsalList, RehearsalPanel } from "./Rehearsal";
 
 const KEEP_SETTING = "Bitween.Mirror.KeepRealValues";
-
-/** Where an item of each kind opens. Subscription categories have no page of their own. */
-const KIND_PAGE: Record<string, PageId> = {
-  workGroups: "workGroup",
-  informationTypes: "informationType",
-  partners: "partner",
-  globalValues: "globalValueSet",
-  connections: "connection",
-  notificationChannels: "notificationChannel",
-  retryPolicies: "retryPolicy",
-  dataSources: "dataSource",
-  dataSourceStatements: "dataSource",
-  apiGateways: "apiGateway",
-  busGateways: "busGateway",
-  notifiers: "notifier",
-};
-
-/** The page an item opens on, from its id; null for a kind with no page, or an item not there. */
-function itemPath(section: string, id: string | null, type?: string | null): string | null {
-  if (!id) return null;
-  if (section === "subscriptions") return subscriptionPath(Number(id), (type ?? null) as SubscriptionType | null);
-  const page = KIND_PAGE[section];
-  return page ? pathOf(page, { id }) : null;
-}
 
 const STATE_LABEL: Record<MirrorItem["state"], { label: string; tone: "ok" | "warn" | "danger" | "neutral"; title: string }> = {
   inSync: { label: "Same", tone: "ok", title: "Staging has it as prod has it" },
@@ -163,10 +137,15 @@ type FoldId = "setup" | "samples" | "calls" | "adapters" | "faked" | "addresses"
 
 function Comparison({ parity, status, onConnection }: { parity: MirrorParity; status: MirrorStatus; onConnection: () => void }) {
   const [open, setOpen] = useState<Set<FoldId>>(new Set(["setup"]));
-  // Followed every two seconds while a taking is under way, so the page shows how far it has got.
+  // Followed every two seconds while a taking or a rehearsal is under way, so the page shows how far it has got.
   const samples = useQuery({
     queryKey: keys.mirror.samples,
     queryFn: () => api.getMirrorSamples(),
+    refetchInterval: (q) => (q.state.data?.state === "running" ? 2000 : false),
+  });
+  const rehearsal = useQuery({
+    queryKey: keys.mirror.rehearsal,
+    queryFn: () => api.getMirrorRehearsal(),
     refetchInterval: (q) => (q.state.data?.state === "running" ? 2000 : false),
   });
   // Read while the list is open, and again every ten seconds: calls come in as flows run.
@@ -210,7 +189,7 @@ function Comparison({ parity, status, onConnection }: { parity: MirrorParity; st
 
       <CopyPanel parity={parity} target={status.target} notes={notes("copy")} context={context} />
 
-      <SamplesPanel samples={samples} target={status.target} onShow={() => show("samples")} />
+      <RehearsalPanel samples={samples} rehearsal={rehearsal} target={status.target} onShow={() => show("samples")} />
 
       <NoteGroup
         title="Not covered by the test"
@@ -234,11 +213,11 @@ function Comparison({ parity, status, onConnection }: { parity: MirrorParity; st
         <SetupList kinds={parity.kinds} prodUrl={parity.prod.url} />
       </Fold>
 
-      {samples.data && samples.data.subscriptions.length > 0 && (
-        <Fold id="samples" open={open.has("samples")} onToggle={toggle} title="Samples, subscription by subscription"
-          summary={`${whole(samples.data.subscriptions.filter((s) => s.samples.length > 0).length)} of ${whole(samples.data.subscriptions.length)} subscriptions have samples`}
-          description="How each sample ended on prod, and its files as staging keeps them, faked. Open a file to see what staging holds, or the exchange on prod.">
-          <SamplesList samples={samples.data} prodUrl={parity.prod.url} items={items} />
+      {samples.data && (samples.data.families ?? []).length > 0 && (
+        <Fold id="samples" open={open.has("samples")} onToggle={toggle} title="Arrival by arrival"
+          summary={rehearsalSummary(samples.data, rehearsal.data)}
+          description="Each thing that came in on prod, and every exchange it led to there and on staging, the ones that differ first. Open one to see how it came in, then each exchange, prod beside staging. Prod's side is staging's faked copy; open the exchanges on prod for their real values.">
+          <RehearsalList samples={samples.data} rehearsal={rehearsal.data} prodUrl={parity.prod.url} items={items} />
         </Fold>
       )}
 
@@ -270,6 +249,21 @@ function Comparison({ parity, status, onConnection }: { parity: MirrorParity; st
       </Fold>
     </div>
   );
+}
+
+/** The fold's one line: how the samples ran, or how many there are when none has run. */
+function rehearsalSummary(samples: MirrorSamples, rehearsal: MirrorRehearsal | undefined): string {
+  const ids = new Set((samples.families ?? []).map((f) => f.id));
+  const runs = (rehearsal?.families ?? []).filter((r) => ids.has(r.familyId));
+  if (runs.length === 0) return `${plural(ids.size, "arrival", "arrivals")}, not rehearsed yet`;
+  const n = (v: string) => runs.filter((r) => r.verdict === v).length;
+  const notRun = ids.size - runs.filter((r) => r.verdict).length;
+  return [
+    n("different") > 0 && `${whole(n("different"))} different`,
+    n("check") > 0 && `${whole(n("check"))} to check`,
+    n("same") > 0 && `${whole(n("same"))} the same`,
+    notRun > 0 && `${whole(notRun)} not run`,
+  ].filter(Boolean).join(", ");
 }
 
 /** The page's answer, first: ready or not, and what stands between. */
@@ -375,22 +369,6 @@ function NoteLinks({ note, context }: { note: MirrorNote; context: NoteContext }
   );
 }
 
-/** "On staging" and "On prod" links to one item, as far as each side has it. */
-function ItemLinks({ section, item, prodUrl }: { section: string; item: MirrorItem; prodUrl: string }) {
-  const staging = itemPath(section, item.stagingId, item.type);
-  const prod = itemPath(section, item.prodId, item.type);
-  return (
-    <span className="flex items-center gap-3">
-      {staging && <Link to={staging} className="link" title={`Open “${item.key}” on staging`}>On staging</Link>}
-      {prod && (
-        <a href={`${prodUrl}${prod}`} target="_blank" rel="noreferrer" className="link inline-flex items-center gap-0.5" title={`Open “${item.key}” on prod, in a new tab`}>
-          On prod <ExternalLink className="size-3" aria-hidden />
-        </a>
-      )}
-    </span>
-  );
-}
-
 function CopyPanel({ parity, target, notes, context }: { parity: MirrorParity; target: boolean; notes: MirrorNote[]; context: NoteContext }) {
   const canCopy = useSessionCan("mirror.operate");
   const queryClient = useQueryClient();
@@ -478,152 +456,6 @@ function CopyPanel({ parity, target, notes, context }: { parity: MirrorParity; t
   );
 }
 
-const plural = (n: number, one: string, many: string) => `${whole(n)} ${n === 1 ? one : many}`;
-
-/** Takes a few of prod's exchanges for each subscription, faked, and says how far a taking under way has got. */
-function SamplesPanel({ samples, target, onShow }: { samples: UseQueryResult<MirrorSamples>; target: boolean; onShow: () => void }) {
-  const canTake = useSessionCan("mirror.operate");
-  const queryClient = useQueryClient();
-  const take = useMutation({
-    mutationFn: () => api.takeMirrorSamples(),
-    onSuccess: (r) => queryClient.setQueryData(keys.mirror.samples, r),
-  });
-  const s = samples.data;
-  const running = s?.state === "running";
-  const subscriptions = s?.subscriptions ?? [];
-  const taken = subscriptions.filter((x) => x.samples.length > 0);
-  const count = taken.reduce((n, x) => n + x.samples.length, 0);
-  const notKept = subscriptions
-    .flatMap((x) => x.samples)
-    .flatMap((x) => [x.input, x.output, x.response])
-    .filter((f) => f?.notCopied).length;
-
-  return (
-    <Panel
-      title="Samples of prod's traffic"
-      description="A few of prod's recent exchanges for each subscription: what came in, what Bitween sent, and what the partner answered. Every file is faked as it arrives, in its own format. The rehearsal will run them through staging's flows."
-    >
-      {samples.isPending ? (
-        <LoadingBlock />
-      ) : samples.isError ? (
-        <LoadError error={samples.error} what="the samples" onRetry={() => void samples.refetch()} />
-      ) : (
-        <div className="space-y-2 text-[13px] text-ink-800" aria-live="polite">
-          {running ? (
-            <p>
-              Taking samples: {whole(s.done)} of {whole(s.total)} subscriptions read. Prod is read one subscription at a time.
-            </p>
-          ) : !s || s.state === "none" || subscriptions.length === 0 ? (
-            <p>No samples yet.</p>
-          ) : (
-            <p>
-              {plural(count, "sample", "samples")} from {whole(taken.length)} of prod's {plural(subscriptions.length, "subscription", "subscriptions")}
-              {s?.finishedOn && `, taken ${timeAgo(s.finishedOn)}`}.
-              {subscriptions.length > taken.length && ` ${plural(subscriptions.length - taken.length, "subscription has", "subscriptions have")} none; the list says why for each.`}
-              {notKept > 0 && ` ${plural(notKept, "file isn't", "files aren't")} kept; the list says why.`}{" "}
-              <button type="button" className="link cursor-pointer" onClick={onShow}>See the samples</button>
-            </p>
-          )}
-          {s?.state === "failed" && s.error && <InlineNotice>{s.error}</InlineNotice>}
-        </div>
-      )}
-      <div className="mt-3">
-        <Button
-          variant={!s || s.state === "none" ? "primary" : undefined}
-          busy={take.isPending || running}
-          disabled={!target || !canTake || running}
-          title={!target ? "This deployment isn't marked as a mirror" : !canTake ? "Your role can't take samples onto this staging" : undefined}
-          onClick={() => take.mutate()}
-        >
-          {!s || s.state === "none" ? "Take samples" : "Take samples again"}
-        </Button>
-      </div>
-      <FormError>{take.error instanceof Error ? take.error.message : ""}</FormError>
-    </Panel>
-  );
-}
-
-const OUTCOME: Record<MirrorSample["outcome"], { label: string; tone: "ok" | "warn" | "danger"; title: string }> = {
-  success: { label: "Worked", tone: "ok", title: "It worked on prod" },
-  badResponse: { label: "Bad answer", tone: "warn", title: "It was delivered on prod, and the partner answered with an error" },
-  failed: { label: "Failed", tone: "danger", title: "It failed on prod" },
-};
-
-function SamplesList({ samples, prodUrl, items }: { samples: MirrorSamples; prodUrl: string; items: Map<string, MirrorItem> }) {
-  const [open, setOpen] = useState<string | null>(null);
-  const [all, setAll] = useState(false);
-  const none = samples.subscriptions.filter((s) => s.samples.length === 0);
-  const shown = all ? samples.subscriptions : samples.subscriptions.filter((s) => s.samples.length > 0);
-  const exchanges = pathOf("exchanges");
-  return (
-    <div className="-mx-1">
-      {none.length > 0 && (
-        <label className="flex cursor-pointer items-center gap-1.5 px-1 pb-1 text-[12.5px] text-ink-500">
-          <input type="checkbox" className="size-3.5 accent-crimson-600" checked={all} onChange={(e) => setAll(e.target.checked)} />
-          Show the {plural(none.length, "subscription", "subscriptions")} without samples too
-        </label>
-      )}
-      {shown.map((s) => {
-        const item = items.get(`subscriptions\u0000${s.subscription}`);
-        const isOpen = open === s.subscription;
-        const ended = (Object.keys(OUTCOME) as MirrorSample["outcome"][])
-          .map((o) => [o, s.samples.filter((x) => x.outcome === o).length] as const)
-          .filter(([, n]) => n > 0);
-        return (
-          <div key={s.subscription} className="border-t border-ink-100">
-            <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 px-1 py-1.5 text-[13px]">
-              <button
-                type="button"
-                aria-expanded={isOpen}
-                aria-label={`${s.subscription}: ${s.samples.length} samples`}
-                disabled={s.samples.length === 0}
-                onClick={() => setOpen(isOpen ? null : s.subscription)}
-                className="flex min-w-0 cursor-pointer items-center gap-1 text-left disabled:cursor-default"
-              >
-                {s.samples.length > 0 ? (isOpen ? <ChevronDown className="size-3.5 shrink-0" /> : <ChevronRight className="size-3.5 shrink-0" />) : <span className="w-3.5" />}
-                <span className="truncate font-medium text-ink-900">{s.subscription}</span>
-              </button>
-              {s.samples.length > 0 ? (
-                <span className="text-ink-600">{ended.map(([o, n]) => `${n} ${OUTCOME[o].label.toLowerCase()}`).join(", ")}</span>
-              ) : (
-                <span className="text-ink-500">{s.reason}</span>
-              )}
-              {item && <ItemLinks section="subscriptions" item={item} prodUrl={prodUrl} />}
-            </div>
-            {isOpen && (
-              <ul className="mb-2 ml-6 space-y-1.5 text-[12.5px]">
-                {s.samples.map((x) => (
-                  <li key={x.prodExchangeId} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
-                    <Badge tone={OUTCOME[x.outcome].tone} title={OUTCOME[x.outcome].title}>
-                      {OUTCOME[x.outcome].label}
-                      {x.status != null && ` ${x.status}`}
-                    </Badge>
-                    <span className="text-ink-500" title="When it started on prod">{formatDateTime(x.startedOn)}</span>
-                    <SampleFile label="In" what="what came in" file={x.input} />
-                    <SampleFile label="Sent" what="what Bitween sent" file={x.output} />
-                    <SampleFile label="Answer" what="what the partner answered" file={x.response} />
-                    {exchanges && (
-                      <a href={`${prodUrl}${exchanges}?ids=${encodeURIComponent(x.prodExchangeId)}`} target="_blank" rel="noreferrer"
-                        className="link inline-flex items-center gap-0.5" title="Open the exchange on prod, in a new tab">
-                        On prod <ExternalLink className="size-3" aria-hidden />
-                      </a>
-                    )}
-                    {x.errorTypes.length > 0 && (
-                      <span className="text-ink-500" title="The kinds of error prod reported. Its message isn't copied, since it can hold prod's data: open the exchange on prod to read it.">
-                        {x.errorTypes.join(" → ")}
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 /** Each host staging answered calls to, and what it answered last. */
 function CallsList({ hosts, prodUrl, items }: { hosts: MirrorHostCalls[]; prodUrl: string; items: Map<string, MirrorItem> }) {
   if (hosts.length === 0) return <p className="text-[13px] text-ink-500">No calls yet. They come in as flows run on staging.</p>;
@@ -646,22 +478,6 @@ function CallsList({ hosts, prodUrl, items }: { hosts: MirrorHostCalls[]; prodUr
         </li>
       ))}
     </ul>
-  );
-}
-
-/** One of a sample's files: a link that opens staging's faked copy, or why it wasn't kept. */
-function SampleFile({ label, what, file }: { label: string; what: string; file: MirrorSampleFile | null }) {
-  if (!file) return null;
-  if (!file.url)
-    return (
-      <span className="text-ink-500" title={file.notCopied ?? undefined}>
-        {label}: not kept{file.format ? ` (${file.format})` : ""}
-      </span>
-    );
-  return (
-    <a href={file.url} target="_blank" rel="noreferrer" className="link" title={`Open ${what}, faked, as staging keeps it, in a new tab`}>
-      {label} ({file.format})
-    </a>
   );
 }
 

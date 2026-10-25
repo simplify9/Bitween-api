@@ -13,7 +13,8 @@ namespace SW.Bitween
     {
         readonly IInfolinkCache _cache = cache;
 
-        public async Task<FilterResult> Filter(int documentId, XchangeFile xchangeFile)
+        /// <param name="rehearsing">A mirror's rehearsal traffic, which also takes the routes of gateways the copy switched off.</param>
+        public async Task<FilterResult> Filter(int documentId, XchangeFile xchangeFile, bool rehearsing = false)
         {
             if (xchangeFile is null)
                 throw new ArgumentNullException(nameof(xchangeFile));
@@ -113,7 +114,9 @@ namespace SW.Bitween
 
             // Bus-gateway routes: run the assigned subscription (optionally with a partner's values)
             // for every route whose filter matches. A null filter matches all messages on the doc.
-            var routes = await _cache.ListBusGatewayRoutesByDocumentAsync(documentId);
+            var routes = rehearsing && Services.Mirror.MirrorTraffic.SwitchedOffGateways is { } switchedOff
+                ? await _cache.ListBusGatewayRoutesByDocumentAsync(documentId, switchedOff)
+                : await _cache.ListBusGatewayRoutesByDocumentAsync(documentId);
             foreach (var route in routes)
             {
                 if (route.MatchExpression == null || (propReader != null && route.MatchExpression.IsMatch(propReader)))

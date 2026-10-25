@@ -132,7 +132,10 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
                ?? gateways.FirstOrDefault(g => string.Equals(g.UrlName, urlName, StringComparison.OrdinalIgnoreCase));
     }
 
-    public async Task<BusGatewayRoute[]> ListBusGatewayRoutesByDocumentAsync(int documentId)
+    public Task<BusGatewayRoute[]> ListBusGatewayRoutesByDocumentAsync(int documentId) =>
+        ListBusGatewayRoutesByDocumentAsync(documentId, null);
+
+    public async Task<BusGatewayRoute[]> ListBusGatewayRoutesByDocumentAsync(int documentId, IReadOnlySet<int> alsoSwitchedOff)
     {
         if (!_cache.TryGetValue(nameof(BusGateway), out BusGateway[] cachedBusGateways))
         {
@@ -144,7 +147,7 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
         // one means on the bus side: the message still publishes, this gateway just stops
         // being one of the places it lands.
         return cachedBusGateways
-            .Where(g => g.DocumentId == documentId && !g.Inactive)
+            .Where(g => g.DocumentId == documentId && (!g.Inactive || alsoSwitchedOff?.Contains(g.Id) == true))
             .SelectMany(g => g.Routes ?? Enumerable.Empty<BusGatewayRoute>())
             .ToArray();
     }

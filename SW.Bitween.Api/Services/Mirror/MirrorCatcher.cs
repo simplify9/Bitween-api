@@ -30,11 +30,17 @@ public sealed class MirrorCatchingHandler(MirrorMock mock) : DelegatingHandler
 {
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
-        if (request.RequestUri is not { IsAbsoluteUri: true } url || !await mock.CatchesAsync(url.Host))
+        if (request.RequestUri is not { IsAbsoluteUri: true } url)
             return await base.SendAsync(request, cancellationToken);
+        if (await mock.PassesAsync(url.Host) is { } why)
+        {
+            mock.Passed(request.Method.Method, url.Host, url.AbsolutePath, why, "Bitween");
+            return await base.SendAsync(request, cancellationToken);
+        }
 
         var body = request.Content == null ? [] : await request.Content.ReadAsByteArrayAsync(cancellationToken);
         var answer = await mock.AnswerAsync(new MirrorRequest(request.Method.Method, url, request.Content?.Headers.ContentType?.ToString(), body, "Bitween"));
+        if (answer.Fail) throw new HttpRequestException(answer.Why);
         var response = new HttpResponseMessage((HttpStatusCode)answer.Status) { RequestMessage = request, Content = new ByteArrayContent(answer.Body) };
         if (answer.ContentType != null) response.Content.Headers.ContentType = MediaTypeHeaderValue.Parse(answer.ContentType);
         return response;
@@ -254,7 +260,8 @@ public sealed class MirrorCatcher : IDisposable
             if (request.Method == "CONNECT")
             {
                 var (host, port) = HostAndPort(request.Target, 443);
-                if (await mock.CatchesAsync(host))
+                var passes = await mock.PassesAsync(host);
+                if (passes == null)
                 {
                     await wire.WriteAsync("HTTP/1.1 200 Connection Established\r\n\r\n", ct);
                     await using var tls = new SslStream(wire.AsStream());
@@ -279,6 +286,7 @@ public sealed class MirrorCatcher : IDisposable
                 }
                 else
                 {
+                    mock.Passed("CONNECT", host, "", passes, "An adapter's process");
                     using var onwardClient = await ConnectAsync(host, port, ct);
                     await wire.WriteAsync("HTTP/1.1 200 Connection Established\r\n\r\n", ct);
                     await PipeAsync(wire, onwardClient.GetStream(), ct);
@@ -291,11 +299,12 @@ public sealed class MirrorCatcher : IDisposable
                 await wire.WriteAsync("HTTP/1.1 400 Bad Request\r\nContent-Length: 0\r\nConnection: close\r\n\r\n", ct);
                 return;
             }
-            if (await mock.CatchesAsync(url.Host))
+            if (await mock.PassesAsync(url.Host) is not { } why)
             {
                 await AnswerAsync(wire, "http", url.Authority, request, idle, ct);
                 return;
             }
+            mock.Passed(request.Method, url.Host, url.AbsolutePath, why, "An adapter's process");
 
             // Passed on as it came, one request to the connection, which the far side closes after answering.
             using var server = await ConnectAsync(url.Host, url.Port, ct);
@@ -336,6 +345,8 @@ public sealed class MirrorCatcher : IDisposable
                 ? new Uri(request.Target)
                 : new Uri($"{scheme}://{authorityPart}{request.Target}");
             var answer = await mock.AnswerAsync(new MirrorRequest(request.Method, url, request.ContentType, body, "An adapter's process"));
+            // Closed without a word, as a call that never got through.
+            if (answer.Fail) return true;
 
             var reply = new StringBuilder()
                 .Append("HTTP/1.1 ").Append(answer.Status).Append(' ').Append(Reason(answer.Status)).Append("\r\n")
@@ -589,6 +600,7 @@ public sealed class MirrorCatcherService(MirrorCatcher catcher, MirrorMock mock,
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
         ConnectionTokens.CatchWith(new MirrorCatchingHandler(mock) { InnerHandler = new SocketsHttpHandler() });
+        OpenIdGatewayIssuers.CatchWith(new MirrorCatchingHandler(mock) { InnerHandler = new SocketsHttpHandler() });
         return catcher.RunAsync(mock, logger, stoppingToken);
     }
 }

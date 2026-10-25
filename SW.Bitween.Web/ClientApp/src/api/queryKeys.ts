@@ -219,6 +219,7 @@ export const keys = {
     parity: ["mirror", "parity"] as const,
     samples: ["mirror", "samples"] as const,
     calls: ["mirror", "calls"] as const,
+    rehearsal: ["mirror", "rehearsal"] as const,
   },
 
   settings: {

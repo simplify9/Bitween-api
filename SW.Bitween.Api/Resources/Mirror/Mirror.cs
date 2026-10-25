@@ -52,12 +52,12 @@ public class Parity(BitweenDbContext dbContext, RequestContext requestContext, M
 /// taking under way is going.
 /// </summary>
 [HandlerName("samples")]
-public class Samples(BitweenDbContext dbContext, RequestContext requestContext, MirrorService mirror, MirrorSampler sampler) : IQueryHandler<object>
+public class Samples(BitweenDbContext dbContext, RequestContext requestContext, MirrorService mirror, MirrorWork work) : IQueryHandler<object>
 {
     public async Task<object> Handle()
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.View);
-        return await mirror.SamplesAsync(sampler);
+        return await mirror.SamplesAsync(work);
     }
 }
 
@@ -66,18 +66,55 @@ public class MirrorTakeSamplesRequest;
 /// <summary>
 /// Starts taking samples of prod's exchanges, in the background: a few recent ones for each
 /// subscription, faked as they arrive. The page follows it through <see cref="Samples"/>. Only on a
-/// Bitween its deployment marks as a mirror.
+/// Bitween its deployment marks as a mirror, and not while a rehearsal runs on the samples there are.
 /// </summary>
 [HandlerName("takesamples")]
-public class TakeSamples(BitweenDbContext dbContext, RequestContext requestContext, BitweenOptions options, MirrorService mirror, MirrorSampler sampler)
+public class TakeSamples(BitweenDbContext dbContext, RequestContext requestContext, BitweenOptions options, MirrorService mirror, MirrorWork work)
     : ICommandHandler<MirrorTakeSamplesRequest, object>
 {
     public async Task<object> Handle(MirrorTakeSamplesRequest request)
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.Operate);
         if (!options.Mirror.Target) throw new SWValidationException("MIRROR_NOT_TARGET", MirrorService.NotTarget);
-        sampler.Start();
-        return await mirror.SamplesAsync(sampler);
+        if (work.Start(MirrorWork.Sampling, (m, progress, ct) => m.TakeSamplesAsync(progress, ct)) == MirrorWork.Rehearsing)
+            throw new SWValidationException("MIRROR_BUSY", "A rehearsal is running on the samples there are. Take samples once it finishes.");
+        return await mirror.SamplesAsync(work);
+    }
+}
+
+/// <summary>
+/// The last rehearsal: each of prod's samples run on staging, with the exchange it made and how it
+/// compares with prod's. Followed by the page while one runs.
+/// </summary>
+[HandlerName("rehearsal")]
+public class Rehearsal(BitweenDbContext dbContext, RequestContext requestContext, MirrorService mirror, MirrorWork work) : IQueryHandler<object>
+{
+    public async Task<object> Handle()
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.View);
+        return await mirror.RehearsalAsync(work);
+    }
+}
+
+public class MirrorRehearseRequest;
+
+/// <summary>
+/// Starts a rehearsal, in the background: every sample run on staging as a real exchange, then compared
+/// with how prod's went. Only on a Bitween its deployment marks as a mirror, and not while samples are
+/// being taken.
+/// </summary>
+[HandlerName("rehearse")]
+public class Rehearse(BitweenDbContext dbContext, RequestContext requestContext, BitweenOptions options, MirrorService mirror, MirrorWork work)
+    : ICommandHandler<MirrorRehearseRequest, object>
+{
+    public async Task<object> Handle(MirrorRehearseRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.Operate);
+        if (!options.Mirror.Target) throw new SWValidationException("MIRROR_NOT_TARGET", MirrorService.NotTarget);
+        var token = mirror.CallerToken();
+        if (work.Start(MirrorWork.Rehearsing, (m, progress, ct) => m.RehearseAsync(progress, token, ct)) == MirrorWork.Sampling)
+            throw new SWValidationException("MIRROR_BUSY", "Samples are being taken. Rehearse once that finishes.");
+        return await mirror.RehearsalAsync(work);
     }
 }
 

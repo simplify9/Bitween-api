@@ -61,6 +61,41 @@ public static class MirrorFiles
 
     // ------------------------------------------------------------------ what it is
 
+    /// <summary>What a file is, read the way <see cref="Fake"/> reads it: json, xml, html, csv, text, xlsx, docx, zip, pdf, edi or binary.</summary>
+    internal static string FormatOf(byte[] content)
+    {
+        var detected = Detect(content);
+        if (detected != "text") return detected;
+        var text = TextOf(content);
+        var start = text.TrimStart();
+        if (start.StartsWith('<'))
+        {
+            try
+            {
+                using var reader = XmlReader.Create(new StringReader(text), new XmlReaderSettings { DtdProcessing = DtdProcessing.Ignore, XmlResolver = null });
+                while (reader.Read()) { }
+                return "xml";
+            }
+            catch (XmlException) { return "html"; }
+        }
+        if (start.StartsWith('{') || start.StartsWith('['))
+        {
+            try
+            {
+                using var _ = JsonDocument.Parse(text);
+                return "json";
+            }
+            catch (JsonException) { }
+        }
+        if (start.StartsWith("UNA", StringComparison.Ordinal) || start.StartsWith("UNB", StringComparison.Ordinal) ||
+            start.StartsWith("ISA", StringComparison.Ordinal))
+            return "edi";
+        return Csv.Delimiter(text) != null ? "csv" : "text";
+    }
+
+    /// <summary>A text file's text, in the encoding it was written in.</summary>
+    internal static string TextOf(byte[] content) => Decode(content).Text;
+
     static string Detect(byte[] content)
     {
         var head = content.AsSpan(0, Math.Min(content.Length, 8192));
@@ -378,6 +413,11 @@ public static class MirrorFiles
             }
             return best;
         }
+
+        /// <summary>Each row's values, as read.</summary>
+        public static List<List<string>> Rows(string text, char delimiter) =>
+            Parse(text, delimiter).Where(r => r.Fields.Count > 1 || r.Fields[0].Value.Length > 0)
+                .Select(r => r.Fields.Select(f => f.Value).ToList()).ToList();
 
         public static string Fake(MirrorFaker faker, string text, char delimiter)
         {

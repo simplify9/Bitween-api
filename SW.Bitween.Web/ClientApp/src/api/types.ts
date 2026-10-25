@@ -2419,12 +2419,47 @@ export interface MirrorSample {
   input: MirrorSampleFile | null;
   output: MirrorSampleFile | null;
   response: MirrorSampleFile | null;
+  /** The partner it ran as, by name. */
+  partner: string | null;
+  /** The handler it ran, as prod recorded it: the adapter, and its version where one was pinned. */
+  handler: string | null;
+  mapper: string | null;
+  /** Its subscription, by name; null for a document being routed. */
+  subscription: string | null;
+  /** The type of what came in, by name. */
+  informationType: string | null;
+  /** The exchange on prod whose answer or message started it; null for the one that came in. */
+  parent: string | null;
+  /** For an aggregation: a few of the files it rolled up, faked. */
+  rolled?: MirrorSampleFile[] | null;
+}
+
+/**
+ * One thing that came in on prod and every exchange it led to: a document routed, a partner's call
+ * through a gateway, a file a receiver read, an aggregation, then the answers those handed on.
+ */
+export interface MirrorFamily {
+  /** Its first exchange's id on prod. */
+  id: string;
+  /** How it came in on prod. */
+  entry: "document" | "gateway" | "api" | "receiver" | "aggregation" | "direct";
+  /** What it came in through, by name: the information type, the gateway, the receiving subscription. */
+  door: string | null;
+  /** The partner who called, for a gateway or the partner API. */
+  partner: string | null;
+  /** Its exchanges in the order they started on prod; the first is the one that came in. */
+  members: MirrorSample[];
+  /** How many more exchanges prod's family had than the sample keeps. */
+  cut: number;
+  /** Prod doesn't say which subscriptions a document of it went to: staging's are run, but not counted as more than prod's. */
+  unlinked?: boolean;
 }
 
 export interface MirrorSubscriptionSamples {
   subscription: string;
   prodId: string;
-  samples: MirrorSample[];
+  /** The families it takes part in, by id. */
+  families: string[];
   /** Why it has none. */
   reason: string | null;
 }
@@ -2446,10 +2481,88 @@ export interface MirrorCall {
   method: string;
   host: string;
   path: string;
-  /** 0 when the call failed before staging could answer. */
+  /** 0 when the call failed before staging could answer, or was sent on for real. */
   status: number;
   why: string;
   from: string;
+  /** Sent on for real rather than answered: only noted for a rehearsal. */
+  real: boolean;
+}
+
+/**
+ * One line of a rehearsed exchange's compare. different and check count towards the verdict; info is a
+ * difference that explains, such as the upgrade itself; faked is the same as prod's with faked values.
+ */
+export interface MirrorDiff {
+  /** The part of the exchange it is about; entry and family are a family's own: how it came in, and what it led to. */
+  part: "result" | "output" | "answer" | "calls" | "input" | "used" | "entry" | "family";
+  name: string;
+  level: "different" | "check" | "info" | "faked" | "same";
+  /** Prod's side, as staging can show it: faked. Null where only staging's side says anything. */
+  prod: string | null;
+  staging: string | null;
+  note: string | null;
+  fields: MirrorFieldDiff[] | null;
+  /** For a setup item: where it opens on staging. */
+  section: string | null;
+  stagingId: string | null;
+  type: string | null;
+}
+
+export interface MirrorFieldDiff {
+  path: string;
+  level: "different" | "check" | "info" | "same";
+  prod: string | null;
+  staging: string | null;
+}
+
+/** One exchange of a rehearsed family: prod's, the twin staging ran, and how the two compare. */
+export interface MirrorRun {
+  /** Null for one staging ran that prod's family didn't. */
+  prodExchangeId: string | null;
+  /** Its subscription, or the information type of a document being routed. */
+  subscription: string;
+  /** Null when it didn't run. */
+  stagingExchangeId: string | null;
+  ranOn: string;
+  /** How it ended on staging; null when it didn't run or finish. */
+  outcome: "success" | "badResponse" | "failed" | null;
+  status: number | null;
+  errorTypes: string[];
+  verdict: "same" | "check" | "different" | null;
+  /** Why it didn't run, or didn't finish. */
+  notRun: string | null;
+  output: MirrorSampleFile | null;
+  response: MirrorSampleFile | null;
+  diffs: MirrorDiff[];
+}
+
+export interface MirrorRehearsal {
+  state: "none" | "running" | "done" | "failed";
+  startedOn: string | null;
+  finishedOn: string | null;
+  done: number;
+  total: number;
+  error: string | null;
+  prodVersion: string | null;
+  stagingVersion: string | null;
+  /** Why what each exchange used isn't compared with prod's setup, when it isn't. */
+  setupError: string | null;
+  families: MirrorFamilyRun[];
+}
+
+/** One of prod's families, sent in on staging the way it came in on prod, and every exchange staging ran for it. */
+export interface MirrorFamilyRun {
+  familyId: string;
+  /** The correlation id it ran under on staging; null when it didn't run. */
+  correlation: string | null;
+  ranOn: string;
+  /** The worst of its exchanges and how it came in; null when it didn't run. */
+  verdict: "same" | "check" | "different" | null;
+  notRun: string | null;
+  /** The family's own lines: how it came in, the release, and anything prod's family had more of. */
+  diffs: MirrorDiff[];
+  members: MirrorRun[];
 }
 
 export interface MirrorCalls {
@@ -2468,4 +2581,5 @@ export interface MirrorSamples {
   total: number;
   error: string | null;
   subscriptions: MirrorSubscriptionSamples[];
+  families: MirrorFamily[];
 }

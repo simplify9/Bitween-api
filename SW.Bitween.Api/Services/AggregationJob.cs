@@ -11,7 +11,8 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween;
 
-public record AggregationJobParams(int SubscriptionId, string? CronExpression);
+/// <param name="Correlation">The roll-up's correlation id: a mirror's rehearsal names one, so the roll-up runs as its traffic.</param>
+public record AggregationJobParams(int SubscriptionId, string? CronExpression, string? Correlation = null);
 
 [ScheduleConfig(AllowConcurrentExecution = false, MisfireInstructions = MisfireInstructions.Skip)]
 public class AggregationJob(
@@ -34,7 +35,7 @@ public class AggregationJob(
         if (!await runFlagUpdater.MarkAsRunning(aggSub.Id)) return;
         try
         {
-            await RollUpAsync(aggSub);
+            await RollUpAsync(aggSub, jobParams.Correlation);
         }
         finally
         {
@@ -43,7 +44,7 @@ public class AggregationJob(
         }
     }
 
-    async Task RollUpAsync(Subscription aggSub)
+    async Task RollUpAsync(Subscription aggSub, string correlationId)
     {
 
         var startedOn = DateTime.UtcNow;
@@ -78,7 +79,7 @@ public class AggregationJob(
                 var urlList = targetXchangeList.Select(x =>
                     xchangeService.AdapterFileUrl(x.Id, x.FilesPrefix, aggSub.AggregationTarget)).ToList();
                 var xchangeAggregationFile = new XchangeFile(JsonConvert.SerializeObject(urlList));
-                var aggXchange = await xchangeService.CreateXchange(aggSub, xchangeAggregationFile);
+                var aggXchange = await xchangeService.CreateXchange(aggSub, xchangeAggregationFile, correlationId: correlationId);
                 dbContext.Add(aggXchange);
                 targetXchangeList.ForEach(x => dbContext.Add(new XchangeAggregation(x.Id, aggXchange.Id)));
                 outcome = ReceiveOutcome.Received;

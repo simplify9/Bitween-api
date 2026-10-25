@@ -11,6 +11,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
 using SW.Bitween.Cli;
 using SW.Bitween.Cli.Configuration;
 using SW.PrimitiveTypes;
@@ -77,7 +78,7 @@ public record MirrorCopyResult(int Created, int Updated, int Removed, int Adapte
 /// older is refused with the reason.
 /// </summary>
 public sealed partial class MirrorService(BitweenOptions options, FileLinks links, IHttpContextAccessor httpContextAccessor, IConfiguration configuration,
-    NativeAdapterDiscoveryService nativeAdapters, ICloudFilesService cloudFiles)
+    NativeAdapterDiscoveryService nativeAdapters, ICloudFilesService cloudFiles, IServiceScopeFactory scopes, MirrorMock mock)
 {
     /// <summary>The configuration name staging's copy is recorded under, so a later copy removes what prod no longer has.</summary>
     public const string ConfigurationName = "prod-mirror";
@@ -126,8 +127,8 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
             failed.Select(f => new MirrorFailure(f.Change.Section, f.Change.Noun, f.Change.Key, f.Error)).ToList(), after);
     }
 
-    /// <summary>A comparison, and the two connections its planner carries out changes over until it is done with.</summary>
-    sealed record Comparison(MirrorParity Parity, Planner Planner, Plan Plan, BitweenApi Prod, BitweenApi Self) : IDisposable
+    /// <summary>A comparison, prod's setup as staging copies it, and the two connections its planner carries out changes over until it is done with.</summary>
+    sealed record Comparison(MirrorParity Parity, Planner Planner, Plan Plan, MirrorSetupCopy Copy, BitweenApi Prod, BitweenApi Self) : IDisposable
     {
         public void Dispose()
         {
@@ -136,13 +137,13 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
         }
     }
 
-    async Task<Comparison> CompareAsync(bool removeExtras, string copyKey)
+    async Task<Comparison> CompareAsync(bool removeExtras, string copyKey, string selfToken = null)
     {
         var prod = Connect();
         BitweenApi self = null;
         try
         {
-            return await CompareAsync(prod, () => self = SelfApi(copyKey), removeExtras);
+            return await CompareAsync(prod, () => self = SelfApi(copyKey, selfToken), removeExtras);
         }
         catch
         {
@@ -202,7 +203,7 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
             new MirrorSide(links.BaseUrl, BitweenInfo.Version(options).ToString(3), await ExchangesAsync(self)),
             Verdict(kinds, notes),
             notes, kinds, adapters, copy.Addresses, copy.FakedKeys, unknown);
-        return new Comparison(parity, planner, plan, prod, self);
+        return new Comparison(parity, planner, plan, copy, prod, self);
     }
 
     // ------------------------------------------------------------------ prod
@@ -695,9 +696,9 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
     /// This Bitween's own API, as the caller, the way the kit installer calls itself: where it listens.
     /// During a copy each call carries the copy's key, so saves know they recreate prod.
     /// </summary>
-    BitweenApi SelfApi(string copyKey)
+    BitweenApi SelfApi(string copyKey, string token = null)
     {
-        var profile = new Profile { Url = SelfUrl, AccessToken = CallerToken() };
+        var profile = new Profile { Url = SelfUrl, AccessToken = token ?? CallerToken() };
         return copyKey == null
             ? new BitweenApi(null, null, profile)
             : new BitweenApi(null, null, profile, new WithCopyKey(copyKey, new HttpClientHandler { UseCookies = false }));
@@ -705,7 +706,8 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
 
     string SelfUrl => string.IsNullOrWhiteSpace(links.InstanceUrl) ? links.BaseUrl : links.InstanceUrl;
 
-    string CallerToken()
+    /// <summary>The token of whoever asked: staging reads its own setup as them.</summary>
+    internal string CallerToken()
     {
         var header = httpContextAccessor.HttpContext?.Request.Headers.Authorization.ToString();
         return header?.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase) == true

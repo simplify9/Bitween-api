@@ -1,5 +1,5 @@
 import type { ApiClient } from "../client";
-import type { MirrorCalls, MirrorCopyResult, MirrorParityAnswer, MirrorSamples, MirrorStatus } from "../types";
+import type { MirrorCalls, MirrorCopyResult, MirrorParityAnswer, MirrorRehearsal, MirrorSamples, MirrorStatus } from "../types";
 import { get, post } from "./request";
 
 export const mirrorMethods = {
@@ -29,5 +29,14 @@ export const mirrorMethods = {
   /** Starts taking samples of prod's exchanges in the background; follow it with getMirrorSamples. */
   takeMirrorSamples(): Promise<MirrorSamples> {
     return post<MirrorSamples>("/mirror/takesamples", {});
+  },
+
+  getMirrorRehearsal(): Promise<MirrorRehearsal> {
+    return get<MirrorRehearsal>("/mirror/rehearsal");
+  },
+
+  /** Starts a rehearsal in the background: every sample run on staging, then compared with prod's; follow it with getMirrorRehearsal. */
+  rehearseMirror(): Promise<MirrorRehearsal> {
+    return post<MirrorRehearsal>("/mirror/rehearse", {});
   },
 } satisfies Partial<ApiClient>;

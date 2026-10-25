@@ -24,6 +24,20 @@ public class MirrorSetupTests
     static JsonObject Only(MirrorSetupCopy copy, string section) => copy.Sections[section].Single();
 
     [TestMethod]
+    public void Data_sources_and_bus_gateways_arrive_switched_off_and_say_which_prod_has_on()
+    {
+        var copy = MirrorSetup.Copy(Prod(
+            ("busGateways", "Carrier events", """{ "name": "Carrier events", "inactive": false, "endpointProperties": { "Url": "amqp://events.carrier.com" } }"""),
+            ("busGateways", "Old feed", """{ "name": "Old feed", "inactive": true }"""),
+            ("dataSources", "ERP", """{ "name": "ERP", "properties": { "Host": "erp.acme.com" } }""")), Faker, new HashSet<string>());
+
+        Assert.IsTrue(copy.Sections["busGateways"].All(g => (bool)g["inactive"]!));
+        Assert.IsTrue((bool)Only(copy, "dataSources")["inactive"]!);
+        // A rehearsal's traffic goes through the ones prod has on, as prod's does; never through one prod has off.
+        CollectionAssert.AreEquivalent(new[] { "busGateways/Carrier events", "dataSources/ERP" }, copy.SwitchedOff.ToList());
+    }
+
+    [TestMethod]
     public void A_subscription_keeps_how_it_behaves_and_arrives_paused()
     {
         var copy = MirrorSetup.Copy(Prod(("subscriptions", "Push labels", """

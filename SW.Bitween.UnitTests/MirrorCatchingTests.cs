@@ -33,12 +33,13 @@ public class MirrorCatchingTests
         new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "login.mirror.invalid/v1/session" });
 
     static readonly MirrorSamples Samples = new("done", null, null, 1, 1, null,
-    [
-        new MirrorSubscriptionSamples("Push labels", "12", [
-            new MirrorSample("x1", new DateTime(2026, 10, 20), "success", null, [], null, null,
-                new MirrorSampleFile("mirror/samples/a/x1/response", "label.json", "json", 20, null)),
-        ], null),
-    ]);
+        [new MirrorSubscriptionSamples("Push labels", "12", ["x1"], null)],
+        [
+            new MirrorFamily("x1", "direct", "Push labels", null, [
+                new MirrorSample("x1", new DateTime(2026, 10, 20), "success", null, [], null, null,
+                    new MirrorSampleFile("mirror/samples/a/x1/response", "label.json", "json", 20, null), Subscription: "Push labels"),
+            ]),
+        ]);
 
     static MirrorMock Mock(string passHosts = null)
     {

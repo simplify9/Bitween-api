@@ -62,7 +62,10 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         var document = await BitweenCache.DocumentByIdAsync(documentId);
         Xchange xchange;
 
-        var duplicate = await new DuplicateArrivals(dbContext).CheckAsync(document, null, file);
+        // A mirror's rehearsal sends the documents the one before it sent: never a duplicate of those.
+        var duplicate = Services.Mirror.MirrorTraffic.IsRehearsal(BitweenSettings, correlationId)
+            ? null
+            : await new DuplicateArrivals(dbContext).CheckAsync(document, null, file);
         if (duplicate?.Drop == true)
         {
             await dbContext.SaveChangesAsync();
@@ -74,7 +77,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         {
             xchange = new Xchange(documentId, null, file, references, SubscriptionType.Internal, correlationId,
                 source);
-            var result = await filterService.Filter(xchange.DocumentId, file);
+            var result = await filterService.Filter(xchange.DocumentId, file,
+                Services.Mirror.MirrorTraffic.IsRehearsal(BitweenSettings, correlationId));
             await CreateXchangesForHits(xchange, result, file);
         }
         else
@@ -324,7 +328,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             ? new XchangeSource(xchange.Id, SourceDocument.Read(inputFile.Data, SourceDocument.PathsUsedBy(target)))
             : null;
 
-        if (target.PausedOn != null)
+        if (target.PausedOn != null && !Services.Mirror.MirrorTraffic.IsRehearsal(BitweenSettings, xchange.CorrelationId))
         {
             await CreateOnHoldXchange(target, responseFile, null, partnerId, xchange.CorrelationId, source);
             return null;
@@ -350,8 +354,11 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// </summary>
     private Task PublishResponse(Xchange xchange, XchangeFile responseFile)
     {
-        dbContext.Add(new OutboxMessage(xchange.ResponseMessageTypeName, responseFile.Data,
-            new Dictionary<string, string> { [StartupValuesFiller.SourceXchangeBusValue] = xchange.Id }));
+        var values = new Dictionary<string, string> { [StartupValuesFiller.SourceXchangeBusValue] = xchange.Id };
+        // The bus starts a correlation of its own; a mirror's rehearsal follows its traffic across it.
+        if (Services.Mirror.MirrorTraffic.IsRehearsal(BitweenSettings, xchange.CorrelationId))
+            values[Services.Mirror.MirrorTraffic.BusValue] = xchange.CorrelationId;
+        dbContext.Add(new OutboxMessage(xchange.ResponseMessageTypeName, responseFile.Data, values));
         return Task.CompletedTask;
     }
 
@@ -782,6 +789,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         }
 
         using var activity = BitweenTelemetry.ActivitySource.StartActivity("exchange.process");
+        using var rehearsed = Services.Mirror.MirrorTraffic.Track(BitweenSettings, xchange);
         activity?.SetTag("bitween.exchange.id", xchange.Id);
         activity?.SetTag("bitween.document.id", xchange.DocumentId);
         activity?.SetTag("bitween.subscription.id", xchange.SubscriptionId);
@@ -812,7 +820,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             {
                 await DocumentSchema.Enforce(await BitweenCache.DocumentByIdAsync(xchange.DocumentId), inputFile);
                 if (!loaded.HasPromoted || xchange.SubscriptionId == null)
-                    result = await filterService.Filter(xchange.DocumentId, inputFile);
+                    result = await filterService.Filter(xchange.DocumentId, inputFile,
+                        Services.Mirror.MirrorTraffic.IsRehearsal(BitweenSettings, xchange.CorrelationId));
             }
 
             if (!loaded.HasPromoted) AddPromotedProperties(xchange, result);
@@ -1434,10 +1443,12 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         string original = null;
         var originalRead = false;
 
+        // A mirror's subscriptions stay paused, so only its rehearsal's traffic runs through them.
+        var rehearsing = Services.Mirror.MirrorTraffic.IsRehearsal(BitweenSettings, xchange.CorrelationId);
         foreach (var subscriptionId in result.Hits)
         {
             var subscription = await BitweenCache.SubscriptionByIdAsync(subscriptionId);
-            if (subscription.PausedOn != null)
+            if (subscription.PausedOn != null && !rehearsing)
             {
                 await CreateOnHoldXchange(subscription, inputFile);
             }
@@ -1471,7 +1482,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             // A route reads what it uses from the input of the exchange whose delivery got the
             // response its message carries, if it was one. Auto-matched Internal subscriptions above never do.
             var source = await SourceFor(subscription);
-            if (subscription.PausedOn != null)
+            if (subscription.PausedOn != null && !rehearsing)
             {
                 await CreateOnHoldXchange(subscription, inputFile, source: source);
             }

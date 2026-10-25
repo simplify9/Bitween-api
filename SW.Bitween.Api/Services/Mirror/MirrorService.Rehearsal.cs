@@ -1,0 +1,597 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using SW.Bitween.Cli;
+using SW.Bitween.Cli.Configuration;
+using SW.Bitween.Domain;
+using SW.Bitween.Model;
+using SW.PrimitiveTypes;
+using SW.Serverless.Contract.Catalog;
+using static SW.Bitween.Services.Mirror.MirrorCompare;
+
+namespace SW.Bitween.Services.Mirror;
+
+public sealed partial class MirrorService
+{
+    internal const string RehearsalManifest = "mirror/rehearsal/rehearsal.json";
+
+    static readonly MirrorRehearsal NoRehearsal = new("none", null, null, 0, 0, null, null, null, null, []);
+
+    /// <summary>How long one exchange may take on staging before the rehearsal moves on without it.</summary>
+    static readonly TimeSpan RunTimeout = TimeSpan.FromMinutes(2);
+
+    /// <summary>Prod's setup beside staging's, compared once for every exchange of a rehearsal.</summary>
+    sealed record Setup(MirrorParity Parity, Plan Plan, MirrorSetupCopy Copy);
+
+    /// <summary>
+    /// Sends each of prod's families in on staging the way it came in on prod - a partner's call through
+    /// the gateway, a document routed, a file a receiver read, an aggregation - with prod's input as
+    /// staging keeps it, faked; staging runs the rest by itself, as prod did. Each exchange it runs is
+    /// compared with its twin on prod. A partner an exchange calls is answered by staging with what
+    /// prod's partner answered its twin (see <see cref="MirrorMock.Replay"/>), so both get the same
+    /// answer: one family at a time, which that needs. Replaces the last rehearsal; the page follows this
+    /// one as it goes. Staging's setup is read as whoever started it, with <paramref name="selfToken"/>,
+    /// since nobody's request is around by then.
+    /// </summary>
+    public async Task<MirrorRehearsal> RehearseAsync(Action<int, int> progress, string selfToken, CancellationToken cancellation = default)
+    {
+        if (!options.Mirror.Target) throw new MirrorRefusal(NotTarget);
+        // Aggregations last: they roll up what the rest ran.
+        var families = ((await ReadSamplesAsync()).Families ?? [])
+            .OrderBy(f => f.Entry == "aggregation" ? 1 : 0).ThenBy(f => f.Members[0].StartedOn).ToList();
+        if (families.Count == 0) throw new MirrorRefusal("There are no samples to rehearse yet: take samples of prod's exchanges first.");
+        progress?.Invoke(0, families.Count);
+
+        Setup setup = null;
+        string setupError = null;
+        try
+        {
+            using var comparison = await CompareAsync(removeExtras: false, copyKey: null, selfToken);
+            setup = new Setup(comparison.Parity, comparison.Plan, comparison.Copy);
+        }
+        catch (MirrorRefusal refusal)
+        {
+            setupError = $"What each exchange used isn't compared with prod's setup: {refusal.Message}";
+        }
+        catch (BitweenApiException ex) when (ex.Status == null)
+        {
+            setupError = $"What each exchange used isn't compared with prod's setup: {ex.Message}";
+        }
+        catch (Exception ex) when (ex is BitweenApiException or HttpRequestException or TaskCanceledException)
+        {
+            setupError = $"What each exchange used isn't compared with prod's setup: prod couldn't be read, as {Why(ex)}.";
+        }
+
+        var rehearsal = new MirrorRehearsal("running", DateTimeOffset.UtcNow, null, 0, families.Count, null, setup?.Parity.Prod.Version,
+            BitweenInfo.Version(options).ToString(3), setupError, []);
+        var runs = new List<MirrorFamilyRun>();
+        var unfinished = 0;
+        var key = MirrorTraffic.OpenKey();
+        using var doors = new HttpClient(new HttpClientHandler { UseCookies = false })
+        {
+            BaseAddress = new Uri(SelfUrl.TrimEnd('/') + "/"), Timeout = TimeSpan.FromMinutes(2),
+        };
+        // The bus gateways prod has on, which the copy switched off so nothing runs on its own: the
+        // rehearsal's traffic goes through them, as prod's does.
+        MirrorTraffic.RouteThrough(await SwitchedOffGatewaysAsync(setup));
+        try
+        {
+            foreach (var family in families)
+            {
+                cancellation.ThrowIfCancellationRequested();
+                var run = await RunAsync(family, setup, new Doors(doors, key, Faker()), cancellation);
+                runs.Add(run);
+                progress?.Invoke(runs.Count, families.Count);
+                // Written as it goes, so the page shows each family as soon as it is compared.
+                rehearsal = rehearsal with { Done = runs.Count, Families = runs.ToList() };
+                await SaveAsync(rehearsal);
+                unfinished = run.Members.Any(m => m.StagingExchangeId != null && m.Outcome == null) ? unfinished + 1 : 0;
+                if (unfinished == 2)
+                    throw new MirrorRefusal($"Two families in a row didn't finish on staging within {RunTimeout.TotalMinutes:0} minutes, so the rehearsal stopped. " +
+                                            "Open their exchanges on the exchanges page to see where they are.");
+            }
+        }
+        finally
+        {
+            MirrorTraffic.RouteThrough(null);
+            MirrorTraffic.CloseKey(key);
+        }
+        rehearsal = rehearsal with { State = "done", FinishedOn = DateTimeOffset.UtcNow };
+        await SaveAsync(rehearsal);
+        return rehearsal;
+    }
+
+    async Task<IReadOnlySet<int>> SwitchedOffGatewaysAsync(Setup setup)
+    {
+        const string prefix = "busGateways/";
+        var names = (setup?.Copy.SwitchedOff ?? new HashSet<string>()).Where(k => k.StartsWith(prefix, StringComparison.Ordinal))
+            .Select(k => k[prefix.Length..]).ToList();
+        if (names.Count == 0) return new HashSet<int>();
+        using var scope = scopes.CreateScope();
+        return (await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<Domain.Gateway.BusGateway>().AsNoTracking()
+            .Where(g => names.Contains(g.Name)).Select(g => g.Id).ToListAsync()).ToHashSet();
+    }
+
+    Task SaveAsync(MirrorRehearsal rehearsal) =>
+        cloudFiles.WriteTextAsync(JsonSerializer.Serialize(rehearsal, ManifestJson), new WriteFileSettings { Key = RehearsalManifest, ContentType = "application/json" });
+
+    /// <summary>The last rehearsal, each staging file with a link that opens it, and how one under way is going.</summary>
+    public async Task<MirrorRehearsal> RehearsalAsync(MirrorWork work)
+    {
+        var rehearsal = await ReadRehearsalAsync();
+        rehearsal = rehearsal with
+        {
+            Families = (rehearsal.Families ?? []).Select(f => f with
+            {
+                Diffs = f.Diffs ?? [],
+                Members = (f.Members ?? []).Select(r => r with { Output = Linked(r.Output), Response = Linked(r.Response), ErrorTypes = r.ErrorTypes ?? [], Diffs = r.Diffs ?? [] }).ToList(),
+            }).ToList(),
+        };
+        if (work.Running is { Kind: MirrorWork.Rehearsing } running)
+            return rehearsal with { State = "running", StartedOn = running.StartedOn, FinishedOn = null, Done = running.Done, Total = running.Total, Error = null };
+        if (work.LastError(MirrorWork.Rehearsing) is { } error) return rehearsal with { State = "failed", Error = error };
+        // Saved as running, and nothing runs it: staging restarted part way.
+        return rehearsal.State == "running" ? rehearsal with { State = "failed", Error = "The rehearsal stopped part way: staging restarted while it ran." } : rehearsal;
+    }
+
+    async Task<MirrorRehearsal> ReadRehearsalAsync()
+    {
+        try
+        {
+            await using var stream = await cloudFiles.OpenReadAsync(RehearsalManifest);
+            return await JsonSerializer.DeserializeAsync<MirrorRehearsal>(stream, ManifestJson) ?? NoRehearsal;
+        }
+        catch (Exception ex) when (StorageErrors.IsNotFound(ex))
+        {
+            return NoRehearsal;
+        }
+    }
+
+    // ------------------------------------------------------------------ one exchange
+
+    /// <summary>What a rehearsal calls staging's doors with: the client, the key that marks its calls, and the faker partner keys come from.</summary>
+    sealed record Doors(HttpClient Client, string Key, MirrorFaker Faker);
+
+    /// <summary>How a family got in: the door's line, whether the door turned it away, or why it couldn't be sent in at all.</summary>
+    /// <param name="Rolled">For an aggregation: what staging rolled up, said the way the first exchange's input line says it.</param>
+    sealed record Entered(MirrorDiff Door, bool Refused = false, string NotRun = null, string Rolled = null);
+
+    /// <summary>
+    /// One family: sent in the way it came in on prod, run by staging under a correlation of its own, and
+    /// each exchange staging ran paired with its twin on prod - the exchange of the same subscription, in
+    /// the same order - and compared with it.
+    /// </summary>
+    async Task<MirrorFamilyRun> RunAsync(MirrorFamily family, Setup setup, Doors doors, CancellationToken cancellation)
+    {
+        var first = family.Members[0];
+        if (family.Entry != "aggregation" && first.Input?.Key == null)
+            return new MirrorFamilyRun(family.Id, null, DateTimeOffset.UtcNow, null,
+                first.Input == null ? "Prod's first exchange had nothing come in to send." : $"Prod's input isn't kept. {first.Input.NotCopied}", [], []);
+
+        var correlation = MirrorTraffic.NewCorrelation();
+        var answers = new List<MirrorReplayAnswer>();
+        foreach (var member in family.Members.Where(m => m.Subscription != null))
+            answers.Add(new MirrorReplayAnswer(member.Subscription, await ReplayAsync(member)));
+        var since = DateTime.UtcNow.AddSeconds(-1);
+        mock.Replay(correlation, answers);
+        Entered entered;
+        List<(Xchange X, XchangeResult R)> ran = [];
+        var settled = true;
+        IReadOnlyList<MirrorCall> calls;
+        try
+        {
+            entered = await SendInAsync(family, first, correlation, doors, cancellation);
+            if (entered.NotRun == null && !entered.Refused) (ran, settled) = await SettledAsync(correlation, since, cancellation);
+        }
+        finally
+        {
+            calls = mock.EndReplay();
+        }
+        if (entered.NotRun != null) return new MirrorFamilyRun(family.Id, null, DateTimeOffset.UtcNow, null, entered.NotRun, [], []);
+        return await CompareFamilyAsync(family, setup, correlation, entered, ran, settled, calls);
+    }
+
+    static string NoSubscription(string name) => $"Staging doesn't have the subscription “{name}”. Copy prod's setup; the page says why when it can't.";
+
+    /// <summary>The first exchange's input, sent in through the same door it came in through on prod.</summary>
+    async Task<Entered> SendInAsync(MirrorFamily family, MirrorSample first, string correlation, Doors doors, CancellationToken cancellation)
+    {
+        using var scope = scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var input = first.Input?.Key == null ? null : await ReadAsync(first.Input.Key);
+        var file = input == null ? null : new XchangeFile(MirrorFiles.TextOf(input), first.Input.Name);
+        switch (family.Entry)
+        {
+            case "document":
+            {
+                var type = await db.Set<Document>().AsNoTracking().FirstOrDefaultAsync(d => d.Name == family.Door, cancellation);
+                if (type == null) return new Entered(null, NotRun: $"Staging doesn't have the information type “{family.Door}”. Copy prod's setup.");
+                await scope.ServiceProvider.GetRequiredService<XchangeService>().SubmitFilterXchange(type.Id, file, ["rehearsal"], correlation);
+                return new Entered(new MirrorDiff("entry", "How it came in", Same, $"A document of “{family.Door}”", "The same document, routed by staging"));
+            }
+            case "gateway":
+            case "api":
+                return await CallAsync(family, first, input, correlation, doors, db, cancellation);
+            case "aggregation":
+            {
+                var subscription = await db.Subscriptions().AsNoTracking().FirstOrDefaultAsync(s => s.Name == family.Door, cancellation);
+                if (subscription == null) return new Entered(null, NotRun: NoSubscription(family.Door));
+                // The way prod does it: rolling up what staging ran of the subscription it aggregates.
+                await ActivatorUtilities.CreateInstance<AggregationJob>(scope.ServiceProvider)
+                    .Execute(new AggregationJobParams(subscription.Id, null, correlation));
+                if (await db.Set<Xchange>().AnyAsync(x => x.CorrelationId == correlation, cancellation))
+                    return new Entered(new MirrorDiff("entry", "How it came in", Same, "Prod's exchanges, rolled up", "Staging's own, rolled up",
+                        "It rolls up what staging ran in this rehearsal, so what came in lists other files than prod's."), Rolled: "Staging's own, listed");
+                // Staging ran nothing of it: the files prod rolled up instead, faked, served by staging.
+                var rolled = (first.Rolled ?? []).Where(f => f.Key != null).ToList();
+                if (rolled.Count == 0)
+                    return new Entered(null, NotRun: "Staging had nothing to roll up: none of the exchanges it aggregates ran in this rehearsal, and none of the files prod rolled up is kept.");
+                var list = JsonSerializer.Serialize(rolled.Select(f => links.LinkTo(f.Key, forAdapter: true)).ToList());
+                await scope.ServiceProvider.GetRequiredService<XchangeService>().CreateXchange(subscription, new XchangeFile(list), ["rehearsal"], correlation);
+                await db.SaveChangesAsync(cancellation);
+                return new Entered(new MirrorDiff("entry", "How it came in", Info, "Prod's exchanges, rolled up", $"{rolled.Count} of the files prod rolled up, faked",
+                    "Staging ran none of the exchanges it aggregates in this rehearsal, so it rolls up a few of the files prod did, as staging keeps them."),
+                    Rolled: $"{rolled.Count} of prod's, faked, listed");
+            }
+            default:
+            {
+                var subscription = await db.Subscriptions().FirstOrDefaultAsync(s => s.Name == family.Door, cancellation);
+                if (subscription == null) return new Entered(null, NotRun: NoSubscription(family.Door));
+                var partnerName = family.Partner ?? first.Partner;
+                Partner partner = null;
+                if (partnerName != null && (partner = await db.Set<Partner>().FirstOrDefaultAsync(p => p.Name == partnerName, cancellation)) == null)
+                    return new Entered(null, NotRun: $"Staging doesn't have the partner “{partnerName}”. Copy prod's setup.");
+                await scope.ServiceProvider.GetRequiredService<XchangeService>().CreateXchange(subscription, file, ["rehearsal"], correlation, partner);
+                await db.SaveChangesAsync(cancellation);
+                return new Entered(family.Entry == "receiver"
+                    ? new MirrorDiff("entry", "How it came in", Info, "A file its receiver read", "The same file, handed straight to it",
+                        "Reading it from the server comes with the test servers.")
+                    : new MirrorDiff("entry", "How it came in", Same, "Started by hand", "Started the same way"));
+            }
+        }
+    }
+
+    /// <summary>
+    /// A partner's call through one of staging's doors - an API gateway, or the partner API - as prod's
+    /// partner made it: with staging's key for the partner, or a token staging signs for it.
+    /// </summary>
+    async Task<Entered> CallAsync(MirrorFamily family, MirrorSample first, byte[] input, string correlation, Doors doors, BitweenDbContext db,
+        CancellationToken cancellation)
+    {
+        var name = family.Partner ?? first.Partner;
+        var partner = name == null ? null : await db.Set<Partner>().AsNoTracking().Where(p => p.Name == name)
+            .Select(p => new { p.Name, p.LoginIdentity, Keys = p.ApiCredentials.Select(c => c.Name).ToList() })
+            .FirstOrDefaultAsync(cancellation);
+        if (partner == null)
+            return new Entered(null, NotRun: name == null ? "Prod's exchange doesn't say which partner called." : $"Staging doesn't have the partner “{name}”. Copy prod's setup.");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, (Uri)null);
+        string said;
+        if (family.Entry == "gateway")
+        {
+            var gateway = family.Door == null ? null
+                : await db.Set<Domain.Gateway.ApiGateway>().AsNoTracking().FirstOrDefaultAsync(g => g.UrlName == family.Door, cancellation);
+            if (gateway == null)
+                return new Entered(null, NotRun: family.Door == null ? "Prod's setup doesn't say which gateway it came through." : $"Staging doesn't have the gateway “{family.Door}”. Copy prod's setup.");
+            request.RequestUri = new Uri($"api/gateway/{gateway.UrlName}/async", UriKind.Relative);
+            said = $"A call to the gateway “{gateway.UrlName}” from “{name}”";
+            if (gateway.AuthMethod == GatewayAuthMethod.Jwt)
+            {
+                if (string.IsNullOrEmpty(partner.LoginIdentity))
+                    return new Entered(null, NotRun: $"Staging's partner “{name}” has no login identity for the gateway's tokens. Copy prod's setup.");
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer",
+                    mock.SignToken(gateway.JwtIssuer, gateway.JwtAudience, gateway.JwtPartnerClaim, partner.LoginIdentity));
+            }
+        }
+        else
+        {
+            request.RequestUri = new Uri($"api/xchanges/{Uri.EscapeDataString(family.Door ?? "")}", UriKind.Relative);
+            said = $"A call to the partner API from “{name}”";
+        }
+        if (request.Headers.Authorization == null)
+        {
+            if (partner.Keys.Count == 0) return new Entered(null, NotRun: $"Staging's partner “{name}” has no key to call with. Copy prod's setup.");
+            // The copy gives each of a partner's keys the same stand-in every time, which is how the rehearsal knows it.
+            request.Headers.Add(PartnerKeyHeaders.Default, doors.Faker.Secret($"partners/{partner.Name}/key/{partner.Keys[0]}"));
+        }
+        request.Headers.Add(MirrorTraffic.Header, $"{doors.Key} {correlation}");
+        request.Content = new ByteArrayContent(input ?? []);
+        request.Content.Headers.ContentType = MediaTypeHeaderValue.Parse(ContentType(first.Input?.Format));
+
+        using var response = await doors.Client.SendAsync(request, cancellation);
+        var status = (int)response.StatusCode;
+        if (status is >= 200 and < 300)
+            return new Entered(new MirrorDiff("entry", "How it came in", Same, said, $"Taken: staging answered {status}"));
+        var body = (await response.Content.ReadAsStringAsync(cancellation)).Trim();
+        return new Entered(new MirrorDiff("entry", "How it came in", Different, said, $"Refused: staging answered {status}",
+            $"Prod took this call, and staging turned it away{(body.Length == 0 ? "." : $": {(body.Length > 300 ? body[..300] + "…" : body)}")}"), Refused: true);
+    }
+
+    /// <summary>
+    /// Each of staging's exchanges paired with its twin on prod - the same subscription, in the order they
+    /// started - and compared; an exchange one side ran and the other didn't is a difference of its own.
+    /// </summary>
+    async Task<MirrorFamilyRun> CompareFamilyAsync(MirrorFamily family, Setup setup, string correlation, Entered entered,
+        List<(Xchange X, XchangeResult R)> ran, bool settled, IReadOnlyList<MirrorCall> calls)
+    {
+        using var scope = scopes.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var xchanges = scope.ServiceProvider.GetRequiredService<XchangeService>();
+        var subscriptions = await db.Subscriptions().AsNoTracking().Select(s => new { s.Id, s.Name }).ToDictionaryAsync(s => s.Id, s => s.Name);
+        var types = await db.Set<Document>().AsNoTracking().Select(d => new { d.Id, d.Name }).ToDictionaryAsync(d => d.Id, d => d.Name);
+        string NameOf(Xchange x) => x.SubscriptionId is { } id ? subscriptions.GetValueOrDefault(id) : types.GetValueOrDefault(x.DocumentId);
+        // A document being routed has no subscription: it pairs with one of the same type.
+        string TwinOf(Xchange x) => x.SubscriptionId == null ? "\u0000" + NameOf(x) : NameOf(x);
+        static string Twin(MirrorSample p) => p.Subscription ?? "\u0000" + p.InformationType;
+
+        var pool = ran.ToList();
+        var members = new List<MirrorRun>();
+        for (var i = 0; i < family.Members.Count; i++)
+        {
+            var p = family.Members[i];
+            var at = pool.FindIndex(s => TwinOf(s.X) == Twin(p));
+            if (at < 0)
+            {
+                members.Add(Missing(p, settled && !entered.Refused, entered.Refused));
+                continue;
+            }
+            var (x, r) = pool[at];
+            pool.RemoveAt(at);
+            members.Add(await MemberAsync(p, i == 0, x, r, setup, xchanges, calls.Where(c => c.Exchange == x.Id).ToList(), entered.Rolled));
+        }
+        foreach (var (x, r) in pool)
+            members.Add(Extra(x, r, NameOf(x), family.Cut > 0 || family.Unlinked));
+
+        var diffs = new List<MirrorDiff>();
+        if (entered.Door != null) diffs.Add(entered.Door);
+        if (setup != null)
+        {
+            var (prod, staging) = (setup.Parity.Prod.Version, setup.Parity.Staging.Version);
+            diffs.Add(new MirrorDiff("family", "Bitween", prod == staging ? Same : Info, prod, staging, prod == staging ? null : "The release being tried."));
+        }
+        if (family.Cut > 0)
+            diffs.Add(new MirrorDiff("family", "Prod's family", Info, $"More than {family.Members.Count} exchanges", $"{ran.Count} exchanges",
+                $"The sample keeps {family.Members.Count} of prod's family's exchanges, so staging's others aren't compared."));
+        else if (family.Unlinked)
+            diffs.Add(new MirrorDiff("family", "Where it went", Info, "Not recorded", $"{ran.Count} exchanges",
+                "It came in on prod without a correlation id, so prod doesn't say which subscriptions it went to: staging's are run, but not counted as more than prod's."));
+        var untied = calls.Where(c => c.Exchange == null).ToList();
+        if (Calls(untied, untied.Where(c => c.Real).Select(c => c.Host).Distinct(StringComparer.OrdinalIgnoreCase).ToList()) is { } loose)
+            diffs.Add(loose with { Part = "family", Name = "Calls staging couldn't tie to an exchange" });
+
+        var levels = members.Select(m => m.Verdict).Append(entered.Door?.Level).ToList();
+        var verdict = levels.Contains(Different) ? Different : levels.Contains(Check) ? Check : Same;
+        return new MirrorFamilyRun(family.Id, correlation, DateTimeOffset.UtcNow, verdict, null, diffs, members);
+    }
+
+    static string OutcomeOf(XchangeResult r) => !r.Success ? "failed" : r.ResponseBad ? "badResponse" : "success";
+
+    /// <summary>One of prod's exchanges staging ran no twin of.</summary>
+    static MirrorRun Missing(MirrorSample p, bool settled, bool refused) =>
+        new(p.ProdExchangeId, p.Subscription ?? p.InformationType, null, DateTimeOffset.UtcNow, null, null, [],
+            settled || refused ? Different : null,
+            refused ? "Staging turned the call away, so it didn't run."
+            : settled ? "Staging didn't run it, where prod's family did."
+            : $"Staging hadn't run it when the rehearsal stopped waiting, after {RunTimeout.TotalMinutes:0} minutes.",
+            null, null,
+            settled && !refused
+                ? [new MirrorDiff("result", "Result", Different, Ending(p.Outcome, p.Status, p.ErrorTypes ?? []), "Not run",
+                    "Staging didn't run it: its routing, or an answer before it, went another way than on prod.")]
+                : []);
+
+    /// <summary>One of staging's exchanges that prod's family had no twin of.</summary>
+    static MirrorRun Extra(Xchange x, XchangeResult r, string name, bool cut)
+    {
+        var (status, types) = ErrorOf(r?.Exception);
+        var outcome = r == null ? null : OutcomeOf(r);
+        return new MirrorRun(null, name, x.Id, DateTimeOffset.UtcNow, outcome, status, types, cut ? Same : Different, null, null, null,
+            [new MirrorDiff("result", "Result", cut ? Info : Different, "Not run", outcome == null ? "Didn't finish" : Ending(outcome, status, types),
+                cut ? "Prod's family was larger than the sample keeps, so it may well have run this too."
+                    : "Prod's family didn't run it: staging's routing, or an answer before it, took it somewhere prod didn't.")]);
+    }
+
+    /// <summary>One of the family's exchanges on staging, beside its twin on prod.</summary>
+    async Task<MirrorRun> MemberAsync(MirrorSample p, bool first, Xchange x, XchangeResult r, Setup setup, XchangeService xchanges,
+        IReadOnlyList<MirrorCall> calls, string rolled)
+    {
+        var name = p.Subscription ?? p.InformationType;
+        if (r == null)
+            return new MirrorRun(p.ProdExchangeId, name, x.Id, DateTimeOffset.UtcNow, null, null, [], null,
+                $"It didn't finish on staging within {RunTimeout.TotalMinutes:0} minutes.", null, null, []);
+
+        var (status, types) = ErrorOf(r.Exception);
+        var outcome = OutcomeOf(r);
+        var (outputFile, output) = await StagingFileAsync(xchanges, x, r.OutputName, r.OutputSize, XchangeFileType.Output);
+        var (responseFile, response) = await StagingFileAsync(xchanges, x, r.ResponseName, r.ResponseSize, XchangeFileType.Response);
+        var real = calls.Where(c => c.Real).Select(c => c.Host).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var answer = File("answer", "What it got back", p.Response, await SampleFileAsync(p.Response), response);
+        // A host called for real answered, not prod's partner: a different answer then says nothing of the release.
+        if (real.Count > 0 && response != null && answer?.Level is Different or Check)
+            answer = answer with { Level = Info, Note = $"It called {string.Join(", ", real)} for real, so this is that host's answer, not prod's partner's. {answer.Note}".Trim() };
+
+        var diffs = new List<MirrorDiff>
+        {
+            Result(p, outcome, status, types),
+            File("output", "What it sent", p.Output, await SampleFileAsync(p.Output), output),
+            answer,
+            Calls(calls, real),
+        };
+        if (!first)
+        {
+            // Handed on by the exchange before it, so it differs where that one's answer did.
+            var (_, input) = await StagingFileAsync(xchanges, x, x.InputName, x.InputSize, XchangeFileType.Input);
+            diffs.Add(File("input", "What was handed on to it", p.Input, await SampleFileAsync(p.Input), input));
+        }
+        else if (rolled != null)
+            diffs.Add(new MirrorDiff("input", "What came in", Info, "Prod's exchanges, listed", rolled));
+        else
+            diffs.Add(new MirrorDiff("input", "What came in", Faked, $"{FormatName(p.Input?.Format)} · prod's, faked", "The same file"));
+        if (p.Subscription != null) diffs.AddRange(Used(setup, p.Subscription, p, x, r));
+        diffs.RemoveAll(d => d == null);
+        return new MirrorRun(p.ProdExchangeId, name, x.Id, DateTimeOffset.UtcNow, outcome, status, types, MirrorCompare.Verdict(diffs), null,
+            outputFile, responseFile, diffs);
+    }
+
+    /// <summary>The calls the exchange made: answered by staging, or sent on for real, which explains what came back.</summary>
+    static MirrorDiff Calls(IReadOnlyList<MirrorCall> calls, IReadOnlyList<string> real)
+    {
+        if (calls.Count == 0) return null;
+        return new MirrorDiff("calls", "Calls it made", real.Count > 0 ? Info : Same, null,
+            real.Count == 0 ? $"{Many(calls.Count, "call")} answered by staging" : $"{Many(calls.Count(c => c.Real), "call")} sent for real, to {string.Join(", ", real)}",
+            real.Count == 0 ? null : "Staging calls for real a host its setup names, staging itself and this machine.",
+            calls.Take(20).Select(c => new MirrorFieldDiff($"{c.Method} {c.Host}{c.Path}", c.Real ? Info : Same, null, c.Why)).ToList());
+    }
+
+    /// <summary>
+    /// What staging answers the exchange's calls with: what prod's partner answered in it, faked. A failure
+    /// prod's error names a status for is that status; a call that never got through on prod doesn't on
+    /// staging either. Null for a failure before any call, which leaves staging's usual answer.
+    /// </summary>
+    async Task<MirrorAnswer> ReplayAsync(MirrorSample sample)
+    {
+        const string because = "Prod's partner's answer in the exchange being rehearsed, faked.";
+        return sample.Outcome switch
+        {
+            "success" or "badResponse" => new MirrorAnswer(sample.Outcome == "success" ? 200 : 400,
+                sample.Response?.Key == null ? null : ContentType(sample.Response.Format),
+                sample.Response?.Key == null ? [] : await ReadAsync(sample.Response.Key), because),
+            "failed" when sample.Status is { } status => new MirrorAnswer(status, null, [], $"Prod's partner answered {status} in the exchange being rehearsed."),
+            "failed" when Unreachable(sample.ErrorTypes ?? []) => new MirrorAnswer(0, null, [],
+                "Prod's call didn't get through in the exchange being rehearsed, so this one doesn't either.", Fail: true),
+            _ => null,
+        };
+    }
+
+    /// <summary>
+    /// Staging's exchanges of a family, once each has finished and nothing new has started for a few
+    /// seconds: an answer handed on, or a message across the bus, starts after its exchange is saved.
+    /// What there is when <see cref="RunTimeout"/> runs out, with whether it settled.
+    /// </summary>
+    async Task<(List<(Xchange X, XchangeResult R)> Ran, bool Settled)> SettledAsync(string correlation, DateTime since, CancellationToken cancellation)
+    {
+        var until = DateTime.UtcNow + RunTimeout;
+        List<(Xchange X, XchangeResult R)> ran = [];
+        int quiet = 0, last = -1;
+        while (DateTime.UtcNow < until)
+        {
+            await Task.Delay(500, cancellation);
+            using var scope = scopes.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var rows = await (from x in db.Set<Xchange>().AsNoTracking()
+                              where x.StartedOn >= since && x.CorrelationId == correlation
+                              join r in db.Set<XchangeResult>().AsNoTracking() on x.Id equals r.Id into results
+                              from r in results.DefaultIfEmpty()
+                              select new { x, r }).ToListAsync(cancellation);
+            ran = rows.OrderBy(a => a.x.StartedOn).Select(a => (a.x, a.r)).ToList();
+            var done = ran.Count > 0 && ran.All(a => a.Item2 != null);
+            quiet = done && ran.Count == last ? quiet + 1 : 0;
+            last = ran.Count;
+            if (quiet >= 6) return (ran, true);
+        }
+        return (ran, false);
+    }
+
+    async Task<(MirrorSampleFile File, byte[] Content)> StagingFileAsync(XchangeService xchanges, Xchange xchange, string name, int size, XchangeFileType type)
+    {
+        if (xchanges.FileKey(xchange.Id, xchange.FilesPrefix, size, type) is not { } key) return (null, null);
+        var content = await ReadAsync(key);
+        return (new MirrorSampleFile(key, name, MirrorFiles.FormatOf(content), content.Length, null), content);
+    }
+
+    async Task<byte[]> SampleFileAsync(MirrorSampleFile file) => file?.Key == null ? null : await ReadAsync(file.Key);
+
+    async Task<byte[]> ReadAsync(string key)
+    {
+        await using var stream = await cloudFiles.OpenReadAsync(key);
+        using var buffer = new MemoryStream();
+        await stream.CopyToAsync(buffer);
+        return buffer.ToArray();
+    }
+
+    // ------------------------------------------------------------------ what it used
+
+    /// <summary>
+    /// What the exchange used, prod's beside staging's: the release, the subscription, its information
+    /// type, the partner it ran as, the global values it names, and the adapters it ran. Prod's is its
+    /// setup today, faked as the copy fakes it; its adapters are the ones its exchange recorded.
+    /// </summary>
+    static IEnumerable<MirrorDiff> Used(Setup setup, string name, MirrorSample sample, Xchange xchange, XchangeResult result)
+    {
+        if (setup != null)
+        {
+            var item = (setup.Copy.Sections.GetValueOrDefault("subscriptions") ?? []).FirstOrDefault(i => (string)i["name"] == name);
+            yield return Item(setup, "subscriptions", name, "Subscription");
+            if ((string)item?["informationType"] is { } type) yield return Item(setup, "informationTypes", type, "Information type");
+            if ((sample.Partner ?? (string)item?["partner"]) is { } partner) yield return Item(setup, "partners", partner, "Partner");
+            foreach (var set in GlobalSetsIn(setup, item)) yield return Item(setup, "globalValues", set, "Global values");
+        }
+        yield return Adapter(setup, "Mapper", sample.Mapper, xchange.MapperId, result.MapperVersion);
+        yield return Adapter(setup, "Handler", sample.Handler, xchange.HandlerId, result.HandlerVersion);
+    }
+
+    static MirrorDiff Item(Setup setup, string section, string key, string noun)
+    {
+        var row = setup.Parity.Kinds.FirstOrDefault(k => k.Section == section)?.Items.FirstOrDefault(i => i.Key == key);
+        var change = setup.Plan.Changes.FirstOrDefault(c => c.Section == section && c.Key == key && c.Op != Op.Delete);
+        var name = $"{noun} “{key}”";
+        if (row == null)
+            return new MirrorDiff("used", name, Info, "Not on prod any more", "On staging", "Prod's setup no longer has it: the samples are older than that.");
+        if (row.State is "missing" or "waiting" || change?.Op == Op.Create)
+            return new MirrorDiff("used", name, Info, "Has it", "Doesn't have it", row.Reason ?? "Copy prod's setup to bring it over.", null, section, row.StagingId, row.Type);
+        if (change?.Op == Op.Update)
+        {
+            var fields = SetupFields(change.Want, change.Have?.File, change.Fields ?? []);
+            return new MirrorDiff("used", name, Info, $"{fields.Count} different", $"{fields.Count} different",
+                "Staging's differs from prod's setup as copied today; copying again brings it in line.", fields, section, row.StagingId, row.Type);
+        }
+        var copied = (setup.Copy.Sections.GetValueOrDefault(section) ?? []).FirstOrDefault(i => Kinds.Of(section).KeyOf(i) == key);
+        var faked = section switch
+        {
+            "partners" when copied?["properties"] is JsonObject { Count: > 0 } => "Its properties are faked.",
+            "globalValues" => "Its values are faked.",
+            "subscriptions" when setup.Copy.Addresses.Any(a => a.UsedBy.Any(u => u.Section == section && u.Key == key)) => "Its addresses are test addresses.",
+            _ => null,
+        };
+        return new MirrorDiff("used", name, faked == null ? Same : Faked, "Same", "Same", faked, null, section, row.StagingId, row.Type);
+    }
+
+    /// <summary>The global values sets a subscription's adapters name in {{globals.set.key}}, as the copy names them.</summary>
+    static IEnumerable<string> GlobalSetsIn(Setup setup, JsonObject subscription)
+    {
+        var values = new[] { "receiver", "validator", "mapper", "handler" }
+            .SelectMany(role => subscription?[role]?["properties"] as JsonObject ?? [])
+            .Select(p => p.Value is JsonValue v && v.TryGetValue<string>(out var s) ? s : null);
+        var sets = (setup.Copy.Sections.GetValueOrDefault("globalValues") ?? []).Select(Kinds.Of("globalValues").KeyOf).Where(k => k != null).ToList();
+        return StartupValuesFiller.ReferencesIn(values).Globals
+            .Select(g => sets.FirstOrDefault(k => string.Equals(k, g.SetId, StringComparison.OrdinalIgnoreCase)))
+            .Where(k => k != null).Distinct(StringComparer.Ordinal);
+    }
+
+    /// <summary>
+    /// An adapter the exchange ran, prod's beside staging's: the version prod pinned, or else the one it has
+    /// as current today, against the one staging ran. A built-in one comes with the release.
+    /// </summary>
+    static MirrorDiff Adapter(Setup setup, string role, string prodRef, string stagingRef, string stagingVersion)
+    {
+        if (prodRef == null && stagingRef == null) return null;
+        var (prodId, pinned) = prodRef == null ? (null, null) : AdapterCatalogPaths.Split(prodRef);
+        var (stagingId, _) = stagingRef == null ? (null, null) : AdapterCatalogPaths.Split(stagingRef);
+        var builtIn = NativeAdapterDiscoveryService.IsNative(prodId ?? stagingId);
+        var prodVersion = pinned ?? setup?.Parity.Adapters.FirstOrDefault(a => string.Equals(a.Id, prodId, StringComparison.OrdinalIgnoreCase))?.ProdVersion;
+        var same = string.Equals(prodId, stagingId, StringComparison.OrdinalIgnoreCase) &&
+                   (builtIn || prodVersion == null || stagingVersion == null || prodVersion == stagingVersion);
+        string Shown(string id, string version) =>
+            id == null ? "None" : NativeAdapterDiscoveryService.IsNative(id) ? $"{id} (built in)" : version == null ? id : $"{id} {version}";
+        return new MirrorDiff("used", role, same ? Same : Info, Shown(prodId, builtIn ? null : prodVersion), Shown(stagingId, builtIn ? null : stagingVersion),
+            same || pinned != null || prodVersion == null ? null : "Prod's version is the one it has as current today.");
+    }
+}
