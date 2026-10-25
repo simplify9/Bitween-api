@@ -20,6 +20,12 @@ public sealed partial class MirrorService
     /// <summary>Where staging keeps each subscription's test: prod's arrivals, faked, and how they last ran.</summary>
     public const string TestsPrefix = "mirror/tests";
 
+    /// <summary>How each subscription's test last ran, by its name, in one place for the lists to read.</summary>
+    const string VerdictsKey = TestsPrefix + "/verdicts.json";
+
+    /// <summary>The verdict of a subscription prod had none of to take, when its arrivals were last taken.</summary>
+    public const string NoTraffic = "noTraffic";
+
     static readonly MirrorTest NoTest = new("idle", null, 0, 0, null, null, null, [], null, [], null, [], 0);
 
     /// <summary>A subscription's test's place in storage: by a hash of its name, never a path a name could choose.</summary>
@@ -83,11 +89,13 @@ public sealed partial class MirrorService
             Made = test.Made ?? [],
             Exchanges = await MadeBy(test.Made ?? [], scope.ServiceProvider.GetRequiredService<BitweenDbContext>()).CountAsync(),
             State = "idle", Busy = null, Done = 0, Total = 0, Error = null,
+            // The page says itself when prod had none to take.
+            Last = (await ReadVerdictsAsync()).GetValueOrDefault(name) is { Verdict: not NoTraffic } last ? last : null,
         };
         if (work.Running is { } running)
             return running.Subject == name
                 ? test with { State = running.Kind == MirrorWork.Sampling ? "taking" : "running", Done = running.Done, Total = running.Total }
-                : test with { Busy = MirrorWork.Describe(running) };
+                : test with { State = work.Waiting.Contains(name) ? "queued" : "idle", Busy = MirrorWork.Describe(running) };
         return (work.LastError(MirrorWork.Sampling, name) ?? work.LastError(MirrorWork.Rehearsing, name)) is { } error
             ? test with { State = "failed", Error = error }
             : test;
@@ -123,6 +131,8 @@ public sealed partial class MirrorService
             RanOn = null, Runs = [], SetupError = null,
         };
         await SaveTestAsync(name, test);
+        // How the arrivals taken before ran says nothing of these.
+        await SaveVerdictAsync(name, families.Count == 0 ? new MirrorTestVerdict(NoTraffic, test.TakenOn.Value, 0, 0, 0, 0) : null);
         var kept = families.SelectMany(f => f.Members).SelectMany(s => new[] { s.Input, s.Output, s.Response }.Concat(s.Rolled ?? []))
             .Where(f => f?.Key != null).Select(f => f.Key).ToHashSet(StringComparer.Ordinal);
         foreach (var file in await cloudFiles.ListAsync($"{folder}/files/"))
@@ -157,13 +167,43 @@ public sealed partial class MirrorService
             test = test with { Runs = runs, Made = made.ToList() };
             return SaveTestAsync(name, test);
         }, cancellation);
+        await SaveVerdictAsync(name, VerdictOf(test.Runs, startedOn));
         return test;
     }
 
     /// <summary>
+    /// The work that tests several subscriptions, one after another: for each, prod's latest arrivals are
+    /// taken first unless some are, then sent in. One prod has none of to take is passed over.
+    /// </summary>
+    public async Task<IReadOnlyList<MirrorJob>> TestJobsAsync(IEnumerable<string> names, string selfToken)
+    {
+        var jobs = new List<MirrorJob>();
+        foreach (var name in names)
+        {
+            if ((await ReadTestAsync(name)).Families is not { Count: > 0 })
+                jobs.Add(new MirrorJob(MirrorWork.Sampling, name, (m, progress, ct) => m.TakeTestAsync(name, progress, ct)));
+            jobs.Add(new MirrorJob(MirrorWork.Rehearsing, name, async (m, progress, ct) =>
+            {
+                if ((await m.ReadTestAsync(name)).Families is { Count: > 0 })
+                    await m.RunTestAsync(name, progress, selfToken, ct);
+            }));
+        }
+        return jobs;
+    }
+
+    /// <summary>The worst of how the arrivals ran; one that didn't run is one to check.</summary>
+    internal static MirrorTestVerdict VerdictOf(IReadOnlyList<MirrorFamilyRun> runs, DateTimeOffset ranOn)
+    {
+        int Count(string verdict) => runs.Count(r => r.Verdict == verdict);
+        var notRun = runs.Count(r => r.Verdict == null);
+        var verdict = Count(Different) > 0 ? Different : Count(Check) > 0 || notRun > 0 ? Check : Same;
+        return new MirrorTestVerdict(verdict, ranOn, Count(Same), Count(Check), Count(Different), notRun);
+    }
+
+    /// <summary>
     /// Removes what the subscription's test made on staging: every exchange its runs started - each arrival
-    /// and everything it led to - with its results, notifications, scheduled retries and files, and how
-    /// the runs compared. Prod's arrivals stay, to run again.
+    /// and everything it led to - with its results, notifications, scheduled retries and files, and each
+    /// arrival's results. Prod's arrivals stay, to run again, and so does how the last run went, for the lists.
     /// </summary>
     public async Task<MirrorTest> ClearTestAsync(string name)
     {
@@ -221,4 +261,27 @@ public sealed partial class MirrorService
     Task SaveTestAsync(string name, MirrorTest test) =>
         cloudFiles.WriteTextAsync(JsonSerializer.Serialize(test, ManifestJson),
             new WriteFileSettings { Key = $"{TestFolder(name)}/test.json", ContentType = "application/json" });
+
+    async Task<Dictionary<string, MirrorTestVerdict>> ReadVerdictsAsync()
+    {
+        try
+        {
+            await using var stream = await cloudFiles.OpenReadAsync(VerdictsKey);
+            return await JsonSerializer.DeserializeAsync<Dictionary<string, MirrorTestVerdict>>(stream, ManifestJson) ?? [];
+        }
+        catch (Exception ex) when (StorageErrors.IsNotFound(ex))
+        {
+            return [];
+        }
+    }
+
+    /// <summary>Keeps how a subscription's test last ran, or forgets it with null. Only the mirror's work writes it, one piece at a time.</summary>
+    internal async Task SaveVerdictAsync(string name, MirrorTestVerdict verdict)
+    {
+        var verdicts = await ReadVerdictsAsync();
+        if (verdict == null && !verdicts.Remove(name)) return;
+        if (verdict != null) verdicts[name] = verdict;
+        await cloudFiles.WriteTextAsync(JsonSerializer.Serialize(verdicts, ManifestJson),
+            new WriteFileSettings { Key = VerdictsKey, ContentType = "application/json" });
+    }
 }

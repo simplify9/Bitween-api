@@ -216,14 +216,11 @@ export const keys = {
   mirror: {
     all: ["mirror"] as const,
     status: ["mirror", "status"] as const,
-    parity: ["mirror", "parity"] as const,
-    samples: ["mirror", "samples"] as const,
-    calls: ["mirror", "calls"] as const,
-    rehearsal: ["mirror", "rehearsal"] as const,
     prodKinds: ["mirror", "prodKinds"] as const,
     prod: (section: string, type?: string) => ["mirror", "prod", section, type ?? "all"] as const,
     subscription: (id: number) => ["mirror", "subscription", id] as const,
     test: (id: number) => ["mirror", "test", id] as const,
+    listed: (section: string) => ["mirror", "listed", section] as const,
   },
 
   settings: {

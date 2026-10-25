@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, CircleAlert, ExternalLink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
-import { api, type MirrorDiff, type MirrorSubscriptionView, type MirrorTest } from "../../api";
+import { api, type MirrorDiff, type MirrorSubscriptionView, type MirrorTest, type MirrorTestVerdict } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { Badge, Button, FormError, InlineNotice, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
@@ -173,8 +173,11 @@ function TestPart({ subscriptionId, prodUrl, canOperate }: { subscriptionId: num
   const test = useQuery({
     queryKey: keys.mirror.test(subscriptionId),
     queryFn: () => api.getMirrorTest(subscriptionId),
-    // Followed while it runs.
-    refetchInterval: (q) => (q.state.data?.state === "taking" || q.state.data?.state === "running" ? 2000 : false),
+    // Followed while it runs or waits its turn, and while other work holds it up.
+    refetchInterval: (q) => {
+      const t = q.state.data;
+      return t?.state === "taking" || t?.state === "running" || t?.state === "queued" ? 2000 : t?.busy ? 5000 : false;
+    },
   });
   const set = (t: MirrorTest) => queryClient.setQueryData(keys.mirror.test(subscriptionId), t);
   // A run adds exchanges, and a clear removes them: the page's runs and health above change with them.
@@ -225,7 +228,7 @@ function TestPart({ subscriptionId, prodUrl, canOperate }: { subscriptionId: num
       {clearing && test.data && (
         <ConfirmDialog
           title="Clear what the test made?"
-          body={`Removes the ${plural(test.data.exchanges, "exchange", "exchanges")} the test's runs made on staging, with their files, and how they compared. Prod's arrivals stay, to run again.`}
+          body={`Removes the ${plural(test.data.exchanges, "exchange", "exchanges")} the test's runs made on staging, with their files and each arrival's results. Prod's arrivals stay, to run again, and so does how the last run went.`}
           confirmLabel="Clear"
           onConfirm={async () => {
             await clear.mutateAsync();
@@ -234,6 +237,18 @@ function TestPart({ subscriptionId, prodUrl, canOperate }: { subscriptionId: num
         />
       )}
     </section>
+  );
+}
+
+/** How the arrivals last ran, once what that run made is cleared. */
+function LastRun({ last }: { last: MirrorTestVerdict }) {
+  const parts = (["different", "check", "same", "notRun"] as const)
+    .filter((v) => last[v] > 0)
+    .map((v) => `${whole(last[v])} ${v === "notRun" ? "didn't run" : VERDICT[v].label.toLowerCase()}`);
+  return (
+    <p className="font-medium text-ink-900">
+      Ran {timeAgo(last.ranOn)}: {parts.join(", ")}. <span className="font-normal text-ink-600">What it made was cleared.</span>
+    </p>
   );
 }
 
@@ -249,7 +264,7 @@ function TestBody({ test, prodUrl, canOperate, open, onToggle, busy, error, onTa
   onRun: () => void;
   onClear: () => void;
 }) {
-  const working = test.state === "taking" || test.state === "running";
+  const working = test.state === "taking" || test.state === "running" || test.state === "queued";
   const off = !canOperate ? "Your role can't do this on this staging" : test.busy ? `${test.busy} is under way` : working ? "It is under way" : undefined;
   const runs = new Map(test.runs.map((r) => [r.familyId, r]));
   const order: Verdict[] = ["different", "check", "same", "notRun"];
@@ -281,15 +296,15 @@ function TestBody({ test, prodUrl, canOperate, open, onToggle, busy, error, onTa
           </p>
           {test.state === "running" ? (
             <p className="font-medium text-ink-900">Running: {whole(test.done)} of {whole(test.total)} arrivals.</p>
+          ) : ran ? (
+            <p className="font-medium text-ink-900">
+              {test.ranOn ? `Ran ${timeAgo(test.ranOn)}: ` : "Ran: "}
+              {order.filter((v) => count(v) > 0)
+                .map((v) => `${whole(count(v))} ${v === "notRun" ? "didn't run" : VERDICT[v].label.toLowerCase()}`).join(", ")}
+              .
+            </p>
           ) : (
-            ran && (
-              <p className="font-medium text-ink-900">
-                {test.ranOn ? `Ran ${timeAgo(test.ranOn)}: ` : "Ran: "}
-                {order.filter((v) => count(v) > 0)
-                  .map((v) => `${whole(count(v))} ${v === "notRun" ? "didn't run" : VERDICT[v].label.toLowerCase()}`).join(", ")}
-                .
-              </p>
-            )
+            test.last && <LastRun last={test.last} />
           )}
           <ul className="divide-y divide-ink-100 border-t border-ink-100">
             {entries.map((e) => (
@@ -309,7 +324,13 @@ function TestBody({ test, prodUrl, canOperate, open, onToggle, busy, error, onTa
       )}
       {test.setupError && <InlineNotice>{test.setupError}</InlineNotice>}
       {test.state === "failed" && test.error && <InlineNotice>{test.error}</InlineNotice>}
-      {test.busy && <p className="text-ink-600">{test.busy} is under way; this test can start once it finishes.</p>}
+      {test.busy && (
+        <p className="text-ink-600">
+          {test.state === "queued"
+            ? `It waits its turn in a test of several: ${test.busy.charAt(0).toLowerCase()}${test.busy.slice(1)} is under way.`
+            : `${test.busy} is under way; this test can start once it finishes.`}
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {test.families.length > 0 && (
           <Button size="sm" variant={!ran ? "primary" : undefined} busy={busy.run || test.state === "running"} disabled={!!off}

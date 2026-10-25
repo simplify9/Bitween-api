@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
+using SW.Bitween.Services.Mirror;
 using Document = SW.Bitween.Domain.Document;
 
 namespace SW.Bitween.Resources.Subscriptions
@@ -17,13 +18,15 @@ namespace SW.Bitween.Resources.Subscriptions
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;
         private readonly AdapterSecretProperties _secrets;
+        private readonly MirrorService _mirror;
         private readonly List<string> _edgeCaseProperties;
 
-        public Search(BitweenDbContext dbContext, RequestContext requestContext, AdapterSecretProperties secrets)
+        public Search(BitweenDbContext dbContext, RequestContext requestContext, AdapterSecretProperties secrets, MirrorService mirror)
         {
             _dbContext = dbContext;
             _requestContext = requestContext;
             _secrets = secrets;
+            _mirror = mirror;
 
             _edgeCaseProperties = new List<string>
             {
@@ -40,6 +43,7 @@ namespace SW.Bitween.Resources.Subscriptions
             // the full list is the data, so that's what the view permission covers.
             if (!lookup)
                 await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Subscriptions.View);
+            await _mirror.FilterAsync(searchyRequest, "subscriptions");
 
             var query = from subscriber in _dbContext.Set<Subscription>()
                 join document in _dbContext.Set<Document>() on subscriber.DocumentId equals document.Id

@@ -2,13 +2,9 @@ import type { ApiClient } from "../client";
 import type {
   MirrorBring,
   MirrorBringSection,
-  MirrorCalls,
-  MirrorCopyResult,
-  MirrorParityAnswer,
+  MirrorListed,
   MirrorProdKinds,
   MirrorProdListAnswer,
-  MirrorRehearsal,
-  MirrorSamples,
   MirrorStatus,
   MirrorSubscriptionAnswer,
   MirrorTest,
@@ -18,39 +14,6 @@ import { get, post } from "./request";
 export const mirrorMethods = {
   getMirror(): Promise<MirrorStatus> {
     return get<MirrorStatus>("/mirror");
-  },
-
-  /** Reads prod and staging now, which takes a few seconds; prod is only read. */
-  getMirrorParity(): Promise<MirrorParityAnswer> {
-    return get<MirrorParityAnswer>("/mirror/parity");
-  },
-
-  /** Copies prod's setup onto this staging, faked; `removeExtras` also removes what prod doesn't have. */
-  copyFromProd(removeExtras: boolean): Promise<MirrorCopyResult> {
-    return post<MirrorCopyResult>("/mirror/copy", { removeExtras });
-  },
-
-  getMirrorSamples(): Promise<MirrorSamples> {
-    return get<MirrorSamples>("/mirror/samples");
-  },
-
-  /** The calls staging answered in place of the network, since this node started. */
-  getMirrorCalls(): Promise<MirrorCalls> {
-    return get<MirrorCalls>("/mirror/calls");
-  },
-
-  /** Starts taking samples of prod's exchanges in the background; follow it with getMirrorSamples. */
-  takeMirrorSamples(): Promise<MirrorSamples> {
-    return post<MirrorSamples>("/mirror/takesamples", {});
-  },
-
-  getMirrorRehearsal(): Promise<MirrorRehearsal> {
-    return get<MirrorRehearsal>("/mirror/rehearsal");
-  },
-
-  /** Starts a rehearsal in the background: every sample run on staging, then compared with prod's; follow it with getMirrorRehearsal. */
-  rehearseMirror(): Promise<MirrorRehearsal> {
-    return post<MirrorRehearsal>("/mirror/rehearse", {});
   },
 
   /** How many of prod's items there are of each kind a page lists; reads only prod's lists. */
@@ -85,6 +48,21 @@ export const mirrorMethods = {
   /** Removes what the subscription's test made on staging. */
   clearMirrorTest(id: number): Promise<MirrorTest> {
     return post<MirrorTest>("/mirror/testclear", { id });
+  },
+
+  /** Staging's items of one kind that prod has too, each with how its test last ran; reads only prod's list. */
+  getMirrorListed(section: MirrorBringSection): Promise<MirrorListed> {
+    return get<MirrorListed>(`/mirror/listed?section=${section}`);
+  },
+
+  /** Starts testing the items, one subscription after another, in the background; follow it with getMirrorListed. */
+  testMirrorMany(section: MirrorBringSection, ids: number[]): Promise<{ subscriptions: string[] }> {
+    return post<{ subscriptions: string[] }>("/mirror/testmany", { section, ids });
+  },
+
+  /** Drops the tests waiting their turn; the one under way finishes. */
+  stopMirrorTests(): Promise<{ dropped: number }> {
+    return post<{ dropped: number }>("/mirror/teststop", {});
   },
 
   /** What bringing the picked items from prod does; with `apply`, brings them. */

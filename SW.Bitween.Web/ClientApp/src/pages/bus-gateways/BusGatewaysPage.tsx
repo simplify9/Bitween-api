@@ -2,11 +2,12 @@ import { useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Cable, Network, Plus } from "lucide-react";
-import { api, type BusGatewayRow, type SubscriptionRow } from "../../api";
+import { api, type BusGatewayRow, type MirrorListFilter, type SubscriptionRow } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { BringFromProd } from "../mirror/BringFromProd";
+import { PROD_FILTER_OPTIONS, ProdNotice, ProdStatus, TestFromProd, useProdListing } from "../mirror/ProdList";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { FilterSelect, SearchSelect } from "../../components/ui/SearchSelect";
@@ -42,11 +43,13 @@ export function BusGatewaysPage() {
   const inactiveParam = searchParams.get("inactive");
   const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
+  const prod = useProdListing("busGateways");
+  const prodFilter = prod.ready ? (searchParams.get("prod") as MirrorListFilter | null) : null;
   const canSeeInfoTypes = useSessionCan("documents.view");
 
   const gateways = useQuery({
-    queryKey: keys.busGateways.search({ q, informationTypeId, inactive, offset }),
-    queryFn: () => api.searchBusGateways({ search: q, informationTypeId, inactive, offset, limit: PAGE_SIZE }),
+    queryKey: keys.busGateways.search({ q, informationTypeId, inactive, prodFilter, offset }),
+    queryFn: () => api.searchBusGateways({ search: q, informationTypeId, inactive, mirror: prodFilter, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
   const subscriptionsById = useSubscriptionRowsById();
@@ -108,6 +111,7 @@ export function BusGatewaysPage() {
               <Network className="size-4" /> Flow map
             </Button>
             <BringFromProd section="busGateways" label="bus gateways" />
+            <TestFromProd listing={prod} section="busGateways" label="bus gateways" />
             {createAction}
           </>
         }
@@ -135,7 +139,19 @@ export function BusGatewaysPage() {
             options={STATUS_OPTIONS}
           />
         </div>
+        {prod.ready && (
+          <div className="w-44">
+            <FilterSelect
+              aria-label="Filter by how it stands against prod"
+              value={prodFilter ?? ""}
+              onChange={(v) => setParam("prod", v || null)}
+              options={PROD_FILTER_OPTIONS}
+            />
+          </div>
+        )}
       </div>
+
+      <ProdNotice listing={prod} />
 
       {gateways.isPending ? (
         <LoadingBlock label="Loading bus gateways…" />
@@ -144,9 +160,9 @@ export function BusGatewaysPage() {
       ) : rows.length === 0 ? (
         <EmptyState
           icon={<Cable />}
-          title={q || informationTypeId || inactive !== null ? "No gateways match" : "No bus gateways yet"} action={q || informationTypeId || inactive !== null ? undefined : createAction}
+          title={q || informationTypeId || inactive !== null || prodFilter ? "No gateways match" : "No bus gateways yet"} action={q || informationTypeId || inactive !== null || prodFilter ? undefined : createAction}
         >
-          {q || informationTypeId || inactive !== null
+          {q || informationTypeId || inactive !== null || prodFilter
             ? "Try a different search or filter."
             : "Create a gateway to start handling messages from the bus."}
         </EmptyState>
@@ -301,6 +317,13 @@ export function BusGatewaysPage() {
                 );
               },
             },
+            ...(prod.ready
+              ? [{
+                  header: "Prod",
+                  headerTitle: "How the tests with prod's traffic of the subscriptions it leads to last went: Same, Check, Different or Not tested; - when prod has no gateway of its name.",
+                  cell: (g: BusGatewayRow) => <ProdStatus listing={prod} id={g.id} />,
+                }]
+              : []),
           ]}
         />
       )}

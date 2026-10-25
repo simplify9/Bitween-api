@@ -2,11 +2,12 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Plus, Workflow } from "lucide-react";
-import { api, type SubscriptionRow, type SubscriptionType } from "../../api";
+import { api, type MirrorListFilter, type SubscriptionRow, type SubscriptionType } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { BringFromProd } from "../mirror/BringFromProd";
+import { PROD_FILTER_OPTIONS, ProdNotice, ProdStatus, TestFromProd, useProdListing } from "../mirror/ProdList";
 import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { FilterSelect, SearchSelect } from "../../components/ui/SearchSelect";
@@ -83,9 +84,11 @@ export function SubscriptionsPage() {
   const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
   const canSeeInfoTypes = useSessionCan("documents.view");
+  const prod = useProdListing("subscriptions");
+  const prodFilter = prod.ready ? (searchParams.get("prod") as MirrorListFilter | null) : null;
 
   const rows = useQuery({
-    queryKey: keys.subscriptions.rowsSearch({ q, type, informationTypeId, partnerId, categoryId, inactive, offset }),
+    queryKey: keys.subscriptions.rowsSearch({ q, type, informationTypeId, partnerId, categoryId, inactive, prodFilter, offset }),
     queryFn: () =>
       api.searchSubscriptionRows({
         search: q,
@@ -94,6 +97,7 @@ export function SubscriptionsPage() {
         partnerId,
         categoryId,
         inactive,
+        mirror: prodFilter,
         offset,
         limit: PAGE_SIZE,
       }),
@@ -126,6 +130,7 @@ export function SubscriptionsPage() {
         actions={
           <div className="flex gap-2">
             <BringFromProd section="subscriptions" label="subscriptions" />
+            <TestFromProd listing={prod} section="subscriptions" label="subscriptions" />
             <Button onClick={() => setManagingCategories(true)}>Categories</Button>
             <Can permission="subscriptions.create">
               <Button variant="primary" onClick={() => setChoosingWay(true)}>
@@ -221,7 +226,7 @@ export function SubscriptionsPage() {
         <SearchBox value={searchText} onChange={setSearchText} label="Search subscriptions" placeholder="Search" className="ml-auto w-full max-w-55 sm:w-auto" />
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className={`mb-4 grid grid-cols-2 gap-2 ${prod.ready ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
         <SearchSelect
           aria-label="Filter by information type"
           size="sm"
@@ -252,7 +257,17 @@ export function SubscriptionsPage() {
           onChange={(v) => setParam("inactive", v || null)}
           options={STATUS_OPTIONS}
         />
+        {prod.ready && (
+          <FilterSelect
+            aria-label="Filter by how it stands against prod"
+            value={prodFilter ?? ""}
+            onChange={(v) => setParam("prod", v || null)}
+            options={PROD_FILTER_OPTIONS}
+          />
+        )}
       </div>
+
+      <ProdNotice listing={prod} />
 
       {choosingWay && <NewSubscriptionDialog onClose={() => setChoosingWay(false)} />}
       {managingCategories && (
@@ -267,10 +282,10 @@ export function SubscriptionsPage() {
         <EmptyState
           icon={<Workflow />}
           title={
-            q || type || informationTypeId || partnerId || categoryId || inactive !== null ? "Nothing matches" : "No subscriptions yet"
+            q || type || informationTypeId || partnerId || categoryId || inactive !== null || prodFilter ? "Nothing matches" : "No subscriptions yet"
           }
           action={
-            q || type || informationTypeId || partnerId || categoryId || inactive !== null ? undefined : (
+            q || type || informationTypeId || partnerId || categoryId || inactive !== null || prodFilter ? undefined : (
               <Can permission="subscriptions.create">
                 <Button variant="primary" onClick={() => setChoosingWay(true)}>
                   <Plus className="size-4" /> New subscription
@@ -279,7 +294,7 @@ export function SubscriptionsPage() {
             )
           }
         >
-          {q || type || informationTypeId || partnerId || categoryId || inactive !== null
+          {q || type || informationTypeId || partnerId || categoryId || inactive !== null || prodFilter
             ? "Try a different search or filter."
             : "Create a subscription to start moving documents."}
         </EmptyState>
@@ -370,6 +385,13 @@ export function SubscriptionsPage() {
                 </span>
               ),
             },
+            ...(prod.ready
+              ? [{
+                  header: "Prod",
+                  headerTitle: "How its test with prod's traffic last went: Same, Check, Different or Not tested; - when prod has no subscription of its name.",
+                  cell: (r: SubscriptionRow) => <ProdStatus listing={prod} id={r.id} />,
+                }]
+              : []),
             {
               header: "7 days",
               headerTitle: "Health over the last week: its status, the share that succeeded, and exchanges per day.",

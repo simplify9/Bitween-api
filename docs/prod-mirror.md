@@ -1,18 +1,18 @@
 # Prod mirror
 
-A staging Bitween can copy a prod Bitween's setup, with every value faked, so an upgrade can be tried on the staging before it reaches prod. The **Prod mirror** page on the staging shows how close it is to prod, what is left to do, and copies prod's setup onto it.
+A staging Bitween can copy a prod Bitween's setup, with every value faked, so an upgrade can be tried on the staging before it reaches prod. On the staging, the list pages bring prod's items in and say how each one's test went, and each subscription's page compares it with prod's and tests it with prod's own traffic.
 
 Prod is only read, through its own API, with a view-only login. Nothing is installed or changed on prod.
 
 ## What it needs
 
 - **Prod on r10.0 or later.** A prod on r8, on Infolink (r6 and before), or on a build changed for one client is refused with the reason. Move such a client to r10 first.
-- **A staging marked as a mirror.** Copying replaces the staging's setup, so it only runs on a Bitween whose deployment sets `Bitween__Mirror__Target=true`. A prod never sets it, so a prod can't be overwritten from its Settings page. Without it the page still compares, but doesn't copy.
+- **A staging marked as a mirror.** Copying replaces the staging's setup, so it only runs on a Bitween whose deployment sets `Bitween__Mirror__Target=true`. A prod never sets it, so a prod can't be overwritten from its Settings page. Without it the pages still compare, but nothing is brought or tested.
 - **A view-only login on prod**, one of:
   - a service account with the built-in **Viewer** role, and a token issued to it (**Administration, Service accounts** on prod). Releases that have service accounts take this;
   - on r10.0, which has none, the email and password of a member with the Viewer role.
 
-Enter prod's address and the login on the page (**Connect to prod**), or in **Settings, Prod mirror**. The token and password are stored encrypted, which needs `Bitween:SettingsEncryptionKey`.
+Enter prod's address and the login in **Settings, Prod mirror**. The token and password are stored encrypted, which needs `Bitween:SettingsEncryptionKey`.
 
 ## What is copied, and how
 
@@ -28,13 +28,13 @@ Values are handled the moment they arrive, before anything is saved, so the stag
 | Partner properties and global values | account numbers, codes, names | A fake of the same shape: digits stay digits, letters keep their case, dates stay dates in their format, GUIDs stay GUIDs, JSON keeps its keys |
 | Partner API keys | | New ones, the same on every copy |
 
-The same value always becomes the same fake, so a code named in two places still matches, and copying again changes nothing. A partner property or global value that is a setting rather than data, such as a time zone or a date format, can be kept as it is under **Faked values**. Addresses, secrets and values named like secrets (`apiKey`, `password`, `token` and similar) are never kept.
+The same value always becomes the same fake, so a code named in two places still matches, and copying again changes nothing. A partner property or global value that is a setting rather than data, such as a time zone or a date format, can be kept as it is: list it in **Settings, Prod mirror, Values copied as they are**, one per line, as `partner:timeZone` or `global:formats/date`. Addresses, secrets and values named like secrets (`apiKey`, `password`, `token` and similar) are never kept.
 
 Copied subscriptions arrive paused, and data sources and bus gateways switched off, so nothing on the staging runs on its own.
 
 Legacy setups are copied as prod has them: Internal and ApiCall subscriptions, legacy notifiers, and a response handed to an Internal or ApiCall subscription. Bitween keeps such a response link on an item that already has it but refuses a new one, and a copy is a new save. So the copy alone may recreate it: its calls carry a key it opens for the length of the copy, on a Bitween marked as a mirror. Someone editing on the staging never carries one and meets the same rule as on prod.
 
-A field prod sends that this release doesn't know, from a newer or a customised build, can't be copied. The page names each one and the items that have it set, rather than dropping it unseen.
+A field prod sends that this release doesn't know, from a newer or a customised build, can't be copied.
 
 Prod may hold several items of a kind under one name. Each after the oldest is named apart on the staging: `test`, `test (2)`, `test (3)`. References to them still point at the right one.
 
@@ -65,16 +65,16 @@ On a mirror, every subscription's page ends with **Against prod**. A badge by it
 - **Left to do** lists what only a person can do, such as uploading an adapter, and what staging doesn't have yet, with **Bring them from prod**, which opens on what comes.
 - **Test with prod's traffic**:
   - **Take prod's arrivals** takes up to five of the subscription's latest exchanges on prod, each with what came in and everything it led to, faked as samples are.
-  - **Run the test** sends each arrival in on staging the way it came in on prod, and compares every exchange it leads to with its twin, as a rehearsal does. The page follows it as it runs. An arrival counts as **Same** when every exchange ends as prod's did and sends and gets back the same.
-  - **Clear test data** removes what the test made on staging: each exchange its runs started, with its files, and how the runs compared. Prod's arrivals stay, to run again.
+  - **Run the test** sends each arrival in on staging the way it came in on prod, and compares every exchange it leads to with its twin (see [How a test runs](#how-a-test-runs)). The page follows it as it runs. An arrival counts as **Same** when every exchange ends as prod's did and sends and gets back the same.
+  - **Clear test data** removes what the test made on staging: each exchange its runs started, with its files, and each arrival's results. Prod's arrivals stay, to run again, and so does how the last run went, which the lists show.
 
-Tests run one at a time across the staging, and not while samples are taken or a rehearsal runs.
+Tests run one at a time across the staging. One started while another runs is refused until it finishes, except from a list, where the tests picked wait their turn.
 
 A test calls a gateway as the partner, with the stand-in key the copy gave it. Stand-ins come from the staging's `Token:Key`, so one made before that key changed no longer matches: the test sets it to the current stand-in when it needs it. A key set on the staging is never touched, and a partner that has only those can't be called as.
 
 ## Samples of prod's traffic
 
-**Take samples** takes a few of prod's recent exchanges for each subscription: up to five, mostly ones that worked, with one the partner answered badly and one that failed when prod has them, never a retry or one still running. Each comes with its **arrival**: the thing that came in on prod and every exchange it led to there. That is a partner's call through a gateway or the partner API, a document routed to the subscriptions that want it, a file a receiver read, or an aggregation, followed by the answers it handed on to response subscriptions and the messages bus gateways took. For each exchange it keeps what came in, what Bitween sent and what the partner answered, and how the exchange ended.
+A test takes a few of the subscription's recent exchanges on prod: up to five, mostly ones that worked, with one the partner answered badly and one that failed when prod has them, never a retry or one still running. Each comes with its **arrival**: the thing that came in on prod and every exchange it led to there. That is a partner's call through a gateway or the partner API, a document routed to the subscriptions that want it, a file a receiver read, or an aggregation, followed by the answers it handed on to response subscriptions and the messages bus gateways took. For each exchange it keeps what came in, what Bitween sent and what the partner answered, and how the exchange ended.
 
 Prod records how its exchanges are linked: a document's subscriptions share its correlation id and its input, and an answer handed on or a message names the exchange it came from. The samples follow those links only. Each search on prod is bound to the minutes around the exchange it starts from, which prod has indexed, so a big prod isn't searched end to end. An arrival keeps up to 25 exchanges. A subscription whose handler reads values from the exchange that started it (`{{source.…}}`) runs only inside that exchange's arrival; when prod doesn't say which exchange that was, the page says so.
 
@@ -94,11 +94,11 @@ A file that can't be faked safely isn't kept, and the page says why: PDFs, archi
 
 An aggregation also keeps a few of the files it rolled up, faked, read through prod's own links to them. Staging never fetches an address that prod's data merely names.
 
-Prod is read gently: one subscription at a time, one page of its recent exchanges, then each file. Taking samples again replaces the ones taken before.
+Prod is read gently: one subscription at a time, one page of its recent exchanges, then each file. Taking them again replaces the ones taken before.
 
-## Rehearsal
+## How a test runs
 
-**Rehearse** sends each arrival in on the staging the way it came in on prod, with prod's input as the staging keeps it, faked. The staging then runs everything after it by itself, as prod did:
+Running a test sends each arrival in on the staging the way it came in on prod, with prod's input as the staging keeps it, faked. The staging then runs everything after it by itself, as prod did:
 
 | It came in on prod as | The rehearsal sends it in |
 |---|---|
@@ -123,7 +123,7 @@ An arrival's verdict is the worst of its exchanges'. Both sides go through the s
 
 An arrival doesn't run when it can't be sent in the way it came in on prod, and the page says why: a subscription, partner, gateway or information type the staging doesn't have yet, or an input that isn't kept.
 
-Taking samples and rehearsing don't run at the same time. A rehearsal replaces the one before it.
+A run replaces the one before it.
 
 ## Calls the staging answers
 
@@ -134,29 +134,25 @@ On a mirror, the staging answers some of the calls its flows make itself, so not
 
 A host the setup names, such as a team's own staging API, is called for real. So is any host listed under **Settings, Prod mirror, Hosts called for real**, for an address inside an adapter that is safe to reach from the staging.
 
-A login (an OAuth token request, or a login URL a subscription signs in at) gets a token of the staging's own, where the subscription's settings say its reply keeps one. Any other call gets the newest answer prod's partner gave a subscription that uses the address, as the samples keep it, faked; with no sample, an empty `200`. **Calls staging answered** on the page lists each host, how many calls it answered and what it answered last.
+A login (an OAuth token request, or a login URL a subscription signs in at) gets a token of the staging's own, where the subscription's settings say its reply keeps one. Any other call gets the newest answer prod's partner gave a subscription that uses the address, as the samples keep it, faked; with no sample, an empty `200`. `GET /api/mirror/calls` lists each host, how many calls it answered and what it answered last.
 
 Bitween's own adapters are answered inside Bitween. Adapters that run in their own process reach the staging through a catcher it runs on `127.0.0.1`: when it starts, the staging sets `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` for the processes it starts, and points `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE` and `NODE_EXTRA_CA_CERTS` at a certificate authority it makes for that run, so .NET, Python, Node and curl trust the answers. Bitween's own calls, to prod and to its storage, don't go through the catcher. Nothing needs setting up.
 
-What the catcher can't reach: an adapter that turns its HTTP proxy off, or checks certificates its own way, fails its calls to test addresses instead of being answered, and the page lists the call as failed. Calls that aren't HTTP, such as SFTP or mail written inside an adapter, aren't caught yet.
+What the catcher can't reach: an adapter that turns its HTTP proxy off, or checks certificates its own way, fails its calls to test addresses instead of being answered, and a test shows the call as failed. Calls that aren't HTTP, such as SFTP or mail written inside an adapter, aren't caught yet.
 
 ## Adapters
 
-Built-in adapters come with the release. One that prod uses and this release doesn't have is flagged, since it would stop working after the upgrade. Marketplace adapters are installed by the copy at the version prod runs. Simplify9's database and broker adapters (`bitween.db.…`, `bitween.bus.…`) are on the marketplace too; when prod doesn't say which version it runs, the page asks for one to be installed from the **Marketplace** tab. Custom adapters can't be read from prod: the page names each one, with the version prod runs, to upload on the **Adapters** page. Subscriptions that use one wait for it rather than fail.
+Built-in adapters come with the release. One that prod uses and this release doesn't have is flagged, since it would stop working after the upgrade. Marketplace adapters are installed by the copy at the version prod runs. Simplify9's database and broker adapters (`bitween.db.…`, `bitween.bus.…`) are on the marketplace too; when prod doesn't say which version it runs, bringing an item that uses one asks for it to be installed from the **Marketplace** tab. Custom adapters can't be read from prod: bringing an item that uses one names it, with the version prod runs, to upload on the **Adapters** page, and so does the subscription's **Left to do**. Subscriptions that use one wait for it rather than fail.
 
-## The page
+## On the lists
 
-It answers first: **Ready to test the upgrade**, or **Not ready to test yet**, with how many of prod's items the staging has as prod has them. Below it, everything is in one of four groups, and every item named opens on the staging or on prod:
+On a mirror, the same list pages that offer **Bring from prod** show a **Prod** column: how each row's last test with prod's traffic went, **Same**, **Check** or **Different**; **No traffic** when prod had none of its exchanges to take; or **Not tested** when its arrivals haven't run since they were taken. A row prod has nothing of the name of shows `-`. A gateway's is that of the subscriptions it leads to that prod has too, the worst of those tested, with how many were when not all were. How a test went stays after its test data is cleared, and goes when prod's arrivals are taken again.
 
-- **Needs you**: what only a person can do, such as installing an adapter, each with where it is done.
-- **Copy prod's setup**: what copying will do, and the button. It creates what the staging lacks and updates what differs, carries on past an item that fails, and lists each one with Bitween's reason. Tick **Also remove** to delete what only the staging has.
-- **Rehearse prod's traffic**: how many samples the staging holds, and how the last rehearsal compared, with the buttons that take samples and rehearse. While either runs, how far it has got.
-- **Not covered by the test**: what is on prod but not on the staging, or not all of it: items waiting for an adapter, items the staging couldn't create, and fields this release doesn't know.
-- **Different on staging, on purpose**: paused subscriptions, switched-off data sources and bus gateways, fake values, test addresses, stand-in secrets and names told apart. None of it is a problem.
+The **Prod** filter keeps the rows from prod, or only those whose test says one thing, such as **Not tested** or **Different from prod**. It pages like any other filter, however many items prod has.
 
-Then the details, folded: **Prod's setup, item by item** (per kind, what is the same, differs, is missing or is only on the staging), **Arrival by arrival** (each arrival with its verdict, how it came in, prod's ending beside the staging's, the staging's exchanges and prod's, the different ones first), **Calls staging answered**, **Adapters**, **Fake values** (where a value can be kept as it is) and **Test addresses** (each with what uses it).
+**Test from prod** picks some of them, filtered by how their test went if need be, and tests them one after another, as each subscription's page would: prod's arrivals are taken first where none are, or none were found last time, then sent in. A gateway is tested through the subscriptions it leads to. While they run, the list says which one is under way and how many wait, with **Stop after this one** to drop those waiting.
 
-When the staging can't create one of prod's items, the page says so, with what Bitween said. That is all it knows: an upgrade doesn't create items again, so a refusal here says nothing about how prod will behave.
+When prod can't be read, the list says why above the rows, and the column is empty.
 
 ## Not covered yet
 

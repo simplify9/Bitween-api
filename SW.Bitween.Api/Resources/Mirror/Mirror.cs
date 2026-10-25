@@ -340,6 +340,83 @@ public class Bring(BitweenDbContext dbContext, RequestContext requestContext, Bi
     }
 }
 
+public class MirrorListedRequest
+{
+    /// <summary>subscriptions, apiGateways or busGateways.</summary>
+    public string Section { get; set; }
+}
+
+/// <summary>
+/// This staging's items of one kind that prod has too, by name, each with how its test last ran, and the
+/// tests under way and waiting their turn: what a list shows beside its rows. Prod is only read, from its
+/// list; one that can't be read answers with why.
+/// </summary>
+[HandlerName("listed")]
+public class Listed(BitweenDbContext dbContext, RequestContext requestContext, MirrorService mirror, MirrorWork work)
+    : IQueryHandler<MirrorListedRequest, object>
+{
+    public async Task<object> Handle(MirrorListedRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.View);
+        return await mirror.ListedAsync(request?.Section) with { Testing = work.Running?.Subject, Waiting = work.Waiting };
+    }
+}
+
+public class MirrorTestManyRequest
+{
+    /// <summary>subscriptions, apiGateways or busGateways.</summary>
+    public string Section { get; set; }
+
+    /// <summary>The items, by their ids on this staging. A gateway's test is that of the subscriptions it leads to.</summary>
+    public List<int> Ids { get; set; }
+}
+
+/// <summary>
+/// Starts testing several of this staging's items with prod's traffic, one subscription after another in
+/// the background: for each, prod's latest arrivals are taken unless some are, then sent in. Only those
+/// prod has too. Only on a Bitween its deployment marks as a mirror, and not while other work of the
+/// mirror runs.
+/// </summary>
+[HandlerName("testmany")]
+public class TestMany(BitweenDbContext dbContext, RequestContext requestContext, BitweenOptions options, MirrorService mirror, MirrorWork work)
+    : ICommandHandler<MirrorTestManyRequest, object>
+{
+    public async Task<object> Handle(MirrorTestManyRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.Operate);
+        if (!options.Mirror.Target) throw new SWValidationException("MIRROR_NOT_TARGET", MirrorService.NotTarget);
+        IReadOnlyList<string> names;
+        try
+        {
+            names = await mirror.SubscriptionsOfAsync(request?.Section, request?.Ids ?? []);
+        }
+        catch (MirrorRefusal refusal)
+        {
+            throw new SWValidationException("MIRROR", refusal.Message);
+        }
+        if (names.Count == 0)
+            throw new SWValidationException("MIRROR_NONE", "None of these is, or leads to, a subscription prod has too, so there's nothing of prod's to test with.");
+        if (work.Start(await mirror.TestJobsAsync(names, mirror.CallerToken())) is { } running)
+            throw new SWValidationException("MIRROR_BUSY", $"{MirrorWork.Describe(running)} is under way. Start this once it finishes.");
+        return new { Subscriptions = names };
+    }
+}
+
+public class MirrorTestStopRequest;
+
+/// <summary>Drops the tests waiting their turn; the one under way finishes. How many were dropped.</summary>
+[HandlerName("teststop")]
+public class TestStop(BitweenDbContext dbContext, RequestContext requestContext, MirrorWork work) : ICommandHandler<MirrorTestStopRequest, object>
+{
+    public async Task<object> Handle(MirrorTestStopRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.Operate);
+        var waiting = work.Waiting.Count;
+        work.Stop();
+        return new { Dropped = waiting };
+    }
+}
+
 public class MirrorCopyRequest
 {
     /// <summary>Also remove what staging has and prod doesn't. Off unless asked, since it deletes.</summary>

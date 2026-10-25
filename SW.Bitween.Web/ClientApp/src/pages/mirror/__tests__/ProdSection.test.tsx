@@ -44,7 +44,7 @@ const family: MirrorFamily = {
 
 const test = (over: Partial<MirrorTest> = {}): MirrorTest => ({
   state: "idle", busy: null, done: 0, total: 0, error: null, takenOn: null, reason: null, families: [], ranOn: null, runs: [],
-  setupError: null, made: [], exchanges: 0, ...over,
+  setupError: null, made: [], exchanges: 0, last: null, ...over,
 });
 
 describe("a subscription against prod", () => {
@@ -104,7 +104,12 @@ describe("a subscription against prod", () => {
             runs: [{ familyId: "f1", correlation: "rehearsal-1", ranOn: new Date().toISOString(), verdict: "same", notRun: null, diffs: [], members: [] }],
           })),
         ),
-        http.post(apiPath("/mirror/testclear"), () => HttpResponse.json((current = { ...current, ranOn: null, runs: [], made: [], exchanges: 0 }))),
+        http.post(apiPath("/mirror/testclear"), () =>
+          HttpResponse.json((current = {
+            ...current, ranOn: null, runs: [], made: [], exchanges: 0,
+            last: { verdict: "same", ranOn: new Date().toISOString(), same: 1, check: 0, different: 0, notRun: 0 },
+          })),
+        ),
         ...handlers,
       ],
     });
@@ -119,6 +124,9 @@ describe("a subscription against prod", () => {
     await user.click(within(await screen.findByRole("dialog", { name: "Clear what the test made?" })).getByRole("button", { name: "Clear" }));
     expect(await screen.findByRole("button", { name: "Run the test" })).toBeVisible();
     expect(screen.queryByRole("button", { name: /Clear test data/ })).not.toBeInTheDocument();
+    // How it went stays, for the lists.
+    expect(screen.getByText(/1 same\./)).toBeVisible();
+    expect(screen.getByText("What it made was cleared.")).toBeVisible();
   });
 
   it("says when prod has no subscription of its name", async () => {

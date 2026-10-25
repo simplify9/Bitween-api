@@ -89,6 +89,8 @@ export function renderApp(path: string, { as = {}, config = {}, handlers = [] }:
     ...defaultMetrics(),
     // Whether this Bitween mirrors prod, which list pages ask before offering to bring from it: it doesn't, unless a test says.
     http.get(apiPath("/mirror"), () => HttpResponse.json({ target: false, sourceUrl: null, signIn: null, configured: false })),
+    // Which of a list's items prod has too, which a list on a mirror shows: none, unless a test says.
+    http.get(apiPath("/mirror/listed"), () => HttpResponse.json({ items: [], testing: null, waiting: [], error: null })),
   );
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

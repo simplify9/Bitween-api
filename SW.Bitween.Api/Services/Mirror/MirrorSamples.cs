@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
@@ -75,11 +76,15 @@ public record MirrorSamples(string State, DateTimeOffset? StartedOn, DateTimeOff
 /// <param name="Subject">The subscription whose test it is, by name; null for work on every subscription.</param>
 public record MirrorProgress(string Kind, DateTimeOffset StartedOn, int Done, int Total, string Subject = null);
 
+/// <summary>One piece of the mirror's work: of a kind, for one subscription's test or for all.</summary>
+public record MirrorJob(string Kind, string Subject, Func<MirrorService, Action<int, int>, CancellationToken, Task> Work);
+
 /// <summary>
 /// Runs the mirror's long work in the background - taking prod's samples, or rehearsing them - one at a
 /// time, so the page can follow it: on a big prod it takes longer than a request may wait, and a
-/// rehearsal running while its samples are replaced would compare the wrong files. How it is going is
-/// known to the node doing it, and a staging runs one node.
+/// rehearsal running while its samples are replaced would compare the wrong files. Work started together,
+/// such as the tests of several subscriptions, waits its turn. How it is going is known to the node doing
+/// it, and a staging runs one node.
 /// </summary>
 public sealed class MirrorWork(IServiceScopeFactory scopes, ILogger<MirrorWork> logger)
 {
@@ -87,10 +92,19 @@ public sealed class MirrorWork(IServiceScopeFactory scopes, ILogger<MirrorWork> 
 
     readonly Lock gate = new();
     readonly Dictionary<string, string> lastErrors = new(StringComparer.Ordinal);
-    Task running;
+    readonly Queue<MirrorJob> waiting = new();
 
     /// <summary>The work under way; null when none is.</summary>
     public MirrorProgress Running { get; private set; }
+
+    /// <summary>The subscriptions whose tests wait their turn after the work under way, in order: not the one it is for.</summary>
+    public IReadOnlyList<string> Waiting
+    {
+        get
+        {
+            lock (gate) return waiting.Select(j => j.Subject).Where(s => s != null && s != Running?.Subject).Distinct().ToList();
+        }
+    }
 
     /// <summary>Why the last work of a kind stopped, for a subscription's test or for all, until it starts again; null when it finished.</summary>
     public string LastError(string kind, string subject = null)
@@ -110,27 +124,58 @@ public sealed class MirrorWork(IServiceScopeFactory scopes, ILogger<MirrorWork> 
     /// Starts work of a kind, for one subscription's test or for all, unless work is under way: then says
     /// what is - which kind, and for which subscription - and starts nothing.
     /// </summary>
-    public MirrorProgress Start(string kind, Func<MirrorService, Action<int, int>, CancellationToken, Task> work, string subject = null)
+    public MirrorProgress Start(string kind, Func<MirrorService, Action<int, int>, CancellationToken, Task> work, string subject = null) =>
+        Start([new MirrorJob(kind, subject, work)]);
+
+    /// <summary>
+    /// Starts pieces of work one after another, each once the one before has finished or stopped, unless
+    /// work is under way: then says what is, and starts nothing.
+    /// </summary>
+    public MirrorProgress Start(IReadOnlyList<MirrorJob> jobs)
     {
         lock (gate)
         {
-            if (running is { IsCompleted: false }) return Running;
-            Running = new MirrorProgress(kind, DateTimeOffset.UtcNow, 0, 0, subject);
-            lastErrors.Remove(ErrorKey(kind, subject));
-            running = Task.Run(() => RunAsync(kind, subject, work));
+            if (Running != null) return Running;
+            foreach (var job in jobs) waiting.Enqueue(job);
+            Next();
             return null;
         }
     }
 
-    async Task RunAsync(string kind, string subject, Func<MirrorService, Action<int, int>, CancellationToken, Task> work)
+    /// <summary>Drops the work waiting its turn; the work under way finishes. How many pieces were dropped.</summary>
+    public int Stop()
     {
+        lock (gate)
+        {
+            var dropped = waiting.Count;
+            waiting.Clear();
+            return dropped;
+        }
+    }
+
+    // Under the gate. Running stays set from one piece to the next, so nothing else starts in between.
+    void Next()
+    {
+        if (!waiting.TryDequeue(out var job))
+        {
+            Running = null;
+            return;
+        }
+        Running = new MirrorProgress(job.Kind, DateTimeOffset.UtcNow, 0, 0, job.Subject);
+        lastErrors.Remove(ErrorKey(job.Kind, job.Subject));
+        _ = Task.Run(() => RunAsync(job));
+    }
+
+    async Task RunAsync(MirrorJob job)
+    {
+        var (kind, subject) = (job.Kind, job.Subject);
         var startedOn = Running.StartedOn;
         string error = null;
         try
         {
             using var scope = scopes.CreateScope();
             var mirror = scope.ServiceProvider.GetRequiredService<MirrorService>();
-            await work(mirror, (done, total) => Running = new MirrorProgress(kind, startedOn, done, total, subject), CancellationToken.None);
+            await job.Work(mirror, (done, total) => Running = new MirrorProgress(kind, startedOn, done, total, subject), CancellationToken.None);
         }
         catch (MirrorRefusal refusal)
         {
@@ -147,7 +192,7 @@ public sealed class MirrorWork(IServiceScopeFactory scopes, ILogger<MirrorWork> 
             lock (gate)
             {
                 if (error != null) lastErrors[ErrorKey(kind, subject)] = error;
-                Running = null;
+                Next();
             }
         }
     }

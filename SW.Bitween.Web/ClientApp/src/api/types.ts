@@ -2263,12 +2263,6 @@ export interface MirrorStatus {
   configured: boolean;
 }
 
-export interface MirrorSide {
-  url: string;
-  version: string;
-  exchanges: number | null;
-}
-
 /** inSync, differs, missing; waiting for an adapter staging lacks; extra: only on staging. */
 export type MirrorItemState = "inSync" | "differs" | "missing" | "waiting" | "extra";
 
@@ -2289,28 +2283,6 @@ export interface MirrorItem {
   type: string | null;
 }
 
-export interface MirrorKind {
-  section: string;
-  noun: string;
-  plural: string;
-  inSync: number;
-  differs: number;
-  missing: number;
-  extra: number;
-  /** Why prod's were not read: its release lacks them, or the login can't see them. */
-  skipped: string | null;
-  items: MirrorItem[];
-}
-
-export interface MirrorAdapter {
-  id: string;
-  source: "builtin" | "marketplace" | "custom";
-  prodVersion: string | null;
-  stagingVersion: string | null;
-  state: "same" | "missing" | "different";
-  usedBy: number;
-}
-
 /**
  * One line on the page. needsYou: only a person can do it. copy: copying does it. notCovered: what
  * the test can't include, and why. onPurpose: how staging differs from prod by design.
@@ -2324,73 +2296,6 @@ export interface MirrorNote {
   key: string | null;
   /** Where it is done: adapters-installed, adapters-marketplace, faked or addresses. */
   action: string | null;
-}
-
-export interface MirrorVerdict {
-  ready: boolean;
-  /** Prod's items staging has as prod has them. */
-  matching: number;
-  total: number;
-  needsYou: number;
-  toCopy: number;
-  notCovered: number;
-}
-
-/** An item that uses something, and where in it. */
-export interface MirrorUse {
-  section: string;
-  noun: string;
-  key: string;
-  where: string;
-}
-
-/** A test address that stands in for one of prod's, and what uses it. */
-export interface MirrorAddress {
-  mock: string;
-  kind: string;
-  usedBy: MirrorUse[];
-}
-
-/** A partner property or global value that is faked, unless kept because it is a setting. */
-export interface MirrorFakedKey {
-  id: string;
-  label: string;
-  count: number;
-  kept: boolean;
-}
-
-/** A field prod sends that this release doesn't know, from a newer or a changed build: not copied. */
-export interface MirrorUnknownField {
-  section: string;
-  plural: string;
-  field: string;
-  items: number;
-  examples: string[];
-}
-
-export interface MirrorParity {
-  checkedOn: string;
-  prod: MirrorSide;
-  staging: MirrorSide;
-  verdict: MirrorVerdict;
-  notes: MirrorNote[];
-  kinds: MirrorKind[];
-  adapters: MirrorAdapter[];
-  addresses: MirrorAddress[];
-  fakedKeys: MirrorFakedKey[];
-  unknown: MirrorUnknownField[];
-}
-
-/** A prod that can't be reached, or is too old, answers with why. */
-export type MirrorParityAnswer = MirrorParity | { error: string };
-
-export interface MirrorCopyResult {
-  created: number;
-  updated: number;
-  removed: number;
-  adapterSteps: number;
-  failed: { section: string; noun: string; key: string; error: string }[];
-  after: MirrorParity;
 }
 
 /** One of prod's exchange files as staging keeps it: faked, or not kept and why. */
@@ -2455,40 +2360,6 @@ export interface MirrorFamily {
   unlinked?: boolean;
 }
 
-export interface MirrorSubscriptionSamples {
-  subscription: string;
-  prodId: string;
-  /** The families it takes part in, by id. */
-  families: string[];
-  /** Why it has none. */
-  reason: string | null;
-}
-
-/** The calls to one host staging answered in place of the network. */
-export interface MirrorHostCalls {
-  host: string;
-  /** One of prod's addresses as the copy faked it; otherwise a host staging's setup doesn't name. */
-  test: boolean;
-  calls: number;
-  lastAt: string;
-  lastWhy: string;
-  /** Subscriptions on staging that use it. */
-  usedBy: string[];
-}
-
-export interface MirrorCall {
-  at: string;
-  method: string;
-  host: string;
-  path: string;
-  /** 0 when the call failed before staging could answer, or was sent on for real. */
-  status: number;
-  why: string;
-  from: string;
-  /** Sent on for real rather than answered: only noted for a rehearsal. */
-  real: boolean;
-}
-
 /**
  * One line of a rehearsed exchange's compare. different and check count towards the verdict; info is a
  * difference that explains, such as the upgrade itself; faked is the same as prod's with faked values.
@@ -2537,20 +2408,6 @@ export interface MirrorRun {
   diffs: MirrorDiff[];
 }
 
-export interface MirrorRehearsal {
-  state: "none" | "running" | "done" | "failed";
-  startedOn: string | null;
-  finishedOn: string | null;
-  done: number;
-  total: number;
-  error: string | null;
-  prodVersion: string | null;
-  stagingVersion: string | null;
-  /** Why what each exchange used isn't compared with prod's setup, when it isn't. */
-  setupError: string | null;
-  families: MirrorFamilyRun[];
-}
-
 /** One of prod's families, sent in on staging the way it came in on prod, and every exchange staging ran for it. */
 export interface MirrorFamilyRun {
   familyId: string;
@@ -2563,25 +2420,6 @@ export interface MirrorFamilyRun {
   /** The family's own lines: how it came in, the release, and anything prod's family had more of. */
   diffs: MirrorDiff[];
   members: MirrorRun[];
-}
-
-export interface MirrorCalls {
-  /** Whether this Bitween is a mirror, and so answers calls. */
-  catching: boolean;
-  hosts: MirrorHostCalls[];
-  recent: MirrorCall[];
-}
-
-/** The samples staging holds, and how the last taking went. */
-export interface MirrorSamples {
-  state: "none" | "running" | "done" | "failed";
-  startedOn: string | null;
-  finishedOn: string | null;
-  done: number;
-  total: number;
-  error: string | null;
-  subscriptions: MirrorSubscriptionSamples[];
-  families: MirrorFamily[];
 }
 
 /** The kinds a page brings from prod. */
@@ -2675,12 +2513,52 @@ export interface MirrorTestRun {
   startedOn: string;
 }
 
+/** How a subscription's test last ran, kept after what it made is cleared. */
+export interface MirrorTestVerdict {
+  /** The worst of its arrivals; one that didn't run counts as one to check. */
+  verdict: "same" | "check" | "different";
+  ranOn: string;
+  same: number;
+  check: number;
+  different: number;
+  notRun: number;
+}
+
+/** One of staging's items that prod has too, and how its test last ran. */
+export interface MirrorListedItem {
+  id: number;
+  key: string;
+  /** A subscription's type; null for a gateway. */
+  type: SubscriptionType | null;
+  /** noTraffic when prod had none of it to take; null when it hasn't been tested. A gateway's is the worst of the tested subscriptions it leads to. */
+  verdict: MirrorTestVerdict["verdict"] | "noTraffic" | null;
+  ranOn: string | null;
+  /** How many of the subscriptions it is, or a gateway leads to, have been tested, of `of`. */
+  tested: number;
+  of: number;
+}
+
+/** Staging's items of one kind that prod has too: what a list shows beside its rows. */
+export interface MirrorListed {
+  items: MirrorListedItem[];
+  /** The subscription whose test is under way, by name. */
+  testing: string | null;
+  /** Those waiting their turn after it. */
+  waiting: string[];
+  /** Why prod can't be read, when it can't. */
+  error: string | null;
+}
+
+/** A list's filter on how its items stand against prod. */
+export type MirrorListFilter = "fromProd" | "untested" | "same" | "check" | "different" | "noTraffic";
+
 /**
  * A subscription's test with prod's traffic: prod's latest arrivals it takes part in, each sent in on
  * staging the way it came in on prod, and how they last ran.
  */
 export interface MirrorTest {
-  state: "idle" | "taking" | "running" | "failed";
+  /** queued: it waits its turn after `busy`. */
+  state: "idle" | "taking" | "running" | "queued" | "failed";
   /** Other work of the mirror under way, which this test waits for, in words: The test of “Push labels”. */
   busy: string | null;
   done: number;
@@ -2696,6 +2574,8 @@ export interface MirrorTest {
   made: MirrorTestRun[];
   /** How many exchanges the test's runs have left on staging. */
   exchanges: number;
+  /** How the arrivals last ran, kept after a clear; null until they run. */
+  last: MirrorTestVerdict | null;
 }
 
 /** What bringing the picked items does, or did. */

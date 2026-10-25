@@ -2,13 +2,10 @@ import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
   MirrorBring,
   MirrorBringSection,
-  MirrorCalls,
-  MirrorCopyResult,
+  MirrorListed,
+  MirrorListFilter,
   MirrorProdKinds,
   MirrorProdListAnswer,
-  MirrorParityAnswer,
-  MirrorRehearsal,
-  MirrorSamples,
   MirrorStatus,
   MirrorSubscriptionAnswer,
   MirrorTest,
@@ -306,6 +303,8 @@ export interface ApiClient {
     partnerId?: number | null;
     categoryId?: number | null;
     inactive?: boolean | null;
+    /** On a mirror: only those prod has too, or only those whose test says this. */
+    mirror?: MirrorListFilter | null;
     offset: number;
     limit: number;
   }): Promise<Paged<SubscriptionRow>>;
@@ -487,6 +486,8 @@ export interface ApiClient {
   searchApiGateways(query: {
     search: string;
     inactive?: boolean | null;
+    /** On a mirror: only those prod has too, or only those whose test says this. */
+    mirror?: MirrorListFilter | null;
     offset: number;
     limit: number;
   }): Promise<Paged<ApiGatewayRow>>;
@@ -521,6 +522,8 @@ export interface ApiClient {
     search: string;
     informationTypeId?: number | null;
     inactive?: boolean | null;
+    /** On a mirror: only those prod has too, or only those whose test says this. */
+    mirror?: MirrorListFilter | null;
     offset: number;
     limit: number;
   }): Promise<Paged<BusGatewayRow>>;
@@ -669,13 +672,6 @@ export interface ApiClient {
 
   // - prod mirror -
   getMirror(): Promise<MirrorStatus>;
-  getMirrorParity(): Promise<MirrorParityAnswer>;
-  copyFromProd(removeExtras: boolean): Promise<MirrorCopyResult>;
-  getMirrorSamples(): Promise<MirrorSamples>;
-  takeMirrorSamples(): Promise<MirrorSamples>;
-  getMirrorCalls(): Promise<MirrorCalls>;
-  getMirrorRehearsal(): Promise<MirrorRehearsal>;
-  rehearseMirror(): Promise<MirrorRehearsal>;
   getMirrorProdKinds(): Promise<MirrorProdKinds>;
   getMirrorProd(section: MirrorBringSection, type?: string): Promise<MirrorProdListAnswer>;
   bringFromProd(section: MirrorBringSection, keys: string[], apply: boolean): Promise<MirrorBring>;
@@ -684,6 +680,9 @@ export interface ApiClient {
   takeMirrorTest(id: number): Promise<MirrorTest>;
   runMirrorTest(id: number): Promise<MirrorTest>;
   clearMirrorTest(id: number): Promise<MirrorTest>;
+  getMirrorListed(section: MirrorBringSection): Promise<MirrorListed>;
+  testMirrorMany(section: MirrorBringSection, ids: number[]): Promise<{ subscriptions: string[] }>;
+  stopMirrorTests(): Promise<{ dropped: number }>;
 
   // - settings -
   listSettings(): Promise<SettingRow[]>;

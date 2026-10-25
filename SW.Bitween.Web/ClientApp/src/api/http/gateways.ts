@@ -13,6 +13,7 @@ import type {
   GatewayAuthMethod,
   InlineSubscriptionDraft,
   MatchGroup,
+  MirrorListFilter,
   Paged,
   GatewayRejections,
 } from "../types";
@@ -182,6 +183,8 @@ export const gatewayMethods = {
   async searchApiGateways(query: {
     search: string;
     inactive?: boolean | null;
+    /** On a mirror: only those prod has too, or only those whose test says this. */
+    mirror?: MirrorListFilter | null;
     offset: number;
     limit: number;
   }): Promise<Paged<ApiGatewayRow>> {
@@ -189,6 +192,7 @@ export const gatewayMethods = {
       filters: [
         ["Name", SEARCHY_RULE.contains, query.search.trim()],
         ["Inactive", SEARCHY_RULE.equalsTo, query.inactive === null || query.inactive === undefined ? "" : String(query.inactive)],
+        ["Mirror", SEARCHY_RULE.equalsTo, query.mirror ?? ""],
       ],
       offset: query.offset,
       limit: query.limit,
@@ -286,6 +290,8 @@ export const gatewayMethods = {
     search: string;
     informationTypeId?: number | null;
     inactive?: boolean | null;
+    /** On a mirror: only those prod has too, or only those whose test says this. */
+    mirror?: MirrorListFilter | null;
     offset: number;
     limit: number;
   }): Promise<Paged<BusGatewayRow>> {
@@ -294,6 +300,7 @@ export const gatewayMethods = {
         ["Name", SEARCHY_RULE.contains, query.search.trim()],
         ["DocumentId", SEARCHY_RULE.equalsTo, query.informationTypeId ?? ""],
         ["Inactive", SEARCHY_RULE.equalsTo, query.inactive == null ? "" : String(query.inactive)],
+        ["Mirror", SEARCHY_RULE.equalsTo, query.mirror ?? ""],
       ],
       offset: query.offset,
       limit: query.limit,

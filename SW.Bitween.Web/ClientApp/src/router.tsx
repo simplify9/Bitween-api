@@ -46,7 +46,6 @@ import {
   NewResponseSubscriptionPage,
   NewScheduledJobPage,
   NodesPage,
-  MirrorPage,
   NotifierPage,
   NotifiersPage,
   PartnerPage,
@@ -144,7 +143,6 @@ const PAGE_ELEMENTS: Record<PageId, ReactNode> = {
   notificationChannelNew: <NotificationChannelPage isNew />,
   notificationChannel: <NotificationChannelPage />,
   nodes: <NodesPage />,
-  mirror: <MirrorPage />,
   audit: <AuditPage />,
   profile: <ProfilePage />,
 };

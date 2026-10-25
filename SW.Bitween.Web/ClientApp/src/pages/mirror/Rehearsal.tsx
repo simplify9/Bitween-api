@@ -1,26 +1,17 @@
-import { useMutation, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, CircleAlert, CircleCheck, CircleX, ExternalLink, Info } from "lucide-react";
-import { lazy, Suspense, useState, type ReactNode } from "react";
+import { lazy, Suspense, useState } from "react";
 import { Link } from "react-router";
 import {
-  api,
   type MirrorDiff,
   type MirrorFamily,
   type MirrorFamilyRun,
   type MirrorItem,
-  type MirrorRehearsal,
   type MirrorRun,
   type MirrorSample,
   type MirrorSampleFile,
-  type MirrorSamples,
 } from "../../api";
-import { keys } from "../../api/queryKeys";
-import { useSessionCan } from "../../auth/useSessionCan";
-import { Badge, Button, FormError, InlineNotice, LoadError, LoadingBlock } from "../../components/ui/basics";
-import { Panel } from "../../components/ui/Panel";
-import { SegmentedControl } from "../../components/ui/SegmentedControl";
-import { formatDateTime, timeAgo } from "../../lib/dates";
-import { whole } from "../../lib/numbers";
+import { Badge, LoadingBlock } from "../../components/ui/basics";
+import { formatDateTime } from "../../lib/dates";
 import { pathOf } from "../../pages";
 import { exchangePath, itemPath, ItemLinks, OUTCOME, plural, SampleFile } from "./shared";
 
@@ -34,8 +25,6 @@ export const VERDICT: Record<Verdict, { label: string; tone: "danger" | "warn" |
   same: { label: "Same", tone: "ok", title: "It ended as on prod, and sent and got back the same" },
   notRun: { label: "Not run", tone: "neutral", title: "It didn't run on staging: it says why" },
 };
-
-const ORDER: Verdict[] = ["different", "check", "same", "notRun"];
 
 /** How a family came in on prod, in words. */
 const ENTRY: Record<MirrorFamily["entry"], { label: string; title: string }> = {
@@ -54,228 +43,9 @@ export interface Entry {
   verdict: Verdict;
 }
 
-function entriesOf(samples: MirrorSamples, rehearsal: MirrorRehearsal | undefined): Entry[] {
-  const runs = new Map((rehearsal?.families ?? []).map((r) => [r.familyId, r]));
-  return (samples.families ?? []).map((family) => {
-    const run = runs.get(family.id);
-    return { family, run, verdict: (run?.verdict ?? "notRun") as Verdict };
-  });
-}
-
 /** The worst ending of a family's exchanges: a family that failed anywhere failed. */
 function worst(outcomes: (MirrorSample["outcome"] | null)[]): MirrorSample["outcome"] | null {
   return outcomes.includes("failed") ? "failed" : outcomes.includes("badResponse") ? "badResponse" : outcomes.includes("success") ? "success" : null;
-}
-
-/**
- * Takes samples of prod's traffic and rehearses them: each family sent in on staging the way it came
- * in on prod, run as real exchanges, then compared with prod's. Says how far work under way has got.
- */
-export function RehearsalPanel({ samples, rehearsal, target, onShow }: {
-  samples: UseQueryResult<MirrorSamples>;
-  rehearsal: UseQueryResult<MirrorRehearsal>;
-  target: boolean;
-  onShow: () => void;
-}) {
-  const canOperate = useSessionCan("mirror.operate");
-  const queryClient = useQueryClient();
-  const take = useMutation({
-    mutationFn: () => api.takeMirrorSamples(),
-    onSuccess: (r) => queryClient.setQueryData(keys.mirror.samples, r),
-  });
-  const rehearse = useMutation({
-    mutationFn: () => api.rehearseMirror(),
-    onSuccess: (r) => queryClient.setQueryData(keys.mirror.rehearsal, r),
-  });
-
-  const s = samples.data;
-  const r = rehearsal.data;
-  const taking = s?.state === "running";
-  const rehearsing = r?.state === "running";
-  const subscriptions = s?.subscriptions ?? [];
-  const families = s?.families ?? [];
-  const covered = subscriptions.filter((x) => x.families.length > 0).length;
-  const exchanges = families.reduce((n, f) => n + f.members.length, 0);
-  const notKept = families.flatMap((f) => f.members).flatMap((x) => [x.input, x.output, x.response]).filter((f) => f?.notCopied).length;
-  const rehearsed = r && r.state !== "none" && r.families.length > 0;
-  // Samples taken again after the last rehearsal aren't in it.
-  const stale = rehearsed && s?.finishedOn && r.startedOn && s.finishedOn > r.startedOn;
-  const off = !target ? "This deployment isn't marked as a mirror" : !canOperate ? "Your role can't do this on this staging" : undefined;
-
-  return (
-    <Panel
-      title="Rehearse prod's traffic"
-      description="Sends a few of prod's recent arrivals in on staging the way they came in on prod: a partner's call through the gateway, a document to route, a file a receiver read. Staging runs the rest as real exchanges, and each is compared with its twin on prod. When a flow calls a partner, staging answers with what prod's partner answered."
-    >
-      {samples.isPending || rehearsal.isPending ? (
-        <LoadingBlock />
-      ) : samples.isError ? (
-        <LoadError error={samples.error} what="the samples" onRetry={() => void samples.refetch()} />
-      ) : (
-        <div className="space-y-3 text-[13px] text-ink-800" aria-live="polite">
-          <Step n={1} title="Samples">
-            {taking ? (
-              <p>Taking samples: {whole(s.done)} of {whole(s.total)} subscriptions read. Prod is read one subscription at a time.</p>
-            ) : !s || s.state === "none" || subscriptions.length === 0 ? (
-              <p>No samples yet. Each is something that came in on prod and every exchange it led to, with their files faked.</p>
-            ) : (
-              <p>
-                {plural(families.length, "arrival", "arrivals")} from prod, {plural(exchanges, "exchange", "exchanges")} in all, covering {whole(covered)} of
-                prod's {plural(subscriptions.length, "subscription", "subscriptions")}{s.finishedOn && `, taken ${timeAgo(s.finishedOn)}`}.
-                {notKept > 0 && ` ${plural(notKept, "file isn't", "files aren't")} kept; each exchange says why.`}{" "}
-                <button type="button" className="link cursor-pointer" onClick={onShow}>See the samples</button>
-              </p>
-            )}
-            {s?.state === "failed" && s.error && <InlineNotice>{s.error}</InlineNotice>}
-            <Button
-              size="sm"
-              variant={!s || s.state === "none" ? "primary" : undefined}
-              busy={take.isPending || taking}
-              disabled={!!off || taking || rehearsing}
-              title={off ?? (rehearsing ? "A rehearsal is running on these samples" : "Take a few of prod's recent arrivals for each subscription, faked")}
-              onClick={() => take.mutate()}
-            >
-              {!s || s.state === "none" ? "Take samples" : "Take samples again"}
-            </Button>
-            <FormError>{take.error instanceof Error ? take.error.message : ""}</FormError>
-          </Step>
-
-          <Step n={2} title="Rehearsal">
-            {rehearsal.isError ? (
-              <LoadError error={rehearsal.error} what="the rehearsal" onRetry={() => void rehearsal.refetch()} />
-            ) : rehearsing ? (
-              <p>Rehearsing: {whole(r.done)} of {whole(r.total)} arrivals run. Each runs on its own, so prod's answers go to the right exchanges.</p>
-            ) : !rehearsed ? (
-              <p>Not rehearsed yet.</p>
-            ) : (
-              <Summary rehearsal={r} onShow={onShow} />
-            )}
-            {stale && <p className="text-ink-600">Samples were taken again since. Rehearse again to compare them.</p>}
-            {r?.setupError && <InlineNotice>{r.setupError}</InlineNotice>}
-            {r?.state === "failed" && r.error && <InlineNotice>{r.error}</InlineNotice>}
-            <Button
-              size="sm"
-              variant={families.length > 0 && (!rehearsed || stale) ? "primary" : undefined}
-              busy={rehearse.isPending || rehearsing}
-              disabled={!!off || families.length === 0 || taking || rehearsing}
-              title={off ?? (families.length === 0 ? "Take samples first" : taking ? "Samples are being taken" : "Send every sample in on staging, then compare with prod")}
-              onClick={() => rehearse.mutate()}
-            >
-              {rehearsed ? "Rehearse again" : "Rehearse"}
-            </Button>
-            <FormError>{rehearse.error instanceof Error ? rehearse.error.message : ""}</FormError>
-          </Step>
-        </div>
-      )}
-    </Panel>
-  );
-}
-
-function Step({ n, title, children }: { n: number; title: string; children: ReactNode }) {
-  return (
-    <section aria-label={title} className="flex gap-3">
-      <span className="mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-full bg-ink-100 text-[11px] font-semibold text-ink-700">{n}</span>
-      <div className="min-w-0 flex-1 space-y-2">
-        <h3 className="text-[13px] font-semibold text-ink-900">{title}</h3>
-        {children}
-      </div>
-    </section>
-  );
-}
-
-/** The last rehearsal in one line: how many arrivals ran, and how they compare. */
-function Summary({ rehearsal, onShow }: { rehearsal: MirrorRehearsal; onShow: () => void }) {
-  const runs = rehearsal.families;
-  const n = (v: Verdict) => runs.filter((x) => (x.verdict ?? "notRun") === v).length;
-  const ran = runs.length - n("notRun");
-  const parts = [
-    n("different") > 0 && `${whole(n("different"))} different`,
-    n("check") > 0 && `${whole(n("check"))} to check`,
-    n("same") > 0 && `${whole(n("same"))} the same`,
-  ].filter(Boolean);
-  const versions =
-    rehearsal.prodVersion && rehearsal.stagingVersion
-      ? rehearsal.prodVersion === rehearsal.stagingVersion
-        ? ` Both run ${rehearsal.stagingVersion}.`
-        : ` Staging runs ${rehearsal.stagingVersion}, prod ${rehearsal.prodVersion}.`
-      : "";
-  return (
-    <p>
-      {rehearsal.finishedOn ? `Rehearsed ${timeAgo(rehearsal.finishedOn)}: ` : "Rehearsed: "}
-      {plural(ran, "arrival", "arrivals")} ran{parts.length > 0 && ` (${parts.join(", ")})`}
-      {n("notRun") > 0 && `, ${whole(n("notRun"))} didn't`}.{versions}{" "}
-      <button type="button" className="link cursor-pointer" onClick={onShow}>See them</button>
-    </p>
-  );
-}
-
-// ------------------------------------------------------------------ arrival by arrival
-
-/** Prod's families and how each ran on staging, the ones that differ first. */
-export function RehearsalList({ samples, rehearsal, prodUrl, items }: {
-  samples: MirrorSamples;
-  rehearsal: MirrorRehearsal | undefined;
-  prodUrl: string;
-  items: Map<string, MirrorItem>;
-}) {
-  const entries = entriesOf(samples, rehearsal);
-  const counts = Object.fromEntries(ORDER.map((v) => [v, entries.filter((e) => e.verdict === v).length])) as Record<Verdict, number>;
-  const [filter, setFilter] = useState<Verdict | "all">(() => (counts.different > 0 ? "different" : counts.check > 0 ? "check" : "all"));
-  const [open, setOpen] = useState<string | null>(null);
-  const [without, setWithout] = useState(false);
-  const none = samples.subscriptions.filter((s) => s.families.length === 0);
-  const shown = entries
-    .filter((e) => filter === "all" || e.verdict === filter)
-    .sort((a, b) => ORDER.indexOf(a.verdict) - ORDER.indexOf(b.verdict) || b.family.members[0].startedOn.localeCompare(a.family.members[0].startedOn));
-
-  return (
-    <div>
-      <SegmentedControl
-        label="Show"
-        size="sm"
-        value={filter}
-        onChange={setFilter}
-        options={[
-          ...ORDER.map((v) => ({ value: v, label: `${VERDICT[v].label} (${whole(counts[v])})`, title: VERDICT[v].title })),
-          { value: "all" as const, label: `All (${whole(entries.length)})`, title: "Every sample" },
-        ]}
-      />
-      {shown.length === 0 ? (
-        <p className="mt-2 text-[13px] text-ink-500">None.</p>
-      ) : (
-        <ul className="mt-2 divide-y divide-ink-100 border-t border-ink-100">
-          {shown.map((e) => (
-            <FamilyRow
-              key={e.family.id}
-              entry={e}
-              open={open === e.family.id}
-              onToggle={() => setOpen(open === e.family.id ? null : e.family.id)}
-              prodUrl={prodUrl}
-              items={items}
-              rehearsed={!!rehearsal?.families.length}
-            />
-          ))}
-        </ul>
-      )}
-      {none.length > 0 && (
-        <section aria-label="Without samples" className="mt-3 text-[12.5px]">
-          <button type="button" aria-expanded={without} onClick={() => setWithout(!without)} className="flex cursor-pointer items-center gap-1 text-ink-600">
-            {without ? <ChevronDown className="size-3.5" aria-hidden /> : <ChevronRight className="size-3.5" aria-hidden />}
-            {plural(none.length, "subscription has", "subscriptions have")} no traffic on prod, so the rehearsal doesn't cover {none.length === 1 ? "it" : "them"}
-          </button>
-          {without && (
-            <ul className="mt-1 ml-5 space-y-0.5">
-              {none.map((s) => (
-                <li key={s.subscription}>
-                  <span className="font-medium text-ink-800">{s.subscription}</span> <span className="text-ink-500">{s.reason}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
-    </div>
-  );
 }
 
 export function FamilyRow({ entry, open, onToggle, prodUrl, items, rehearsed, pending }: {
