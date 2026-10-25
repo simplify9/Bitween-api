@@ -6,6 +6,7 @@ import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { BringFromProd } from "../mirror/BringFromProd";
 import { Button, EmptyState, LoadError, LoadingBlock, ProblemText } from "../../components/ui/basics";
 import { ExceptionLine } from "../../components/ui/Exception";
 import { Pagination } from "../../components/ui/Pagination";
@@ -72,7 +73,12 @@ export function ResponseSubscriptionsPage() {
       <PageHeader
         title="Response subscriptions"
         description="Pipelines that run on what another subscription's delivery hands back - an order id, an acknowledgement, a label."
-        actions={createAction}
+        actions={
+          <>
+            <BringFromProd section="subscriptions" type="Response" label="response subscriptions" />
+            {createAction}
+          </>
+        }
         help={{
           title: "How response subscriptions work",
           body: (

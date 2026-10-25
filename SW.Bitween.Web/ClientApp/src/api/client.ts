@@ -1,7 +1,11 @@
 import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
+  MirrorBring,
+  MirrorBringSection,
   MirrorCalls,
   MirrorCopyResult,
+  MirrorProdKinds,
+  MirrorProdListAnswer,
   MirrorParityAnswer,
   MirrorRehearsal,
   MirrorSamples,
@@ -670,6 +674,9 @@ export interface ApiClient {
   getMirrorCalls(): Promise<MirrorCalls>;
   getMirrorRehearsal(): Promise<MirrorRehearsal>;
   rehearseMirror(): Promise<MirrorRehearsal>;
+  getMirrorProdKinds(): Promise<MirrorProdKinds>;
+  getMirrorProd(section: MirrorBringSection, type?: string): Promise<MirrorProdListAnswer>;
+  bringFromProd(section: MirrorBringSection, keys: string[], apply: boolean): Promise<MirrorBring>;
 
   // - settings -
   listSettings(): Promise<SettingRow[]>;

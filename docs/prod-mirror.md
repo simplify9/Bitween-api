@@ -38,6 +38,25 @@ A field prod sends that this release doesn't know, from a newer or a customised 
 
 Prod may hold several items of a kind under one name. Each after the oldest is named apart on the staging: `test`, `test (2)`, `test (3)`. References to them still point at the right one.
 
+## Bringing items from prod
+
+On a mirror, the list pages of what runs flows offer **Bring from prod**: **All subscriptions**, **Scheduled jobs**, **Aggregations**, **Response subscriptions**, **API gateways** and **Bus gateways**. A page offers it only while prod has something of what it lists, and only to whoever may operate the mirror.
+
+It lists prod's items of that kind, busiest first, each with its exchanges on prod over the last seven days, how many failed, when the last one ran, and whether the staging has it. The numbers come from the counts prod keeps by the hour. A prod whose release doesn't keep them shows none and says so, rather than read through its exchanges.
+
+Tick the ones to bring, or all of them. **See what comes** then lists everything that comes with them, each with why:
+
+- What an item names: a subscription's information type, partner, retry policy, data source, category and work group, the subscription it hands its responses to or rolls up, the notification channels it notifies and its alerts go to, and the global values sets and connections its adapters name in `{{globals.…}}` and `{{connections.…}}`.
+- How prod's traffic reaches a subscription: the API gateway a partner calls it through, with that partner; the bus gateway that routes to it; the subscription whose responses it runs on. Each comes with what it names in turn.
+- A data source's SQL statements.
+- The adapters they run. A marketplace one is installed at prod's version; one only a person can add is named under **Needs you first**.
+
+A picked gateway brings every subscription it leads to.
+
+What the staging doesn't have comes as prod has it, faked as a copy fakes it, so subscriptions arrive paused and data sources and bus gateways switched off. What the staging has stays as it is, so edits made on the staging are never overwritten: a gateway the staging has only gets the partner or route that leads to what comes. Nothing is removed. An item that can't come yet, such as a subscription waiting for an adapter, stays behind and says why, and so does anything that needs it.
+
+**Bring** then brings them. It carries on past an item that fails, and lists each failure with Bitween's reason.
+
 ## Samples of prod's traffic
 
 **Take samples** takes a few of prod's recent exchanges for each subscription: up to five, mostly ones that worked, with one the partner answered badly and one that failed when prod has them, never a retry or one still running. Each comes with its **arrival**: the thing that came in on prod and every exchange it led to there. That is a partner's call through a gateway or the partner API, a document routed to the subscriptions that want it, a file a receiver read, or an aggregation, followed by the answers it handed on to response subscriptions and the messages bus gateways took. For each exchange it keeps what came in, what Bitween sent and what the partner answered, and how the exchange ended.

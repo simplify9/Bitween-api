@@ -6,6 +6,7 @@ import { api, type SubscriptionRow, type ScheduleHealth } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { BringFromProd } from "../mirror/BringFromProd";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { ExceptionLine } from "../../components/ui/Exception";
@@ -138,7 +139,12 @@ export function AggregationsPage() {
       <PageHeader
         title="Aggregations"
         description="Collect a subscription's exchanges on a schedule into one exchange listing links to their files. The files are not combined - a mapper or delivery does that."
-        actions={createAction}
+        actions={
+          <>
+            <BringFromProd section="subscriptions" type="Aggregation" label="aggregations" />
+            {createAction}
+          </>
+        }
         help={{
           title: "How aggregations work",
           body: (

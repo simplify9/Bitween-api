@@ -220,6 +220,8 @@ export const keys = {
     samples: ["mirror", "samples"] as const,
     calls: ["mirror", "calls"] as const,
     rehearsal: ["mirror", "rehearsal"] as const,
+    prodKinds: ["mirror", "prodKinds"] as const,
+    prod: (section: string, type?: string) => ["mirror", "prod", section, type ?? "all"] as const,
   },
 
   settings: {

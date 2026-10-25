@@ -6,6 +6,7 @@ import { api, type SubscriptionRow, type ScheduleHealth } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { BringFromProd } from "../mirror/BringFromProd";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { Pagination } from "../../components/ui/Pagination";
@@ -138,7 +139,12 @@ export function ScheduledJobsPage() {
       <PageHeader
         title="Scheduled jobs"
         description="Subscriptions that pull documents in on a schedule - from an FTP folder, a mailbox, an API."
-        actions={createAction}
+        actions={
+          <>
+            <BringFromProd section="subscriptions" type="Receiving" label="scheduled jobs" />
+            {createAction}
+          </>
+        }
         help={{
           title: "How scheduled jobs work",
           body: (

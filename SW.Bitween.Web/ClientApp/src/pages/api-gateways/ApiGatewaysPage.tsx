@@ -4,6 +4,7 @@ import { Plus, Webhook } from "lucide-react";
 import { api, type SubscriptionRow } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { BringFromProd } from "../mirror/BringFromProd";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
@@ -60,7 +61,12 @@ export function ApiGatewaysPage() {
       <PageHeader
         title="API gateways"
         description="URLs partners call to push documents in. Each attached partner is routed to one subscription."
-        actions={createAction}
+        actions={
+          <>
+            <BringFromProd section="apiGateways" label="API gateways" />
+            {createAction}
+          </>
+        }
         help={{
           title: "How API gateways work",
           body: (

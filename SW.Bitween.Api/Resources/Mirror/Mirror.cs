@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using SW.Bitween.Services.Mirror;
@@ -134,6 +135,87 @@ public class Calls(BitweenDbContext dbContext, RequestContext requestContext, Bi
             Hosts = options.Mirror.Target ? await mock.HostsAsync() : [],
             Recent = mock.Recent.Take(50).ToList(),
         };
+    }
+}
+
+/// <summary>
+/// How many of prod's items there are of each kind a page lists - subscriptions by type, API and bus
+/// gateways - so each page offers to bring only what prod has. Read from prod's lists alone.
+/// </summary>
+[HandlerName("prodkinds")]
+public class ProdKinds(BitweenDbContext dbContext, RequestContext requestContext, MirrorService mirror) : IQueryHandler<object>
+{
+    public async Task<object> Handle()
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.View);
+        return await mirror.ProdKindsAsync();
+    }
+}
+
+public class MirrorProdRequest
+{
+    /// <summary>subscriptions, apiGateways or busGateways.</summary>
+    public string Section { get; set; }
+
+    /// <summary>Of subscriptions, only those of this type: Receiving, Aggregation or Response, say.</summary>
+    public string Type { get; set; }
+}
+
+/// <summary>
+/// Prod's items of one kind, busiest first, each with its traffic over the last week and whether staging
+/// has it: what a page offers to bring. Prod is only read.
+/// </summary>
+[HandlerName("prod")]
+public class Prod(BitweenDbContext dbContext, RequestContext requestContext, MirrorService mirror) : IQueryHandler<MirrorProdRequest, object>
+{
+    public async Task<object> Handle(MirrorProdRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.View);
+        try
+        {
+            return await mirror.ProdListAsync(request?.Section, string.IsNullOrWhiteSpace(request?.Type) ? null : request.Type);
+        }
+        catch (MirrorRefusal refusal)
+        {
+            return new { Error = refusal.Message };
+        }
+    }
+}
+
+public class MirrorBringRequest
+{
+    /// <summary>subscriptions, apiGateways or busGateways.</summary>
+    public string Section { get; set; }
+
+    /// <summary>The picked items, by the name prod has them under (a gateway's address for an API gateway).</summary>
+    public List<string> Keys { get; set; }
+
+    /// <summary>Bring them; without it, only say what bringing them would do.</summary>
+    public bool Apply { get; set; }
+}
+
+/// <summary>
+/// Brings prod's picked items onto this staging with what they need to run as on prod, faked: what staging
+/// doesn't have comes as prod has it, what it has stays as it is, and nothing is removed. Without
+/// <see cref="MirrorBringRequest.Apply"/> it says what it would do. Only on a Bitween its deployment marks
+/// as a mirror.
+/// </summary>
+[HandlerName("bring")]
+public class Bring(BitweenDbContext dbContext, RequestContext requestContext, BitweenOptions options, MirrorService mirror)
+    : ICommandHandler<MirrorBringRequest, object>
+{
+    public async Task<object> Handle(MirrorBringRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.Operate);
+        if (!options.Mirror.Target) throw new SWValidationException("MIRROR_NOT_TARGET", MirrorService.NotTarget);
+        try
+        {
+            return await mirror.BringAsync(request?.Section, request?.Keys ?? [], request?.Apply ?? false);
+        }
+        catch (MirrorRefusal refusal)
+        {
+            throw new SWValidationException("MIRROR", refusal.Message);
+        }
     }
 }
 

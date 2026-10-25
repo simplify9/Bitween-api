@@ -2583,3 +2583,79 @@ export interface MirrorSamples {
   subscriptions: MirrorSubscriptionSamples[];
   families: MirrorFamily[];
 }
+
+/** The kinds a page brings from prod. */
+export type MirrorBringSection = "subscriptions" | "apiGateways" | "busGateways";
+
+/** How many of prod's items there are of each kind a page lists, read from prod's lists alone. */
+export interface MirrorProdKinds {
+  /** By subscription type, and every one of them under "all". */
+  subscriptions: Record<string, number>;
+  apiGateways: number;
+  busGateways: number;
+  /** Why prod couldn't be read; pages still offer to bring, and the list says why. */
+  error: string | null;
+}
+
+/** An item's traffic on prod over the window. */
+export interface MirrorProdCounts {
+  total: number;
+  failed: number;
+  lastOn: string | null;
+  /** One count a day, oldest first. */
+  daily: number[];
+}
+
+/** One of prod's items as a page offers it: its traffic, and whether staging has it. */
+export interface MirrorProdItem {
+  key: string;
+  prodId: string | null;
+  type: string | null;
+  /** What it is for, in a few words: a subscription's partner and information type, a gateway's partners. */
+  detail: string;
+  state: MirrorItemState;
+  stagingId: string | null;
+  reason: string | null;
+  traffic: MirrorProdCounts | null;
+}
+
+/** Prod's items of one kind, busiest first. */
+export interface MirrorProdList {
+  section: MirrorBringSection;
+  noun: string;
+  plural: string;
+  /** The window the traffic covers; null when prod can't say, and trafficNote says why. */
+  days: number | null;
+  trafficNote: string | null;
+  items: MirrorProdItem[];
+}
+
+export type MirrorProdListAnswer = MirrorProdList | { error: string };
+
+/**
+ * What happens to one item a bring touches: new (staging gets prod's, faked), kept (staging has it
+ * and keeps its own), adds (staging has it and gets the partner or route that leads to what comes),
+ * waits (it can't come yet: reason says why), install (an adapter from the marketplace).
+ */
+export type MirrorPieceState = "new" | "kept" | "adds" | "waits" | "install";
+
+export interface MirrorPiece {
+  section: string;
+  noun: string;
+  key: string;
+  state: MirrorPieceState;
+  /** Why it comes: picked, or what needs it. */
+  why: string;
+  reason: string | null;
+  stagingId: string | null;
+  type: string | null;
+}
+
+/** What bringing the picked items does, or did. */
+export interface MirrorBring {
+  applied: boolean;
+  pieces: MirrorPiece[];
+  /** What only a person can do first: upload an adapter, say. */
+  needsYou: MirrorNote[];
+  failed: { section: string; noun: string; key: string; error: string }[];
+}

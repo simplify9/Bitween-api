@@ -127,8 +127,12 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
             failed.Select(f => new MirrorFailure(f.Change.Section, f.Change.Noun, f.Change.Key, f.Error)).ToList(), after);
     }
 
-    /// <summary>A comparison, prod's setup as staging copies it, and the two connections its planner carries out changes over until it is done with.</summary>
-    sealed record Comparison(MirrorParity Parity, Planner Planner, Plan Plan, MirrorSetupCopy Copy, BitweenApi Prod, BitweenApi Self) : IDisposable
+    /// <summary>
+    /// A comparison, prod's setup as staging copies it, and the two connections its planner carries out
+    /// changes over until it is done with; with the file the planner plans from and staging as it read it.
+    /// </summary>
+    sealed record Comparison(MirrorParity Parity, Planner Planner, Plan Plan, MirrorSetupCopy Copy, BitweenApi Prod, BitweenApi Self,
+        ConfigFile Config, Context Staging) : IDisposable
     {
         public void Dispose()
         {
@@ -203,7 +207,7 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
             new MirrorSide(links.BaseUrl, BitweenInfo.Version(options).ToString(3), await ExchangesAsync(self)),
             Verdict(kinds, notes),
             notes, kinds, adapters, copy.Addresses, copy.FakedKeys, unknown);
-        return new Comparison(parity, planner, plan, copy, prod, self);
+        return new Comparison(parity, planner, plan, copy, prod, self, config, selfCtx);
     }
 
     // ------------------------------------------------------------------ prod
@@ -565,25 +569,9 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
     static List<MirrorNote> Notes(List<MirrorKind> kinds, List<MirrorAdapter> adapters, Plan plan, int extras, List<string> renamed,
         List<MirrorUnknownField> unknown, MirrorSetupCopy copy, bool catching)
     {
-        var notes = new List<MirrorNote>();
+        var notes = AdapterNotes(adapters);
 
         // ---- needs you
-        foreach (var a in adapters.Where(a => a.State == "missing" && a.Source != "builtin" && !(a.Source == "marketplace" && a.ProdVersion != null)))
-        {
-            var where = a.Source == "marketplace"
-                ? $"Install the adapter {a.Id} from the Marketplace tab of the Adapters page"
-                : $"Upload the adapter {a.Id}{(a.ProdVersion == null ? "" : $", version {a.ProdVersion},")} on the Adapters page";
-            notes.Add(new MirrorNote($"adapter:{a.Id}", "needsYou",
-                $"{where}. {Used(a.UsedBy)} it; staging copies {(a.UsedBy == 1 ? "that one" : "them")} once it's there.",
-                Action: a.Source == "marketplace" ? "adapters-marketplace" : "adapters-installed"));
-        }
-        foreach (var a in adapters.Where(a => a.State == "different"))
-            notes.Add(new MirrorNote($"current:{a.Id}", "needsYou",
-                $"Make version {a.ProdVersion} of the adapter {a.Id} the current one on staging, as on prod. Staging runs {a.StagingVersion}.",
-                Action: "adapters-installed"));
-        foreach (var a in adapters.Where(a => a.State == "missing" && a.Source == "builtin"))
-            notes.Add(new MirrorNote($"builtin:{a.Id}", "needsYou",
-                $"This release no longer has the built-in adapter {a.Id}. {Used(a.UsedBy)} it, and would stop working after the upgrade."));
         foreach (var k in kinds.Where(k => k.Skipped != null && k.Skipped != NotOnProdsRelease))
             notes.Add(new MirrorNote($"skipped:{k.Section}", "needsYou",
                 $"{Capital(k.Plural)}: {k.Skipped} On prod, give its role permission to view {k.Plural}."));
@@ -650,6 +638,29 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
         if ((copy.Sections.GetValueOrDefault("partners")?.Count ?? 0) > 0)
             notes.Add(new MirrorNote("secrets", "onPurpose", "Secrets are stand-ins, and partners' API keys are staging's own."));
         notes.AddRange(renamed.Select(r => new MirrorNote($"renamed:{r}", "onPurpose", r)));
+        return notes;
+    }
+
+    /// <summary>What only a person can do about prod's adapters on staging: upload one, make a version current, or know a built-in one is gone.</summary>
+    static List<MirrorNote> AdapterNotes(IEnumerable<MirrorAdapter> adapters)
+    {
+        var notes = new List<MirrorNote>();
+        foreach (var a in adapters.Where(a => a.State == "missing" && a.Source != "builtin" && !(a.Source == "marketplace" && a.ProdVersion != null)))
+        {
+            var where = a.Source == "marketplace"
+                ? $"Install the adapter {a.Id} from the Marketplace tab of the Adapters page"
+                : $"Upload the adapter {a.Id}{(a.ProdVersion == null ? "" : $", version {a.ProdVersion},")} on the Adapters page";
+            notes.Add(new MirrorNote($"adapter:{a.Id}", "needsYou",
+                $"{where}. {Used(a.UsedBy)} it, and {(a.UsedBy == 1 ? "it comes" : "they come")} to staging once it's there.",
+                Action: a.Source == "marketplace" ? "adapters-marketplace" : "adapters-installed"));
+        }
+        foreach (var a in adapters.Where(a => a.State == "different"))
+            notes.Add(new MirrorNote($"current:{a.Id}", "needsYou",
+                $"Make version {a.ProdVersion} of the adapter {a.Id} the current one on staging, as on prod. Staging runs {a.StagingVersion}.",
+                Action: "adapters-installed"));
+        foreach (var a in adapters.Where(a => a.State == "missing" && a.Source == "builtin"))
+            notes.Add(new MirrorNote($"builtin:{a.Id}", "needsYou",
+                $"This release no longer has the built-in adapter {a.Id}. {Used(a.UsedBy)} it, and would stop working after the upgrade."));
         return notes;
     }
 

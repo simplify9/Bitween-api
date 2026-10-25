@@ -6,6 +6,7 @@ import { api, type SubscriptionRow, type SubscriptionType } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { BringFromProd } from "../mirror/BringFromProd";
 import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { FilterSelect, SearchSelect } from "../../components/ui/SearchSelect";
@@ -124,6 +125,7 @@ export function SubscriptionsPage() {
         description="Every pipeline that moves a document - what comes in, how it's transformed, where it goes."
         actions={
           <div className="flex gap-2">
+            <BringFromProd section="subscriptions" label="subscriptions" />
             <Button onClick={() => setManagingCategories(true)}>Categories</Button>
             <Can permission="subscriptions.create">
               <Button variant="primary" onClick={() => setChoosingWay(true)}>

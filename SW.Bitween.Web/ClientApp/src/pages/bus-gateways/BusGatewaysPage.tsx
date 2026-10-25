@@ -6,6 +6,7 @@ import { api, type BusGatewayRow, type SubscriptionRow } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { BringFromProd } from "../mirror/BringFromProd";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { FilterSelect, SearchSelect } from "../../components/ui/SearchSelect";
@@ -106,6 +107,7 @@ export function BusGatewaysPage() {
             <Button variant="secondary" onClick={() => navigate("/flow")}>
               <Network className="size-4" /> Flow map
             </Button>
+            <BringFromProd section="busGateways" label="bus gateways" />
             {createAction}
           </>
         }
