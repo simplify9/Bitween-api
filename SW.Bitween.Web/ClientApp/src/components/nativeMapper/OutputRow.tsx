@@ -42,12 +42,16 @@ export function OutputRow({
 }) {
   const { rule, errorKey } = node;
   const dispatch = useRulesDispatch();
-  const { selectedId, ruleErrors, hoveredPath } = useRules();
+  const { selectedId, ruleErrors, hoveredPath, ai } = useRules();
   const original = useSourceValues() !== null;
   const [open, setOpen] = useState(false);
 
   const isItem = node.kind === "item";
   const error = ruleErrors[errorKey];
+  // Where the rules "Generate with AI" wrote miss the output sample, and whether it wrote
+  // this row differently from what was there - both only until the mapping changes again.
+  const missed = ai?.byRow[errorKey];
+  const flash = ai?.changed.includes(errorKey) ?? false;
   const selected = selectedId === rule.id;
   // Only a path read in this scope has a source row to draw a line to; one read
   // from the top of the document inside a list has no single row to point at.
@@ -109,14 +113,17 @@ export function OutputRow({
       // The canvas finds its endpoints by these attributes rather than by a ref
       // map the panels have to keep in step.
       data-rule-id={rule.id}
-      className={`rounded border ${
+      data-error-key={errorKey}
+      className={`rounded border ${flash ? "ai-flash" : ""} ${
         error
           ? "border-danger-300 bg-danger-50"
           : selected
             ? "border-crimson-300 bg-crimson-50"
-            : hoveredPath && hoveredPath === sourcePath
-              ? "border-ink-200 bg-crimson-50/40"
-              : "border-transparent hover:border-ink-200 hover:bg-ink-50"
+            : missed
+              ? "border-warn-300 bg-warn-100/40"
+              : hoveredPath && hoveredPath === sourcePath
+                ? "border-ink-200 bg-crimson-50/40"
+                : "border-transparent hover:border-ink-200 hover:bg-ink-50"
       }`}
     >
       <div className="flex items-center gap-1.5 px-1.5 py-0.5">
@@ -217,6 +224,13 @@ export function OutputRow({
           {error}
         </p>
       )}
+
+      {!error &&
+        missed?.map((difference) => (
+          <p key={difference} className="px-1.5 pb-1 font-mono text-[10px] text-warn-700">
+            {difference}
+          </p>
+        ))}
     </div>
   );
 }

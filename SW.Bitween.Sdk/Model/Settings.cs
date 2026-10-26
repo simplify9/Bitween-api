@@ -25,6 +25,9 @@ public class SettingRow
 
     public bool Secret { get; set; }
 
+    /// <summary>The only values a string setting takes, for a dropdown. Null for free text.</summary>
+    public string[]? Choices { get; set; }
+
     /// <summary>True when the stored value differs from the product default, i.e. a reset would do something.</summary>
     public bool Overridden { get; set; }
 

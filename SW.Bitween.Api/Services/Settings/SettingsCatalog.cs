@@ -63,6 +63,9 @@ public sealed record SettingDefinition(
     /// </summary>
     public Func<IServiceProvider, Task> OnChange { get; init; }
 
+    /// <summary>The only values a string setting takes, offered as a dropdown. Null for free text.</summary>
+    public IReadOnlyList<string> Choices { get; init; }
+
     /// <summary>Only editable settings get a row; the rest are read straight off the options.</summary>
     public bool Stored => Access == SettingAccess.Editable;
 }
@@ -304,6 +307,39 @@ public static class SettingsCatalog
             SettingKind.Boolean, false,
             t => Str(t.Bitween.RegistryUsageReports),
             (t, v) => t.Bitween.RegistryUsageReports = Bool(v)),
+
+        // --- AI ---
+        // Every AI feature reads these per call, so a new key or model applies to the next request.
+        new("Bitween.Ai.Provider", "AI",
+            "Provider",
+            "Who AI features call. OpenAI also covers anything that speaks its API - Azure OpenAI, Ollama, a company proxy - at the address below. Sample documents sent to AI features go to this provider, with the names - never the values - of partner properties and global values.",
+            SettingKind.String, false,
+            t => t.Bitween.Ai.Provider,
+            (t, v) => t.Bitween.Ai.Provider = Choice(v, Ai.AiOptions.Providers))
+        {
+            Choices = Ai.AiOptions.Providers
+        },
+
+        new("Bitween.Ai.ApiKey", "AI",
+            "API key",
+            "The provider's API key. AI features stay off until one is set.",
+            SettingKind.String, true,
+            t => t.Bitween.Ai.ApiKey,
+            (t, v) => t.Bitween.Ai.ApiKey = Trimmed(v)),
+
+        new("Bitween.Ai.Model", "AI",
+            "Model",
+            $"The model AI features use. Empty uses {Ai.AiOptions.DefaultAnthropicModel} with Anthropic; OpenAI needs one named, or your Azure deployment's name.",
+            SettingKind.String, false,
+            t => t.Bitween.Ai.Model,
+            (t, v) => t.Bitween.Ai.Model = Trimmed(v)),
+
+        new("Bitween.Ai.BaseUrl", "AI",
+            "API address",
+            "Leave empty for the provider's own API. Set it for Azure OpenAI (https://your-resource.openai.azure.com/openai/v1/), a local Ollama (http://localhost:11434/v1/) or a proxy. Plain http only reaches this machine.",
+            SettingKind.String, false,
+            t => t.Bitween.Ai.BaseUrl,
+            (t, v) => t.Bitween.Ai.BaseUrl = AiAddress(v)),
 
         // --- Mail server ---
         // Shared by every Email notification channel, which then only names its recipients. The
@@ -624,6 +660,15 @@ public static class SettingsCatalog
 
     /// <summary>Empty clears it.</summary>
     private static string Trimmed(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>One of <paramref name="choices"/>, spelled the way the list spells it.</summary>
+    private static string Choice(string value, IReadOnlyList<string> choices) =>
+        choices.FirstOrDefault(c => string.Equals(c, value?.Trim(), StringComparison.OrdinalIgnoreCase))
+        ?? throw new FormatException($"'{value}' isn't one of {string.Join(", ", choices)}.");
+
+    /// <summary>Empty clears it. Otherwise https, or http to this machine - see <see cref="Ai.AiOptions.AddressProblem"/>.</summary>
+    private static string AiAddress(string value) =>
+        Ai.AiOptions.AddressProblem(value) is { } problem ? throw new FormatException(problem) : Trimmed(value);
 
     /// <summary>Empty clears it. Otherwise one plain address, without the display name, which has a setting of its own.</summary>
     private static string EmailAddress(string value)

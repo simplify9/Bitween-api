@@ -31,6 +31,7 @@ import { ConfirmDialog } from "../ui/overlays";
 import { Popover } from "../ui/Popover";
 import { Select } from "../ui/forms";
 import { BuildFromSample } from "./BuildFromSample";
+import { GenerateWithAi } from "./GenerateWithAi";
 import { OutputPanel } from "./OutputPanel";
 import { PreviewPanel } from "./PreviewPanel";
 import { SourcePanel } from "./SourcePanel";
@@ -193,6 +194,8 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
           <ToolbarDivider />
 
           <BuildFromSample />
+
+          <GenerateWithAi partnerId={testPartnerId ?? partnerId} />
 
           <ToolbarButton
             label="Match the source fields"

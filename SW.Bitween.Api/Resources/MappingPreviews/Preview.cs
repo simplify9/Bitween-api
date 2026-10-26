@@ -89,21 +89,11 @@ public class Preview(RequestContext requestContext, BitweenDbContext dbContext,
                         $"Bitween understands up to version {MappingRules.CurrentVersion}.",
             };
 
-        if (!DocumentFormats.TryGet(rules.SourceFormat, out var source, rules.SourceOptions()))
+        if (SourceFormat(rules, request.SourceDocument) is not { } source)
             return new MappingPreviewResponse { Error = DocumentFormats.Unsupported(rules.SourceFormat, "source") };
 
-        if (!DocumentFormats.TryGet(rules.TargetFormat, out var target, rules.TargetOptions()))
+        if (TargetFormat(rules) is not { } target)
             return new MappingPreviewResponse { Error = DocumentFormats.Unsupported(rules.TargetFormat, "target") };
-
-        // A workbook can't be pasted into the editor, so its sample is cells copied from Excel,
-        // which arrive as tab-separated text. Read that way when it isn't a workbook in base64;
-        // the exchange pipeline only ever reads the workbook itself.
-        if (source is ExcelFormat && !LooksLikeBase64(request.SourceDocument))
-            source = new CsvFormat(new CsvOptions { Delimiter = "\t", HasHeader = rules.SourceExcel?.HasHeader != false });
-
-        // And a workbook can't be shown, so the preview shows its rows the same way.
-        if (target is ExcelFormat)
-            target = new CsvFormat(new CsvOptions { Delimiter = "\t", HasHeader = rules.TargetExcel?.HasHeader != false });
 
         ValueNode input;
         try
@@ -144,6 +134,30 @@ public class Preview(RequestContext requestContext, BitweenDbContext dbContext,
             // rather than to any one rule, so it is reported the same way a bad sample is.
             return new MappingPreviewResponse { Error = ex.Message };
         }
+    }
+
+    /// <summary>What reads an editor's source sample, or null for a format no reader answers to.</summary>
+    internal static IDocumentFormat? SourceFormat(MappingRules rules, string? sample)
+    {
+        if (!DocumentFormats.TryGet(rules.SourceFormat, out var source, rules.SourceOptions())) return null;
+
+        // A workbook can't be pasted into the editor, so its sample is cells copied from Excel,
+        // which arrive as tab-separated text. Read that way when it isn't a workbook in base64;
+        // the exchange pipeline only ever reads the workbook itself.
+        return source is ExcelFormat && !LooksLikeBase64(sample ?? "")
+            ? new CsvFormat(new CsvOptions { Delimiter = "\t", HasHeader = rules.SourceExcel?.HasHeader != false })
+            : source;
+    }
+
+    /// <summary>What writes the preview's output, and reads an editor's output sample.</summary>
+    internal static IDocumentFormat? TargetFormat(MappingRules rules)
+    {
+        if (!DocumentFormats.TryGet(rules.TargetFormat, out var target, rules.TargetOptions())) return null;
+
+        // And a workbook can't be shown, so the preview shows its rows the same way.
+        return target is ExcelFormat
+            ? new CsvFormat(new CsvOptions { Delimiter = "\t", HasHeader = rules.TargetExcel?.HasHeader != false })
+            : target;
     }
 
     static bool LooksLikeBase64(string text)

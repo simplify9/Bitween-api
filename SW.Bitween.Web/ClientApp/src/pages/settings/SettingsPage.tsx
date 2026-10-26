@@ -7,7 +7,7 @@ import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { HistoryCard } from "../../components/config/HistoryCard";
 import { Badge, Button, LoadingBlock, ProblemText } from "../../components/ui/basics";
-import { Checkbox, TextInput } from "../../components/ui/forms";
+import { Checkbox, Select, TextInput } from "../../components/ui/forms";
 import { UnsavedBar } from "../../components/ui/Panel";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { settingsDraft, useSettingsDraft } from "../../lib/settingsDraft";
@@ -182,6 +182,15 @@ function SettingRowEditor({
               className="max-w-40 font-mono uppercase"
             />
           </div>
+        ) : row.choices ? (
+          <Select
+            aria-label={row.label}
+            value={effective}
+            disabled={disabled}
+            onChange={(e) => stage(e.target.value)}
+            options={row.choices.map((c) => ({ value: c, label: c }))}
+            className="max-w-60"
+          />
         ) : masked ? (
           <div className="flex h-9.5 items-center justify-between rounded-lg border border-ink-200 bg-ink-50 px-3">
             <span className="font-mono text-sm tracking-widest text-ink-500">••••••••</span>

@@ -49,9 +49,12 @@ export function ListRow({
 }) {
   const { list, errorKey } = node;
   const dispatch = useRulesDispatch();
-  const { ruleErrors } = useRules();
+  const { ruleErrors, ai } = useRules();
 
   const error = ruleErrors[errorKey];
+  // As on a field row: what "Generate with AI" missed here, and whether it changed this list.
+  const missed = ai?.byRow[errorKey];
+  const flash = ai?.changed.includes(errorKey) ?? false;
   const listOptions = listPaths(scope);
 
   // Two separate things, which one chevron used to do at once: the left one folds
@@ -81,8 +84,13 @@ export function ListRow({
           return;
         setDetail((d) => !d);
       }}
-      className={`rounded border ${
-        error ? "border-danger-300 bg-danger-50" : "border-warn-200 bg-warn-100/30"
+      data-error-key={errorKey}
+      className={`rounded border ${flash ? "ai-flash" : ""} ${
+        error
+          ? "border-danger-300 bg-danger-50"
+          : missed
+            ? "border-warn-400 bg-warn-100/60"
+            : "border-warn-200 bg-warn-100/30"
       }`}
     >
       <div className="flex items-center gap-1.5 px-1.5 py-0.5">
@@ -238,6 +246,13 @@ export function ListRow({
           {error}
         </p>
       )}
+
+      {!error &&
+        missed?.map((difference) => (
+          <p key={difference} className="px-1.5 pb-1 font-mono text-[10px] text-warn-700">
+            {difference}
+          </p>
+        ))}
     </div>
   );
 }

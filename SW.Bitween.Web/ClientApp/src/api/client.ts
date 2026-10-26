@@ -794,4 +794,28 @@ export interface ApiClient {
     ruleErrors: { target: string; reason: string }[];
     error: string | null;
   }>;
+
+  /**
+   * Asks the AI provider under Settings, AI for rules that turn the source sample into the target
+   * sample. The server previews them before answering, so `matchesTarget` and `differences` say
+   * how close they came. `refine` fixes `mappingRules` instead of writing new ones; either way,
+   * their formats are kept. `instructions` go to the model as they are. Partner and global
+   * values go by name only, never by value.
+   */
+  suggestMappingRules(
+    input: {
+      mappingRules: string;
+      sourceDocument: string;
+      targetDocument: string;
+      partnerId?: number | null;
+      refine?: boolean;
+      instructions?: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<{
+    mappingRules: string;
+    differences: { target: string; reason: string }[];
+    matchesTarget: boolean;
+    model: string | null;
+  }>;
 }

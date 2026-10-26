@@ -1,5 +1,5 @@
 import type { ApiClient } from "../client";
-import { post } from "./request";
+import { post, request } from "./request";
 
 interface RawMapperPreviewResponse {
   outputJson: string | null;
@@ -11,6 +11,13 @@ interface RawMappingPreviewResponse {
   contentType: string | null;
   ruleErrors: { target: string; reason: string }[] | null;
   error: string | null;
+}
+
+interface RawMappingSuggestionResponse extends RawMappingPreviewResponse {
+  mappingRules: string;
+  differences: { target: string; reason: string }[] | null;
+  matchesTarget: boolean;
+  model: string | null;
 }
 
 export const mapperMethods = {
@@ -39,6 +46,35 @@ export const mapperMethods = {
       contentType: res.contentType ?? null,
       ruleErrors: res.ruleErrors ?? [],
       error: res.error ?? null,
+    };
+  },
+
+  async suggestMappingRules(
+    input: {
+      mappingRules: string;
+      sourceDocument: string;
+      targetDocument: string;
+      partnerId?: number | null;
+      refine?: boolean;
+      instructions?: string;
+    },
+    signal?: AbortSignal,
+  ): Promise<{
+    mappingRules: string;
+    differences: { target: string; reason: string }[];
+    matchesTarget: boolean;
+    model: string | null;
+  }> {
+    const res = await request<RawMappingSuggestionResponse>("/mappingsuggestions", {
+      method: "POST",
+      body: input,
+      signal,
+    });
+    return {
+      mappingRules: res.mappingRules,
+      differences: res.differences ?? [],
+      matchesTarget: res.matchesTarget,
+      model: res.model ?? null,
     };
   },
 } satisfies Partial<ApiClient>;
