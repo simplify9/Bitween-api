@@ -615,12 +615,6 @@ namespace SW.Bitween.Web
                 sp => sp.GetRequiredService<BitweenOptions>().MailServer,
                 sp => sp.GetRequiredService<ThemeOptions>().PrimaryColor);
 
-            // On a staging that mirrors prod, what flows call is caught: here, before anything starts
-            // an adapter's process, which reads where to send its calls as it starts.
-            services.AddSingleton<SW.Bitween.Services.Mirror.MirrorMock>();
-            if (bitweenOptions.Mirror.Target)
-                SW.Bitween.Services.Mirror.MirrorCatcher.Install(services, bitweenOptions);
-
             // services.AddScoped<INativeInfolinkHandler, NativeUpdatePartnerPropsHandler>();
             // services.AddScoped<INativeAdapter, NativeUpdatePartnerPropsHandler>();
 

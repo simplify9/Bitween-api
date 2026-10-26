@@ -501,21 +501,6 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
         }
     }
 
-    /// <summary>
-    /// One of the addresses a copy puts in place of prod's: a name under <see cref="MockDomain"/>, or an
-    /// IP kept for documentation (192.0.2.0/24, 2001:db8::/32), which routes nowhere.
-    /// </summary>
-    public static bool IsMockHost(string host)
-    {
-        var h = (host ?? "").Trim().Trim('[', ']').TrimEnd('.').ToLowerInvariant();
-        if (h.EndsWith("." + MockDomain, StringComparison.Ordinal)) return true;
-        if (!IPAddress.TryParse(h, out var ip)) return false;
-        var bytes = ip.GetAddressBytes();
-        return ip.AddressFamily == AddressFamily.InterNetwork
-            ? bytes[0] == 192 && bytes[1] == 0 && bytes[2] == 2
-            : bytes[0] == 0x20 && bytes[1] == 0x01 && bytes[2] == 0x0d && bytes[3] == 0xb8;
-    }
-
     static readonly HashSet<string> ConnectionHostKeys =
         ["host", "server", "datasource", "address", "addr", "networkaddress", "endpoint", "hostname"];
 

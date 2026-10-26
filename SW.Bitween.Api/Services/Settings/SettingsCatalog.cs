@@ -406,13 +406,6 @@ public static class SettingsCatalog
             t => t.Bitween.Mirror.KeepRealValues,
             (t, v) => t.Bitween.Mirror.KeepRealValues = Trimmed(v)),
 
-        new("Bitween.Mirror.PassHosts", "Prod mirror",
-            "Hosts called for real",
-            "Hosts staging's flows may reach although its setup doesn't name them, one per line: an address written inside an adapter that is safe to call from staging. Staging answers every other call its setup doesn't name, and every call to a test address, itself.",
-            SettingKind.String, false,
-            t => t.Bitween.Mirror.PassHosts,
-            (t, v) => t.Bitween.Mirror.PassHosts = Trimmed(v)),
-
         // --- Reliability & jobs ---
         new("Bitween.MaxRetryAfterSeconds", "Reliability & jobs",
             "Longest wait an adapter can ask for (seconds)",

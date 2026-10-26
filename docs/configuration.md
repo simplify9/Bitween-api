@@ -193,7 +193,7 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.MailServer.Host`, `Port`, `UseTls`, `CertificateThumbprint`, `Username`, `From`, `FromName` | Mail server | Yes | port `587`, `UseTls` `true`, the rest empty |
 | `Bitween.MailServer.Password` | Mail server | Yes, secret | empty |
 | `Bitween.Mirror.Target` | Prod mirror | Read-only | `false` |
-| `Bitween.Mirror.SourceUrl`, `SourceEmail`, `KeepRealValues`, `PassHosts` | Prod mirror | Yes | empty |
+| `Bitween.Mirror.SourceUrl`, `SourceEmail`, `KeepRealValues` | Prod mirror | Yes | empty |
 | `Bitween.Mirror.SourceToken`, `SourcePassword` | Prod mirror | Yes, secret | empty |
 | `Bitween.MaxRetryAfterSeconds` | Reliability & jobs | Yes | `21600`, six hours |
 | `Bitween.RetryJobCron` | Reliability & jobs | Yes | `0 * * * * ?` |

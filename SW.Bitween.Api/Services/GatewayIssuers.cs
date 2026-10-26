@@ -25,21 +25,13 @@ public class OpenIdGatewayIssuers : IGatewayIssuers
     // connection, rather than refused in a few.
     static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(10) };
 
-    static HttpClient caught;
-
-    /// <summary>
-    /// On a staging that mirrors prod, login servers' keys are read through <paramref name="handler"/>,
-    /// which answers for test addresses itself (see <see cref="Services.Mirror.MirrorCatchingHandler"/>).
-    /// </summary>
-    public static void CatchWith(HttpMessageHandler handler) => caught = new HttpClient(handler) { Timeout = Http.Timeout };
-
     readonly ConcurrentDictionary<string, BaseConfigurationManager> byIssuer = new();
 
     public BaseConfigurationManager For(string issuer) => byIssuer.GetOrAdd(issuer, _ =>
         new ConfigurationManager<OpenIdConnectConfiguration>(
             $"{issuer.TrimEnd('/')}/.well-known/openid-configuration",
             new OpenIdConnectConfigurationRetriever(),
-            new HttpDocumentRetriever(caught ?? Http) { RequireHttps = !IsLoopback(issuer) })
+            new HttpDocumentRetriever(Http) { RequireHttps = !IsLoopback(issuer) })
         {
             // Left on, a key that once checked a token keeps being accepted for an hour after the
             // login server stops publishing it. A key dropped that suddenly is usually one that

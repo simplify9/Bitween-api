@@ -361,7 +361,6 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddSingleton<FileLinks>();
                     // The lists' searches filter by how their items stand against prod on a mirror.
                     services.AddScoped<Services.Mirror.MirrorService>();
-                    services.AddSingleton<Services.Mirror.MirrorMock>();
                     services.AddScoped<OidcSignIn>();
                     services.AddScoped<ReceiverBookmarks>();
                     services.AddSingleton<SealedState>();

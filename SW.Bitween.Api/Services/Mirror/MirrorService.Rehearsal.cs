@@ -140,26 +140,13 @@ public sealed partial class MirrorService
                 first.Input == null ? "Prod's first exchange had nothing come in to send." : $"Prod's input isn't kept. {first.Input.NotCopied}", [], []);
 
         var correlation = MirrorTraffic.NewCorrelation();
-        var answers = new List<MirrorReplayAnswer>();
-        foreach (var member in family.Members.Where(m => m.Subscription != null))
-            answers.Add(new MirrorReplayAnswer(member.Subscription, await ReplayAsync(member)));
         var since = DateTime.UtcNow.AddSeconds(-1);
-        mock.Replay(correlation, answers);
-        Entered entered;
         List<(Xchange X, XchangeResult R)> ran = [];
         var settled = true;
-        IReadOnlyList<MirrorCall> calls;
-        try
-        {
-            entered = await SendInAsync(family, first, correlation, doors, cancellation);
-            if (entered.NotRun == null && !entered.Refused) (ran, settled) = await SettledAsync(correlation, since, cancellation);
-        }
-        finally
-        {
-            calls = mock.EndReplay();
-        }
+        var entered = await SendInAsync(family, first, correlation, doors, cancellation);
+        if (entered.NotRun == null && !entered.Refused) (ran, settled) = await SettledAsync(correlation, since, cancellation);
         if (entered.NotRun != null) return new MirrorFamilyRun(family.Id, null, DateTimeOffset.UtcNow, null, entered.NotRun, [], []);
-        return await CompareFamilyAsync(family, setup, correlation, entered, ran, settled, calls);
+        return await CompareFamilyAsync(family, setup, correlation, entered, ran, settled);
     }
 
     static string NoSubscription(string name) => $"Staging doesn't have the subscription “{name}”: bring it from prod.";
@@ -247,12 +234,8 @@ public sealed partial class MirrorService
             request.RequestUri = new Uri($"api/gateway/{gateway.UrlName}/async", UriKind.Relative);
             said = $"A call to the gateway “{gateway.UrlName}” from “{name}”";
             if (gateway.AuthMethod == GatewayAuthMethod.Jwt)
-            {
-                if (string.IsNullOrEmpty(partner.LoginIdentity))
-                    return new Entered(null, NotRun: $"Staging's partner “{name}” has no login identity for the gateway's tokens.");
-                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer",
-                    mock.SignToken(gateway.JwtIssuer, gateway.JwtAudience, gateway.JwtPartnerClaim, partner.LoginIdentity));
-            }
+                return new Entered(null, NotRun: $"The gateway “{gateway.UrlName}” takes tokens from a login server, which the test can't sign: " +
+                    "send this one in by hand, with a token from your test login server.");
         }
         else
         {
@@ -308,7 +291,7 @@ public sealed partial class MirrorService
     /// started - and compared; an exchange one side ran and the other didn't is a difference of its own.
     /// </summary>
     async Task<MirrorFamilyRun> CompareFamilyAsync(MirrorFamily family, Setup setup, string correlation, Entered entered,
-        List<(Xchange X, XchangeResult R)> ran, bool settled, IReadOnlyList<MirrorCall> calls)
+        List<(Xchange X, XchangeResult R)> ran, bool settled)
     {
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
@@ -333,7 +316,7 @@ public sealed partial class MirrorService
             }
             var (x, r) = pool[at];
             pool.RemoveAt(at);
-            members.Add(await MemberAsync(p, i == 0, x, r, setup, xchanges, calls.Where(c => c.Exchange == x.Id).ToList(), entered.Rolled));
+            members.Add(await MemberAsync(p, i == 0, x, r, setup, xchanges, entered.Rolled));
         }
         foreach (var (x, r) in pool)
             members.Add(Extra(x, r, NameOf(x), family.Cut > 0 || family.Unlinked));
@@ -351,9 +334,6 @@ public sealed partial class MirrorService
         else if (family.Unlinked)
             diffs.Add(new MirrorDiff("family", "Where it went", Info, "Not recorded", $"{ran.Count} exchanges",
                 "It came in on prod without a correlation id, so prod doesn't say which subscriptions it went to: staging's are run, but not counted as more than prod's."));
-        var untied = calls.Where(c => c.Exchange == null).ToList();
-        if (Calls(untied, untied.Where(c => c.Real).Select(c => c.Host).Distinct(StringComparer.OrdinalIgnoreCase).ToList()) is { } loose)
-            diffs.Add(loose with { Part = "family", Name = "Calls staging couldn't tie to an exchange" });
 
         var levels = members.Select(m => m.Verdict).Append(entered.Door?.Level).ToList();
         var verdict = levels.Contains(Different) ? Different : levels.Contains(Check) ? Check : Same;
@@ -388,7 +368,7 @@ public sealed partial class MirrorService
 
     /// <summary>One of the family's exchanges on staging, beside its twin on prod.</summary>
     async Task<MirrorRun> MemberAsync(MirrorSample p, bool first, Xchange x, XchangeResult r, Setup setup, XchangeService xchanges,
-        IReadOnlyList<MirrorCall> calls, string rolled)
+        string rolled)
     {
         var name = p.Subscription ?? p.InformationType;
         if (r == null)
@@ -399,18 +379,16 @@ public sealed partial class MirrorService
         var outcome = OutcomeOf(r);
         var (outputFile, output) = await StagingFileAsync(xchanges, x, r.OutputName, r.OutputSize, XchangeFileType.Output);
         var (responseFile, response) = await StagingFileAsync(xchanges, x, r.ResponseName, r.ResponseSize, XchangeFileType.Response);
-        var real = calls.Where(c => c.Real).Select(c => c.Host).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        // Staging's partner is the test system the team set, not prod's: its answer explains, and never counts.
         var answer = File("answer", "What it got back", p.Response, await SampleFileAsync(p.Response), response);
-        // A host called for real answered, not prod's partner: a different answer then says nothing of the release.
-        if (real.Count > 0 && response != null && answer?.Level is Different or Check)
-            answer = answer with { Level = Info, Note = $"It called {string.Join(", ", real)} for real, so this is that host's answer, not prod's partner's. {answer.Note}".Trim() };
+        if (answer?.Level is Different or Check)
+            answer = answer with { Level = Info, Note = $"Staging's partner is a test system, so its answer isn't prod's partner's. {answer.Note}".Trim() };
 
         var diffs = new List<MirrorDiff>
         {
             Result(p, outcome, status, types),
             File("output", "What it sent", p.Output, await SampleFileAsync(p.Output), output),
             answer,
-            Calls(calls, real),
         };
         if (!first)
         {
@@ -426,36 +404,6 @@ public sealed partial class MirrorService
         diffs.RemoveAll(d => d == null);
         return new MirrorRun(p.ProdExchangeId, name, x.Id, DateTimeOffset.UtcNow, outcome, status, types, MirrorCompare.Verdict(diffs), null,
             outputFile, responseFile, diffs);
-    }
-
-    /// <summary>The calls the exchange made: answered by staging, or sent on for real, which explains what came back.</summary>
-    static MirrorDiff Calls(IReadOnlyList<MirrorCall> calls, IReadOnlyList<string> real)
-    {
-        if (calls.Count == 0) return null;
-        return new MirrorDiff("calls", "Calls it made", real.Count > 0 ? Info : Same, null,
-            real.Count == 0 ? $"{Many(calls.Count, "call")} answered by staging" : $"{Many(calls.Count(c => c.Real), "call")} sent for real, to {string.Join(", ", real)}",
-            real.Count == 0 ? null : "Staging calls for real a host its setup names, staging itself and this machine.",
-            calls.Take(20).Select(c => new MirrorFieldDiff($"{c.Method} {c.Host}{c.Path}", c.Real ? Info : Same, null, c.Why)).ToList());
-    }
-
-    /// <summary>
-    /// What staging answers the exchange's calls with: what prod's partner answered in it, faked. A failure
-    /// prod's error names a status for is that status; a call that never got through on prod doesn't on
-    /// staging either. Null for a failure before any call, which leaves staging's usual answer.
-    /// </summary>
-    async Task<MirrorAnswer> ReplayAsync(MirrorSample sample)
-    {
-        const string because = "Prod's partner's answer in the exchange being rehearsed, faked.";
-        return sample.Outcome switch
-        {
-            "success" or "badResponse" => new MirrorAnswer(sample.Outcome == "success" ? 200 : 400,
-                sample.Response?.Key == null ? null : ContentType(sample.Response.Format),
-                sample.Response?.Key == null ? [] : await ReadAsync(sample.Response.Key), because),
-            "failed" when sample.Status is { } status => new MirrorAnswer(status, null, [], $"Prod's partner answered {status} in the exchange being rehearsed."),
-            "failed" when Unreachable(sample.ErrorTypes ?? []) => new MirrorAnswer(0, null, [],
-                "Prod's call didn't get through in the exchange being rehearsed, so this one doesn't either.", Fail: true),
-            _ => null,
-        };
     }
 
     /// <summary>

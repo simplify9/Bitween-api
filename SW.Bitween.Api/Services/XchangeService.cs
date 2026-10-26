@@ -789,7 +789,6 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         }
 
         using var activity = BitweenTelemetry.ActivitySource.StartActivity("exchange.process");
-        using var rehearsed = Services.Mirror.MirrorTraffic.Track(BitweenSettings, xchange);
         activity?.SetTag("bitween.exchange.id", xchange.Id);
         activity?.SetTag("bitween.document.id", xchange.DocumentId);
         activity?.SetTag("bitween.subscription.id", xchange.SubscriptionId);

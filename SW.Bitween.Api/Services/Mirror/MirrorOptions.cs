@@ -30,11 +30,4 @@ public class MirrorOptions
     /// settings rather than data: partner:timeZone, or global:formats/date. Never an address or a secret.
     /// </summary>
     public string KeepRealValues { get; set; }
-
-    /// <summary>
-    /// Hosts staging's flows may call for real although its setup doesn't name them, one per line: an
-    /// address written inside an adapter that is safe to reach from staging. Everything else the setup
-    /// doesn't name is answered by staging itself.
-    /// </summary>
-    public string PassHosts { get; set; }
 }

@@ -117,90 +117,7 @@ public class MirrorRehearsalTests
         Assert.AreEqual(MirrorCompare.Same, MirrorCompare.Verdict([MirrorCompare.Result(Sample("success"), "success", null, []), used]));
     }
 
-    // ------------------------------------------------------------------ answers
-
-    const string Test = "m1a2b3c4d.mirror.invalid";
-    const string Other = "m9f8e7d6c.mirror.invalid";
-
     static readonly BitweenOptions Mirror = new() { Mirror = { Target = true } };
-
-    static MirrorMock Mock()
-    {
-        var setup = new MirrorSetupHosts(
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "api.staging.acme.test" },
-            new Dictionary<string, IReadOnlyList<string>>(StringComparer.OrdinalIgnoreCase) { [Test] = ["Push labels"], [Other] = ["Nightly report"] },
-            new Dictionary<string, string>(), new HashSet<string>(),
-            new Dictionary<int, string> { [12] = "Push labels", [13] = "Nightly report" });
-        return new MirrorMock(null!, new BitweenOptions(), NullLogger<MirrorMock>.Instance)
-        {
-            ReadOverride = () => Task.FromResult(setup),
-            ArrivalsOverride = _ => Task.FromResult<IReadOnlyList<MirrorFamily>>([]),
-        };
-    }
-
-    static MirrorRequest Post(string host) => new("POST", new Uri($"https://{host}/v1/labels"), "application/json", Bytes("{}"), "Bitween");
-
-    static MirrorAnswer Answer(int status, string body) => new(status, "application/json", Bytes(body), "Prod's partner's answer in the exchange being rehearsed, faked.");
-
-    [TestMethod]
-    public async Task A_rehearsed_exchange_gets_what_prods_partner_answered_its_twin()
-    {
-        var mock = Mock();
-        var correlation = MirrorTraffic.NewCorrelation();
-        mock.Replay(correlation, [new MirrorReplayAnswer("Push labels", Answer(400, """{"error":"bad sku"}"""))]);
-
-        using (MirrorTraffic.Track(Mirror, "s1", correlation, 12))
-        {
-            var answered = await mock.AnswerAsync(Post(Test));
-            Assert.AreEqual((400, """{"error":"bad sku"}"""), (answered.Status, Encoding.UTF8.GetString(answered.Body)));
-            Assert.AreEqual(400, (await mock.AnswerAsync(Post("api.zohoapis.eu"))).Status, "a host written inside the adapter");
-            Assert.AreEqual(200, (await mock.AnswerAsync(Post(Other))).Status, "an address only another subscription uses keeps its usual answer");
-            // Sent on for real, and noted: it explains what came back.
-            mock.Passed("GET", "api.staging.acme.test", "/v1/rates", await mock.PassesAsync("api.staging.acme.test"), "Bitween");
-        }
-
-        var calls = mock.EndReplay();
-        Assert.AreEqual(4, calls.Count);
-        Assert.IsTrue(calls.All(c => c.Exchange == "s1"), "each call is tied to the exchange that made it");
-        Assert.AreEqual("Sent for real: staging's setup names it.", calls.Single(c => c.Real).Why);
-        Assert.AreEqual(200, (await mock.AnswerAsync(Post(Test))).Status, "the replay is over");
-        Assert.AreEqual(0, mock.EndReplay().Count);
-    }
-
-    [TestMethod]
-    public async Task Twins_of_one_subscription_get_their_own_answers_in_order()
-    {
-        var mock = Mock();
-        var correlation = MirrorTraffic.NewCorrelation();
-        mock.Replay(correlation, [new MirrorReplayAnswer("Push labels", Answer(200, "first")), new MirrorReplayAnswer("Push labels", Answer(200, "second"))]);
-
-        async Task<string> Ask(string exchange)
-        {
-            using var _ = MirrorTraffic.Track(Mirror, exchange, correlation, 12);
-            return Encoding.UTF8.GetString((await mock.AnswerAsync(Post(Test))).Body);
-        }
-
-        Assert.AreEqual("first", await Ask("s1"));
-        Assert.AreEqual("second", await Ask("s2"));
-        Assert.AreEqual("first", await Ask("s1"), "an exchange keeps its answer for every call it makes");
-        mock.EndReplay();
-    }
-
-    [TestMethod]
-    public async Task A_call_that_never_got_through_on_prod_doesnt_on_staging_either()
-    {
-        var mock = Mock();
-        var correlation = MirrorTraffic.NewCorrelation();
-        mock.Replay(correlation, [new MirrorReplayAnswer("Push labels", new MirrorAnswer(0, null, [], "Prod's call didn't get through.", Fail: true))]);
-        using var client = new HttpClient(new MirrorCatchingHandler(mock) { InnerHandler = new HttpClientHandler() });
-
-        using (MirrorTraffic.Track(Mirror, "s1", correlation, 12))
-        {
-            var failed = await Assert.ThrowsExceptionAsync<HttpRequestException>(() => client.PostAsync($"https://{Test}/v1/labels", new StringContent("{}")));
-            Assert.AreEqual("Prod's call didn't get through.", failed.Message);
-        }
-        mock.EndReplay();
-    }
 
     [TestMethod]
     public void Only_a_rehearsal_with_an_open_key_on_a_mirror_runs_as_rehearsal_traffic()
@@ -219,17 +136,5 @@ public class MirrorRehearsalTests
         Assert.IsTrue(MirrorTraffic.IsRehearsal(Mirror, correlation));
         Assert.IsFalse(MirrorTraffic.IsRehearsal(new BitweenOptions(), correlation));
         Assert.IsFalse(MirrorTraffic.IsRehearsal(Mirror, Guid.NewGuid().ToString("N")));
-    }
-
-    [TestMethod]
-    public void A_login_server_of_stagings_own_signs_what_a_jwt_gateway_checks()
-    {
-        var mock = Mock();
-        var token = mock.SignToken("https://m77.mirror.invalid/realms/acme", "orders", "client_id", "kqwe-1294");
-        var jwt = new Microsoft.IdentityModel.JsonWebTokens.JsonWebToken(token);
-
-        Assert.AreEqual("https://m77.mirror.invalid/realms/acme", jwt.Issuer);
-        Assert.AreEqual("kqwe-1294", jwt.GetClaim("client_id").Value);
-        Assert.AreEqual("RS256", jwt.Alg);
     }
 }

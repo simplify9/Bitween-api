@@ -76,7 +76,7 @@ public record MirrorFailure(string Section, string Noun, string Key, string Erro
 /// older is refused with the reason.
 /// </summary>
 public sealed partial class MirrorService(BitweenOptions options, FileLinks links, IHttpContextAccessor httpContextAccessor, IConfiguration configuration,
-    NativeAdapterDiscoveryService nativeAdapters, ICloudFilesService cloudFiles, IServiceScopeFactory scopes, MirrorMock mock)
+    NativeAdapterDiscoveryService nativeAdapters, ICloudFilesService cloudFiles, IServiceScopeFactory scopes)
 {
     /// <summary>The configuration name staging's copy is recorded under, so a later copy removes what prod no longer has.</summary>
     public const string ConfigurationName = "prod-mirror";

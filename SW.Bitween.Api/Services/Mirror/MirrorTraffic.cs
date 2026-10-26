@@ -73,40 +73,4 @@ public static class MirrorTraffic
     public static IReadOnlySet<int> SwitchedOffGateways => switchedOff;
 
     internal static void RouteThrough(IReadOnlySet<int> gateways) => switchedOff = gateways;
-
-    // ------------------------------------------------------------------ which exchange is running
-
-    /// <summary>An exchange of a rehearsal while staging runs it.</summary>
-    public sealed record Running(string Id, string Correlation, int? SubscriptionId);
-
-    static readonly AsyncLocal<Running> current = new();
-    static readonly ConcurrentDictionary<string, Running> running = new(StringComparer.Ordinal);
-
-    /// <summary>The rehearsal exchange this code runs for, where Bitween runs its adapter itself.</summary>
-    public static Running Current => current.Value;
-
-    /// <summary>Every rehearsal exchange running now: an adapter in its own process says nothing of which it runs for.</summary>
-    public static IReadOnlyList<Running> Now => running.Values.ToList();
-
-    /// <summary>Marks a rehearsal exchange as running until disposed; nothing for any other exchange.</summary>
-    public static IDisposable Track(BitweenOptions options, Xchange xchange) =>
-        Track(options, xchange.Id, xchange.CorrelationId, xchange.SubscriptionId);
-
-    internal static IDisposable Track(BitweenOptions options, string id, string correlationId, int? subscriptionId)
-    {
-        if (!IsRehearsal(options, correlationId)) return null;
-        var entry = new Running(id, correlationId, subscriptionId);
-        current.Value = entry;
-        running[id] = entry;
-        return new Untrack(id);
-    }
-
-    sealed class Untrack(string id) : IDisposable
-    {
-        public void Dispose()
-        {
-            running.TryRemove(id, out _);
-            current.Value = null;
-        }
-    }
 }
