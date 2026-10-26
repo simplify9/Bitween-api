@@ -63,8 +63,9 @@ describe("a subscription against prod", () => {
                 id: "fill:subscriptions:Acme orders:handler/properties/Url", group: "fill",
                 text: "Fill in handler · Url of the subscription “Acme orders” with the address of your test system.",
                 section: "subscriptions", key: "Acme orders", action: null, stagingId: "10", prodId: "31", type: "BusGateway",
+                field: "handler · Url", noun: "subscription",
               },
-              { id: "faked", group: "faked", text: "Faked for staging, the same shape as prod's: partner “Acme”'s properties.", section: null, key: null, action: null },
+              { id: "faked", group: "faked", text: "Faked in the same shape as prod's: the properties of “Acme”.", section: null, key: null, action: null },
             ],
           })),
         ),
@@ -87,10 +88,11 @@ describe("a subscription against prod", () => {
     expect(screen.getByText(/1 item differs from prod's, of the 2 it uses/)).toBeVisible();
     expect(screen.getByText(/Upload the adapter acme\.mapper/)).toBeVisible();
     // An address prod's has, left for staging's own: where to fill it in, and where to look it up.
-    const fill = within(screen.getByText(/Fill in handler · Url/).closest("li")!);
+    const fill = within(screen.getByText("handler · Url").closest("li")!);
+    expect(fill.getByText("Stops tests")).toBeVisible();
     expect(fill.getByRole("link", { name: "Fill it on staging" })).toHaveAttribute("href", expect.stringContaining("/10"));
     expect(fill.getByRole("link", { name: /See it on prod/ })).toHaveAttribute("href", expect.stringMatching(/^https:\/\/bitween\.acme\.test\/.*31/));
-    expect(screen.getByText(/Faked for staging/)).toBeVisible();
+    expect(screen.getByText(/Faked in the same shape as prod's/)).toBeVisible();
     expect(screen.getByText(/the partner “Globex”/)).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Bring it from prod" }));

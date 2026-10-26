@@ -46,8 +46,10 @@ public record MirrorUnknownField(string Section, string Plural, string Field, in
 /// does it), notCovered (what the test can't include, and why) and onPurpose (how staging differs from
 /// prod by design). Section and Key name the item it is about; Action, the page where it is done.
 /// </summary>
+/// <param name="Field">For a fill-in: the field to fill in, as its page names it.</param>
+/// <param name="Noun">For a fill-in: what kind of item it is in, in words: notification channel, say.</param>
 public record MirrorNote(string Id, string Group, string Text, string Section = null, string Key = null, string Action = null,
-    string StagingId = null, string ProdId = null, string Type = null);
+    string StagingId = null, string ProdId = null, string Type = null, string Field = null, string Noun = null);
 
 /// <summary>The page's answer: whether staging is ready to test on, and the counts behind it.</summary>
 /// <param name="Matching">Prod's items staging has as prod has them.</param>

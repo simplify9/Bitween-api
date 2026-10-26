@@ -11,7 +11,7 @@ import { whole } from "../../lib/numbers";
 import { pathOf } from "../../pages";
 import { BringDialog } from "./BringFromProd";
 import { DiffLine, FamilyRow, VERDICT, type Entry, type Verdict } from "./Rehearsal";
-import { NoteLinks, plural, useMirror } from "./shared";
+import { FillIns, NoteLinks, plural, useMirror } from "./shared";
 
 function useView(subscriptionId: number, enabled: boolean) {
   return useQuery({
@@ -57,7 +57,7 @@ export function ProdSection({ subscriptionId, name, type }: { subscriptionId: nu
     <div id="prod" className="mt-5 scroll-mt-4">
       <Panel
         title="Against prod"
-        description="This subscription beside prod's of the same name: what differs, what is left to do, and a test that sends prod's own recent traffic through it on staging."
+        description="Compared with prod's subscription of the same name, and tested with prod's own recent traffic."
       >
         {view.isPending ? (
           <LoadingBlock label="Reading prod and staging…" />
@@ -95,10 +95,8 @@ function Differences({ view }: { view: MirrorSubscriptionView }) {
           </a>
         )}
       </h3>
-      <p className="mt-0.5 text-ink-600">
-        {changed.length === 0
-          ? "Nothing: it and everything it uses are on staging as prod has them, with prod's values faked."
-          : `${plural(changed.length, "item differs", "items differ")} from prod's, of the ${whole(view.used.length)} it uses. Prod's values are shown faked, as staging has them.`}
+      <p className="mt-0.5 text-ink-600" title="Prod's values are shown faked, as staging has them">
+        {changed.length === 0 ? "Nothing." : `${plural(changed.length, "item differs", "items differ")} from prod's, of the ${whole(view.used.length)} it uses.`}
       </p>
       {view.needsYou
         .filter((n) => n.group === "faked")
@@ -131,14 +129,19 @@ function LeftToDo({ view, name, type, canOperate }: { view: MirrorSubscriptionVi
   const [bringing, setBringing] = useState(false);
   const bring = view.toBring.filter((p) => p.state !== "waits");
   const waits = view.toBring.filter((p) => p.state === "waits");
-  const todo = view.needsYou.filter((n) => n.group !== "faked");
-  if (todo.length === 0 && view.toBring.length === 0) return null;
+  const todo = view.needsYou.filter((n) => n.group !== "faked" && n.group !== "fill");
+  const fill = view.needsYou.filter((n) => n.group === "fill");
+  if (todo.length === 0 && fill.length === 0 && view.toBring.length === 0) return null;
   return (
     <section aria-label="Left to do" className="rounded-lg border border-warn-300 bg-warn-100/60 px-3 py-2.5">
-      <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-ink-900">
+      <h3
+        className="flex items-center gap-1.5 text-[13px] font-semibold text-ink-900"
+        title="Prod's addresses and secrets never come: addresses arrive as placeholders that lead nowhere (set-me.invalid), and secrets empty. Fill in your test systems' instead."
+      >
         <CircleAlert className="size-4 text-warn-700" aria-hidden /> Left to do
       </h3>
-      <ul className="mt-1.5 space-y-1 text-ink-700">
+      {fill.length > 0 && <div className="mt-1.5"><FillIns notes={fill} links /></div>}
+      <ul className="mt-1.5 space-y-1 text-ink-700 empty:hidden">
         {todo.map((n) => (
           <li key={n.id}>
             {n.text} <NoteLinks note={n} />
@@ -299,9 +302,8 @@ function TestBody({ test, prodUrl, canOperate, open, onToggle, busy, error, toFi
       {test.state === "taking" ? (
         <p>Taking prod's latest arrivals of it. Prod is only read.</p>
       ) : test.takenOn == null ? (
-        <p className="text-ink-600">
-          Takes prod's latest arrivals of it - up to five of its exchanges, mostly ones that worked, each with what came in and everything it led to,
-          faked - and sends each in on staging the way it came in on prod.
+        <p className="text-ink-600" title="Mostly ones that worked, each with what came in and everything it led to">
+          Sends up to five of prod's latest exchanges of it through staging, faked, and compares each with how it ran on prod.
         </p>
       ) : test.families.length === 0 ? (
         <p className="text-ink-600">Prod had nothing of it to take{test.reason ? `: ${test.reason}` : "."}</p>

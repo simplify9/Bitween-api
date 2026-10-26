@@ -19,7 +19,7 @@ import { Dialog } from "../../components/ui/overlays";
 import { SearchBox } from "../../components/ui/SearchBox";
 import { timeAgo } from "../../lib/dates";
 import { whole } from "../../lib/numbers";
-import { itemPath, NoteLinks, plural, useMirror } from "./shared";
+import { FillIns, itemPath, NoteLinks, plural, useMirror } from "./shared";
 
 /** Whether staging has one of prod's items, as the picker says it. */
 const ON_STAGING: Record<Exclude<MirrorItemState, "extra">, { label: string; tone: "ok" | "neutral" | "crimson" | "warn"; title: string }> = {
@@ -97,12 +97,14 @@ export function BringDialog({ section, type, label, picked: given, onClose }: {
   });
 
   const title = `Bring ${label} from prod`;
-  if (shown?.applied) return <Dialog title={title} onClose={onClose} wide><Brought result={shown} onClose={onClose} /></Dialog>;
+  const chosen = { section, keys: picked };
+  if (shown?.applied) return <Dialog title={title} onClose={onClose} wide><Brought result={shown} picked={chosen} onClose={onClose} /></Dialog>;
   if (shown)
     return (
       <Dialog title={title} onClose={onClose} wide>
         <Preview
           result={shown}
+          picked={chosen}
           busy={bring.isPending}
           error={bring.error?.message}
           onBack={given ? onClose : () => setShown(null)}
@@ -269,14 +271,19 @@ function Traffic({ counts, days, name }: { counts: MirrorProdCounts | null; days
   );
 }
 
+/** What was picked to bring: what a bring says came of itself, and what came with it. */
+type Picked = { section: MirrorBringSection; keys: Set<string> };
+
 function Preview({
   result,
+  picked,
   busy,
   error,
   onBack,
   onBring,
 }: {
   result: MirrorBring;
+  picked: Picked;
   busy: boolean;
   error?: string;
   onBack: () => void;
@@ -306,49 +313,26 @@ function Preview({
           </ul>
         </section>
       )}
+      {PIECES.map(({ state, title, description }) => (
+        <PieceGroup key={state} title={title} description={description} pieces={result.pieces.filter((p) => p.state === state)} picked={picked}
+          open={state === "waits"} />
+      ))}
       {fill.length > 0 && (
         <section>
-          <h3 className="text-sm font-semibold text-ink-900">
-            Fill in on staging after bringing <span className="font-normal text-ink-500">({whole(fill.length)})</span>
+          <h3
+            className="text-sm font-semibold text-ink-900"
+            title="Prod's addresses and secrets never come: addresses arrive as placeholders that lead nowhere (set-me.invalid), and secrets empty. Each subscription's Against prod section links to where to fill them in."
+          >
+            To fill in after bringing{" "}
+            <span className="font-normal text-ink-500">({plural(new Set(fill.map((n) => `${n.section}/${n.key}`)).size, "item", "items")})</span>
           </h3>
-          <p className="text-[12.5px] text-ink-500">
-            Prod's addresses and secrets never come: addresses arrive as placeholders that lead nowhere (<code className="font-mono text-[12px]">set-me.invalid</code>)
-            and secrets empty, for your test systems and logins. Each subscription's Against prod section lists what is still to fill in, with links.
-          </p>
-          <ul className="mt-1.5 divide-y divide-ink-100 rounded-lg border border-ink-100">
-            {fill.map((n) => (
-              <li key={n.id} className="px-3 py-2 text-sm text-ink-700">
-                {n.text} <NoteLinks note={n} />
-              </li>
-            ))}
-          </ul>
+          <div className="mt-1.5"><FillIns notes={fill} /></div>
         </section>
       )}
       {faked && <p className="text-[12.5px] text-ink-600">{faked.text}</p>}
-      {PIECES.map(({ state, title, description }) => {
-        const pieces = result.pieces.filter((p) => p.state === state);
-        if (pieces.length === 0) return null;
-        return (
-          <section key={state}>
-            <h3 className="text-sm font-semibold text-ink-900">
-              {title} <span className="font-normal text-ink-500">({whole(pieces.length)})</span>
-            </h3>
-            <p className="text-[12.5px] text-ink-500">{description}</p>
-            <PieceList pieces={pieces} />
-          </section>
-        );
-      })}
-      {kept.length > 0 && (
-        <details className="group">
-          <summary className="cursor-pointer text-sm font-semibold text-ink-900" title="What staging has already: none of it changes">
-            Already on staging, kept as it is <span className="font-normal text-ink-500">({whole(kept.length)})</span>
-          </summary>
-          <PieceList pieces={kept} />
-        </details>
-      )}
+      <PieceGroup title="Already on staging, kept as it is" description="What staging has already: none of it changes." pieces={kept} picked={picked} />
       <p className="text-[12.5px] text-ink-500">
-        As on every staging copy, values come faked, subscriptions arrive paused, and bus gateways and data sources switched
-        off. Nothing on staging is overwritten or removed.
+        Subscriptions arrive paused, and bus gateways and data sources switched off. Nothing on staging is overwritten or removed.
       </p>
       <FormError>{error}</FormError>
       <div className="flex justify-end gap-2">
@@ -358,6 +342,56 @@ function Preview({
         </Button>
       </div>
     </div>
+  );
+}
+
+/** "retry policy" as "retry policies", "partner" as "partners", as the server says them. */
+const nouns = (noun: string) =>
+  /[^aeiou]y$/.test(noun) ? `${noun.slice(0, -1)}ies` : /(s|x|ch|sh)$/.test(noun) ? `${noun}es` : `${noun}s`;
+
+/** What runs, ahead of what it uses. */
+const FIRST = ["subscriptions", "apiGateways", "busGateways"];
+
+/**
+ * "5 subscriptions (2 picked, 3 they need) · 1 API gateway · 3 partners": what runs first, the rest in
+ * the order the pieces come.
+ */
+function byKind(pieces: MirrorPiece[], picked: Picked) {
+  const counts = new Map<string, { noun: string; n: number; rank: number }>();
+  for (const p of pieces) {
+    const kind = counts.get(p.section) ?? { noun: p.noun, n: 0, rank: FIRST.includes(p.section) ? FIRST.indexOf(p.section) : FIRST.length };
+    kind.n++;
+    counts.set(p.section, kind);
+  }
+  const chosen = pieces.filter((p) => p.section === picked.section && picked.keys.has(p.key)).length;
+  return [...counts]
+    .sort(([, a], [, b]) => a.rank - b.rank)
+    .map(([section, k]) => plural(k.n, k.noun, nouns(k.noun)) + (section === picked.section && chosen > 0 && chosen < k.n ? ` (${whole(chosen)} picked, ${whole(k.n - chosen)} they need)` : ""))
+    .join(" · ");
+}
+
+/** Some of what a bring touches, counted by kind, each one behind "Show them". */
+function PieceGroup({ title, description, pieces, picked, open = false, linked = false }: {
+  title: string;
+  description: string;
+  pieces: MirrorPiece[];
+  picked: Picked;
+  open?: boolean;
+  linked?: boolean;
+}) {
+  if (pieces.length === 0) return null;
+  return (
+    <section>
+      <h3 className="text-sm font-semibold text-ink-900" title={description}>
+        {title} <span className="font-normal text-ink-500">({whole(pieces.length)})</span>
+      </h3>
+      <details open={open} className="group">
+        <summary className="cursor-pointer text-[12.5px] text-ink-600 marker:text-ink-400" title="Show, or hide, each of them and why it comes">
+          {byKind(pieces, picked)} <span className="link ml-1 group-open:hidden">Show them</span>
+        </summary>
+        <PieceList pieces={pieces} linked={linked} />
+      </details>
+    </section>
   );
 }
 
@@ -384,10 +418,10 @@ function PieceList({ pieces, linked = false }: { pieces: MirrorPiece[]; linked?:
   );
 }
 
-function Brought({ result, onClose }: { result: MirrorBring; onClose: () => void }) {
+function Brought({ result, picked, onClose }: { result: MirrorBring; picked: Picked; onClose: () => void }) {
   const failed = new Set(result.failed.map((f) => `${f.section}/${f.key}`));
   const done = result.pieces.filter((p) => (p.state === "new" || p.state === "adds" || p.state === "install") && !failed.has(`${p.section}/${p.key}`));
-  const fill = result.needsYou.filter((n) => n.group === "fill").length;
+  const fill = new Set(result.needsYou.filter((n) => n.group === "fill").map((n) => `${n.section}/${n.key}`)).size;
   return (
     <div className="space-y-4">
       {done.length > 0 && (
@@ -397,9 +431,14 @@ function Brought({ result, onClose }: { result: MirrorBring; onClose: () => void
           </h3>
           <p className="text-[12.5px] text-ink-500">
             Subscriptions are paused: they run only when a test runs them.
-            {fill > 0 && ` Next, fill in ${plural(fill, "address or secret", "addresses and secrets")} with staging's own: each subscription's Against prod section lists them, with links.`}
+            {fill > 0 && ` Next, fill in the addresses and secrets of ${plural(fill, "item", "items")}: each subscription's Against prod section links to them.`}
           </p>
-          <PieceList pieces={done} linked />
+          <details className="group">
+            <summary className="cursor-pointer text-[12.5px] text-ink-600 marker:text-ink-400" title="Show, or hide, each of them, to open it">
+              {byKind(done, picked)} <span className="link ml-1 group-open:hidden">Show them</span>
+            </summary>
+            <PieceList pieces={done} linked />
+          </details>
         </section>
       )}
       {result.failed.length > 0 && (

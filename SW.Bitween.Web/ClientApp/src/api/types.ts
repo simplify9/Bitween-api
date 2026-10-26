@@ -2302,6 +2302,10 @@ export interface MirrorNote {
   prodId?: string | null;
   /** For a subscription: its type, which decides its page. */
   type?: string | null;
+  /** For a fill-in: the field to fill in, as its page names it. */
+  field?: string | null;
+  /** For a fill-in: what kind of item it is in, in words. */
+  noun?: string | null;
 }
 
 /** One of prod's exchange files as staging keeps it: faked, or not kept and why. */

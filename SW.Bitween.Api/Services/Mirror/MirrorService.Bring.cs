@@ -243,26 +243,31 @@ public sealed partial class MirrorService
                     "login" => $"Fill in {what} with your test login, in place of {MirrorFaker.PlaceholderText}.",
                     _ => $"Fill in {what} with your test system's, in place of the placeholder, which leads nowhere.",
                 } + (alerts ? " Tests run without it: it only sends alerts." : ""),
-                blank.Section, blank.Key, alerts ? "alerts" : null, row?.StagingId, row?.ProdId, row?.Type);
+                blank.Section, blank.Key, alerts ? "alerts" : null, row?.StagingId, row?.ProdId, row?.Type, blank.Field, Kinds.Of(blank.Section).Noun);
         }
     }
 
     /// <summary>Kinds that only send alerts: an exchange runs the same whether they are filled in or not.</summary>
     internal static bool OnlyAlerts(string section) => section is "notificationChannels" or "notifiers";
 
-    /// <summary>The partners and global values sets among the items whose data comes faked, to say so.</summary>
-    static MirrorNote FakedNote(Dictionary<(string Section, string Key), JsonObject> index, IEnumerable<(string Section, string Key)> items)
+    /// <summary>The partners and global values sets among the items whose data comes faked, to say so in a line however many.</summary>
+    internal static MirrorNote FakedNote(Dictionary<(string Section, string Key), JsonObject> index, IEnumerable<(string Section, string Key)> items)
     {
-        var faked = items.Where(n => n.Section switch
-            {
-                "partners" => index[n]["properties"] is JsonObject { Count: > 0 },
-                "globalValues" => index[n]["values"] is JsonObject { Count: > 0 },
-                _ => false,
-            })
-            .OrderBy(n => n.Section, StringComparer.Ordinal).ThenBy(n => n.Key, StringComparer.Ordinal)
-            .Select(n => n.Section == "partners" ? $"partner “{n.Key}”'s properties" : $"the global values “{n.Key}”").ToList();
-        return faked.Count == 0 ? null : new MirrorNote("faked", "faked",
-            $"Faked for staging, the same shape as prod's: {string.Join(", ", faked)}. Change any a test needs on their pages.");
+        List<string> Faked(string section, string field) => items
+            .Where(n => n.Section == section && index[n][field] is JsonObject { Count: > 0 })
+            .Select(n => n.Key).Order(StringComparer.Ordinal).ToList();
+        var parts = new[] { (Faked("partners", "properties"), "the properties of"), (Faked("globalValues", "values"), "the global values") }
+            .Where(p => p.Item1.Count > 0).Select(p => $"{p.Item2} {Few(p.Item1)}").ToList();
+        return parts.Count == 0 ? null : new MirrorNote("faked", "faked", $"Faked in the same shape as prod's: {string.Join("; ", parts)}.");
+    }
+
+    /// <summary>“A”, “B” and “C”, or “A”, “B”, “C” and 4 more.</summary>
+    static string Few(IReadOnlyList<string> names)
+    {
+        var shown = names.Take(names.Count > 4 ? 3 : 4).Select(n => $"“{n}”").ToList();
+        var more = names.Count - shown.Count;
+        return more > 0 ? $"{string.Join(", ", shown)} and {more} more"
+            : shown.Count == 1 ? shown[0] : $"{string.Join(", ", shown.SkipLast(1))} and {shown[^1]}";
     }
 
     /// <summary>Where staging has an item now, as its page opens it: a SQL statement's is its data source's.</summary>

@@ -94,4 +94,19 @@ public class MirrorBringTests
 
         Assert.AreEqual(0, needs.Count);
     }
+
+    [TestMethod]
+    public void Says_in_one_line_whose_data_comes_faked_however_many()
+    {
+        var index = new Dictionary<(string, string), JsonObject>();
+        foreach (var name in new[] { "P6", "P2", "P5", "P1", "P4", "P3" }) index[("partners", name)] = new JsonObject { ["properties"] = new JsonObject { ["a"] = "1" } };
+        index[("partners", "Bare")] = new JsonObject();
+        index[("globalValues", "carrier")] = new JsonObject { ["values"] = new JsonObject { ["token"] = "x" } };
+
+        Assert.AreEqual("Faked in the same shape as prod's: the properties of “P1”, “P2”, “P3” and 3 more; the global values “carrier”.",
+            MirrorService.FakedNote(index, index.Keys).Text);
+        Assert.AreEqual("Faked in the same shape as prod's: the properties of “P1” and “P2”.",
+            MirrorService.FakedNote(index, [("partners", "P2"), ("partners", "P1"), ("partners", "Bare")]).Text);
+        Assert.IsNull(MirrorService.FakedNote(index, [("partners", "Bare")]));
+    }
 }

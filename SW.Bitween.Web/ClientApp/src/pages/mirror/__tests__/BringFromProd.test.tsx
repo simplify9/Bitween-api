@@ -54,6 +54,11 @@ const brought = (applied: boolean): MirrorBring => ({
   ],
   needsYou: [
     { id: "adapter:acme.mapper", group: "needsYou", text: "Upload the adapter acme.mapper on the Adapters page.", section: null, key: null, action: "adapters-installed" },
+    ...["Host", "From", "To", "Username", "Password"].map((field) => ({
+      id: `fill:notificationChannels:Ops mail:${field}`, group: "fill" as const, text: `Fill in ${field}.`, section: "notificationChannels", key: "Ops mail", action: "alerts", field, noun: "notification channel",
+    })),
+    { id: "fill:subscriptions:Orders in:handler/url", group: "fill", text: "Fill in handler · Url.", section: "subscriptions", key: "Orders in", action: null, field: "handler · Url", noun: "subscription" },
+    { id: "faked", group: "faked", text: "Faked in the same shape as prod's: the properties of “Acme”.", section: null, key: null, action: null },
   ],
   failed: [],
 });
@@ -94,12 +99,25 @@ describe("bringing prod's items from a list page", () => {
     await user.click(within(dialog).getByRole("checkbox", { name: "Pick “Orders rollup”" }));
     await user.click(within(dialog).getByRole("button", { name: "See what comes" }));
     expect(await within(dialog).findByText("Comes from prod")).toBeVisible();
-    expect(within(dialog).getByText("The subscription “Orders rollup” rolls up its exchanges.")).toBeVisible();
     expect(within(dialog).getByText(/Upload the adapter acme\.mapper/)).toBeVisible();
+    // What comes is counted by kind, each one behind "Show them".
+    expect(within(dialog).getByText("2 subscriptions (1 picked, 1 they need)")).toBeVisible();
+    expect(within(dialog).getByText("The subscription “Orders rollup” rolls up its exchanges.")).not.toBeVisible();
+    await user.click(within(dialog).getAllByText("Show them")[0]);
+    expect(within(dialog).getByText("The subscription “Orders rollup” rolls up its exchanges.")).toBeVisible();
+    // What to fill in after: one row an item, what stops tests first.
+    const rows = within(within(dialog).getByText("To fill in after bringing").closest("section")!).getAllByRole("listitem");
+    expect(rows.map((r) => r.textContent)).toEqual([
+      "Orders in subscriptionhandler · UrlStops tests",
+      "Ops mail notification channelHost, From, To +2Alerts only",
+    ]);
+    expect(within(dialog).getByText(/the properties of “Acme”/)).toBeVisible();
     expect(asked).toEqual([{ section: "subscriptions", keys: ["Orders rollup"], apply: false }]);
 
     await user.click(within(dialog).getByRole("button", { name: "Bring 2 items" }));
     expect(await within(dialog).findByText("Brought 2 items")).toBeVisible();
+    expect(within(dialog).getByText(/Next, fill in the addresses and secrets of 2 items/)).toBeVisible();
+    await user.click(within(dialog).getByText("Show them"));
     expect(within(dialog).getByRole("link", { name: "Orders rollup" })).toHaveAttribute("href", "/aggregations/41");
     expect(asked).toHaveLength(2);
     expect(asked[1]).toEqual({ section: "subscriptions", keys: ["Orders rollup"], apply: true });

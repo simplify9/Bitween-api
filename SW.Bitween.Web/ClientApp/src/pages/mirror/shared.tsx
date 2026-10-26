@@ -1,8 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { api, type MirrorItem, type MirrorNote, type MirrorSample, type MirrorSampleFile, type SubscriptionType } from "../../api";
 import { keys } from "../../api/queryKeys";
+import { Badge } from "../../components/ui/basics";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { whole } from "../../lib/numbers";
 import { subscriptionPath } from "../../lib/subscriptionPaths";
@@ -62,6 +64,55 @@ export function NoteLinks({ note }: { note: MirrorNote }) {
         </a>
       )}
     </span>
+  );
+}
+
+/** How many fill-in rows show before "Show all". */
+const FEW = 5;
+
+/**
+ * Addresses and secrets to fill in on staging, one row an item with its fields, those that stop a test
+ * first; with where to fill them in and look them up, when asked for.
+ */
+export function FillIns({ notes, links = false }: { notes: MirrorNote[]; links?: boolean }) {
+  const [all, setAll] = useState(false);
+  const items = useMemo(() => {
+    const byItem = new Map<string, { note: MirrorNote; fields: string[]; alerts: boolean }>();
+    for (const n of notes) {
+      const id = `${n.section}/${n.key}`;
+      const item = byItem.get(id) ?? { note: n, fields: [], alerts: n.action === "alerts" };
+      if (n.field) item.fields.push(n.field);
+      byItem.set(id, item);
+    }
+    return [...byItem.values()].sort((a, b) => Number(a.alerts) - Number(b.alerts));
+  }, [notes]);
+  const shown = all ? items : items.slice(0, FEW);
+  return (
+    <div>
+      <ul className="divide-y divide-ink-100 rounded-lg border border-ink-100 bg-white">
+        {shown.map(({ note, fields, alerts }) => (
+          <li key={`${note.section}/${note.key}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
+            <span className="min-w-0 flex-1 truncate" title={note.key ?? undefined}>
+              <span className="font-medium text-ink-900">{note.key}</span> <span className="text-[12.5px] text-ink-500">{note.noun}</span>
+            </span>
+            <span className="text-[12.5px] text-ink-600" title={fields.join(", ")}>
+              {fields.length > 3 ? `${fields.slice(0, 3).join(", ")} +${fields.length - 3}` : fields.join(", ")}
+            </span>
+            {alerts ? (
+              <Badge tone="neutral" title="It only sends alerts: tests run without it">Alerts only</Badge>
+            ) : (
+              <Badge tone="warn" title="A test that needs it won't run until it is filled in">Stops tests</Badge>
+            )}
+            {links && <NoteLinks note={note} />}
+          </li>
+        ))}
+      </ul>
+      {items.length > FEW && (
+        <button type="button" className="link mt-1 text-[12.5px]" onClick={() => setAll(!all)}>
+          {all ? "Show fewer" : `Show all ${whole(items.length)}`}
+        </button>
+      )}
+    </div>
   );
 }
 
