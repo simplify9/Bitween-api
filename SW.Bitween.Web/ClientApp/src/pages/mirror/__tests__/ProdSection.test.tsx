@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import type { MirrorBring, MirrorFamily, MirrorSubscriptionView, MirrorTest } from "../../../api";
@@ -140,6 +140,51 @@ describe("a subscription against prod", () => {
     // How it went stays, for the lists.
     expect(screen.getByText(/1 same\./)).toBeVisible();
     expect(screen.getByText("What it made was cleared.")).toBeVisible();
+  });
+
+  it("won't run while an address it needs is still empty", async () => {
+    const fill = {
+      id: "fill:subscriptions:Acme orders:handler/properties/Url", group: "fill" as const,
+      text: "Fill in handler · Url of the subscription “Acme orders” with the address of your test system.",
+      section: "subscriptions", key: "Acme orders", action: null, stagingId: "10", prodId: "31", type: "BusGateway",
+    };
+    const { handlers } = backend([sub()]);
+    renderApp("/subscriptions/10", {
+      handlers: [
+        mirror,
+        http.get(apiPath("/mirror/subscription"), () => HttpResponse.json(view({ needsYou: [fill] }))),
+        http.get(apiPath("/mirror/test"), () => HttpResponse.json(test({ takenOn: new Date().toISOString(), families: [family] }))),
+        ...handlers,
+      ],
+    });
+
+    expect(await screen.findByRole("button", { name: "Run the test" })).toBeDisabled();
+    expect(screen.getByText(/1 address or secret it needs is still empty/)).toBeVisible();
+  });
+
+  it("asks first before running an adapter that doesn't come with Bitween", async () => {
+    const ran: unknown[] = [];
+    const taken = test({ takenOn: new Date().toISOString(), families: [family] });
+    const { handlers } = backend([sub()]);
+    const { user } = renderApp("/subscriptions/10", {
+      handlers: [
+        mirror,
+        http.get(apiPath("/mirror/subscription"), () => HttpResponse.json(view({ customAdapters: ["acme.labels"] }))),
+        http.get(apiPath("/mirror/test"), () => HttpResponse.json(taken)),
+        http.post(apiPath("/mirror/testrun"), async ({ request }) => {
+          ran.push(await request.json());
+          return HttpResponse.json(taken);
+        }),
+        ...handlers,
+      ],
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Run the test" }));
+    const ask = within(await screen.findByRole("dialog", { name: "Run it with these adapters?" }));
+    expect(ask.getByText(/acme\.labels/)).toBeVisible();
+    expect(ran).toEqual([]);
+    await user.click(ask.getByRole("button", { name: "Run the test" }));
+    await waitFor(() => expect(ran).toEqual([{ id: 10 }]));
   });
 
   it("says when prod has no subscription of its name", async () => {

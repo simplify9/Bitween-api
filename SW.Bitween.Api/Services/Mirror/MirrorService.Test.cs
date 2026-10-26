@@ -45,7 +45,7 @@ public sealed partial class MirrorService
         if (row == null) return new MirrorSubscriptionView(name, false, null, comparison.Parity.Prod.Url, [], [], []);
 
         var bringing = await PlanBringingAsync(comparison, Kinds.Of("subscriptions"), [name]);
-        var setup = new Setup(comparison.Parity, comparison.Plan, comparison.Copy);
+        var setup = new Setup(comparison.Parity, comparison.Plan, comparison.Copy, comparison.Open);
         var order = Kinds.All.Select(k => k.Section).ToList();
         var used = bringing.Needs.Keys
             .OrderBy(n => n == ("subscriptions", name) ? -1 : order.IndexOf(n.Section)).ThenBy(n => n.Key, StringComparer.Ordinal)
@@ -53,7 +53,8 @@ public sealed partial class MirrorService
             .Concat(bringing.Adapters.Select(AdapterLine))
             .ToList();
         return new MirrorSubscriptionView(name, true, row.ProdId, comparison.Parity.Prod.Url, used,
-            bringing.Pieces.Where(p => p.State != "kept").ToList(), bringing.NeedsYou);
+            bringing.Pieces.Where(p => p.State != "kept").ToList(), bringing.NeedsYou,
+            bringing.Adapters.Where(a => a.Source != "builtin").Select(a => a.Id).Order(StringComparer.Ordinal).ToList());
     }
 
     /// <summary>An adapter the subscription and what it needs run, prod's version beside staging's.</summary>
@@ -155,6 +156,10 @@ public sealed partial class MirrorService
         progress?.Invoke(0, families.Count);
 
         var (setup, setupError) = await SetupAsync(selfToken);
+        // An address or secret left empty would send prod's traffic nowhere, or somewhere it shouldn't go.
+        if (setup != null && OpenFor(setup, name) is { Count: > 0 } open)
+            throw new MirrorRefusal($"{(open.Count == 1 ? "An address or secret it needs is" : $"{open.Count} addresses and secrets it needs are")} still empty " +
+                "on staging. Fill them in under Left to do, then run the test.");
         var startedOn = DateTimeOffset.UtcNow;
         var made = (test.Made ?? []).ToList();
         test = test with { RanOn = startedOn, Runs = [], SetupError = setupError };
@@ -168,6 +173,13 @@ public sealed partial class MirrorService
         }, cancellation);
         await SaveVerdictAsync(name, VerdictOf(test.Runs, startedOn));
         return test;
+    }
+
+    /// <summary>The empty addresses and secrets among a subscription and what it needs.</summary>
+    static List<MirrorBlank> OpenFor(Setup setup, string name)
+    {
+        var needs = Needs(setup.Copy.Sections, [("subscriptions", name)]);
+        return setup.Open.Where(b => needs.ContainsKey((b.Section, b.Key))).ToList();
     }
 
     /// <summary>

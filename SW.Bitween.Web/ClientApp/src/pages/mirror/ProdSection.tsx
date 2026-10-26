@@ -71,7 +71,7 @@ export function ProdSection({ subscriptionId, name, type }: { subscriptionId: nu
           <div className="space-y-5 text-[13px] text-ink-800">
             <Differences view={view.data} />
             <LeftToDo view={view.data} name={name} type={type} canOperate={mirror.canOperate} />
-            <TestPart subscriptionId={subscriptionId} prodUrl={view.data.prodUrl} canOperate={mirror.canOperate} />
+            <TestPart subscriptionId={subscriptionId} view={view.data} canOperate={mirror.canOperate} />
           </div>
         )}
       </Panel>
@@ -166,7 +166,11 @@ function LeftToDo({ view, name, type, canOperate }: { view: MirrorSubscriptionVi
 }
 
 /** The test: prod's latest arrivals, each sent in on staging the way it came in on prod, and how they ran. */
-function TestPart({ subscriptionId, prodUrl, canOperate }: { subscriptionId: number; prodUrl: string; canOperate: boolean }) {
+function TestPart({ subscriptionId, view, canOperate }: { subscriptionId: number; view: MirrorSubscriptionView; canOperate: boolean }) {
+  const prodUrl = view.prodUrl;
+  const toFill = view.needsYou.filter((n) => n.group === "fill").length;
+  const custom = view.customAdapters ?? [];
+  const [confirmingRun, setConfirmingRun] = useState(false);
   const queryClient = useQueryClient();
   const test = useQuery({
     queryKey: keys.mirror.test(subscriptionId),
@@ -218,9 +222,21 @@ function TestPart({ subscriptionId, prodUrl, canOperate }: { subscriptionId: num
           onToggle={(id) => setOpen(open === id ? null : id)}
           busy={{ take: take.isPending, run: run.isPending }}
           error={(take.error ?? run.error ?? clear.error)?.message}
+          toFill={toFill}
           onTake={() => take.mutate()}
-          onRun={() => run.mutate()}
+          onRun={() => (custom.length > 0 ? setConfirmingRun(true) : run.mutate())}
           onClear={() => setClearing(true)}
+        />
+      )}
+      {confirmingRun && (
+        <ConfirmDialog
+          title="Run it with these adapters?"
+          body={`It runs ${custom.join(", ")}, which ${custom.length === 1 ? "doesn't" : "don't"} come with Bitween. An adapter can call addresses written in its own code, which staging can't see or change, so this test may reach them for real. Run it only if ${custom.length === 1 ? "it points" : "they point"} at test systems, never at prod's partners.`}
+          confirmLabel="Run the test"
+          onConfirm={async () => {
+            await run.mutateAsync();
+          }}
+          onClose={() => setConfirmingRun(false)}
         />
       )}
       {clearing && test.data && (
@@ -250,7 +266,7 @@ function LastRun({ last }: { last: MirrorTestVerdict }) {
   );
 }
 
-function TestBody({ test, prodUrl, canOperate, open, onToggle, busy, error, onTake, onRun, onClear }: {
+function TestBody({ test, prodUrl, canOperate, open, onToggle, busy, error, toFill, onTake, onRun, onClear }: {
   test: MirrorTest;
   prodUrl: string;
   canOperate: boolean;
@@ -259,6 +275,8 @@ function TestBody({ test, prodUrl, canOperate, open, onToggle, busy, error, onTa
   busy: { take: boolean; run: boolean };
   error?: string;
   onTake: () => void;
+  /** Addresses and secrets still empty among what it needs: it can't run before they're filled in. */
+  toFill: number;
   onRun: () => void;
   onClear: () => void;
 }) {
@@ -329,10 +347,16 @@ function TestBody({ test, prodUrl, canOperate, open, onToggle, busy, error, onTa
             : `${test.busy} is under way; this test can start once it finishes.`}
         </p>
       )}
+      {toFill > 0 && test.families.length > 0 && (
+        <p className="text-warn-700">
+          {plural(toFill, "address or secret it needs is", "addresses and secrets it needs are")} still empty: fill {toFill === 1 ? "it" : "them"} in under Left to do, then run the test.
+        </p>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         {test.families.length > 0 && (
-          <Button size="sm" variant={!ran ? "primary" : undefined} busy={busy.run || test.state === "running"} disabled={!!off}
-            title={off ?? "Send each arrival in on staging, then compare every exchange with prod's"} onClick={onRun}>
+          <Button size="sm" variant={!ran ? "primary" : undefined} busy={busy.run || test.state === "running"} disabled={!!off || toFill > 0}
+            title={off ?? (toFill > 0 ? "Fill in the addresses and secrets under Left to do first" : "Send each arrival in on staging, then compare every exchange with prod's")}
+            onClick={onRun}>
             {ran ? "Run again" : "Run the test"}
           </Button>
         )}

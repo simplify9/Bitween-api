@@ -2509,6 +2509,11 @@ export interface MirrorSubscriptionView {
   used: MirrorDiff[];
   toBring: MirrorPiece[];
   needsYou: MirrorNote[];
+  /**
+   * The adapters it and what it needs run that don't come with Bitween: one may call addresses written in
+   * its code, which staging can't see, so a test asks first.
+   */
+  customAdapters?: string[] | null;
 }
 
 export type MirrorSubscriptionAnswer = MirrorSubscriptionView | { error: string };
@@ -2534,6 +2539,8 @@ export interface MirrorTestVerdict {
 export interface MirrorListedItem {
   id: number;
   key: string;
+  /** It, or a subscription a gateway leads to, runs an adapter that doesn't come with Bitween. */
+  custom: boolean;
   /** A subscription's type; null for a gateway. */
   type: SubscriptionType | null;
   /** noTraffic when prod had none of it to take; null when it hasn't been tested. A gateway's is the worst of the tested subscriptions it leads to. */

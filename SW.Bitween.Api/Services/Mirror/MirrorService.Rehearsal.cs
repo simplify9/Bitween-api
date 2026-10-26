@@ -26,7 +26,8 @@ public sealed partial class MirrorService
     static readonly TimeSpan RunTimeout = TimeSpan.FromMinutes(2);
 
     /// <summary>Prod's setup beside staging's, compared once for every exchange of a rehearsal.</summary>
-    sealed record Setup(MirrorParity Parity, Plan Plan, MirrorSetupCopy Copy);
+    /// <param name="Open">The addresses and secrets the copy left empty that staging has no value for yet.</param>
+    sealed record Setup(MirrorParity Parity, Plan Plan, MirrorSetupCopy Copy, IReadOnlyList<MirrorBlank> Open);
 
     /// <summary>Families in the order a rehearsal runs them: as they came in, aggregations last, since they roll up what the rest ran.</summary>
     static List<MirrorFamily> InOrder(IEnumerable<MirrorFamily> families) =>
@@ -42,7 +43,7 @@ public sealed partial class MirrorService
         try
         {
             using var comparison = await CompareAsync(removeExtras: false, copyKey: null, selfToken);
-            return (new Setup(comparison.Parity, comparison.Plan, comparison.Copy), null);
+            return (new Setup(comparison.Parity, comparison.Plan, comparison.Copy, comparison.Open), null);
         }
         catch (MirrorRefusal refusal)
         {

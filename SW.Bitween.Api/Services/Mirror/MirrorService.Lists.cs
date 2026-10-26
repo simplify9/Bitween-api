@@ -29,7 +29,7 @@ public sealed partial class MirrorService
     internal static readonly ConcurrentDictionary<(string Url, string Resource), (DateTimeOffset At, HashSet<string> Names)> ProdNames = new();
 
     /// <summary>One of staging's items that prod has too, and the subscriptions prod has too it is or leads to: what testing it tests.</summary>
-    sealed record OnProd(int Id, string Key, string Type, IReadOnlyList<string> Subscriptions);
+    sealed record OnProd(int Id, string Key, string Type, IReadOnlyList<string> Subscriptions, bool Custom);
 
     /// <summary>
     /// Staging's items of a kind that prod has too, by name, each with how its test last ran: a
@@ -72,7 +72,9 @@ public sealed partial class MirrorService
 
         using var scope = scopes.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        var subscriptions = await db.Set<Subscription>().AsNoTracking().Select(s => new { s.Id, s.Name, s.Type }).ToDictionaryAsync(s => s.Id);
+        var subscriptions = (await db.Set<Subscription>().AsNoTracking()
+                .Select(s => new { s.Id, s.Name, s.Type, Adapters = new[] { s.ReceiverId, s.ValidatorId, s.MapperId, s.HandlerId } }).ToListAsync())
+            .ToDictionary(s => s.Id, s => new { s.Id, s.Name, s.Type, Custom = s.Adapters.Any(a => a != null && !NativeAdapterDiscoveryService.IsNative(a)) });
         var leading = kind.Section switch
         {
             "apiGateways" => await db.Set<ApiGateway>().AsNoTracking()
@@ -83,7 +85,8 @@ public sealed partial class MirrorService
         };
         var items = leading.Where(i => onProd.Contains(i.Name))
             .Select(i => new OnProd(i.Id, i.Name, i.Type,
-                i.To.Distinct().Select(id => subscriptions.GetValueOrDefault(id)?.Name).Where(n => n != null && subscriptionsOnProd.Contains(n)).ToList()))
+                i.To.Distinct().Select(id => subscriptions.GetValueOrDefault(id)?.Name).Where(n => n != null && subscriptionsOnProd.Contains(n)).ToList(),
+                i.To.Any(id => subscriptions.GetValueOrDefault(id)?.Custom == true)))
             .OrderBy(i => i.Key, StringComparer.OrdinalIgnoreCase).ToList();
         return (items, null);
     }
@@ -98,7 +101,7 @@ public sealed partial class MirrorService
             : ran.Any(v => v.Verdict == Check) ? Check
             : Same;
         return new MirrorListedItem(item.Id, item.Key, item.Type, verdict, tested.Count == 0 ? null : tested.Max(v => v.RanOn), tested.Count,
-            item.Subscriptions.Count);
+            item.Subscriptions.Count, item.Custom);
     }
 
     /// <summary>The names of prod's items of a kind, from prod's list of them, read again once a minute old.</summary>

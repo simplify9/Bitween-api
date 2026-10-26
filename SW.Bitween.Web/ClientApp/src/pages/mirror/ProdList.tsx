@@ -144,6 +144,7 @@ function TestDialog({ section, label, items, listed, onClose }: {
   const [q, setQ] = useState("");
   const [only, setOnly] = useState<Status | "">("");
   const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [checked, setChecked] = useState(false);
   const test = useMutation({
     mutationFn: () => api.testMirrorMany(section, [...picked]),
     onSuccess: async () => {
@@ -168,6 +169,8 @@ function TestDialog({ section, label, items, listed, onClose }: {
     setPicked(next);
   };
   const gateways = section !== "subscriptions";
+  // An adapter that doesn't come with Bitween can call addresses written in its own code.
+  const custom = items.filter((i) => picked.has(i.id) && i.custom).map((i) => i.key);
 
   return (
     <Dialog title={`Test ${label} from prod`} onClose={onClose} wide>
@@ -221,6 +224,15 @@ function TestDialog({ section, label, items, listed, onClose }: {
           })}
           {visible.length === 0 && <li className="px-3 py-6 text-center text-sm text-ink-500">None matches.</li>}
         </ul>
+        {custom.length > 0 && (
+          <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-warn-300 bg-warn-100/60 px-3 py-2.5 text-sm text-ink-800">
+            <input type="checkbox" className="mt-0.5 size-4 cursor-pointer accent-crimson-600" checked={checked} onChange={(e) => setChecked(e.target.checked)} />
+            <span>
+              {custom.length === 1 ? `“${custom[0]}” runs` : `${whole(custom.length)} of these run`} an adapter that doesn't come with Bitween, which can call
+              addresses written in its own code: staging can't see or change those. I've checked they point at test systems, never at prod's partners.
+            </span>
+          </label>
+        )}
         <FormError>{test.error?.message}</FormError>
         <div className="flex items-center justify-between gap-2">
           <span className="text-sm text-ink-500">{picked.size === 0 ? "Nothing picked yet" : `${whole(picked.size)} picked`}</span>
@@ -229,7 +241,7 @@ function TestDialog({ section, label, items, listed, onClose }: {
             <Button
               variant="primary"
               busy={test.isPending}
-              disabled={picked.size === 0 || !!listed.testing}
+              disabled={picked.size === 0 || !!listed.testing || (custom.length > 0 && !checked)}
               onClick={() => test.mutate()}
               title="Take prod's arrivals where none are taken, then send them in, one after another"
             >

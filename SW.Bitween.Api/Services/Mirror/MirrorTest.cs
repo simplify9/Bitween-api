@@ -13,9 +13,13 @@ namespace SW.Bitween.Services.Mirror;
 /// field by field, or not on staging; then the adapters they run.
 /// </param>
 /// <param name="ToBring">What bringing it from prod would bring or can't bring yet, as <see cref="MirrorBring"/> says it.</param>
-/// <param name="NeedsYou">What only a person can do first.</param>
+/// <param name="NeedsYou">What only a person can do first, the addresses and secrets to fill in among it, and what came faked.</param>
+/// <param name="CustomAdapters">
+/// The adapters it and what it needs run that don't come with Bitween: one may call addresses written in
+/// its code, which staging can't see, so a test asks first.
+/// </param>
 public record MirrorSubscriptionView(string Key, bool OnProd, string ProdId, string ProdUrl, IReadOnlyList<MirrorDiff> Used,
-    IReadOnlyList<MirrorPiece> ToBring, IReadOnlyList<MirrorNote> NeedsYou);
+    IReadOnlyList<MirrorPiece> ToBring, IReadOnlyList<MirrorNote> NeedsYou, IReadOnlyList<string> CustomAdapters = null);
 
 /// <summary>A run of a subscription's test, by the correlation its exchanges carry, and when it started.</summary>
 public record MirrorTestRun(string Correlation, DateTimeOffset StartedOn);
@@ -36,7 +40,8 @@ public record MirrorTestVerdict(string Verdict, DateTimeOffset RanOn, int Same, 
 /// </param>
 /// <param name="RanOn">When the test that says so ran; for a gateway, the latest.</param>
 /// <param name="Tested">How many of the subscriptions it is, or a gateway leads to, have been tested, of <paramref name="Of"/>.</param>
-public record MirrorListedItem(int Id, string Key, string Type, string Verdict, DateTimeOffset? RanOn, int Tested, int Of);
+/// <param name="Custom">It, or a subscription a gateway leads to, runs an adapter that doesn't come with Bitween.</param>
+public record MirrorListedItem(int Id, string Key, string Type, string Verdict, DateTimeOffset? RanOn, int Tested, int Of, bool Custom);
 
 /// <summary>
 /// Staging's items of one kind that prod has too, each with how its test last ran: what the lists show and

@@ -19,8 +19,8 @@ const prodKinds = http.get(apiPath("/mirror/prodkinds"), () =>
 
 const listed = (over: Partial<MirrorListed> = {}): MirrorListed => ({
   items: [
-    { id: 10, key: "Acme orders", type: "BusGateway", verdict: "same", ranOn: "2026-10-24T08:00:00Z", tested: 1, of: 1 },
-    { id: 11, key: "Globex orders", type: "BusGateway", verdict: null, ranOn: null, tested: 0, of: 1 },
+    { id: 10, key: "Acme orders", type: "BusGateway", verdict: "same", ranOn: "2026-10-24T08:00:00Z", tested: 1, of: 1, custom: false },
+    { id: 11, key: "Globex orders", type: "BusGateway", verdict: null, ranOn: null, tested: 0, of: 1, custom: true },
   ],
   testing: null,
   waiting: [],
@@ -73,6 +73,9 @@ describe("a list on a mirror", () => {
     await user.click(screen.getByRole("button", { name: /Test from prod/ }));
     const dialog = within(await screen.findByRole("dialog", { name: "Test subscriptions from prod" }));
     await user.click(dialog.getByRole("checkbox", { name: "Pick “Globex orders”" }));
+    // Its adapter doesn't come with Bitween and may call addresses in its own code: asked first.
+    expect(dialog.getByRole("button", { name: "Test 1" })).toBeDisabled();
+    await user.click(dialog.getByRole("checkbox", { name: /I've checked they point at test systems/ }));
     await user.click(dialog.getByRole("button", { name: "Test 1" }));
     await waitFor(() => expect(tested).toEqual([{ section: "subscriptions", ids: [11] }]));
 
@@ -91,7 +94,7 @@ describe("a list on a mirror", () => {
         mirror,
         prodKinds,
         http.get(apiPath("/mirror/listed"), () =>
-          HttpResponse.json(listed({ items: [{ id: 15, key: "Orders", type: null, verdict: "check", ranOn: "2026-10-24T08:00:00Z", tested: 1, of: 2 }] })),
+          HttpResponse.json(listed({ items: [{ id: 15, key: "Orders", type: null, verdict: "check", ranOn: "2026-10-24T08:00:00Z", tested: 1, of: 2, custom: false }] })),
         ),
         http.get(apiPath("/apigateways"), () =>
           HttpResponse.json({
