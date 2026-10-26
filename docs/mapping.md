@@ -262,6 +262,8 @@ The toolbar's format chip, as **JSON → XML**, opens what the mapping reads and
 - A fixed value, or the text of a `concat`, `replace` or `defaultIfEmpty`, that the source sample holds as data counts as a difference even when the output matches: it would be the same for every document. A constant the source doesn't have, such as a currency code, is fine.
 - A blank value in the output sample (empty, only spaces, or null) is a placeholder: any value written there counts as a match. The field itself still has to be written.
 - **Fix with AI**, under the differences, sends the editor's rules back with what was wrong, and asks for corrected ones.
+- Samples are limited to 200 KB each and instructions to 4,000 characters. A few records are enough.
+- If a sample or a rule changes while it runs, the answer is dropped and the dialog says so, since it was checked against what was sent.
 - While it runs, the dialog counts the seconds, usually 10 to 30, and **Cancel** stops waiting. The model finishes the call it started; its answer is dropped.
 - One generation is one model call. A second is made only when the first answer isn't readable rules, with the reason.
 - Values from the original document of a response subscription aren't used: the model can't see them. Add those rules by hand.

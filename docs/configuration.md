@@ -214,9 +214,12 @@ The **Mail server** section is the one SMTP server every Email notification chan
 
 The **AI** section is the provider every AI feature calls; the first is [Generate with AI](mapping.md#generate-with-ai) in the mapping editor. It is read on each call, and AI features stay off until an API key is set.
 
-- **Provider** is `Anthropic` or `OpenAI`. `OpenAI` also covers anything that speaks its chat completions API at **API address**: an Azure OpenAI resource (`https://your-resource.openai.azure.com/openai/v1/`), a local Ollama (`http://localhost:11434/v1/`) or a proxy.
+- **Provider** is `Anthropic` or `OpenAI`. Any other value, such as a misspelling in configuration, leaves AI features off. `OpenAI` also covers anything that speaks its chat completions API at **API address**: an Azure OpenAI resource (`https://your-resource.openai.azure.com/openai/v1/`), a local Ollama (`http://localhost:11434/v1/`) or a proxy.
 - **Model** empty uses `claude-opus-5-5` with Anthropic. OpenAI needs one named, or the Azure deployment's name.
 - **API key** is a secret setting, so storing it needs `Bitween:SettingsEncryptionKey`.
+- **API address** must be `https`, except plain `http` to this machine (`localhost`), so the key is never sent in the clear. Calls go through the same address check as adapters: never to link-local or cloud metadata addresses, and not to private or loopback ones while `Bitween:BlockPrivateNetworkAddresses` is on.
+
+When the provider refuses or fails a call, the message gives its HTTP status, not the text it sent back.
 
 Sample documents an AI feature sends go to this provider, with the names - never the values - of partner properties and global values. Secret ones are not named.
 
