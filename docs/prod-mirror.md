@@ -134,7 +134,7 @@ On a mirror, the staging answers some of the calls its flows make itself, so not
 
 A host the setup names, such as a team's own staging API, is called for real. So is any host listed under **Settings, Prod mirror, Hosts called for real**, for an address inside an adapter that is safe to reach from the staging.
 
-A login (an OAuth token request, or a login URL a subscription signs in at) gets a token of the staging's own, where the subscription's settings say its reply keeps one. Any other call gets the newest answer prod's partner gave a subscription that uses the address, as the samples keep it, faked; with no sample, an empty `200`. `GET /api/mirror/calls` lists each host, how many calls it answered and what it answered last.
+A login (an OAuth token request, or a login URL a subscription signs in at) gets a token of the staging's own, where the subscription's settings say its reply keeps one. Any other call gets the newest answer prod's partner gave a subscription that uses the address, among the arrivals its test took, faked; with none, an empty `200`.
 
 Bitween's own adapters are answered inside Bitween. Adapters that run in their own process reach the staging through a catcher it runs on `127.0.0.1`: when it starts, the staging sets `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` for the processes it starts, and points `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE` and `NODE_EXTRA_CA_CERTS` at a certificate authority it makes for that run, so .NET, Python, Node and curl trust the answers. Bitween's own calls, to prod and to its storage, don't go through the catcher. Nothing needs setting up.
 

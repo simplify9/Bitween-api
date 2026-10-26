@@ -32,14 +32,14 @@ public class MirrorCatchingTests
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { ["login.mirror.invalid"] = "data.session.key" },
         new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "login.mirror.invalid/v1/session" });
 
-    static readonly MirrorSamples Samples = new("done", null, null, 1, 1, null,
-        [new MirrorSubscriptionSamples("Push labels", "12", ["x1"], null)],
-        [
-            new MirrorFamily("x1", "direct", "Push labels", null, [
-                new MirrorSample("x1", new DateTime(2026, 10, 20), "success", null, [], null, null,
-                    new MirrorSampleFile("mirror/samples/a/x1/response", "label.json", "json", 20, null), Subscription: "Push labels"),
-            ]),
-        ]);
+    // The arrivals "Push labels"'s test took: prod's partner answered one with a label.
+    static readonly IReadOnlyList<MirrorFamily> Arrivals =
+    [
+        new MirrorFamily("x1", "direct", "Push labels", null, [
+            new MirrorSample("x1", new DateTime(2026, 10, 20), "success", null, [], null, null,
+                new MirrorSampleFile("mirror/tests/a/files/x1/response", "label.json", "json", 20, null), Subscription: "Push labels"),
+        ]),
+    ];
 
     static MirrorMock Mock(string passHosts = null)
     {
@@ -47,7 +47,8 @@ public class MirrorCatchingTests
         options.Mirror.PassHosts = passHosts;
         return new MirrorMock(null!, options, NullLogger<MirrorMock>.Instance)
         {
-            ReadOverride = () => Task.FromResult((Setup, Samples)),
+            ReadOverride = () => Task.FromResult(Setup),
+            ArrivalsOverride = name => Task.FromResult(name == "Push labels" ? Arrivals : []),
             FileOverride = _ => Task.FromResult(Encoding.UTF8.GetBytes("""{"labelId":"QX-0042"}""")),
         };
     }
@@ -104,11 +105,6 @@ public class MirrorCatchingTests
         var unknown = await mock.AnswerAsync(new MirrorRequest("GET", new Uri("https://api.zohoapis.eu/crm/v2"), null, [], "An adapter's process"));
         Assert.AreEqual(200, unknown.Status);
         Assert.AreEqual(0, unknown.Body.Length);
-
-        var hosts = await mock.HostsAsync();
-        Assert.AreEqual(2, hosts.Single(h => h.Host == Test).Calls);
-        Assert.IsFalse(hosts.Single(h => h.Host == "api.zohoapis.eu").Test);
-        Assert.AreEqual(4, mock.Recent.Count);
     }
 
     [TestMethod]
@@ -161,11 +157,12 @@ public class MirrorCatchingTests
         Assert.AreEqual("hello", await client.GetStringAsync($"http://127.0.0.1:{port}/ping"));
         await server;
 
-        // A client that doesn't trust the authority fails, and the page hears why.
+        // A client that doesn't trust the authority fails, and a test running it hears why.
+        mock.Replay("rehearsal-refused", []);
         using var stranger = new HttpClient(new SocketsHttpHandler { Proxy = new WebProxy($"http://127.0.0.1:{catcher.Port}"), UseProxy = true });
         await Assert.ThrowsExceptionAsync<HttpRequestException>(() => stranger.GetAsync($"https://{Test}/v2/labels"));
-        for (var i = 0; i < 50 && !mock.Recent.Any(c => c.Status == 0); i++) await Task.Delay(20);
-        StringAssert.Contains(mock.Recent.First(c => c.Status == 0).Why, "failed before staging could answer");
+        for (var i = 0; i < 50 && !mock.CallsSoFar.Any(c => c.Status == 0); i++) await Task.Delay(20);
+        StringAssert.Contains(mock.EndReplay().First(c => c.Status == 0).Why, "failed before staging could answer");
 
         await stop.CancelAsync();
         await running;

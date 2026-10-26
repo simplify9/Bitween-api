@@ -19,91 +19,11 @@ namespace SW.Bitween.Services.Mirror;
 
 public sealed partial class MirrorService
 {
-    /// <summary>Where staging keeps prod's samples, faked, in its own storage.</summary>
-    public const string SamplesPrefix = "mirror/samples";
-
-    internal const string SamplesManifest = SamplesPrefix + "/samples.json";
-
     static readonly JsonSerializerOptions ManifestJson = new(JsonSerializerDefaults.Web);
-
-    static readonly MirrorSamples NoSamples = new("none", null, null, 0, 0, null, []);
 
     // How many of a subscription's exchanges are kept, by how they ended: most of them what worked, the
     // path prod takes every day; one the partner answered badly; one that failed.
     const int Worked = 3, AnsweredBadly = 1, Failed = 1, PerSubscription = 5;
-
-    /// <summary>
-    /// Takes a few of prod's recent exchanges for each of its subscriptions, each with its family - what
-    /// came in, and every exchange that led to - into staging's storage: what came in, what Bitween sent,
-    /// what the partner answered, and how it ended, every file faked the moment it arrives. Prod is read
-    /// gently: one subscription at a time, one page of its exchanges, a family by the indexed time it
-    /// started, files one by one. Replaces the samples taken before.
-    /// </summary>
-    public async Task<MirrorSamples> TakeSamplesAsync(Action<int, int> progress, CancellationToken cancellation = default)
-    {
-        if (!options.Mirror.Target) throw new MirrorRefusal(NotTarget);
-        var startedOn = DateTimeOffset.UtcNow;
-        using var prod = Connect();
-        await VersionAsync(prod);
-        var ctx = new Context(prod);
-        var skipped = await ReadAsync(ctx, []);
-        if (skipped.TryGetValue("subscriptions", out var why))
-            throw new MirrorRefusal($"Prod's subscriptions couldn't be read. {why}");
-        var (_, faker) = CopyOf(ctx);
-
-        var subscriptions = (ctx.Current.GetValueOrDefault("subscriptions") ?? []).Where(s => s.Key != null)
-            .OrderBy(s => s.Key, StringComparer.Ordinal).ToList();
-        using var files = new HttpClient(new ReadOnly(new HttpClientHandler { UseCookies = false })) { Timeout = TimeSpan.FromSeconds(60) };
-        var taking = new Taking(prod, ctx, files, faker);
-        var taken = new List<MirrorSubscriptionSamples>();
-        progress?.Invoke(0, subscriptions.Count);
-        foreach (var subscription in subscriptions)
-        {
-            cancellation.ThrowIfCancellationRequested();
-            taken.Add(await SamplesOfAsync(taking, subscription, cancellation));
-            progress?.Invoke(taken.Count, subscriptions.Count);
-        }
-
-        // A subscription takes part in every family it has an exchange in, not only those its own exchanges led to.
-        var families = taking.Families.Values.OrderBy(f => f.Members[0].StartedOn).ToList();
-        taken = taken.Select(t =>
-        {
-            var all = families.Where(f => f.Members.Any(m => m.Subscription == t.Subscription)).Select(f => f.Id).ToList();
-            return all.Count == 0 ? t : t with { Families = all, Reason = null };
-        }).ToList();
-        var samples = new MirrorSamples("done", startedOn, DateTimeOffset.UtcNow, taken.Count, subscriptions.Count, null, taken, families);
-        await cloudFiles.WriteTextAsync(JsonSerializer.Serialize(samples, ManifestJson),
-            new WriteFileSettings { Key = SamplesManifest, ContentType = "application/json" });
-        await RemoveUnusedSamplesAsync(samples);
-        return samples;
-    }
-
-    /// <summary>The samples staging holds, each file with a link that opens it, and how a taking under way is going.</summary>
-    public async Task<MirrorSamples> SamplesAsync(MirrorWork work)
-    {
-        var samples = await ReadSamplesAsync();
-        samples = samples with
-        {
-            Subscriptions = samples.Subscriptions.Select(s => s with { Families = s.Families ?? [] }).ToList(),
-            Families = (samples.Families ?? []).Select(f => f with { Members = f.Members.Select(Linked).ToList() }).ToList(),
-        };
-        if (work.Running is { Kind: MirrorWork.Sampling, Subject: null } running)
-            return samples with { State = "running", StartedOn = running.StartedOn, FinishedOn = null, Done = running.Done, Total = running.Total, Error = null };
-        return work.LastError(MirrorWork.Sampling) is { } error ? samples with { State = "failed", Error = error } : samples;
-    }
-
-    async Task<MirrorSamples> ReadSamplesAsync()
-    {
-        try
-        {
-            await using var stream = await cloudFiles.OpenReadAsync(SamplesManifest);
-            return await JsonSerializer.DeserializeAsync<MirrorSamples>(stream, ManifestJson) ?? NoSamples;
-        }
-        catch (Exception ex) when (StorageErrors.IsNotFound(ex))
-        {
-            return NoSamples;
-        }
-    }
 
     MirrorSample Linked(MirrorSample sample) =>
         sample with
@@ -120,7 +40,7 @@ public sealed partial class MirrorService
     /// One taking: what it reads prod with, where it keeps the files, and the families it has found so far,
     /// by their first exchange.
     /// </summary>
-    sealed class Taking(BitweenApi prod, Context ctx, HttpClient files, MirrorFaker faker, string prefix = SamplesPrefix)
+    sealed class Taking(BitweenApi prod, Context ctx, HttpClient files, MirrorFaker faker, string prefix)
     {
         public BitweenApi Prod { get; } = prod;
         public Context Ctx { get; } = ctx;
@@ -542,13 +462,4 @@ public sealed partial class MirrorService
         _ => "text/plain",
     };
 
-    /// <summary>Files of samples taken before that the new ones don't name: staging keeps only the latest.</summary>
-    async Task RemoveUnusedSamplesAsync(MirrorSamples samples)
-    {
-        var kept = (samples.Families ?? []).SelectMany(f => f.Members).SelectMany(s => new[] { s.Input, s.Output, s.Response }.Concat(s.Rolled ?? []))
-            .Where(f => f?.Key != null).Select(f => f.Key).Append(SamplesManifest).ToHashSet(StringComparer.Ordinal);
-        foreach (var file in await cloudFiles.ListAsync(SamplesPrefix + "/"))
-            if (!kept.Contains(file.Key))
-                await cloudFiles.DeleteAsync(file.Key);
-    }
 }

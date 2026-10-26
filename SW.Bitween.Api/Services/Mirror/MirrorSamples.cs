@@ -63,28 +63,21 @@ public record MirrorFamily(string Id, string Entry, string Door, string Partner,
 /// <param name="ProdId">The subscription on prod.</param>
 public record MirrorSubscriptionSamples(string Subscription, string ProdId, IReadOnlyList<string> Families, string Reason);
 
-/// <summary>The samples staging holds, and how the last taking went: what the page shows.</summary>
-/// <param name="State">none (never taken), running, done or failed.</param>
-/// <param name="Done">Subscriptions read so far, of <paramref name="Total"/>.</param>
-/// <param name="Error">Why the last taking stopped, when it did.</param>
-public record MirrorSamples(string State, DateTimeOffset? StartedOn, DateTimeOffset? FinishedOn, int Done, int Total, string Error,
-    IReadOnlyList<MirrorSubscriptionSamples> Subscriptions, IReadOnlyList<MirrorFamily> Families = null);
-
 /// <summary>How far the mirror's work under way is.</summary>
-/// <param name="Kind">samples or rehearsal.</param>
-/// <param name="Done">Done so far, of <paramref name="Total"/>: subscriptions read, or samples run.</param>
-/// <param name="Subject">The subscription whose test it is, by name; null for work on every subscription.</param>
-public record MirrorProgress(string Kind, DateTimeOffset StartedOn, int Done, int Total, string Subject = null);
+/// <param name="Kind">samples, taking prod's arrivals; or rehearsal, running them.</param>
+/// <param name="Done">Done so far, of <paramref name="Total"/>: arrivals run.</param>
+/// <param name="Subject">The subscription whose test it is, by name.</param>
+public record MirrorProgress(string Kind, DateTimeOffset StartedOn, int Done, int Total, string Subject);
 
-/// <summary>One piece of the mirror's work: of a kind, for one subscription's test or for all.</summary>
+/// <summary>One piece of the mirror's work: of a kind, for one subscription's test.</summary>
 public record MirrorJob(string Kind, string Subject, Func<MirrorService, Action<int, int>, CancellationToken, Task> Work);
 
 /// <summary>
-/// Runs the mirror's long work in the background - taking prod's samples, or rehearsing them - one at a
-/// time, so the page can follow it: on a big prod it takes longer than a request may wait, and a
-/// rehearsal running while its samples are replaced would compare the wrong files. Work started together,
-/// such as the tests of several subscriptions, waits its turn. How it is going is known to the node doing
-/// it, and a staging runs one node.
+/// Runs the mirror's long work in the background - taking prod's arrivals of a subscription, or running
+/// them - one at a time, so the page can follow it: on a big prod it takes longer than a request may
+/// wait, and runs side by side would take each other's answers from prod's partners. Work started
+/// together, such as the tests of several subscriptions, waits its turn. How it is going is known to the
+/// node doing it, and a staging runs one node.
 /// </summary>
 public sealed class MirrorWork(IServiceScopeFactory scopes, ILogger<MirrorWork> logger)
 {
@@ -102,29 +95,26 @@ public sealed class MirrorWork(IServiceScopeFactory scopes, ILogger<MirrorWork> 
     {
         get
         {
-            lock (gate) return waiting.Select(j => j.Subject).Where(s => s != null && s != Running?.Subject).Distinct().ToList();
+            lock (gate) return waiting.Select(j => j.Subject).Where(s => s != Running?.Subject).Distinct().ToList();
         }
     }
 
-    /// <summary>Why the last work of a kind stopped, for a subscription's test or for all, until it starts again; null when it finished.</summary>
-    public string LastError(string kind, string subject = null)
+    /// <summary>Why the last work of a kind for a subscription's test stopped, until it starts again; null when it finished.</summary>
+    public string LastError(string kind, string subject)
     {
         lock (gate) return lastErrors.GetValueOrDefault(ErrorKey(kind, subject));
     }
 
-    /// <summary>What work under way is, in words for the page: a subscription's test, taking samples, or a rehearsal.</summary>
-    public static string Describe(MirrorProgress running) =>
-        running.Subject != null ? $"The test of “{running.Subject}”"
-        : running.Kind == Sampling ? "Taking samples of prod's exchanges"
-        : "A rehearsal";
+    /// <summary>What work under way is, in words for the page.</summary>
+    public static string Describe(MirrorProgress running) => $"The test of “{running.Subject}”";
 
-    static string ErrorKey(string kind, string subject) => subject == null ? kind : $"{kind}\u0000{subject}";
+    static string ErrorKey(string kind, string subject) => $"{kind}\u0000{subject}";
 
     /// <summary>
-    /// Starts work of a kind, for one subscription's test or for all, unless work is under way: then says
-    /// what is - which kind, and for which subscription - and starts nothing.
+    /// Starts work of a kind for one subscription's test, unless work is under way: then says what is -
+    /// which kind, and for which subscription - and starts nothing.
     /// </summary>
-    public MirrorProgress Start(string kind, Func<MirrorService, Action<int, int>, CancellationToken, Task> work, string subject = null) =>
+    public MirrorProgress Start(string kind, Func<MirrorService, Action<int, int>, CancellationToken, Task> work, string subject) =>
         Start([new MirrorJob(kind, subject, work)]);
 
     /// <summary>
@@ -184,7 +174,7 @@ public sealed class MirrorWork(IServiceScopeFactory scopes, ILogger<MirrorWork> 
         catch (Exception ex)
         {
             logger.LogError(ex, "The prod mirror's {Kind} stopped", kind);
-            var what = kind == Sampling ? subject == null ? "Taking samples" : "Taking prod's arrivals" : subject == null ? "The rehearsal" : "The test";
+            var what = kind == Sampling ? "Taking prod's arrivals" : "The test";
             error = $"{what} stopped: {ex.Message}";
         }
         finally

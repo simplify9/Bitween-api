@@ -133,7 +133,8 @@ public class MirrorRehearsalTests
             new Dictionary<int, string> { [12] = "Push labels", [13] = "Nightly report" });
         return new MirrorMock(null!, new BitweenOptions(), NullLogger<MirrorMock>.Instance)
         {
-            ReadOverride = () => Task.FromResult((setup, (MirrorSamples)null)),
+            ReadOverride = () => Task.FromResult(setup),
+            ArrivalsOverride = _ => Task.FromResult<IReadOnlyList<MirrorFamily>>([]),
         };
     }
 

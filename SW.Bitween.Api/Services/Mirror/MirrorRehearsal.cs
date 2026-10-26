@@ -53,13 +53,3 @@ public record MirrorRun(string ProdExchangeId, string Subscription, string Stagi
 /// <param name="Diffs">The family's own lines: how it came in, and exchanges one side ran and the other didn't.</param>
 public record MirrorFamilyRun(string FamilyId, string Correlation, DateTimeOffset RanOn, string Verdict, string NotRun,
     IReadOnlyList<MirrorDiff> Diffs, IReadOnlyList<MirrorRun> Members);
-
-/// <summary>The last rehearsal, and how one under way is going: what the page shows.</summary>
-/// <param name="State">none (never run), running, done or failed.</param>
-/// <param name="Done">Families run so far, of <paramref name="Total"/>.</param>
-/// <param name="Error">Why the last rehearsal stopped, when it did.</param>
-/// <param name="ProdVersion">Prod's release when it ran; null when prod couldn't be read.</param>
-/// <param name="StagingVersion">Staging's release when it ran: the one being tried.</param>
-/// <param name="SetupError">Why what each exchange used couldn't be compared with prod, when it couldn't.</param>
-public record MirrorRehearsal(string State, DateTimeOffset? StartedOn, DateTimeOffset? FinishedOn, int Done, int Total, string Error,
-    string ProdVersion, string StagingVersion, string SetupError, IReadOnlyList<MirrorFamilyRun> Families);

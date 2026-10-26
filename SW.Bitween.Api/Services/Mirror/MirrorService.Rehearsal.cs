@@ -22,47 +22,11 @@ namespace SW.Bitween.Services.Mirror;
 
 public sealed partial class MirrorService
 {
-    internal const string RehearsalManifest = "mirror/rehearsal/rehearsal.json";
-
-    static readonly MirrorRehearsal NoRehearsal = new("none", null, null, 0, 0, null, null, null, null, []);
-
     /// <summary>How long one exchange may take on staging before the rehearsal moves on without it.</summary>
     static readonly TimeSpan RunTimeout = TimeSpan.FromMinutes(2);
 
     /// <summary>Prod's setup beside staging's, compared once for every exchange of a rehearsal.</summary>
     sealed record Setup(MirrorParity Parity, Plan Plan, MirrorSetupCopy Copy);
-
-    /// <summary>
-    /// Sends each of prod's families in on staging the way it came in on prod - a partner's call through
-    /// the gateway, a document routed, a file a receiver read, an aggregation - with prod's input as
-    /// staging keeps it, faked; staging runs the rest by itself, as prod did. Each exchange it runs is
-    /// compared with its twin on prod. A partner an exchange calls is answered by staging with what
-    /// prod's partner answered its twin (see <see cref="MirrorMock.Replay"/>), so both get the same
-    /// answer: one family at a time, which that needs. Replaces the last rehearsal; the page follows this
-    /// one as it goes. Staging's setup is read as whoever started it, with <paramref name="selfToken"/>,
-    /// since nobody's request is around by then.
-    /// </summary>
-    public async Task<MirrorRehearsal> RehearseAsync(Action<int, int> progress, string selfToken, CancellationToken cancellation = default)
-    {
-        if (!options.Mirror.Target) throw new MirrorRefusal(NotTarget);
-        // Aggregations last: they roll up what the rest ran.
-        var families = InOrder((await ReadSamplesAsync()).Families);
-        if (families.Count == 0) throw new MirrorRefusal("There are no samples to rehearse yet: take samples of prod's exchanges first.");
-        progress?.Invoke(0, families.Count);
-
-        var (setup, setupError) = await SetupAsync(selfToken);
-        var rehearsal = new MirrorRehearsal("running", DateTimeOffset.UtcNow, null, 0, families.Count, null, setup?.Parity.Prod.Version,
-            BitweenInfo.Version(options).ToString(3), setupError, []);
-        await RunFamiliesAsync(families, setup, progress, runs =>
-        {
-            // Written as it goes, so the page shows each family as soon as it is compared.
-            rehearsal = rehearsal with { Done = runs.Count, Families = runs };
-            return SaveAsync(rehearsal);
-        }, cancellation);
-        rehearsal = rehearsal with { State = "done", FinishedOn = DateTimeOffset.UtcNow };
-        await SaveAsync(rehearsal);
-        return rehearsal;
-    }
 
     /// <summary>Families in the order a rehearsal runs them: as they came in, aggregations last, since they roll up what the rest ran.</summary>
     static List<MirrorFamily> InOrder(IEnumerable<MirrorFamily> families) =>
@@ -146,21 +110,6 @@ public sealed partial class MirrorService
             .Where(g => names.Contains(g.Name)).Select(g => g.Id).ToListAsync()).ToHashSet();
     }
 
-    Task SaveAsync(MirrorRehearsal rehearsal) =>
-        cloudFiles.WriteTextAsync(JsonSerializer.Serialize(rehearsal, ManifestJson), new WriteFileSettings { Key = RehearsalManifest, ContentType = "application/json" });
-
-    /// <summary>The last rehearsal, each staging file with a link that opens it, and how one under way is going.</summary>
-    public async Task<MirrorRehearsal> RehearsalAsync(MirrorWork work)
-    {
-        var rehearsal = await ReadRehearsalAsync();
-        rehearsal = rehearsal with { Families = (rehearsal.Families ?? []).Select(Linked).ToList() };
-        if (work.Running is { Kind: MirrorWork.Rehearsing, Subject: null } running)
-            return rehearsal with { State = "running", StartedOn = running.StartedOn, FinishedOn = null, Done = running.Done, Total = running.Total, Error = null };
-        if (work.LastError(MirrorWork.Rehearsing) is { } error) return rehearsal with { State = "failed", Error = error };
-        // Saved as running, and nothing runs it: staging restarted part way.
-        return rehearsal.State == "running" ? rehearsal with { State = "failed", Error = "The rehearsal stopped part way: staging restarted while it ran." } : rehearsal;
-    }
-
     /// <summary>A family's run as the page shows it: each of staging's files with a link that opens it.</summary>
     MirrorFamilyRun Linked(MirrorFamilyRun run) =>
         run with
@@ -168,19 +117,6 @@ public sealed partial class MirrorService
             Diffs = run.Diffs ?? [],
             Members = (run.Members ?? []).Select(r => r with { Output = Linked(r.Output), Response = Linked(r.Response), ErrorTypes = r.ErrorTypes ?? [], Diffs = r.Diffs ?? [] }).ToList(),
         };
-
-    async Task<MirrorRehearsal> ReadRehearsalAsync()
-    {
-        try
-        {
-            await using var stream = await cloudFiles.OpenReadAsync(RehearsalManifest);
-            return await JsonSerializer.DeserializeAsync<MirrorRehearsal>(stream, ManifestJson) ?? NoRehearsal;
-        }
-        catch (Exception ex) when (StorageErrors.IsNotFound(ex))
-        {
-            return NoRehearsal;
-        }
-    }
 
     // ------------------------------------------------------------------ one exchange
 

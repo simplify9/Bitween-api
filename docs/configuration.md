@@ -97,7 +97,7 @@ applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
 | `InboundMessagePruneCron` | `0 30 3 * * ?` | Quartz cron for deleting expired broker deduplication keys. |
 | `QueuePrefix` | `bitween` | Part of every queue name. Give each deployment sharing a broker its own value. |
 | `BusDefaultQueuePrefetch` | `12` | Default number of unacknowledged messages per consumer. Work groups can override it. |
-| `Mirror:Target` | `false` | Whether a copy of a prod may replace this Bitween's setup, on a staging that mirrors one. It also has the staging answer the calls its flows make to test addresses, and to hosts its setup doesn't name, itself. Set it on the staging's deployment only. See [Prod mirror](prod-mirror.md). |
+| `Mirror:Target` | `false` | Whether prod's items may be brought onto this Bitween and tested with prod's traffic, on a staging that mirrors one. It also has the staging answer the calls its flows make to test addresses, and to hosts its setup doesn't name, itself. Set it on the staging's deployment only. See [Prod mirror](prod-mirror.md). |
 | `BusDefaultConcurrency` | the prefetch | How many messages of a lane run at once on a node, for the Ungrouped lane and the bus's other consumers (bus-enabled information types, retry and auto-pause alerts). A work group sets its own with **Parallel exchanges**. `1` runs them one at a time, in order, as before. |
 | `RabbitMqManagementUrl`, `RabbitMqManagementUsername`, `RabbitMqManagementPassword` | | RabbitMQ management API, needed for queue health. |
 | `CorsOrigins` | empty | Browser origins allowed to call the API with credentials. Set as `Bitween__CorsOrigins__0`, `Bitween__CorsOrigins__1` and so on. |

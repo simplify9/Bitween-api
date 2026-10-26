@@ -80,8 +80,9 @@ their next save.
 |---|---|
 | **Team** | Members: add with an invite (emailed when a mail server is set, otherwise a link to send) or a password, resend an expired invite, assign roles, set a password, unlock, disable and remove. Invited members show as *Invited* until they choose a password. Roles: a permission matrix with a live preview of the navigation the role would see. |
 | **Settings** | Runtime settings by section, including branding with an instant preview. Values owned by the environment are shown read-only. Documents & storage shows the bucket's deletion rules and what the retention settings do, and asks before saving a change to them. **Mail server** is the server Email channels send through. **Notification channels** lists channels and who uses each, and links to any legacy notifiers. Each channel opens on a page of its own: Email, Microsoft Teams and Slack first, any other adapter one click away, a test message, and its recent sends. A role with the notification permissions but not Settings, such as the built-in Member and Viewer, finds only the Notification channels section here. |
-| **Prod mirror** | On a staging: how close it is to the prod it mirrors, what is left to do, and a copy of prod's setup with every value faked. See [Prod mirror](prod-mirror.md). |
 | **Audit trail** | Every configuration change with its old and new values. |
+
+On a staging that mirrors prod, the subscription and gateway lists can bring prod's items in and say how each one's test against prod went, and each subscription's page compares it with prod's and tests it with prod's traffic. See [Prod mirror](prod-mirror.md).
 
 The **Dashboard** opens from the logo, and includes failures still to act on and the retry chains that keep failing. **Profile** lets members change their display name and password.
 

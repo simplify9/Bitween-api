@@ -368,7 +368,7 @@ public static class SettingsCatalog
         // Where this staging copies prod's setup from, faked, to rehearse an upgrade on. Whether it
         // may be overwritten at all is the deployment's to say, never a setting's.
         View("Bitween.Mirror.Target", "Prod mirror", "This Bitween is a mirror",
-            "Whether a copy of prod may replace this Bitween's setup. Set by the deployment (Bitween__Mirror__Target=true), so a prod can't be overwritten from here.",
+            "Whether prod's items may be brought onto this Bitween and tested with prod's traffic. Set by the deployment (Bitween__Mirror__Target=true), so nothing of prod's can be brought onto a prod from here.",
             SettingKind.Boolean, t => Str(t.Bitween.Mirror.Target)),
 
         new("Bitween.Mirror.SourceUrl", "Prod mirror",

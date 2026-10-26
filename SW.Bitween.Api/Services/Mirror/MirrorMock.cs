@@ -6,7 +6,6 @@ using System.Linq;
 using System.Net;
 using System.Security.Cryptography;
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
@@ -41,7 +40,6 @@ public record MirrorReplayAnswer(string Subscription, MirrorAnswer Answer);
 
 /// <summary>The calls to one host staging answered, as the page shows them.</summary>
 /// <param name="Test">One of prod's addresses as the copy faked it, rather than one staging's setup doesn't name.</param>
-public record MirrorHostCalls(string Host, bool Test, int Calls, DateTimeOffset LastAt, string LastWhy, IReadOnlyList<string> UsedBy);
 
 /// <summary>
 /// What staging's own setup names, read now and then: the hosts it may call for real, which
@@ -123,8 +121,7 @@ public sealed record MirrorSetupHosts(
 /// A login is answered with a token of staging's own, where the login's settings say its reply keeps
 /// one. While a rehearsal runs one of prod's exchanges, its subscription's calls get what prod's partner
 /// answered in that exchange. Anything else gets the newest answer prod's partner gave a subscription
-/// that uses the address, as staging keeps it in the samples - faked - or an empty one when there is
-/// none. Every answer is counted, so the page can show what was caught.
+/// that uses the address, among the arrivals its test took - faked - or an empty one when there is none.
 /// </para>
 /// </summary>
 public sealed class MirrorMock(IServiceScopeFactory scopes, BitweenOptions options, ILogger<MirrorMock> logger)
@@ -134,12 +131,10 @@ public sealed class MirrorMock(IServiceScopeFactory scopes, BitweenOptions optio
 
     readonly SemaphoreSlim reading = new(1, 1);
     MirrorSetupHosts setup;
-    MirrorSamples samples;
     DateTimeOffset readOn;
 
     readonly ConcurrentDictionary<string, (byte[] Body, string ContentType)> answers = new(StringComparer.Ordinal);
-    readonly ConcurrentQueue<MirrorCall> recent = new();
-    readonly ConcurrentDictionary<string, (int Calls, DateTimeOffset LastAt, string LastWhy)> byHost = new(StringComparer.OrdinalIgnoreCase);
+    readonly ConcurrentDictionary<string, IReadOnlyList<MirrorFamily>> arrivals = new(StringComparer.Ordinal);
 
     sealed class Replaying(string correlation, IReadOnlyList<MirrorReplayAnswer> answers)
     {
@@ -180,6 +175,9 @@ public sealed class MirrorMock(IServiceScopeFactory scopes, BitweenOptions optio
     /// <summary>Ends a replay, with the calls made during it.</summary>
     public IReadOnlyList<MirrorCall> EndReplay() => Interlocked.Exchange(ref replaying, null)?.Calls.ToList() ?? [];
 
+    /// <summary>The calls made so far during a replay, for tests.</summary>
+    internal IReadOnlyList<MirrorCall> CallsSoFar => replaying?.Calls.ToList() ?? [];
+
     /// <summary>
     /// The rehearsal exchange a call is for: the one Bitween runs the adapter of itself, or else, for an
     /// adapter's own process, the one the replay's family is running - by the address, when several are.
@@ -194,8 +192,11 @@ public sealed class MirrorMock(IServiceScopeFactory scopes, BitweenOptions optio
                ?? now[0];
     }
 
-    /// <summary>Overrides the setup and samples it reads, for tests.</summary>
-    internal Func<Task<(MirrorSetupHosts, MirrorSamples)>> ReadOverride { get; set; }
+    /// <summary>Overrides the setup it reads, for tests.</summary>
+    internal Func<Task<MirrorSetupHosts>> ReadOverride { get; set; }
+
+    /// <summary>Overrides the arrivals a subscription's test took, for tests.</summary>
+    internal Func<string, Task<IReadOnlyList<MirrorFamily>>> ArrivalsOverride { get; set; }
 
     /// <summary>Overrides how a sample's file is read from storage, for tests.</summary>
     internal Func<string, Task<byte[]>> FileOverride { get; set; }
@@ -212,7 +213,7 @@ public sealed class MirrorMock(IServiceScopeFactory scopes, BitweenOptions optio
             return "it is this machine";
         if (Own(h)) return "it is staging itself";
         if (PassHosts().Contains(h)) return "it is in Hosts called for real";
-        return (await ReadAsync()).Setup.Named.Contains(h) ? "staging's setup names it" : null;
+        return (await ReadAsync()).Named.Contains(h) ? "staging's setup names it" : null;
     }
 
     /// <summary>A call sent on for real: noted while a rehearsal runs an exchange, where it explains what came back.</summary>
@@ -228,10 +229,10 @@ public sealed class MirrorMock(IServiceScopeFactory scopes, BitweenOptions optio
         MirrorAnswer answer;
         try
         {
-            var (setup, samples) = await ReadAsync();
+            var setup = await ReadAsync();
             var host = request.Url.Host.ToLowerInvariant();
             answer = LoginServer(request) ?? (AsksForToken(request, setup) ? Token(setup.TokenPaths.GetValueOrDefault(host)) : null)
-                ?? Replayed(host, setup) ?? await SampleAnswerAsync(host, setup, samples) ?? new MirrorAnswer(200, null, [],
+                ?? Replayed(host, setup) ?? await SampleAnswerAsync(host, setup) ?? new MirrorAnswer(200, null, [],
                     "Nothing of prod's to answer with, so an empty reply.");
         }
         catch (Exception ex)
@@ -243,18 +244,6 @@ public sealed class MirrorMock(IServiceScopeFactory scopes, BitweenOptions optio
         Record(request, answer);
         return answer;
     }
-
-    /// <summary>The calls answered since this Bitween started, by host, busiest first.</summary>
-    public async Task<IReadOnlyList<MirrorHostCalls>> HostsAsync()
-    {
-        var setup = (await ReadAsync()).Setup;
-        return byHost.Select(h => new MirrorHostCalls(h.Key, MirrorFaker.IsMockHost(h.Key), h.Value.Calls, h.Value.LastAt, h.Value.LastWhy,
-                setup.UsedBy.GetValueOrDefault(h.Key) ?? []))
-            .OrderByDescending(h => h.Calls).ThenBy(h => h.Host, StringComparer.Ordinal).ToList();
-    }
-
-    /// <summary>The latest calls answered, newest first.</summary>
-    public IReadOnlyList<MirrorCall> Recent => recent.Reverse().ToList();
 
     // ------------------------------------------------------------------ answers
 
@@ -361,19 +350,24 @@ public sealed class MirrorMock(IServiceScopeFactory scopes, BitweenOptions optio
             "A login server's keys, answered by staging, which signs the tokens a rehearsal calls gateways with.");
     }
 
-    /// <summary>The newest answer prod's partner gave, faked, to a subscription that uses the address and worked on prod.</summary>
-    async Task<MirrorAnswer> SampleAnswerAsync(string host, MirrorSetupHosts setup, MirrorSamples samples)
+    /// <summary>
+    /// The newest answer prod's partner gave, faked, to a subscription that uses the address, in an exchange
+    /// that worked on prod: among the arrivals those subscriptions' tests took.
+    /// </summary>
+    async Task<MirrorAnswer> SampleAnswerAsync(string host, MirrorSetupHosts setup)
     {
         var users = setup.UsedBy.GetValueOrDefault(host);
-        if (users == null || samples == null) return null;
-        var candidate = (samples.Families ?? []).SelectMany(f => f.Members)
+        if (users == null) return null;
+        var members = new List<MirrorSample>();
+        foreach (var user in users)
+            members.AddRange((await ArrivalsAsync(user)).SelectMany(f => f.Members));
+        var candidate = members
             .Where(x => x.Subscription != null && users.Contains(x.Subscription) && x.Outcome == "success" && x.Response?.Key != null)
-            .Select(x => (x.Subscription, Sample: x))
-            .OrderByDescending(x => x.Sample.StartedOn)
+            .OrderByDescending(x => x.StartedOn)
             .FirstOrDefault();
-        if (candidate.Sample == null) return null;
+        if (candidate == null) return null;
 
-        var file = candidate.Sample.Response;
+        var file = candidate.Response;
         if (!answers.TryGetValue(file.Key, out var cached))
         {
             var body = await ReadFileAsync(file.Key);
@@ -381,6 +375,19 @@ public sealed class MirrorMock(IServiceScopeFactory scopes, BitweenOptions optio
             if (answers.Count < Kept) answers[file.Key] = cached;
         }
         return new MirrorAnswer(200, cached.ContentType, cached.Body, $"Prod's answer to “{candidate.Subscription}”, faked.");
+    }
+
+    async Task<IReadOnlyList<MirrorFamily>> ArrivalsAsync(string subscription)
+    {
+        if (arrivals.TryGetValue(subscription, out var known)) return known;
+        IReadOnlyList<MirrorFamily> read;
+        if (ArrivalsOverride != null) read = await ArrivalsOverride(subscription);
+        else
+        {
+            using var scope = scopes.CreateScope();
+            read = await MirrorService.TestArrivalsAsync(scope.ServiceProvider.GetRequiredService<ICloudFilesService>(), subscription);
+        }
+        return arrivals[subscription] = read;
     }
 
     static string ContentTypeOf(string format) => format switch
@@ -404,40 +411,28 @@ public sealed class MirrorMock(IServiceScopeFactory scopes, BitweenOptions optio
 
     // ------------------------------------------------------------------ what it knows
 
-    async Task<(MirrorSetupHosts Setup, MirrorSamples Samples)> ReadAsync()
+    async Task<MirrorSetupHosts> ReadAsync()
     {
-        if (setup != null && DateTimeOffset.UtcNow - readOn < Fresh) return (setup, samples);
+        if (setup != null && DateTimeOffset.UtcNow - readOn < Fresh) return setup;
         await reading.WaitAsync();
         try
         {
-            if (setup != null && DateTimeOffset.UtcNow - readOn < Fresh) return (setup, samples);
-            if (ReadOverride != null) (setup, samples) = await ReadOverride();
+            if (setup != null && DateTimeOffset.UtcNow - readOn < Fresh) return setup;
+            if (ReadOverride != null) setup = await ReadOverride();
             else
             {
                 using var scope = scopes.CreateScope();
                 setup = await MirrorSetupHosts.ReadAsync(scope.ServiceProvider.GetRequiredService<BitweenDbContext>());
-                samples = await ReadSamplesAsync(scope.ServiceProvider.GetRequiredService<ICloudFilesService>());
             }
             readOn = DateTimeOffset.UtcNow;
+            // Tests take new arrivals: what they answer with is read again too.
             answers.Clear();
-            return (setup, samples);
+            arrivals.Clear();
+            return setup;
         }
         finally
         {
             reading.Release();
-        }
-    }
-
-    static async Task<MirrorSamples> ReadSamplesAsync(ICloudFilesService files)
-    {
-        try
-        {
-            await using var stream = await files.OpenReadAsync(MirrorService.SamplesManifest);
-            return await JsonSerializer.DeserializeAsync<MirrorSamples>(stream, new JsonSerializerOptions(JsonSerializerDefaults.Web));
-        }
-        catch (Exception ex) when (StorageErrors.IsNotFound(ex))
-        {
-            return null;
         }
     }
 
@@ -457,16 +452,11 @@ public sealed class MirrorMock(IServiceScopeFactory scopes, BitweenOptions optio
         Record(new MirrorRequest("CONNECT", new Uri($"https://{host ?? "unknown"}/"), null, [], "An adapter's process"),
             new MirrorAnswer(0, null, [], $"The adapter's call failed before staging could answer: {why}."));
 
+    /// <summary>Notes a call answered, or failed, while a test runs an exchange: the run shows what it called.</summary>
     void Record(MirrorRequest request, MirrorAnswer answer)
     {
-        var now = DateTimeOffset.UtcNow;
-        var r = replaying;
-        var making = r == null ? null : Making(r, request.Url.Host, setup ?? MirrorSetupHosts.None);
-        var call = new MirrorCall(now, request.Method, request.Url.Host, request.Url.AbsolutePath, answer.Status, answer.Why, request.From,
-            Exchange: making?.Id);
-        recent.Enqueue(call);
-        r?.Calls.Enqueue(call);
-        while (recent.Count > Kept && recent.TryDequeue(out _)) { }
-        byHost.AddOrUpdate(request.Url.Host, _ => (1, now, answer.Why), (_, h) => (h.Calls + 1, now, answer.Why));
+        if (replaying is not { } r) return;
+        r.Calls.Enqueue(new MirrorCall(DateTimeOffset.UtcNow, request.Method, request.Url.Host, request.Url.AbsolutePath, answer.Status, answer.Why,
+            request.From, Exchange: Making(r, request.Url.Host, setup ?? MirrorSetupHosts.None)?.Id));
     }
 }

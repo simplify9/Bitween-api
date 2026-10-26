@@ -68,8 +68,6 @@ public record MirrorParity(
 
 public record MirrorFailure(string Section, string Noun, string Key, string Error);
 
-public record MirrorCopyResult(int Created, int Updated, int Removed, int AdapterSteps, IReadOnlyList<MirrorFailure> Failed, MirrorParity After);
-
 /// <summary>
 /// Copies prod's setup onto this staging, by name, through prod's own API and read-only: nothing on
 /// prod changes and nothing needs installing there. Values are faked the moment they arrive (see
@@ -93,39 +91,6 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
     /// makes it. One staging runs one node, and a restart forgets them until the next copy.
     /// </summary>
     static readonly System.Collections.Concurrent.ConcurrentDictionary<(string Section, string Key), string> LastFailures = new();
-
-    public async Task<MirrorParity> ParityAsync(CancellationToken cancellation = default)
-    {
-        using var comparison = await CompareAsync(removeExtras: false, copyKey: null);
-        return comparison.Parity;
-    }
-
-    public async Task<MirrorCopyResult> CopyAsync(bool removeExtras, CancellationToken cancellation = default)
-    {
-        if (!options.Mirror.Target)
-            throw new SWValidationException("MIRROR_NOT_TARGET", NotTarget);
-
-        var key = MirrorCopyGate.OpenKey();
-        List<(Change Change, string Error)> failed;
-        Plan plan;
-        try
-        {
-            using var comparison = await CompareAsync(removeExtras, key);
-            plan = comparison.Plan;
-            failed = await comparison.Planner.ApplyAllAsync(plan);
-        }
-        finally
-        {
-            MirrorCopyGate.CloseKey(key);
-        }
-        foreach (var change in plan.Changes) LastFailures.TryRemove((change.Section, change.Key), out _);
-        foreach (var (change, error) in failed) LastFailures[(change.Section, change.Key)] = error;
-        int Count(params Op[] ops) => plan.Changes.Count(c => ops.Contains(c.Op)) - failed.Count(f => ops.Contains(f.Change.Op));
-
-        var after = await ParityAsync(cancellation);
-        return new MirrorCopyResult(Count(Op.Create), Count(Op.Update), Count(Op.Delete), Count(Op.Install, Op.Promote),
-            failed.Select(f => new MirrorFailure(f.Change.Section, f.Change.Noun, f.Change.Key, f.Error)).ToList(), after);
-    }
 
     /// <summary>
     /// A comparison, prod's setup as staging copies it, and the two connections its planner carries out

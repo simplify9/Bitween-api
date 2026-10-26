@@ -103,8 +103,7 @@ public sealed partial class MirrorService
 
     /// <summary>
     /// Takes prod's latest arrivals a subscription takes part in: up to five of its exchanges, mostly ones
-    /// that worked, each with what came in and everything it led to, faked as they arrive, the way
-    /// <see cref="TakeSamplesAsync"/> takes them for every subscription. Replaces the ones taken before;
+    /// that worked, each with what came in and everything it led to, faked as they arrive. Replaces the ones taken before;
     /// what earlier runs made on staging stays until the test is cleared.
     /// </summary>
     public async Task<MirrorTest> TakeTestAsync(string name, Action<int, int> progress, CancellationToken cancellation = default)
@@ -245,11 +244,17 @@ public sealed partial class MirrorService
         return db.Set<Xchange>().AsNoTracking().Where(x => x.StartedOn >= since && correlations.Contains(x.CorrelationId));
     }
 
-    async Task<MirrorTest> ReadTestAsync(string name)
+    Task<MirrorTest> ReadTestAsync(string name) => ReadTestAsync(cloudFiles, name);
+
+    /// <summary>The arrivals of prod's a subscription's test took, faked: what staging answers its partners' calls with outside a test.</summary>
+    internal static async Task<IReadOnlyList<MirrorFamily>> TestArrivalsAsync(ICloudFilesService files, string name) =>
+        (await ReadTestAsync(files, name)).Families ?? [];
+
+    static async Task<MirrorTest> ReadTestAsync(ICloudFilesService files, string name)
     {
         try
         {
-            await using var stream = await cloudFiles.OpenReadAsync($"{TestFolder(name)}/test.json");
+            await using var stream = await files.OpenReadAsync($"{TestFolder(name)}/test.json");
             return await JsonSerializer.DeserializeAsync<MirrorTest>(stream, ManifestJson) ?? NoTest;
         }
         catch (Exception ex) when (StorageErrors.IsNotFound(ex))
