@@ -225,6 +225,61 @@ public class MappingSuggestionTests(HttpFixture fixture) : IDisposable
     }
 
     [Fact]
+    public async Task Oversized_samples_and_null_rules_are_refused_before_anything_is_asked()
+    {
+        var admin = await ConfiguredAsync();
+        var model = new FakeModel(_ => Right);
+        AiModels.ModelOverride = _ => model;
+
+        var huge = await admin.PostAsJsonAsync("/api/mappingsuggestions", new
+        {
+            mappingRules = """{ "version": 1 }""", sourceDocument = "{\"a\":\"" + new string('x', 200_001) + "\"}", targetDocument = Target,
+        });
+        var nulls = await admin.PostAsJsonAsync("/api/mappingsuggestions", new
+        {
+            mappingRules = """{ "version": 1, "fields": null }""", sourceDocument = Source, targetDocument = Target,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, huge.StatusCode);
+        Assert.Contains("limited to 200 KB", await huge.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.BadRequest, nulls.StatusCode);
+        Assert.Contains("be null; use [] for none", await nulls.Content.ReadAsStringAsync());
+        Assert.Empty(model.Asked);
+    }
+
+    /// <summary>A model writing an explicit null is an unreadable answer, asked for again - not a crash.</summary>
+    [Fact]
+    public async Task A_null_in_the_answer_is_asked_for_once_more()
+    {
+        var admin = await ConfiguredAsync();
+        var model = new FakeModel(prompt => prompt.Message.Contains("could not be used")
+            ? Right
+            : """{ "version": 1, "fields": null, "lists": [] }""");
+        AiModels.ModelOverride = _ => model;
+
+        var result = await Api.Json(await SuggestAsync(admin));
+
+        Assert.True((bool)result["matchesTarget"]!);
+        Assert.Equal(2, model.Asked.Count);
+    }
+
+    [Fact]
+    public async Task Provider_errors_are_reported_without_what_the_provider_said()
+    {
+        var admin = await ConfiguredAsync();
+        AiModels.HandlerOverride = () => new FakeProvider((_, _) => new HttpResponseMessage(HttpStatusCode.BadRequest)
+        {
+            Content = new StringContent("""{"type":"error","error":{"type":"invalid_request_error","message":"internal-detail-123"}}""",
+                Encoding.UTF8, "application/json"),
+        });
+
+        var text = await (await SuggestAsync(admin)).Content.ReadAsStringAsync();
+
+        Assert.Contains("Anthropic refused the request: it answered HTTP 400.", text);
+        Assert.DoesNotContain("internal-detail-123", text);
+    }
+
+    [Fact]
     public async Task An_unreadable_answer_is_asked_for_once_more_with_the_reason()
     {
         var admin = await ConfiguredAsync();
@@ -299,7 +354,7 @@ public class MappingSuggestionTests(HttpFixture fixture) : IDisposable
     public async Task An_OpenAI_compatible_provider_is_called_at_its_own_address_for_JSON()
     {
         var admin = await ConfiguredAsync(("Bitween.Ai.Provider", "OpenAI"), ("Bitween.Ai.Model", "local-model"),
-            ("Bitween.Ai.BaseUrl", "http://ollama.test:11434/v1/"));
+            ("Bitween.Ai.BaseUrl", "https://ai.test/v1/"));
         var provider = new FakeProvider((_, _) => Ok(new
         {
             id = "chatcmpl-1", @object = "chat.completion", created = 1760000000, model = "local-model",
@@ -312,7 +367,7 @@ public class MappingSuggestionTests(HttpFixture fixture) : IDisposable
 
         Assert.True((bool)result["matchesTarget"]!, result.ToJsonString());
         var (request, body) = Assert.Single(provider.Received);
-        Assert.Equal("http://ollama.test:11434/v1/chat/completions", request.RequestUri!.ToString());
+        Assert.Equal("https://ai.test/v1/chat/completions", request.RequestUri!.ToString());
         Assert.Equal("Bearer sk-test-key", request.Headers.Authorization!.ToString());
         var sent = JsonNode.Parse(body)!;
         Assert.Equal("local-model", (string)sent["model"]!);

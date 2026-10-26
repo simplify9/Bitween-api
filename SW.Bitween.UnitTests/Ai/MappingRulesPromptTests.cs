@@ -76,6 +76,9 @@ public class MappingRulesPromptTests
         StringAssert.Contains(Assert.ThrowsException<FormatException>(() => MappingRulesPrompt.Parse("I can't help with that.", Editor)).Message, "no JSON");
         StringAssert.Contains(Assert.ThrowsException<FormatException>(() => MappingRulesPrompt.Parse("""{ "version": 2 }""", Editor)).Message, "version");
         StringAssert.Contains(Assert.ThrowsException<FormatException>(() => MappingRulesPrompt.Parse("""
+            { "version": 1, "lists": [ { "over": "x", "target": ["a"], "fields": null } ] }
+            """, Editor)).Message, "can't be null");
+        StringAssert.Contains(Assert.ThrowsException<FormatException>(() => MappingRulesPrompt.Parse("""
             { "version": 1, "root": { "over": "" }, "fields": [ { "target": ["a"], "from": { "kind": "fixed" } } ] }
             """, Editor)).Message, "root");
     }

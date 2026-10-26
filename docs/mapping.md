@@ -250,6 +250,8 @@ The rules editor has three panels.
 
 **Build from a sample** reads a target sample and adds rules for fields not yet mapped, filling in sources it can recognise. **Generate with AI** writes every rule from both samples; see below. **Preview as** chooses a partner for resolving partner values. Save with Ctrl+S or Cmd+S.
 
+The toolbar's format chip, as **JSON → XML**, opens what the mapping reads and writes: each side's format, and its settings for [CSV](#csv) (separator, header, the byte-order mark Excel wants), [fixed-width text](#fixed-width-text) (a table of columns, lines to skip, trimming, and on the written side each column's alignment and padding) and [Excel](#excel) (the sheet and the header).
+
 ### Generate with AI
 
 **Generate with AI** asks the provider under [Settings, AI](configuration.md#ai) for the rules that turn a source sample into an output sample. It opens a dialog with both samples, which are the editor's own, and an optional **Instructions** box for what the samples don't show, such as codes a lookup needs that the sample doesn't contain. Until Settings has an API key, the dialog says so and links there.

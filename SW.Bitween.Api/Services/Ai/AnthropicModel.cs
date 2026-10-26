@@ -62,15 +62,15 @@ sealed class AnthropicModel(string apiKey, string model, string baseUrl, HttpCli
         }
         catch (Anthropic5xxException ex)
         {
-            throw AiModels.Unreachable(Name, ex.Message);
+            throw AiModels.Unreachable(Name, AiModels.Answered((int)ex.StatusCode));
         }
         catch (AnthropicApiException ex)
         {
-            throw AiModels.Refused(Name, ex.Message);
+            throw AiModels.Refused(Name, AiModels.Answered((int)ex.StatusCode));
         }
         catch (Exception ex) when (ex is AnthropicIOException or HttpRequestException or TaskCanceledException)
         {
-            throw AiModels.Unreachable(Name, ex.Message);
+            throw AiModels.Unreachable(Name, AiModels.NoConnection);
         }
 
         if (response.StopReason == "refusal")

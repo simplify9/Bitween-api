@@ -34,9 +34,28 @@ public class AiOptions
 
     public bool IsAnthropic => string.Equals(Provider?.Trim(), Anthropic, StringComparison.OrdinalIgnoreCase);
 
+    public bool IsOpenAI => string.Equals(Provider?.Trim(), OpenAI, StringComparison.OrdinalIgnoreCase);
+
     public string ResolvedModel =>
         !string.IsNullOrWhiteSpace(Model) ? Model.Trim() : IsAnthropic ? DefaultAnthropicModel : null;
 
-    /// <summary>Whether AI features can run: a key, and a model to send it with.</summary>
-    public bool IsSet => !string.IsNullOrWhiteSpace(ApiKey) && ResolvedModel is not null;
+    /// <summary>
+    /// Whether AI features can run: a provider Bitween knows, a key, and a model to send it with. A
+    /// misspelt provider in configuration is off, not quietly sent down the OpenAI path.
+    /// </summary>
+    public bool IsSet => (IsAnthropic || IsOpenAI) && !string.IsNullOrWhiteSpace(ApiKey) && ResolvedModel is not null;
+
+    /// <summary>
+    /// Why an API address can't be used, or null when it can - or is empty. Plain http only reaches
+    /// this machine, such as a local Ollama: anywhere else it would send the key in the clear.
+    /// </summary>
+    public static string AddressProblem(string address)
+    {
+        if (string.IsNullOrWhiteSpace(address)) return null;
+        if (!Uri.TryCreate(address.Trim(), UriKind.Absolute, out var url) || url.Scheme is not ("http" or "https"))
+            return $"'{address.Trim()}' isn't an http or https address.";
+        if (url.Scheme == "http" && !url.IsLoopback)
+            return "plain http is only for this machine (localhost); use https anywhere else, so the key isn't sent in the clear.";
+        return null;
+    }
 }

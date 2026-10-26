@@ -220,6 +220,7 @@ public static class MappingRulesPrompt
             throw new FormatException($"The answer is not valid rules JSON: {ex.Message}");
         }
         if (rules is null) throw new FormatException("The answer was empty.");
+        if (NullIn(rules) is { } missing) throw new FormatException(missing);
 
         if (rules.Version != MappingRules.CurrentVersion)
             throw new FormatException($"\"version\" must be {MappingRules.CurrentVersion}.");
@@ -258,6 +259,47 @@ public static class MappingRulesPrompt
     static IReadOnlyList<string> Plain(IReadOnlyDictionary<string, string> values) =>
         values.Where(kv => kv.Value != AdapterSecretProperties.Sentinel)
             .Select(kv => kv.Key).Order(StringComparer.Ordinal).ToList();
+
+    /// <summary>
+    /// Where the rules hold an explicit null for a list or a value source, which the mapper's types
+    /// start as empty and the code reading them never expects - <c>"fields": null</c> from a model
+    /// or a hand-written request. Null when there is none.
+    /// </summary>
+    public static string? NullIn(MappingRules rules)
+    {
+        if (rules.Fields is null) return "\"fields\" can't be null; use [] for none.";
+        if (rules.Lists is null) return "\"lists\" can't be null; use [] for none.";
+        var lists = new Stack<ListRule>(rules.Lists);
+        if (rules.Root is not null) lists.Push(rules.Root);
+        foreach (var field in rules.Fields)
+            if (FieldNull(field) is { } problem) return problem;
+
+        while (lists.TryPop(out var list))
+        {
+            if (list is null) return "a list can't be null.";
+            if (list.Target is null || list.Fields is null || list.Lists is null || list.Fixed is null || list.After is null)
+                return "a list's \"target\", \"fields\", \"lists\", \"fixed\" and \"after\" can't be null; use [] for none.";
+            if (list.Item is not null && FieldNull(list.Item) is { } itemProblem) return itemProblem;
+            foreach (var field in list.Fields)
+                if (FieldNull(field) is { } problem) return problem;
+            foreach (var entry in list.Fixed.Concat(list.After))
+            {
+                if (entry is null || entry.Fields is null || entry.Lists is null)
+                    return "an entry's \"fields\" and \"lists\" can't be null; use [] for none.";
+                if (entry.Item is not null && FieldNull(entry.Item) is { } entryProblem) return entryProblem;
+                foreach (var field in entry.Fields)
+                    if (FieldNull(field) is { } problem) return problem;
+                foreach (var inner in entry.Lists) lists.Push(inner);
+            }
+            foreach (var inner in list.Lists) lists.Push(inner);
+        }
+        return null;
+    }
+
+    static string? FieldNull(FieldRule? field) =>
+        field is null ? "a field rule can't be null."
+        : field.Target is null || field.From is null ? "a field rule's \"target\" and \"from\" can't be null."
+        : field.Transform is { Args: null } ? "a transform can't be null." : null;
 
     /// <summary>The rules as the editor stores them: camelCase, enums as camelCase text, nulls left out.</summary>
     public static string Serialize(MappingRules rules) => JsonConvert.SerializeObject(rules, Wire);

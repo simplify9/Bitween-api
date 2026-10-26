@@ -84,11 +84,26 @@ public class Suggest(RequestContext requestContext, BitweenDbContext dbContext,
         MappingContextFactory contextFactory, AiModels models)
     : ICommandHandler<MappingSuggestionRequest, MappingSuggestionResponse>
 {
+    /// <summary>
+    /// Four times the 300-line sample generation was tested with, which answered in two seconds:
+    /// room for a real document, without a pasted export becoming a very large and slow prompt.
+    /// </summary>
+    internal const int MaxSampleLength = 200_000;
+
+    internal const int MaxInstructionsLength = 4_000;
+
     public async Task<MappingSuggestionResponse> Handle(MappingSuggestionRequest request)
     {
         // The same right as the preview it runs: the editor opens while creating and while editing.
         await requestContext.EnsurePermission(dbContext,
             Model.Permissions.Subscriptions.Create, Model.Permissions.Subscriptions.Edit);
+
+        // Before anything else costs time or tokens: whatever is sent here goes to a paid provider.
+        if (request.SourceDocument?.Length > MaxSampleLength || request.TargetDocument?.Length > MaxSampleLength)
+            throw new SWValidationException("AI_SAMPLES",
+                $"Samples are limited to {MaxSampleLength / 1000:N0} KB each. A few records are enough to learn a mapping from.");
+        if (request.Instructions?.Length > MaxInstructionsLength)
+            throw new SWValidationException("AI_SAMPLES", $"Instructions are limited to {MaxInstructionsLength:N0} characters.");
 
         var model = models.Current();
 
@@ -101,6 +116,8 @@ public class Suggest(RequestContext requestContext, BitweenDbContext dbContext,
         {
             throw new SWValidationException("MAPPING_RULES", $"The mapping rules could not be read: {ex.Message}");
         }
+        if (MappingRulesPrompt.NullIn(editor) is { } missing)
+            throw new SWValidationException("MAPPING_RULES", $"The mapping rules could not be read: {missing}");
 
         if (string.IsNullOrWhiteSpace(request.SourceDocument))
             throw new SWValidationException("AI_SAMPLES", "Paste a sample of the source document first.");

@@ -131,6 +131,27 @@ describe("Generate with AI", { timeout: 20000 }, () => {
     await expectSent(backend, { fields: [customerRule] });
   });
 
+  it("drops an answer when a sample changed while it was being written", async () => {
+    const backend = mapperBackend();
+    let answer!: () => void;
+    const released = new Promise<void>((resolve) => (answer = resolve));
+    const ai = suggestions(async () => {
+      await released;
+      return { rules: { fields: [customerRule] } };
+    });
+    const { user } = await open(backend, true, [ai.handler]);
+
+    const dialog = await openDialog(user);
+    await user.click(within(dialog).getByRole("button", { name: /^Generate$/ }));
+    await within(dialog).findByRole("status");
+    await user.type(within(dialog).getByRole("textbox", { name: "Output sample" }), " ");
+    answer();
+
+    expect(await within(dialog).findByText(/changed while the AI was working/)).toBeInTheDocument();
+    expect(screen.queryByText("Matches the output sample")).not.toBeInTheDocument();
+    expect(screen.getByText(/0 rules/)).toBeInTheDocument();
+  });
+
   it("can be cancelled while it waits, leaving the rules alone", async () => {
     const backend = mapperBackend();
     const ai = suggestions(async () => {

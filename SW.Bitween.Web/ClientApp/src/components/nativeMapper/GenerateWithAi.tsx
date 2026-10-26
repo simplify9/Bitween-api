@@ -93,6 +93,11 @@ function useAiRun(partnerId: number | null, instructions: string, onApplied: () 
   const [error, setError] = useState<string | null>(null);
   const [seconds, setSeconds] = useState(0);
   const running = useRef<AbortController | null>(null);
+  // What the editor holds now, as opposed to what this render's closure saw when a run started.
+  const latest = useRef({ rules, sourceSample, targetSample });
+  useEffect(() => {
+    latest.current = { rules, sourceSample, targetSample };
+  }, [rules, sourceSample, targetSample]);
 
   useEffect(() => {
     if (!pending) return;
@@ -122,6 +127,13 @@ function useAiRun(partnerId: number | null, instructions: string, onApplied: () 
         abort.signal,
       );
       if (abort.signal.aborted) return;
+      // The answer was checked against what was sent. Anything edited since - a rule, either
+      // sample - would be overwritten, and the note would vouch for a sample that is gone.
+      const now = latest.current;
+      if (now.rules !== rules || now.sourceSample !== sourceSample || now.targetSample !== targetSample) {
+        setError("The mapping or a sample changed while the AI was working, so its answer was dropped. Generate again.");
+        return;
+      }
       const next = fromWire(JSON.parse(result.mappingRules) as MappingRules);
       dispatch({
         type: "APPLY_AI_RULES",

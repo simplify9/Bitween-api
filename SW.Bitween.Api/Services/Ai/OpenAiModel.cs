@@ -51,18 +51,22 @@ sealed class OpenAiModel(string apiKey, string model, string baseUrl, HttpClient
         {
             throw AiModels.Unreachable(Name, "the account's rate limit was reached. Try again in a minute.");
         }
-        catch (ClientResultException ex) when (ex.Status >= 500 || ex.Status == 0)
+        catch (ClientResultException ex) when (ex.Status == 0)
         {
-            // 0: no response arrived at all.
-            throw AiModels.Unreachable(Name, ex.Message);
+            // No response arrived at all.
+            throw AiModels.Unreachable(Name, AiModels.NoConnection);
+        }
+        catch (ClientResultException ex) when (ex.Status >= 500)
+        {
+            throw AiModels.Unreachable(Name, AiModels.Answered(ex.Status));
         }
         catch (ClientResultException ex)
         {
-            throw AiModels.Refused(Name, ex.Message);
+            throw AiModels.Refused(Name, AiModels.Answered(ex.Status));
         }
         catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or UriFormatException)
         {
-            throw AiModels.Unreachable(Name, ex.Message);
+            throw AiModels.Unreachable(Name, AiModels.NoConnection);
         }
 
         if (completion.FinishReason == ChatFinishReason.ContentFilter)

@@ -167,7 +167,14 @@ public class SettingsCatalogTests
         Assert.ThrowsException<System.FormatException>(() => ai["Bitween.Ai.Provider"].Write(target, "Gemini"));
 
         Assert.ThrowsException<System.FormatException>(() => ai["Bitween.Ai.BaseUrl"].Write(target, "localhost:11434"));
+        // Plain http would send the key in the clear anywhere but this machine.
+        Assert.ThrowsException<System.FormatException>(() => ai["Bitween.Ai.BaseUrl"].Write(target, "http://ollama.lan:11434/v1/"));
         ai["Bitween.Ai.BaseUrl"].Write(target, "http://localhost:11434/v1/");
         Assert.AreEqual("http://localhost:11434/v1/", target.Bitween.Ai.BaseUrl);
+
+        // A misspelt provider from configuration is off, not sent down the OpenAI path.
+        target.Bitween.Ai.Model = "some-model";
+        target.Bitween.Ai.Provider = "Anthropc";
+        Assert.IsFalse(target.Bitween.Ai.IsSet);
     }
 }
