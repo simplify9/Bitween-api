@@ -46,7 +46,8 @@ public record MirrorUnknownField(string Section, string Plural, string Field, in
 /// does it), notCovered (what the test can't include, and why) and onPurpose (how staging differs from
 /// prod by design). Section and Key name the item it is about; Action, the page where it is done.
 /// </summary>
-public record MirrorNote(string Id, string Group, string Text, string Section = null, string Key = null, string Action = null);
+public record MirrorNote(string Id, string Group, string Text, string Section = null, string Key = null, string Action = null,
+    string StagingId = null, string ProdId = null, string Type = null);
 
 /// <summary>The page's answer: whether staging is ready to test on, and the counts behind it.</summary>
 /// <param name="Matching">Prod's items staging has as prod has them.</param>
@@ -62,7 +63,6 @@ public record MirrorParity(
     IReadOnlyList<MirrorNote> Notes,
     IReadOnlyList<MirrorKind> Kinds,
     IReadOnlyList<MirrorAdapter> Adapters,
-    IReadOnlyList<MirrorAddress> Addresses,
     IReadOnlyList<MirrorFakedKey> FakedKeys,
     IReadOnlyList<MirrorUnknownField> Unknown);
 
@@ -97,7 +97,7 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
     /// changes over until it is done with; with the file the planner plans from and staging as it read it.
     /// </summary>
     sealed record Comparison(MirrorParity Parity, Planner Planner, Plan Plan, MirrorSetupCopy Copy, BitweenApi Prod, BitweenApi Self,
-        ConfigFile Config, Context Staging) : IDisposable
+        ConfigFile Config, Context Staging, IReadOnlyList<MirrorBlank> Open) : IDisposable
     {
         public void Dispose()
         {
@@ -144,6 +144,7 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
         config.Rename(ConfigurationName);
         var planner = new Planner(selfCtx, config);
         await planner.ReadAsync();
+        var open = TakeStagingsOwn(copy, selfCtx);
 
         // A subscription staging doesn't have yet, whose adapter it lacks and can't get from the
         // marketplace, would only fail: it waits, and says for which adapter. One staging has already
@@ -165,14 +166,40 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
         var kinds = Kinds.All.Select(kind => KindRow(kind, copy.Sections.GetValueOrDefault(kind.Section) ?? [], plan, extras, waiting, skipped,
             prodCtx, selfCtx)).ToList();
         var unknown = Unknown(prodCtx, selfCtx, skipped);
-        var notes = Notes(kinds, adapters, plan, extras.Count, renamed, unknown, copy, catching: options.Mirror.Target);
+        var notes = Notes(kinds, adapters, plan, extras.Count, renamed, unknown, copy);
         var parity = new MirrorParity(
             DateTimeOffset.UtcNow,
             new MirrorSide(prod.Url, prodVersion, await ExchangesAsync(prod)),
             new MirrorSide(links.BaseUrl, BitweenInfo.Version(options).ToString(3), await ExchangesAsync(self)),
             Verdict(kinds, notes),
-            notes, kinds, adapters, copy.Addresses, copy.FakedKeys, unknown);
-        return new Comparison(parity, planner, plan, copy, prod, self, config, selfCtx);
+            notes, kinds, adapters, copy.FakedKeys, unknown);
+        return new Comparison(parity, planner, plan, copy, prod, self, config, selfCtx, open);
+    }
+
+    /// <summary>
+    /// Every address and secret the copy left empty takes staging's own where staging has one, so staging's
+    /// never reads as a difference from prod's. The ones staging has no value for are left to do.
+    /// </summary>
+    static List<MirrorBlank> TakeStagingsOwn(MirrorSetupCopy copy, Context staging)
+    {
+        var open = new List<MirrorBlank>();
+        foreach (var blank in copy.Blanks)
+        {
+            var mine = staging.Current.GetValueOrDefault(blank.Section)?.FirstOrDefault(e => e.Key == blank.Key)?.File;
+            var item = copy.Sections.GetValueOrDefault(blank.Section)?.FirstOrDefault(i => Kinds.Of(blank.Section).KeyOf(i) == blank.Key);
+            if (At(mine, blank.Path) is JsonValue v && v.TryGetValue<string>(out var value) && value.Length > 0
+                && At(item, blank.Path.Take(blank.Path.Count - 1)) is JsonObject owner)
+                owner[blank.Path[^1]] = value;
+            else
+                open.Add(blank);
+        }
+        return open;
+    }
+
+    static JsonNode At(JsonNode node, IEnumerable<string> path)
+    {
+        foreach (var name in path) node = (node as JsonObject)?[name];
+        return node;
     }
 
     // ------------------------------------------------------------------ prod
@@ -532,7 +559,7 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
     /// Bitween said when staging tried to create the item, never a forecast of what prod will do.
     /// </summary>
     static List<MirrorNote> Notes(List<MirrorKind> kinds, List<MirrorAdapter> adapters, Plan plan, int extras, List<string> renamed,
-        List<MirrorUnknownField> unknown, MirrorSetupCopy copy, bool catching)
+        List<MirrorUnknownField> unknown, MirrorSetupCopy copy)
     {
         var notes = AdapterNotes(adapters);
 
@@ -592,16 +619,11 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
                 $"{Capital(string.Join(" and ", new[] { fakedPartner > 0 ? Count(fakedPartner, "partner property") : null, fakedGlobal > 0 ? Count(fakedGlobal, "global value") : null }.Where(x => x != null)))} " +
                 $"hold{(fakedPartner + fakedGlobal == 1 ? "s" : "")} a fake of the same shape. Keep a real one only if it's a setting, such as a time zone.",
                 Action: "faked"));
-        if (copy.Addresses.Count > 0)
-            notes.Add(new MirrorNote("addresses", "onPurpose",
-                $"{Capital(Count(copy.Addresses.Count, "address"))} prod uses lead{(copy.Addresses.Count == 1 ? "s" : "")} to a test address on staging, which goes nowhere.",
-                Action: "addresses"));
-        if (catching)
-            notes.Add(new MirrorNote("calls", "onPurpose",
-                "Staging answers calls to test addresses itself, and calls to any host its setup doesn't name, such as one written inside an adapter. A host the setup names, like your own staging API, is called for real.",
-                Action: "calls"));
+        if (copy.Blanks.Count > 0)
+            notes.Add(new MirrorNote("blanks", "onPurpose",
+                "Prod's addresses and secrets are never copied: staging uses its own, your test systems and logins."));
         if ((copy.Sections.GetValueOrDefault("partners")?.Count ?? 0) > 0)
-            notes.Add(new MirrorNote("secrets", "onPurpose", "Secrets are stand-ins, and partners' API keys are staging's own."));
+            notes.Add(new MirrorNote("keys", "onPurpose", "Partners' API keys are staging's own."));
         notes.AddRange(renamed.Select(r => new MirrorNote($"renamed:{r}", "onPurpose", r)));
         return notes;
     }

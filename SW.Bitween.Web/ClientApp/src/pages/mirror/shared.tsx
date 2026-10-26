@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
 import { Link } from "react-router";
-import { api, type MirrorItem, type MirrorSample, type MirrorSampleFile, type SubscriptionType } from "../../api";
+import { api, type MirrorItem, type MirrorNote, type MirrorSample, type MirrorSampleFile, type SubscriptionType } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { whole } from "../../lib/numbers";
@@ -41,6 +41,29 @@ export function itemPath(section: string, id: string | null, type?: string | nul
 }
 
 export const plural = (n: number, one: string, many: string) => `${whole(n)} ${n === 1 ? one : many}`;
+
+/**
+ * Where a note is dealt with: the adapters page; or, for an address or secret to fill in, the item on
+ * staging and the same item on prod, to look its value up there.
+ */
+export function NoteLinks({ note }: { note: MirrorNote }) {
+  const { prodUrl } = useMirror();
+  const fill = note.group === "fill" && note.section;
+  const staging = fill ? itemPath(note.section!, note.stagingId ?? null, note.type) : null;
+  const prod = fill ? itemPath(note.section!, note.prodId ?? null, note.type) : null;
+  return (
+    <span className="inline-flex flex-wrap gap-x-3">
+      {note.action === "adapters-marketplace" && <Link to="/adapters?tab=marketplace" className="link">Open the Marketplace</Link>}
+      {note.action === "adapters-installed" && <Link to="/adapters?tab=installed" className="link">Open Adapters</Link>}
+      {staging && <Link to={staging} className="link" title={`Open “${note.key}” on staging to fill it in`}>Fill it on staging</Link>}
+      {prod && prodUrl && (
+        <a href={`${prodUrl}${prod}`} target="_blank" rel="noreferrer" className="link inline-flex items-center gap-0.5" title={`Open “${note.key}” on prod, in a new tab, to look the value up`}>
+          See it on prod <ExternalLink className="size-3" aria-hidden />
+        </a>
+      )}
+    </span>
+  );
+}
 
 /** "On staging" and "On prod" links to one item, as far as each side has it. */
 export function ItemLinks({ section, item, prodUrl }: { section: string; item: MirrorItem; prodUrl: string }) {

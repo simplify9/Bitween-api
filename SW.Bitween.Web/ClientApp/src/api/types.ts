@@ -2284,18 +2284,24 @@ export interface MirrorItem {
 }
 
 /**
- * One line on the page. needsYou: only a person can do it. copy: copying does it. notCovered: what
- * the test can't include, and why. onPurpose: how staging differs from prod by design.
+ * A line of what is left to do, or worth knowing. needsYou: only a person can do it. fill: an address or
+ * secret staging has no value for yet, to fill in with staging's own. faked: what came faked. copy,
+ * notCovered and onPurpose: how staging stands against prod.
  */
 export interface MirrorNote {
   id: string;
-  group: "needsYou" | "copy" | "notCovered" | "onPurpose";
+  group: "needsYou" | "fill" | "faked" | "copy" | "notCovered" | "onPurpose";
   text: string;
   /** The item it is about, to open it. */
   section: string | null;
   key: string | null;
-  /** Where it is done: adapters-installed, adapters-marketplace, faked or addresses. */
+  /** Where it is done: adapters-installed or adapters-marketplace. */
   action: string | null;
+  /** The item on staging and on prod, to open it on each; null where a side doesn't have it yet. */
+  stagingId?: string | null;
+  prodId?: string | null;
+  /** For a subscription: its type, which decides its page. */
+  type?: string | null;
 }
 
 /** One of prod's exchange files as staging keeps it: faked, or not kept and why. */

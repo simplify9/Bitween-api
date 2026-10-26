@@ -218,7 +218,47 @@ public sealed partial class MirrorService
         var plan = await comparison.Planner.PlanAsync(prune: false);
         var needsYou = AdapterNotes(adapters);
         needsYou.AddRange(plan.Problems.Distinct().Select(p => new MirrorNote($"problem:{p}", "needsYou", $"On staging: {p}")));
+        needsYou.AddRange(FillIns(comparison, needs.Keys));
+        if (FakedNote(index, needs.Keys) is { } faked) needsYou.Add(faked);
         return new Bringing(pieces, needsYou, plan, needs, index, adapters);
+    }
+
+    /// <summary>
+    /// The addresses and secrets of the items that staging has no value for yet: each for a person to fill
+    /// in with staging's own, where it is on staging and where to look it up on prod.
+    /// </summary>
+    static IEnumerable<MirrorNote> FillIns(Comparison comparison, IEnumerable<(string Section, string Key)> items)
+    {
+        var wanted = items.ToHashSet();
+        var rows = comparison.Parity.Kinds.SelectMany(k => k.Items.Select(i => (k.Section, Item: i)))
+            .GroupBy(x => (x.Section, x.Item.Key)).ToDictionary(g => g.Key, g => g.First().Item);
+        foreach (var blank in comparison.Open.Where(b => wanted.Contains((b.Section, b.Key))))
+        {
+            var row = rows.GetValueOrDefault((blank.Section, blank.Key));
+            var what = $"{blank.Field} of the {Kinds.Of(blank.Section).Noun} “{blank.Key}”";
+            yield return new MirrorNote($"fill:{blank.Section}:{blank.Key}:{string.Join("/", blank.Path)}", "fill", blank.Kind switch
+                {
+                    "secret" => $"Fill in {what} with staging's own secret.",
+                    "login" => $"Fill in {what} with your test login.",
+                    _ => $"Fill in {what} with the address of your test system.",
+                },
+                blank.Section, blank.Key, StagingId: row?.StagingId, ProdId: row?.ProdId, Type: row?.Type);
+        }
+    }
+
+    /// <summary>The partners and global values sets among the items whose data comes faked, to say so.</summary>
+    static MirrorNote FakedNote(Dictionary<(string Section, string Key), JsonObject> index, IEnumerable<(string Section, string Key)> items)
+    {
+        var faked = items.Where(n => n.Section switch
+            {
+                "partners" => index[n]["properties"] is JsonObject { Count: > 0 },
+                "globalValues" => index[n]["values"] is JsonObject { Count: > 0 },
+                _ => false,
+            })
+            .OrderBy(n => n.Section, StringComparer.Ordinal).ThenBy(n => n.Key, StringComparer.Ordinal)
+            .Select(n => n.Section == "partners" ? $"partner “{n.Key}”'s properties" : $"the global values “{n.Key}”").ToList();
+        return faked.Count == 0 ? null : new MirrorNote("faked", "faked",
+            $"Faked for staging, the same shape as prod's: {string.Join(", ", faked)}. Change any a test needs on their pages.");
     }
 
     /// <summary>Where staging has an item now, as its page opens it: a SQL statement's is its data source's.</summary>

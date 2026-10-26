@@ -493,10 +493,11 @@ public sealed partial class MirrorService
         {
             "partners" when copied?["properties"] is JsonObject { Count: > 0 } => "Its properties are faked.",
             "globalValues" => "Its values are faked.",
-            "subscriptions" when setup.Copy.Addresses.Any(a => a.UsedBy.Any(u => u.Section == section && u.Key == key)) => "Its addresses are test addresses.",
             _ => null,
         };
-        return new MirrorDiff("used", name, faked == null ? Same : Faked, "Same", "Same", faked, null, section, row.StagingId, row.Type);
+        var own = setup.Copy.Blanks.Any(b => b.Section == section && b.Key == key) ? "Its addresses and secrets are staging's own." : null;
+        return new MirrorDiff("used", name, faked == null ? Same : Faked, "Same", "Same", string.Join(" ", new[] { faked, own }.Where(n => n != null)) is { Length: > 0 } note ? note : null,
+            null, section, row.StagingId, row.Type);
     }
 
     /// <summary>The global values sets a subscription's adapters name in {{globals.set.key}}, as the copy names them.</summary>

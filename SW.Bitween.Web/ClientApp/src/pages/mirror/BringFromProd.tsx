@@ -19,7 +19,7 @@ import { Dialog } from "../../components/ui/overlays";
 import { SearchBox } from "../../components/ui/SearchBox";
 import { timeAgo } from "../../lib/dates";
 import { whole } from "../../lib/numbers";
-import { itemPath, plural, useMirror } from "./shared";
+import { itemPath, NoteLinks, plural, useMirror } from "./shared";
 
 /** Whether staging has one of prod's items, as the picker says it. */
 const ON_STAGING: Record<Exclude<MirrorItemState, "extra">, { label: string; tone: "ok" | "neutral" | "crimson" | "warn"; title: string }> = {
@@ -284,30 +284,47 @@ function Preview({
 }) {
   const doing = result.pieces.filter((p) => p.state === "new" || p.state === "adds" || p.state === "install").length;
   const kept = result.pieces.filter((p) => p.state === "kept");
+  const needsYou = result.needsYou.filter((n) => n.group === "needsYou");
+  const fill = result.needsYou.filter((n) => n.group === "fill");
+  const faked = result.needsYou.find((n) => n.group === "faked");
   return (
     <div className="space-y-4">
       {doing === 0 && !result.pieces.some((p) => p.state === "waits") && (
         <p className="text-sm text-ink-700">Staging already has everything these need. Nothing comes.</p>
       )}
-      {result.needsYou.length > 0 && (
+      {needsYou.length > 0 && (
         <section className="rounded-lg border border-warn-300 bg-warn-100/60 px-3 py-2.5">
           <h3 className="flex items-center gap-1.5 text-sm font-semibold text-ink-900">
             <CircleAlert className="size-4 text-warn-700" aria-hidden /> Needs you first
           </h3>
           <ul className="mt-1.5 space-y-1 text-sm text-ink-700">
-            {result.needsYou.map((n) => (
+            {needsYou.map((n) => (
               <li key={n.id}>
-                {n.text}{" "}
-                {n.action === "adapters-marketplace" ? (
-                  <Link to="/adapters?tab=marketplace" className="link">Open the Marketplace</Link>
-                ) : n.action === "adapters-installed" ? (
-                  <Link to="/adapters?tab=installed" className="link">Open Adapters</Link>
-                ) : null}
+                {n.text} <NoteLinks note={n} />
               </li>
             ))}
           </ul>
         </section>
       )}
+      {fill.length > 0 && (
+        <section>
+          <h3 className="text-sm font-semibold text-ink-900">
+            Fill in on staging after bringing <span className="font-normal text-ink-500">({whole(fill.length)})</span>
+          </h3>
+          <p className="text-[12.5px] text-ink-500">
+            Prod's addresses and secrets never come: they arrive empty, for your test systems and logins. Each subscription's Against prod section
+            lists what is still empty, with links.
+          </p>
+          <ul className="mt-1.5 divide-y divide-ink-100 rounded-lg border border-ink-100">
+            {fill.map((n) => (
+              <li key={n.id} className="px-3 py-2 text-sm text-ink-700">
+                {n.text} <NoteLinks note={n} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      {faked && <p className="text-[12.5px] text-ink-600">{faked.text}</p>}
       {PIECES.map(({ state, title, description }) => {
         const pieces = result.pieces.filter((p) => p.state === state);
         if (pieces.length === 0) return null;
@@ -370,6 +387,7 @@ function PieceList({ pieces, linked = false }: { pieces: MirrorPiece[]; linked?:
 function Brought({ result, onClose }: { result: MirrorBring; onClose: () => void }) {
   const failed = new Set(result.failed.map((f) => `${f.section}/${f.key}`));
   const done = result.pieces.filter((p) => (p.state === "new" || p.state === "adds" || p.state === "install") && !failed.has(`${p.section}/${p.key}`));
+  const fill = result.needsYou.filter((n) => n.group === "fill").length;
   return (
     <div className="space-y-4">
       {done.length > 0 && (
@@ -377,7 +395,10 @@ function Brought({ result, onClose }: { result: MirrorBring; onClose: () => void
           <h3 className="flex items-center gap-1.5 text-sm font-semibold text-ink-900">
             <CircleCheck className="size-4 text-ok-600" aria-hidden /> Brought {plural(done.length, "item", "items")}
           </h3>
-          <p className="text-[12.5px] text-ink-500">Subscriptions are paused: they run only when a test runs them.</p>
+          <p className="text-[12.5px] text-ink-500">
+            Subscriptions are paused: they run only when a test runs them.
+            {fill > 0 && ` Next, fill in ${plural(fill, "address or secret", "addresses and secrets")} with staging's own: each subscription's Against prod section lists them, with links.`}
+          </p>
           <PieceList pieces={done} linked />
         </section>
       )}

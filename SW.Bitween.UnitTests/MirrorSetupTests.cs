@@ -10,7 +10,8 @@ namespace SW.Bitween.UnitTests;
 
 /// <summary>
 /// What each kind of prod's setup becomes on a staging that mirrors it: how flows behave kept,
-/// addresses and secrets replaced, partners' and global data faked, and nothing left to run on its own.
+/// addresses and secrets left for staging's own, partners' and global data faked, and nothing left to
+/// run on its own.
 /// </summary>
 [TestClass]
 public class MirrorSetupTests
@@ -55,14 +56,14 @@ public class MirrorSetupTests
         var p = s["handler"]!["properties"]!;
         Assert.AreEqual("POST", (string)p["Method"]!);
         Assert.AreEqual("{{globals.carrier.token}}", (string)p["Token"]!);
-        StringAssert.EndsWith((string)p["Url"]!, ".mirror.invalid/v2/labels");
-        StringAssert.StartsWith((string)p["Password"]!, "mirror-");
+        Assert.AreEqual("", (string)p["Url"]!);
+        Assert.AreEqual("", (string)p["Password"]!);
 
-        var address = copy.Addresses.Single();
-        Assert.AreEqual("https", address.Kind);
-        var use = address.UsedBy.Single();
-        Assert.AreEqual(("subscriptions", "Push labels"), (use.Section, use.Key));
-        StringAssert.Contains(use.Where, "Url");
+        CollectionAssert.AreEquivalent(new[] { "handler · Url address", "handler · Password secret" },
+            copy.Blanks.Select(b => $"{b.Field} {b.Kind}").ToList());
+        var url = copy.Blanks.Single(b => b.Kind == "address");
+        Assert.AreEqual(("subscriptions", "Push labels"), (url.Section, url.Key));
+        CollectionAssert.AreEqual(new[] { "handler", "properties", "Url" }, url.Path.ToList());
     }
 
     [TestMethod]
@@ -83,10 +84,11 @@ public class MirrorSetupTests
         Assert.AreEqual("AC-1001".Length, ((string)p["accountNumber"]!).Length);
         // Kept, because it was asked for and it is a setting.
         Assert.AreEqual("Europe/Paris", (string)p["timeZone"]!);
-        // Asked for, and never kept: a name a secret goes by, and an address.
-        Assert.AreNotEqual("live_9f8e7d", (string)p["apiKey"]!);
-        Assert.IsFalse(((string)p["webhookUrl"]!).Contains("acme.com"));
-        StringAssert.StartsWith((string)p["sftpPassword"]!, "mirror-");
+        // Asked for, and never kept: a name a secret goes by, and an address. They are staging's own to fill in.
+        Assert.AreEqual("", (string)p["apiKey"]!);
+        Assert.AreEqual("", (string)p["webhookUrl"]!);
+        Assert.AreEqual("", (string)p["sftpPassword"]!);
+        CollectionAssert.AreEquivalent(new[] { "apiKey", "webhookUrl", "sftpPassword" }, copy.Blanks.Select(b => b.Field).ToList());
         Assert.AreNotEqual("acme-client-778", (string)a["loginIdentity"]!);
         StringAssert.StartsWith((string)a["keys"]!["main"]!, "mirror-");
 
@@ -106,16 +108,16 @@ public class MirrorSetupTests
 
         var values = Only(copy, "globalValues")["values"]!;
         Assert.AreNotEqual("traxis-prod", (string)values["bucket"]!);
-        Assert.IsFalse(((string)values["endpoint"]!).Contains("digitaloceanspaces"));
+        Assert.AreEqual("", (string)values["endpoint"]!);
 
         var ds = Only(copy, "dataSources");
         Assert.AreEqual(true, (bool)ds["inactive"]!);
-        Assert.IsFalse(((string)ds["properties"]!["ConnectionString"]!).Contains("traxis"));
-        StringAssert.Contains((string)ds["properties"]!["ConnectionString"]!, "Database=wh");
+        Assert.AreEqual("", (string)ds["properties"]!["ConnectionString"]!);
 
         var bus = Only(copy, "busGateways");
         Assert.AreEqual(true, (bool)bus["inactive"]!);
-        StringAssert.EndsWith((string)bus["endpointProperties"]!["Host"]!, ".mirror.invalid");
+        Assert.AreEqual("", (string)bus["endpointProperties"]!["Host"]!);
+        Assert.AreEqual(3, copy.Blanks.Count);
     }
 
     [TestMethod]

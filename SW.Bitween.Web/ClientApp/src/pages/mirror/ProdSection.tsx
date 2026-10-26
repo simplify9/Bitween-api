@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, CircleAlert, ExternalLink } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router";
 import { api, type MirrorDiff, type MirrorSubscriptionView, type MirrorTest, type MirrorTestVerdict } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { Badge, Button, FormError, InlineNotice, LoadError, LoadingBlock } from "../../components/ui/basics";
@@ -12,7 +11,7 @@ import { whole } from "../../lib/numbers";
 import { pathOf } from "../../pages";
 import { BringDialog } from "./BringFromProd";
 import { DiffLine, FamilyRow, VERDICT, type Entry, type Verdict } from "./Rehearsal";
-import { plural, useMirror } from "./shared";
+import { NoteLinks, plural, useMirror } from "./shared";
 
 function useView(subscriptionId: number, enabled: boolean) {
   return useQuery({
@@ -34,8 +33,8 @@ export function ProdBadge({ subscriptionId }: { subscriptionId: number }) {
   const v = view.data;
   const [label, tone, title]: [string, "ok" | "warn" | "neutral", string] = !v.onProd
     ? ["Only on staging", "neutral", "Prod has no subscription of this name"]
-    : v.needsYou.length > 0 || v.toBring.length > 0
-      ? ["Prod: to do", "warn", "Something it needs isn't on staging yet: see Against prod below"]
+    : v.needsYou.some((n) => n.group !== "faked") || v.toBring.length > 0
+      ? ["Prod: to do", "warn", "Something it needs isn't on staging yet, or an address or secret is still empty: see Against prod below"]
       : differing(v.used).length > 0
         ? ["Differs from prod", "warn", "It, or something it uses, differs from prod's: see Against prod below"]
         : ["Same as prod", "ok", "It and everything it uses are on staging as prod has them"];
@@ -101,6 +100,9 @@ function Differences({ view }: { view: MirrorSubscriptionView }) {
           ? "Nothing: it and everything it uses are on staging as prod has them, with prod's values faked."
           : `${plural(changed.length, "item differs", "items differ")} from prod's, of the ${whole(view.used.length)} it uses. Prod's values are shown faked, as staging has them.`}
       </p>
+      {view.needsYou
+        .filter((n) => n.group === "faked")
+        .map((n) => <p key={n.id} className="mt-0.5 text-ink-600">{n.text}</p>)}
       {changed.length > 0 && (
         <ul className="mt-1.5 space-y-1">
           {changed.map((d) => <DiffLine key={d.name} diff={d} />)}
@@ -129,21 +131,17 @@ function LeftToDo({ view, name, type, canOperate }: { view: MirrorSubscriptionVi
   const [bringing, setBringing] = useState(false);
   const bring = view.toBring.filter((p) => p.state !== "waits");
   const waits = view.toBring.filter((p) => p.state === "waits");
-  if (view.needsYou.length === 0 && view.toBring.length === 0) return null;
+  const todo = view.needsYou.filter((n) => n.group !== "faked");
+  if (todo.length === 0 && view.toBring.length === 0) return null;
   return (
     <section aria-label="Left to do" className="rounded-lg border border-warn-300 bg-warn-100/60 px-3 py-2.5">
       <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-ink-900">
         <CircleAlert className="size-4 text-warn-700" aria-hidden /> Left to do
       </h3>
       <ul className="mt-1.5 space-y-1 text-ink-700">
-        {view.needsYou.map((n) => (
+        {todo.map((n) => (
           <li key={n.id}>
-            {n.text}{" "}
-            {n.action === "adapters-marketplace" ? (
-              <Link to="/adapters?tab=marketplace" className="link">Open the Marketplace</Link>
-            ) : n.action === "adapters-installed" ? (
-              <Link to="/adapters?tab=installed" className="link">Open Adapters</Link>
-            ) : null}
+            {n.text} <NoteLinks note={n} />
           </li>
         ))}
         {bring.length > 0 && (

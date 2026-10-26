@@ -38,33 +38,27 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
     // ------------------------------------------------------------------ values in context
 
     /// <summary>
-    /// An adapter's setting: how a flow behaves, so it is copied as it is - except an address, which
-    /// becomes a mock one, and a secret, which prod never showed and becomes a stand-in.
+    /// What a setting or a value of prod's is that staging never holds, so a copy leaves it empty for
+    /// staging's own: an address (a URL, a host, an email, a connection string) or a secret (one prod
+    /// masks, or one named like a secret). Null for anything else. A host built from a {{token}} isn't
+    /// one yet, nor is a secret that names one: the token is what is copied. Hosts every system names
+    /// alike, such as an XML namespace's www.w3.org, are nobody's.
     /// </summary>
-    public string Setting(string key, string value, string where)
+    public static string BlankKind(string key, string value)
     {
-        if (string.IsNullOrEmpty(value)) return value;
-        if (value == Masked) return Secret(where);
-        if (IsConnectionStringKey(key) || LooksLikeConnectionString(value)) return ConnectionString(value);
-        if (IsAddressKey(key) && BareAddress(value) is { } bare) return bare;
-        return Addresses(value);
+        if (string.IsNullOrEmpty(value)) return null;
+        if (value == Masked || IsSecretLike(key) && !TokenPattern.IsMatch(value)) return "secret";
+        if (IsConnectionStringKey(key) || LooksLikeConnectionString(value) || HostsIn(key, value).Any(h => !Untouched(h))) return "address";
+        return null;
     }
 
     /// <summary>
-    /// A partner's property or a global value: someone's data, so it is faked, unless it was asked to
-    /// be kept because it is a setting rather than data (a time zone, a date format). Addresses and
-    /// secrets are never kept.
+    /// A partner's property or a global value that is neither an address nor a secret: someone's data,
+    /// so it is faked, unless it was asked to be kept because it is a setting rather than data (a time
+    /// zone, a date format). A port is nobody's data.
     /// </summary>
-    public string Datum(string key, string value, string where, bool keepReal = false)
-    {
-        if (string.IsNullOrEmpty(value)) return value;
-        if (value == Masked) return Secret(where);
-        if (IsConnectionStringKey(key) || LooksLikeConnectionString(value)) return ConnectionString(value);
-        if (IsAddressKey(key) && BareAddress(value) is { } bare) return bare;
-        // A port is nobody's data, and it is what a mock listens on.
-        if (IsPortKey(key)) return value;
-        return keepReal && !IsSecretLike(key) ? Addresses(value) : Fake(value);
-    }
+    public string Datum(string key, string value, bool keepReal = false) =>
+        string.IsNullOrEmpty(value) || keepReal || IsPortKey(key) ? value : Fake(value);
 
     /// <summary>
     /// A name a secret goes by, declared one or not: such a value is never copied as it is, whatever
@@ -303,29 +297,6 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
         return result.ToString();
     }
 
-    /// <summary>
-    /// A host, an IP, host:port or a list of them, as a setting named for an address holds: each made
-    /// a mock one. Null when the value isn't one, so it is read as text instead.
-    /// </summary>
-    public string BareAddress(string value)
-    {
-        var trimmed = value.Trim();
-        if (trimmed.Contains("://")) return null;
-        var prefix = trimmed.StartsWith("tcp:", StringComparison.OrdinalIgnoreCase) ? trimmed[..4] : "";
-        var parts = trimmed[prefix.Length..].Split(',');
-        var any = false;
-        var mocked = parts.Select(part =>
-        {
-            var p = part.Trim();
-            if (p.Length > 0 && p.All(char.IsAsciiDigit)) return part; // host,port as SQL Server writes it
-            var (host, port) = SplitPort(p);
-            if (!IsHost(host) && !IPAddress.TryParse(host, out _)) return null;
-            any = true;
-            return part.Replace(p, Host(host) + port);
-        }).ToList();
-        return !any || mocked.Any(m => m == null) ? null : value.Replace(trimmed, prefix + string.Join(",", mocked));
-    }
-
     /// <summary>A host's mock: the same each time. Loopback and names that resolve nowhere are left alone.</summary>
     public string Host(string host)
     {
@@ -341,28 +312,6 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
         if (Untouched(lower)) return host;
         var hash = Bytes("host", lower, 4);
         return $"m{Convert.ToHexString(hash).ToLowerInvariant()}.{MockDomain}";
-    }
-
-    /// <summary>A connection string: its host made a mock one, its password a stand-in, its user faked; settings kept.</summary>
-    public string ConnectionString(string value)
-    {
-        if (value.Contains("://")) return value.Replace(value.Trim(), Url(value.Trim(), fakeQuery: true));
-        return string.Join(";", value.Split(';').Select(pair =>
-        {
-            var eq = pair.IndexOf('=');
-            if (eq <= 0) return pair;
-            var name = pair[..eq];
-            var v = pair[(eq + 1)..];
-            var k = name.Trim().ToLowerInvariant().Replace(" ", "");
-            return name + "=" + k switch
-            {
-                "host" or "server" or "datasource" or "address" or "addr" or "networkaddress" or "endpoint" or "hostname"
-                    or "endpointsuffix" or "blobendpoint" or "queueendpoint" => BareAddress(v) ?? Addresses(v),
-                "password" or "pwd" or "accountkey" or "sharedaccesskey" or "sharedaccesssignature" or "secret" => Shape(v),
-                "userid" or "uid" or "user" or "username" or "accountname" or "sharedaccesskeyname" => Fake(v),
-                _ => v,
-            };
-        }));
     }
 
     string Url(string url, bool fakeQuery)
@@ -497,7 +446,14 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
         static string Bare(string host)
         {
             var h = host.Trim().Trim('[', ']').ToLowerInvariant();
-            return h.Length > 0 && !h.Contains("{{") && (IsHost(h) || IPAddress.TryParse(h, out _)) ? h : null;
+            return h.Length > 0 && !h.Contains("{{") && (IsHost(h) || IsIp(h)) ? h : null;
+        }
+
+        // Written out as an address is: "30" parses as 0.0.0.30, and is a number of seconds.
+        static bool IsIp(string h)
+        {
+            if (!IPAddress.TryParse(h, out var ip)) return false;
+            return ip.AddressFamily == AddressFamily.InterNetworkV6 ? h.Contains(':') : h.Count(c => c == '.') == 3;
         }
     }
 

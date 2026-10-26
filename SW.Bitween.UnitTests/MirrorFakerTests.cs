@@ -71,58 +71,38 @@ public class MirrorFakerTests
     }
 
     [TestMethod]
-    public void Addresses_become_mock_ones_that_resolve_nowhere()
+    public void Addresses_are_left_for_stagings_own()
     {
-        var url = Faker.Setting("BaseUrl", "https://ws05.ffdx.net:8443/api/v2/orders?apikey=XK99&mode=live", "x");
-        StringAssert.StartsWith(url, "https://m");
-        StringAssert.Contains(url, ".mirror.invalid:8443/api/v2/orders?apikey=");
-        Assert.IsFalse(url.Contains("ffdx"), url);
-        // A setting's query is how the flow behaves; only a datum's is faked.
-        StringAssert.EndsWith(url, "?apikey=XK99&mode=live");
-        Assert.IsFalse(Faker.Datum("callback", "https://ws05.ffdx.net/cb?apikey=XK99", "x").Contains("XK99"));
-
-        // The same host is the same mock wherever it appears.
-        var host = new Regex(@"m[0-9a-f]{8}\.mirror\.invalid").Match(url).Value;
-        Assert.AreEqual(host, Faker.Setting("SftpHost", "ws05.ffdx.net", "y"));
-
-        var email = Faker.Setting("Recipients", "ops@traxis.app, Lina <lina@traxis.app>", "z");
-        Assert.IsFalse(email.Contains("traxis"), email);
-        StringAssert.Contains(email, ", Lina <");
-
-        StringAssert.StartsWith(Faker.Setting("Server", "10.20.30.40", "w"), "192.0.2.");
-        Assert.AreEqual("localhost:5000", Faker.Setting("Host", "localhost:5000", "w"));
+        Assert.AreEqual("address", MirrorFaker.BlankKind("BaseUrl", "https://ws05.ffdx.net:8443/api/v2/orders?apikey=XK99&mode=live"));
+        Assert.AreEqual("address", MirrorFaker.BlankKind("SftpHost", "ws05.ffdx.net"));
+        Assert.AreEqual("address", MirrorFaker.BlankKind("Recipients", "ops@traxis.app, Lina <lina@traxis.app>"));
+        Assert.AreEqual("address", MirrorFaker.BlankKind("Server", "10.20.30.40"));
+        Assert.AreEqual("address", MirrorFaker.BlankKind("ConnectionString", "Host=db.traxis.app;Port=5432;Database=ship;Username=traxis;Password=S3cret!x"));
+        Assert.AreEqual("address", MirrorFaker.BlankKind("Broker", "amqp://bitween:hunter2@mq.traxis.app:5672/prod"));
+        Assert.AreEqual("address", MirrorFaker.BlankKind("note", "mail ops@traxis.app"));
     }
 
     [TestMethod]
-    public void Text_that_only_looks_like_an_address_is_left_alone_in_a_setting()
+    public void Text_that_only_looks_like_an_address_is_copied_as_it_is()
     {
         // Named like an address, holding something else.
-        Assert.AreEqual("/inbound/orders", Faker.Setting("SftpRemoteFolder", "/inbound/orders", "x"));
-        Assert.AreEqual("30", Faker.Setting("ServerTimeoutSeconds", "30", "x"));
-        Assert.AreEqual("orders.json", Faker.Setting("FileName", "orders.json", "x"));
-        // XML names its namespaces after hosts; a namespace is matched as text.
-        Assert.AreEqual("http://www.w3.org/2001/XMLSchema", Faker.Setting("Namespace", "http://www.w3.org/2001/XMLSchema", "x"));
-        Assert.AreEqual("https://{{globals.api.host}}/orders", Faker.Setting("Url", "https://{{globals.api.host}}/orders", "x"));
+        Assert.IsNull(MirrorFaker.BlankKind("SftpRemoteFolder", "/inbound/orders"));
+        Assert.IsNull(MirrorFaker.BlankKind("ServerTimeoutSeconds", "30"));
+        Assert.IsNull(MirrorFaker.BlankKind("FileName", "orders.json"));
+        Assert.IsNull(MirrorFaker.BlankKind("Host", "localhost:5000"));
+        // XML names its namespaces after hosts every system names alike.
+        Assert.IsNull(MirrorFaker.BlankKind("Namespace", "http://www.w3.org/2001/XMLSchema"));
+        // A token is copied: what it names is staging's own.
+        Assert.IsNull(MirrorFaker.BlankKind("Url", "https://{{globals.api.host}}/orders"));
+        Assert.IsNull(MirrorFaker.BlankKind("Token", "{{globals.carrier.token}}"));
     }
 
     [TestMethod]
-    public void A_connection_string_keeps_its_settings_and_loses_its_server_and_password()
+    public void A_secret_is_left_for_stagings_own_whether_prod_masks_it_or_not()
     {
-        var cs = Faker.Setting("ConnectionString", "Host=db.traxis.app;Port=5432;Database=ship;Username=traxis;Password=S3cret!x", "x");
-        StringAssert.Contains(cs, "Port=5432;Database=ship;");
-        Assert.IsFalse(cs.Contains("traxis"), cs);
-        Assert.IsFalse(cs.Contains("S3cret"), cs);
-
-        var uri = Faker.Setting("Broker", "amqp://bitween:hunter2@mq.traxis.app:5672/prod", "x");
-        Assert.IsFalse(uri.Contains("hunter2") || uri.Contains("traxis"), uri);
-        StringAssert.EndsWith(uri, ":5672/prod");
-    }
-
-    [TestMethod]
-    public void A_secret_prod_would_not_show_becomes_a_stand_in()
-    {
-        StringAssert.StartsWith(Faker.Setting("Password", MirrorFaker.Masked, "subscription/1/handler/Password"), "mirror-");
-        StringAssert.StartsWith(Faker.Datum("apiKey", MirrorFaker.Masked, "partner/Acme/apiKey"), "mirror-");
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("Password", MirrorFaker.Masked));
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("apiKey", "live_9f8e7d"));
+        Assert.IsNull(MirrorFaker.BlankKind("Method", "POST"));
     }
 
     [TestMethod]
@@ -170,11 +150,10 @@ public class MirrorFakerTests
     }
 
     [TestMethod]
-    public void Data_is_faked_unless_kept_and_addresses_never_are()
+    public void Data_is_faked_unless_kept()
     {
-        Assert.AreNotEqual("Europe/Paris", Faker.Datum("timeZone", "Europe/Paris", "x"));
-        Assert.AreEqual("Europe/Paris", Faker.Datum("timeZone", "Europe/Paris", "x", keepReal: true));
-        Assert.IsFalse(Faker.Datum("note", "mail ops@traxis.app", "x", keepReal: true).Contains("traxis"));
-        Assert.AreEqual("2222", Faker.Datum("SftpPort", "2222", "x"));
+        Assert.AreNotEqual("Europe/Paris", Faker.Datum("timeZone", "Europe/Paris"));
+        Assert.AreEqual("Europe/Paris", Faker.Datum("timeZone", "Europe/Paris", keepReal: true));
+        Assert.AreEqual("2222", Faker.Datum("SftpPort", "2222"));
     }
 }

@@ -57,7 +57,15 @@ describe("a subscription against prod", () => {
         http.get(apiPath("/mirror/subscription"), () =>
           HttpResponse.json(view({
             toBring: [{ section: "partners", noun: "partner", key: "Globex", state: "new", why: "Picked.", reason: null, stagingId: null, type: null }],
-            needsYou: [{ id: "adapter:acme.mapper", group: "needsYou", text: "Upload the adapter acme.mapper on the Adapters page.", section: null, key: null, action: "adapters-installed" }],
+            needsYou: [
+              { id: "adapter:acme.mapper", group: "needsYou", text: "Upload the adapter acme.mapper on the Adapters page.", section: null, key: null, action: "adapters-installed" },
+              {
+                id: "fill:subscriptions:Acme orders:handler/properties/Url", group: "fill",
+                text: "Fill in handler · Url of the subscription “Acme orders” with the address of your test system.",
+                section: "subscriptions", key: "Acme orders", action: null, stagingId: "10", prodId: "31", type: "BusGateway",
+              },
+              { id: "faked", group: "faked", text: "Faked for staging, the same shape as prod's: partner “Acme”'s properties.", section: null, key: null, action: null },
+            ],
           })),
         ),
         http.get(apiPath("/mirror/test"), () => HttpResponse.json(test())),
@@ -78,6 +86,11 @@ describe("a subscription against prod", () => {
     expect(await screen.findByText("Partner “Acme”")).toBeVisible();
     expect(screen.getByText(/1 item differs from prod's, of the 2 it uses/)).toBeVisible();
     expect(screen.getByText(/Upload the adapter acme\.mapper/)).toBeVisible();
+    // An address prod's has, left for staging's own: where to fill it in, and where to look it up.
+    const fill = within(screen.getByText(/Fill in handler · Url/).closest("li")!);
+    expect(fill.getByRole("link", { name: "Fill it on staging" })).toHaveAttribute("href", expect.stringContaining("/10"));
+    expect(fill.getByRole("link", { name: /See it on prod/ })).toHaveAttribute("href", expect.stringMatching(/^https:\/\/bitween\.acme\.test\/.*31/));
+    expect(screen.getByText(/Faked for staging/)).toBeVisible();
     expect(screen.getByText(/the partner “Globex”/)).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Bring it from prod" }));
