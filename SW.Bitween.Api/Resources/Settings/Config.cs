@@ -49,6 +49,8 @@ public class Config(BitweenOptions BitweenOptions, ThemeOptions themeOptions) : 
             // sign-in page "Forgot password?", only when it can.
             MailServerConfigured = BitweenOptions.MailServer.IsSet,
             PasswordResetAvailable = Services.AccountMail.ResetAvailableFor(BitweenOptions),
+            // Whether AI features are offered: the mapping editor's Generate with AI, so far.
+            AiConfigured = BitweenOptions.Ai.IsSet,
             IsRabbitMqManagementConfigured = !string.IsNullOrWhiteSpace(BitweenOptions.RabbitMqManagementUrl)
                                              && !string.IsNullOrWhiteSpace(BitweenOptions.RabbitMqManagementUsername)
                                              && !string.IsNullOrWhiteSpace(BitweenOptions.RabbitMqManagementPassword),

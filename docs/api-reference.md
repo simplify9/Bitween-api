@@ -223,6 +223,7 @@ A value that breaks a rule is refused with a validation error whose message says
 | `POST /api/adapterdrafts/{id}/try` | `adapter-source.edit` | Call a command: `{ settings, command, input }` |
 | `POST /api/adapterdrafts/{id}/publish` | `adapter-source.operate` | Publish a version, not made current: `{ version, releaseNotes, settings }`. `version` is `major`, `minor`, `patch` (the default) or an exact version. |
 | `POST /api/mappingpreviews` | signed in, no permission checked | Preview rules-based mapping |
+| `POST /api/mappingsuggestions` | `subscriptions.create` or `subscriptions.edit` | Generate rules-based mapping rules with AI: `{ mappingRules, sourceDocument, targetDocument, partnerId, refine, instructions }`. See [Generate with AI](mapping.md#generate-with-ai). |
 | `POST /api/mappers` | `subscriptions.edit` | Preview a legacy Scriban template |
 
 Adapter descriptions are cached per node. Publishing, promoting or withdrawing through the API clears them on every node; a package published straight to storage shows its old properties for up to a minute.

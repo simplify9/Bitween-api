@@ -190,6 +190,9 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.RegistryInstanceId` | Marketplace | Yes | empty, set by registering |
 | `Bitween.RegistryInstanceToken` | Marketplace | Yes, secret | empty, set by registering |
 | `Bitween.RegistryUsageReports` | Marketplace | Yes | `false` |
+| `Bitween.Ai.Provider` | AI | Yes | `Anthropic` |
+| `Bitween.Ai.ApiKey` | AI | Yes, secret | empty, AI features off |
+| `Bitween.Ai.Model`, `BaseUrl` | AI | Yes | empty |
 | `Bitween.MailServer.Host`, `Port`, `UseTls`, `CertificateThumbprint`, `Username`, `From`, `FromName` | Mail server | Yes | port `587`, `UseTls` `true`, the rest empty |
 | `Bitween.MailServer.Password` | Mail server | Yes, secret | empty |
 | `Bitween.Mirror.Target` | Prod mirror | Read-only | `false` |
@@ -211,11 +214,24 @@ The retry poll and retention crons are validated before they're saved, and savin
 
 The **Mail server** section is the one SMTP server every Email notification channel sends through, so a channel only names its recipients. Member invites, password resets and account notices go through it too; see [Invites and password resets](security.md#invites-and-password-resets). It is read on each send. Until a host and a From address are set, Email channels can't send, and their page says so. The connection follows the [SMTP adapter's](adapters.md#nativesmtphandler) rules: a password is only sent over TLS, `CertificateThumbprint` trusts exactly that certificate, and a server that doesn't answer within 30 seconds fails the send. The password is a secret setting, so storing it needs `Bitween:SettingsEncryptionKey`. Without one, set it through configuration (`Bitween__MailServer__Password`).
 
+### AI
+
+The **AI** section is the provider every AI feature calls; the first is [Generate with AI](mapping.md#generate-with-ai) in the mapping editor. It is read on each call, and AI features stay off until an API key is set.
+
+- **Provider** is `Anthropic` or `OpenAI`. Any other value, such as a misspelling in configuration, leaves AI features off. `OpenAI` also covers anything that speaks its chat completions API at **API address**: an Azure OpenAI resource (`https://your-resource.openai.azure.com/openai/v1/`), a local Ollama (`http://localhost:11434/v1/`) or a proxy.
+- **Model** empty uses `claude-opus-5-5` with Anthropic. OpenAI needs one named, or the Azure deployment's name.
+- **API key** is a secret setting, so storing it needs `Bitween:SettingsEncryptionKey`.
+- **API address** must be `https`, except plain `http` to this machine (`localhost`), so the key is never sent in the clear. Calls go through the same address check as adapters: never to link-local or cloud metadata addresses, and not to private or loopback ones while `Bitween:BlockPrivateNetworkAddresses` is on.
+
+When the provider refuses or fails a call, the message gives its HTTP status, not the text it sent back.
+
+Sample documents an AI feature sends go to this provider, with the names - never the values - of partner properties and global values. Secret ones are not named.
+
 The page also has a **Notification channels** section. Channels are records rather than settings: they have their own table, each opens on a page of its own, and the `notifiers` permissions cover them rather than `settings`. See [Notification channels](retries-and-alerts.md#notification-channels).
 
 `GET /api/retention` and `POST /api/retention/preview` describe what the retention settings do, as saved or as proposed. The Settings page uses them. `POST /api/retention/aggregation` says whether exchanges would be removed before an aggregation on the given schedules rolls them up; the aggregation page uses it.
 
-`GET /api/settings/config` needs no sign-in. It returns the Microsoft sign-in values, whether email and password sign-in is disabled, whether RabbitMQ management is configured, and the theme. The sign-in page loads it.
+`GET /api/settings/config` needs no sign-in. It returns the Microsoft sign-in values, whether email and password sign-in is disabled, whether RabbitMQ management is configured, whether AI features are configured (`aiConfigured`), and the theme. The sign-in page loads it.
 
 ## Helm values
 

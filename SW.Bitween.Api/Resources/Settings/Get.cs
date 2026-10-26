@@ -49,6 +49,7 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext, Sett
                 DefaultValue = definition.Secret ? string.Empty : productDefault,
                 Value = value,
                 Secret = definition.Secret,
+                Choices = definition.Choices?.ToArray(),
                 Overridden = definition.Secret ? secretIsSet : hasRow && stored != productDefault,
                 HasValue = definition.Secret
                     ? secretIsSet

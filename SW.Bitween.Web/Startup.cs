@@ -153,6 +153,7 @@ namespace SW.Bitween.Web
             services.AddScoped<IAdapterRuntime, ClassicAdapterRuntime>();
             services.AddScoped<IAdapterInvoker, AdapterInvoker>();
             services.AddScoped<MappingContextFactory>();
+            services.AddScoped<SW.Bitween.Services.Ai.AiModels>();
             services.AddScoped<XchangeService>();
             services.AddScoped<NotificationChannelSender>();
             services.AddSingleton<AccountMail>();

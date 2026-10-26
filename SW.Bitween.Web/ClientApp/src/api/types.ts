@@ -1351,6 +1351,8 @@ export interface SettingRow {
   /** The stored value, or null for a secret - those never leave the server. */
   value: string | null;
   secret: boolean;
+  /** The only values a string setting takes, shown as a dropdown. Absent for free text. */
+  choices?: string[] | null;
   /** The stored value differs from the product default, so a reset would do something. */
   overridden: boolean;
   /** Whether the effective value is non-empty - the only way a secret reveals it is set. */

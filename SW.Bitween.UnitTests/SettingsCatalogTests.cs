@@ -24,6 +24,7 @@ public class SettingsCatalogTests
                 "Single sign-on (OpenID Connect)",
                 "Adapters",
                 "Marketplace",
+                "AI",
                 "Mail server",
                 "Prod mirror",
                 "Reliability & jobs",
@@ -138,5 +139,43 @@ public class SettingsCatalogTests
         // Empty clears it, which is how an administrator stops Email channels sending.
         mail["Bitween.MailServer.Host"].Write(target, "");
         Assert.IsNull(target.Bitween.MailServer.Host);
+    }
+
+    /// <summary>
+    /// Every AI feature reads the provider per call, so all of it is an edit; only the key is secret,
+    /// and the provider is a choice rather than free text.
+    /// </summary>
+    [TestMethod]
+    public void The_ai_provider_is_editable_and_checks_what_it_is_given()
+    {
+        var ai = SettingsCatalog.All.Where(d => d.Section == "AI").ToDictionary(d => d.Key);
+
+        Assert.IsTrue(ai.Values.All(d => d.Access == SettingAccess.Editable));
+        CollectionAssert.AreEqual(new[] { "Bitween.Ai.ApiKey" }, ai.Values.Where(d => d.Secret).Select(d => d.Key).ToArray());
+        CollectionAssert.AreEqual(new[] { "Anthropic", "OpenAI" }, ai["Bitween.Ai.Provider"].Choices.ToArray());
+        Assert.AreEqual("Anthropic", SettingsService.DefaultOf(ai["Bitween.Ai.Provider"]));
+
+        var target = new SettingsTarget(new BitweenOptions(), new ThemeOptions());
+        Assert.IsFalse(target.Bitween.Ai.IsSet, "no key, no AI");
+        ai["Bitween.Ai.ApiKey"].Write(target, " sk-test ");
+        Assert.IsTrue(target.Bitween.Ai.IsSet);
+        Assert.AreEqual("claude-opus-5-5", target.Bitween.Ai.ResolvedModel);
+
+        // Spelled the way the list spells it, whatever case it arrived in.
+        ai["Bitween.Ai.Provider"].Write(target, "openai");
+        Assert.AreEqual("OpenAI", target.Bitween.Ai.Provider);
+        Assert.IsFalse(target.Bitween.Ai.IsSet, "OpenAI has no default model");
+        Assert.ThrowsException<System.FormatException>(() => ai["Bitween.Ai.Provider"].Write(target, "Gemini"));
+
+        Assert.ThrowsException<System.FormatException>(() => ai["Bitween.Ai.BaseUrl"].Write(target, "localhost:11434"));
+        // Plain http would send the key in the clear anywhere but this machine.
+        Assert.ThrowsException<System.FormatException>(() => ai["Bitween.Ai.BaseUrl"].Write(target, "http://ollama.lan:11434/v1/"));
+        ai["Bitween.Ai.BaseUrl"].Write(target, "http://localhost:11434/v1/");
+        Assert.AreEqual("http://localhost:11434/v1/", target.Bitween.Ai.BaseUrl);
+
+        // A misspelt provider from configuration is off, not sent down the OpenAI path.
+        target.Bitween.Ai.Model = "some-model";
+        target.Bitween.Ai.Provider = "Anthropc";
+        Assert.IsFalse(target.Bitween.Ai.IsSet);
     }
 }
