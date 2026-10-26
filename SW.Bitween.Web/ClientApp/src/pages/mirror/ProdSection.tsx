@@ -168,7 +168,8 @@ function LeftToDo({ view, name, type, canOperate }: { view: MirrorSubscriptionVi
 /** The test: prod's latest arrivals, each sent in on staging the way it came in on prod, and how they ran. */
 function TestPart({ subscriptionId, view, canOperate }: { subscriptionId: number; view: MirrorSubscriptionView; canOperate: boolean }) {
   const prodUrl = view.prodUrl;
-  const toFill = view.needsYou.filter((n) => n.group === "fill").length;
+  // A channel that only sends alerts doesn't stop an exchange from running.
+  const toFill = view.needsYou.filter((n) => n.group === "fill" && n.action !== "alerts").length;
   const custom = view.customAdapters ?? [];
   const [confirmingRun, setConfirmingRun] = useState(false);
   const queryClient = useQueryClient();

@@ -52,6 +52,32 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
         return null;
     }
 
+    /// <summary>Where a placeholder address leads: a name reserved never to resolve (RFC 2606).</summary>
+    public const string PlaceholderHost = "set-me.invalid";
+
+    /// <summary>A placeholder login.</summary>
+    public const string PlaceholderText = "set-me";
+
+    /// <summary>
+    /// What stands in for one of prod's addresses or secrets until staging's own is filled in. Bitween
+    /// won't save some items without an address or a login, so those get a placeholder that leads
+    /// nowhere; a secret stays empty, since Bitween hides one once it is set.
+    /// </summary>
+    public static string Placeholder(string kind, string key, string value)
+    {
+        if (kind == "secret") return "";
+        if (kind == "login") return PlaceholderText;
+        var trimmed = value.Trim();
+        if (UrlPattern.Match(trimmed) is { Success: true } url && url.Index == 0) return $"{url.Groups["scheme"].Value}://{PlaceholderHost}";
+        if (EmailPattern.IsMatch(trimmed)) return $"{PlaceholderText}@{PlaceholderHost}";
+        if (IsConnectionStringKey(key) || LooksLikeConnectionString(trimmed)) return $"Host={PlaceholderHost}";
+        return PlaceholderHost;
+    }
+
+    /// <summary>Whether a value of staging's is still what the copy left: empty, or a placeholder.</summary>
+    public static bool IsPlaceholder(string value) =>
+        string.IsNullOrEmpty(value) || value == PlaceholderText || value.Contains(PlaceholderHost, StringComparison.OrdinalIgnoreCase);
+
     /// <summary>
     /// A partner's property or a global value that is neither an address nor a secret: someone's data,
     /// so it is faked, unless it was asked to be kept because it is a setting rather than data (a time

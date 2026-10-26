@@ -236,15 +236,19 @@ public sealed partial class MirrorService
         {
             var row = rows.GetValueOrDefault((blank.Section, blank.Key));
             var what = $"{blank.Field} of the {Kinds.Of(blank.Section).Noun} “{blank.Key}”";
+            var alerts = OnlyAlerts(blank.Section);
             yield return new MirrorNote($"fill:{blank.Section}:{blank.Key}:{string.Join("/", blank.Path)}", "fill", blank.Kind switch
                 {
-                    "secret" => $"Fill in {what} with staging's own secret.",
-                    "login" => $"Fill in {what} with your test login.",
-                    _ => $"Fill in {what} with the address of your test system.",
-                },
-                blank.Section, blank.Key, StagingId: row?.StagingId, ProdId: row?.ProdId, Type: row?.Type);
+                    "secret" => $"Fill in {what} with staging's own secret: it is empty.",
+                    "login" => $"Fill in {what} with your test login, in place of {MirrorFaker.PlaceholderText}.",
+                    _ => $"Fill in {what} with your test system's, in place of the placeholder, which leads nowhere.",
+                } + (alerts ? " Tests run without it: it only sends alerts." : ""),
+                blank.Section, blank.Key, alerts ? "alerts" : null, row?.StagingId, row?.ProdId, row?.Type);
         }
     }
+
+    /// <summary>Kinds that only send alerts: an exchange runs the same whether they are filled in or not.</summary>
+    internal static bool OnlyAlerts(string section) => section is "notificationChannels" or "notifiers";
 
     /// <summary>The partners and global values sets among the items whose data comes faked, to say so.</summary>
     static MirrorNote FakedNote(Dictionary<(string Section, string Key), JsonObject> index, IEnumerable<(string Section, string Key)> items)

@@ -83,6 +83,20 @@ public class MirrorFakerTests
     }
 
     [TestMethod]
+    public void A_placeholder_stands_in_and_reads_as_still_to_fill_in()
+    {
+        Assert.AreEqual("sftp://set-me.invalid", MirrorFaker.Placeholder("address", "Url", "sftp://ws05.ffdx.net:22/in"));
+        Assert.AreEqual("set-me@set-me.invalid", MirrorFaker.Placeholder("address", "To", "ops@traxis.app, lina@traxis.app"));
+        Assert.AreEqual("set-me.invalid", MirrorFaker.Placeholder("address", "Host", "10.20.30.40"));
+        Assert.AreEqual("", MirrorFaker.Placeholder("secret", "Password", MirrorFaker.Masked));
+        Assert.AreEqual("set-me", MirrorFaker.Placeholder("login", "clientId", "acme-prod"));
+
+        Assert.IsTrue(MirrorFaker.IsPlaceholder("https://set-me.invalid"));
+        Assert.IsTrue(MirrorFaker.IsPlaceholder(""));
+        Assert.IsFalse(MirrorFaker.IsPlaceholder("https://sandbox.carrier.com/v2"));
+    }
+
+    [TestMethod]
     public void Text_that_only_looks_like_an_address_is_copied_as_it_is()
     {
         // Named like an address, holding something else.

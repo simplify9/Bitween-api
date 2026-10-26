@@ -175,11 +175,11 @@ public sealed partial class MirrorService
         return test;
     }
 
-    /// <summary>The empty addresses and secrets among a subscription and what it needs.</summary>
+    /// <summary>The addresses and secrets still to fill in among a subscription and what it needs, but those that only send alerts.</summary>
     static List<MirrorBlank> OpenFor(Setup setup, string name)
     {
         var needs = Needs(setup.Copy.Sections, [("subscriptions", name)]);
-        return setup.Open.Where(b => needs.ContainsKey((b.Section, b.Key))).ToList();
+        return setup.Open.Where(b => needs.ContainsKey((b.Section, b.Key)) && !OnlyAlerts(b.Section)).ToList();
     }
 
     /// <summary>

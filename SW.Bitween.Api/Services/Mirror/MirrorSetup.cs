@@ -8,8 +8,9 @@ using SW.Bitween.Cli.Configuration;
 namespace SW.Bitween.Services.Mirror;
 
 /// <summary>
-/// A value of prod's the copy leaves empty, for staging's own: an address or a secret. Staging's value
-/// is kept wherever staging has one, so only an empty one is left to do.
+/// A value of prod's the copy never brings, for staging's own: an address or a secret, which arrives
+/// as a placeholder (see <see cref="MirrorFaker.Placeholder"/>). Staging's value is kept wherever staging
+/// has one, so only a placeholder is left to do.
 /// </summary>
 /// <param name="Path">Where it is in the item, as its configuration file says it: handler, properties, Url.</param>
 /// <param name="Field">Where it is, in words: handler · Url.</param>
@@ -35,7 +36,7 @@ public record MirrorSetupCopy(
 /// Prod's setup, read as a configuration file would say it, with what staging must not hold taken out:
 /// <list type="bullet">
 /// <item>how flows behave is copied as it is - formats, schedules, filters, mapping rules, tokens;</item>
-/// <item>addresses and secrets are left empty, for staging's own: the team's test systems and logins;</item>
+/// <item>addresses and secrets never come: placeholders stand in until staging's own are filled in - the team's test systems and logins;</item>
 /// <item>partners' API keys become keys of staging's own;</item>
 /// <item>partner properties and global values, which are someone's data, are faked to the same shape,
 /// unless a key is kept as a setting.</item>
@@ -64,7 +65,7 @@ public static class MirrorSetup
         var where = $"{section}/{key}";
         void Blank(JsonObject owner, string name, string kind, params string[] path)
         {
-            owner[name] = "";
+            owner[name] = MirrorFaker.Placeholder(kind, name, (string)owner[name] ?? "");
             blanks.Add(new MirrorBlank(section, key, path, string.Join(" · ", path.Where(p => p != "properties")), kind));
         }
 

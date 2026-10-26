@@ -312,8 +312,8 @@ function Preview({
             Fill in on staging after bringing <span className="font-normal text-ink-500">({whole(fill.length)})</span>
           </h3>
           <p className="text-[12.5px] text-ink-500">
-            Prod's addresses and secrets never come: they arrive empty, for your test systems and logins. Each subscription's Against prod section
-            lists what is still empty, with links.
+            Prod's addresses and secrets never come: addresses arrive as placeholders that lead nowhere (<code className="font-mono text-[12px]">set-me.invalid</code>)
+            and secrets empty, for your test systems and logins. Each subscription's Against prod section lists what is still to fill in, with links.
           </p>
           <ul className="mt-1.5 divide-y divide-ink-100 rounded-lg border border-ink-100">
             {fill.map((n) => (

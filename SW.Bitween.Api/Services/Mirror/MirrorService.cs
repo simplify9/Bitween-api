@@ -177,8 +177,8 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
     }
 
     /// <summary>
-    /// Every address and secret the copy left empty takes staging's own where staging has one, so staging's
-    /// never reads as a difference from prod's. The ones staging has no value for are left to do.
+    /// Every address and secret the copy didn't bring takes staging's own where staging has one, so
+    /// staging's never reads as a difference from prod's. Those still empty or a placeholder are left to do.
     /// </summary>
     static List<MirrorBlank> TakeStagingsOwn(MirrorSetupCopy copy, Context staging)
     {
@@ -187,7 +187,7 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
         {
             var mine = staging.Current.GetValueOrDefault(blank.Section)?.FirstOrDefault(e => e.Key == blank.Key)?.File;
             var item = copy.Sections.GetValueOrDefault(blank.Section)?.FirstOrDefault(i => Kinds.Of(blank.Section).KeyOf(i) == blank.Key);
-            if (At(mine, blank.Path) is JsonValue v && v.TryGetValue<string>(out var value) && value.Length > 0
+            if (At(mine, blank.Path) is JsonValue v && v.TryGetValue<string>(out var value) && !MirrorFaker.IsPlaceholder(value)
                 && At(item, blank.Path.Take(blank.Path.Count - 1)) is JsonObject owner)
                 owner[blank.Path[^1]] = value;
             else

@@ -56,7 +56,8 @@ public class MirrorSetupTests
         var p = s["handler"]!["properties"]!;
         Assert.AreEqual("POST", (string)p["Method"]!);
         Assert.AreEqual("{{globals.carrier.token}}", (string)p["Token"]!);
-        Assert.AreEqual("", (string)p["Url"]!);
+        // Bitween won't save a handler without its Url: a placeholder that leads nowhere stands in.
+        Assert.AreEqual("https://set-me.invalid", (string)p["Url"]!);
         Assert.AreEqual("", (string)p["Password"]!);
 
         CollectionAssert.AreEquivalent(new[] { "handler · Url address", "handler · Password secret" },
@@ -86,7 +87,7 @@ public class MirrorSetupTests
         Assert.AreEqual("Europe/Paris", (string)p["timeZone"]!);
         // Asked for, and never kept: a name a secret goes by, and an address. They are staging's own to fill in.
         Assert.AreEqual("", (string)p["apiKey"]!);
-        Assert.AreEqual("", (string)p["webhookUrl"]!);
+        Assert.AreEqual("https://set-me.invalid", (string)p["webhookUrl"]!);
         Assert.AreEqual("", (string)p["sftpPassword"]!);
         CollectionAssert.AreEquivalent(new[] { "apiKey", "webhookUrl", "sftpPassword" }, copy.Blanks.Select(b => b.Field).ToList());
         Assert.AreNotEqual("acme-client-778", (string)a["loginIdentity"]!);
@@ -108,15 +109,15 @@ public class MirrorSetupTests
 
         var values = Only(copy, "globalValues")["values"]!;
         Assert.AreNotEqual("traxis-prod", (string)values["bucket"]!);
-        Assert.AreEqual("", (string)values["endpoint"]!);
+        Assert.AreEqual("https://set-me.invalid", (string)values["endpoint"]!);
 
         var ds = Only(copy, "dataSources");
         Assert.AreEqual(true, (bool)ds["inactive"]!);
-        Assert.AreEqual("", (string)ds["properties"]!["ConnectionString"]!);
+        Assert.AreEqual("Host=set-me.invalid", (string)ds["properties"]!["ConnectionString"]!);
 
         var bus = Only(copy, "busGateways");
         Assert.AreEqual(true, (bool)bus["inactive"]!);
-        Assert.AreEqual("", (string)bus["endpointProperties"]!["Host"]!);
+        Assert.AreEqual("set-me.invalid", (string)bus["endpointProperties"]!["Host"]!);
         Assert.AreEqual(3, copy.Blanks.Count);
     }
 

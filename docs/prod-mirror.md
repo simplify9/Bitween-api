@@ -23,12 +23,15 @@ Values are handled the moment they arrive, before anything is saved, so the stag
 | Kind of value | Examples | On the staging |
 |---|---|---|
 | How a flow behaves | formats, schedules, filters and match expressions, mapping rules, methods, delimiters, file name patterns, `{{globals.…}}` tokens | Copied as it is |
-| Addresses | hosts, URLs, email addresses, connection strings' servers, an API gateway's issuer | A mock address under `mirror.invalid`, which resolves nowhere. The same address is the same mock wherever prod names it |
-| Secrets | anything prod shows as `__private__`, passwords in URLs and connection strings | A stand-in, the same on every copy |
+| Addresses | hosts, URLs, email addresses, connection strings, an API gateway's issuer, a connection's login URLs | Never copied: a placeholder that leads nowhere, `https://set-me.invalid` or `set-me@set-me.invalid`, until you fill in your test system's |
+| Secrets | anything prod shows as `__private__`, values named like secrets (`apiKey`, `password`, `token`) | Never copied: left empty until you fill in staging's own |
+| Logins | a connection's client id and username | Never copied: `set-me` until you fill in your test login |
 | Partner properties and global values | account numbers, codes, names | A fake of the same shape: digits stay digits, letters keep their case, dates stay dates in their format, GUIDs stay GUIDs, JSON keeps its keys |
-| Partner API keys | | New ones, the same on every copy |
+| Partner API keys | | Keys of staging's own, the same on every copy |
 
-The same value always becomes the same fake, so a code named in two places still matches, and copying again changes nothing. A partner property or global value that is a setting rather than data, such as a time zone or a date format, can be kept as it is: list it in **Settings, Prod mirror, Values copied as they are**, one per line, as `partner:timeZone` or `global:formats/date`. Addresses, secrets and values named like secrets (`apiKey`, `password`, `token` and similar) are never kept.
+Each address, secret and login left this way is something to fill in. Bringing lists them, and each subscription's **Against prod** section lists those it needs, with a link to the item on staging and one to the same item on prod, to look the value up. A value staging already has, one your team typed in, is kept and never reads as a difference from prod's. A placeholder is used rather than an empty value because Bitween won't save some items without one, such as an HTTP delivery without its URL.
+
+The same value always becomes the same fake, so a code named in two places still matches, and copying again changes nothing. A partner property or global value that is a setting rather than data, such as a time zone or a date format, can be kept as it is: list it in **Settings, Prod mirror, Values copied as they are**, one per line, as `partner:timeZone` or `global:formats/date`. Addresses and secrets are never kept.
 
 Copied subscriptions arrive paused, and data sources and bus gateways switched off, so nothing on the staging runs on its own.
 
@@ -53,7 +56,7 @@ Tick the ones to bring, or all of them. **See what comes** then lists everything
 
 A picked gateway brings every subscription it leads to.
 
-What the staging doesn't have comes as prod has it, faked as a copy fakes it, so subscriptions arrive paused and data sources and bus gateways switched off. What the staging has stays as it is, so edits made on the staging are never overwritten: a gateway the staging has only gets the partner or route that leads to what comes. Nothing is removed. An item that can't come yet, such as a subscription waiting for an adapter, stays behind and says why, and so does anything that needs it.
+What the staging doesn't have comes as prod has it, handled as above, so subscriptions arrive paused and data sources and bus gateways switched off. The preview lists what you'll fill in on staging after bringing, and which partners' and global values' data comes faked. What the staging has stays as it is, so edits made on the staging are never overwritten: a gateway the staging has only gets the partner or route that leads to what comes. Nothing is removed. An item that can't come yet, such as a subscription waiting for an adapter, stays behind and says why, and so does anything that needs it.
 
 **Bring** then brings them. It carries on past an item that fails, and lists each failure with Bitween's reason.
 
@@ -62,15 +65,15 @@ What the staging doesn't have comes as prod has it, faked as a copy fakes it, so
 On a mirror, every subscription's page ends with **Against prod**. A badge by its name says how it stands: **Same as prod**, **Differs from prod**, **Prod: to do**, or **Only on staging** when prod has no subscription of its name.
 
 - **What differs** lists the subscription and every item it needs to run as on prod (the items bringing it would bring), each beside prod's: the same, the same with faked values, different field by field, or not on staging. The adapters they run come last. What is the same folds into one line.
-- **Left to do** lists what only a person can do, such as uploading an adapter, and what staging doesn't have yet, with **Bring them from prod**, which opens on what comes.
+- **Left to do** lists what only a person can do: each address, secret or login still to fill in, with **Fill it on staging** and **See it on prod**; an adapter to upload; and what staging doesn't have yet, with **Bring them from prod**, which opens on what comes. A notification channel's fields are listed too, but a test runs without them: a channel only sends alerts.
 - **Test with prod's traffic**:
   - **Take prod's arrivals** takes up to five of the subscription's latest exchanges on prod, each with what came in and everything it led to, faked as samples are.
-  - **Run the test** sends each arrival in on staging the way it came in on prod, and compares every exchange it leads to with its twin (see [How a test runs](#how-a-test-runs)). The page follows it as it runs. An arrival counts as **Same** when every exchange ends as prod's did and sends and gets back the same.
+  - **Run the test** sends each arrival in on staging the way it came in on prod, and compares every exchange it leads to with its twin (see [How a test runs](#how-a-test-runs)). The page follows it as it runs. An arrival counts as **Same** when every exchange ends as prod's did and sends the same. It runs only once nothing it needs is left to fill in, and asks first when it uses an adapter that doesn't come with Bitween (see [Adapters that call out by themselves](#adapters-that-call-out-by-themselves)).
   - **Clear test data** removes what the test made on staging: each exchange its runs started, with its files, and each arrival's results. Prod's arrivals stay, to run again, and so does how the last run went, which the lists show.
 
 Tests run one at a time across the staging. One started while another runs is refused until it finishes, except from a list, where the tests picked wait their turn.
 
-A test calls a gateway as the partner, with the stand-in key the copy gave it. Stand-ins come from the staging's `Token:Key`, so one made before that key changed no longer matches: the test sets it to the current stand-in when it needs it. A key set on the staging is never touched, and a partner that has only those can't be called as.
+A test calls a gateway as the partner, with the key of staging's own the copy gave it. Those keys come from the staging's `Token:Key`, so one made before that key changed no longer matches: the test sets it to the current one when it needs it. A key set on the staging is never touched, and a partner that has only those can't be called as.
 
 ## Samples of prod's traffic
 
@@ -100,45 +103,34 @@ Prod is read gently: one subscription at a time, one page of its recent exchange
 
 Running a test sends each arrival in on the staging the way it came in on prod, with prod's input as the staging keeps it, faked. The staging then runs everything after it by itself, as prod did:
 
-| It came in on prod as | The rehearsal sends it in |
+| It came in on prod as | The test sends it in |
 |---|---|
-| A partner's call to an API gateway | As that partner, to the staging's gateway: with the key the copy gave the partner, or, for a gateway that checks tokens, a token the staging signs as the partner's login server would |
+| A partner's call to an API gateway | As that partner, to the staging's gateway, with the key the copy gave the partner. A gateway that checks tokens from a login server isn't run: send that one in by hand, with a token from your test login server |
 | A partner's call to the partner API | As that partner, to the staging's partner API |
 | A document | To the staging, which routes it to the subscriptions that want it |
-| A file a receiver read | Handed straight to the receiving subscription; reading it from the server comes with the test servers |
+| A file a receiver read | Handed straight to the receiving subscription. Reading it from a server needs your test server, set in its place |
 | An aggregation | **Aggregate now**, rolling up what the staging ran of the subscription it aggregates; when it ran none, the files prod rolled up, faked |
 | An exchange started by hand | Started the same way |
 
-The staging's subscriptions stay paused, and its data sources and bus gateways switched off, so nothing runs on its own. Only the rehearsal's traffic gets through: it carries a correlation id of its own, which every exchange it leads to carries on, across the bus too, and calls through a gateway carry a key the rehearsal opens for as long as it runs. That traffic passes paused subscriptions, goes through the bus gateways prod has on, and is never taken for a duplicate of the rehearsal before it. Anyone else's traffic meets the staging as it is.
+The staging's subscriptions stay paused, and its data sources and bus gateways switched off, so nothing runs on its own. Only the test's traffic gets through: it carries a correlation id of its own, which every exchange it leads to carries on, across the bus too, and calls through a gateway carry a key the test opens for as long as it runs. That traffic passes paused subscriptions, goes through the bus gateways prod has on, and is never taken for a duplicate of the test before it. Anyone else's traffic meets the staging as it is.
 
-When an exchange calls a partner, the staging answers with what prod's partner answered its twin, faked: the same body, `400` for an answer prod's partner gave with an error, the status prod's error names, or a call that fails to connect when prod's never got through. Arrivals run one at a time, so each exchange gets its own twin's answer, and they appear on the staging's **Exchanges** page under their correlation id.
+When an exchange calls a partner, it calls the address your team filled in: your test system. What that system answers explains a verdict but never counts, since it isn't prod's partner. Arrivals run one at a time, and appear on the staging's **Exchanges** page under their correlation id.
 
 Each of the staging's exchanges is paired with its twin on prod (the same subscription, in the order they started) and compared, and gets one of three verdicts:
 
-- **Different**: it ended another way (worked, answered badly, failed), or what it sent or got back changed its format, lost or gained a field, has a list of another length, or writes a value another way: a date in another format, a number turned text, a value left empty. An exchange one side ran and the other didn't is different too, and so is a call the staging's gateway turned away.
+- **Different**: it ended another way (worked, answered badly, failed), or what it sent changed its format, lost or gained a field, has a list of another length, or writes a value another way: a date in another format, a number turned text, a value left empty. An exchange one side ran and the other didn't is different too, and so is a call the staging's gateway turned away.
 - **Check**: only values' text changed, and each kept its look. Fake data explains that when a mapping works values out, such as a sum or a cut; a wrong field taken doesn't, so it is worth a look.
 - **Same**: nothing changed.
 
-An arrival's verdict is the worst of its exchanges'. Both sides go through the same faker, so a value that is only faked reads the same on both. Opening an arrival shows how it came in, then its exchanges, the ones that differ first. Opening an exchange shows what changed first, prod beside staging, and folds what is the same into one line. A changed file opens field by field, and side by side. **What it used** compares the subscription, its information type, the partner it ran as, the global values it names and its adapters with prod's: prod's setup as it is today, faked as the copy fakes it, since prod's API doesn't give the setup an exchange ran with, only its adapters. These only explain a verdict. So do **Calls it made**: a call to a host sent for real (one the staging's setup names, the staging itself or this machine) gets that host's answer, not prod's partner's, and the page says so.
+An arrival's verdict is the worst of its exchanges'. Both sides go through the same faker, so a value that is only faked reads the same on both. Opening an arrival shows how it came in, then its exchanges, the ones that differ first. Opening an exchange shows what changed first, prod beside staging, and folds what is the same into one line. A changed file opens field by field, and side by side. **What it used** compares the subscription, its information type, the partner it ran as, the global values it names and its adapters with prod's: prod's setup as it is today, faked as the copy fakes it, since prod's API doesn't give the setup an exchange ran with, only its adapters. These only explain a verdict, and so does what the partner's test system answered.
 
 An arrival doesn't run when it can't be sent in the way it came in on prod, and the page says why: a subscription, partner, gateway or information type the staging doesn't have yet, or an input that isn't kept.
 
 A run replaces the one before it.
 
-## Calls the staging answers
+## Adapters that call out by themselves
 
-On a mirror, the staging answers some of the calls its flows make itself, so nothing on the staging reaches prod's partners:
-
-- **Test addresses**: every address the copy put in place of one of prod's.
-- **Hosts the staging's setup doesn't name**: an address written inside an adapter's code, say. It may be one of prod's partners, so it is answered rather than reached.
-
-A host the setup names, such as a team's own staging API, is called for real. So is any host listed under **Settings, Prod mirror, Hosts called for real**, for an address inside an adapter that is safe to reach from the staging.
-
-A login (an OAuth token request, or a login URL a subscription signs in at) gets a token of the staging's own, where the subscription's settings say its reply keeps one. Any other call gets the newest answer prod's partner gave a subscription that uses the address, among the arrivals its test took, faked; with none, an empty `200`.
-
-Bitween's own adapters are answered inside Bitween. Adapters that run in their own process reach the staging through a catcher it runs on `127.0.0.1`: when it starts, the staging sets `HTTP_PROXY`, `HTTPS_PROXY` and `NO_PROXY` for the processes it starts, and points `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE` and `NODE_EXTRA_CA_CERTS` at a certificate authority it makes for that run, so .NET, Python, Node and curl trust the answers. Bitween's own calls, to prod and to its storage, don't go through the catcher. Nothing needs setting up.
-
-What the catcher can't reach: an adapter that turns its HTTP proxy off, or checks certificates its own way, fails its calls to test addresses instead of being answered, and a test shows the call as failed. Calls that aren't HTTP, such as SFTP or mail written inside an adapter, aren't caught yet.
+Bitween's own adapters call only what their settings say, and those are staging's own once filled in. An adapter that doesn't come with Bitween can also call addresses written in its own code, which staging can't see or change. So before a test runs a subscription that uses one, staging names the adapter and asks you to confirm it points at test systems, never at prod's partners. **Test from prod** on a list asks the same, with a tick, when any of those picked uses one.
 
 ## Adapters
 
@@ -150,14 +142,15 @@ On a mirror, the same list pages that offer **Bring from prod** show a **Prod** 
 
 The **Prod** filter keeps the rows from prod, or only those whose test says one thing, such as **Not tested** or **Different from prod**. It pages like any other filter, however many items prod has.
 
-**Test from prod** picks some of them, filtered by how their test went if need be, and tests them one after another, as each subscription's page would: prod's arrivals are taken first where none are, or none were found last time, then sent in. A gateway is tested through the subscriptions it leads to. While they run, the list says which one is under way and how many wait, with **Stop after this one** to drop those waiting.
+**Test from prod** picks some of them, filtered by how their test went if need be, and tests them one after another, as each subscription's page would: prod's arrivals are taken first where none are, or none were found last time, then sent in. One with something left to fill in doesn't run, and its page says what. A gateway is tested through the subscriptions it leads to. While they run, the list says which one is under way and how many wait, with **Stop after this one** to drop those waiting.
 
 When prod can't be read, the list says why above the rows, and the column is empty.
 
 ## Not covered yet
 
-- SFTP, FTP and mail test servers. Until then those addresses lead nowhere, and a receiver's rehearsal starts from the file prod's receiver read.
+- Test servers inside Bitween (SFTP, FTP, mail) and staging answering calls in place of a partner. Until then, fill in your own test systems; a receiver's test starts from the file prod's receiver read.
 - Databases: a flow that reads or writes one, and data sources. They will answer with what they returned on prod, with a note that a test database tests more.
 - Files that can't be faked, such as PDFs: they will get stand-ins of the same kind, with a note asking for real test files.
-- Comparing a rehearsal with one run on the staging before the upgrade. The first upgrade with the mirror compares with prod's own results, which is why faked values that a mapping works out read as **Check**.
+- Comparing a test with one run on the staging before the upgrade. The first upgrade with the mirror compares with prod's own results, which is why faked values that a mapping works out read as **Check**.
 - Runtime settings, roles, members and service accounts, which differ between environments on purpose.
+- Marking a difference from prod as fine on staging, so it stops showing.
