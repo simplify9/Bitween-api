@@ -683,6 +683,7 @@ export interface ApiClient {
   getMirrorListed(section: MirrorBringSection): Promise<MirrorListed>;
   testMirrorMany(section: MirrorBringSection, ids: number[]): Promise<{ subscriptions: string[] }>;
   stopMirrorTests(): Promise<{ dropped: number }>;
+  mirrorFilledIn(section: string, key: string): Promise<{ closed: number }>;
 
   // - settings -
   listSettings(): Promise<SettingRow[]>;

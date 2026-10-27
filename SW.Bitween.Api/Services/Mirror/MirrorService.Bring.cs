@@ -3,9 +3,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
 using SW.Bitween.Cli;
 using SW.Bitween.Cli.Configuration;
 using SW.PrimitiveTypes;
@@ -175,9 +177,19 @@ public sealed partial class MirrorService
             var bringing = await PlanBringingAsync(comparison, kind, keys);
             if (!apply) return new MirrorBring(false, bringing.Pieces, bringing.NeedsYou, []);
 
+            List<(Change Change, string Id)> stoodIn;
+            await using (var scope = scopes.CreateAsyncScope())
+                stoodIn = await StandInAsync(bringing.Plan.Changes, comparison.Copy.Blanks,
+                    scope.ServiceProvider.GetRequiredService<AdapterRequirements>().MissingFor);
             var failed = await comparison.Planner.ApplyAllAsync(bringing.Plan);
             foreach (var change in bringing.Plan.Changes) LastFailures.TryRemove((change.Section, change.Key), out _);
             foreach (var (change, error) in failed) LastFailures[(change.Section, change.Key)] = error;
+            if (stoodIn.Where(s => failed.All(f => !ReferenceEquals(f.Change, s.Change))).Select(s => s.Id).ToList() is { Count: > 0 } saved)
+            {
+                var standIns = await ReadStandInsAsync();
+                standIns.UnionWith(saved);
+                await SaveStandInsAsync(standIns);
+            }
             var made = bringing.Pieces.Select(p => p.State == "new" ? p with { StagingId = IdOn(comparison.Staging, p.Section, p.Key, bringing.Index) } : p).ToList();
             return new MirrorBring(true, made, bringing.NeedsYou, failed.Select(f => new MirrorFailure(f.Change.Section, f.Change.Noun, f.Change.Key, f.Error)).ToList());
         }
@@ -239,12 +251,82 @@ public sealed partial class MirrorService
             var alerts = OnlyAlerts(blank.Section);
             yield return new MirrorNote($"fill:{blank.Section}:{blank.Key}:{string.Join("/", blank.Path)}", "fill", blank.Kind switch
                 {
+                    _ when blank.StoodIn => $"Fill in {what} with staging's own secret, then tick Filled in: it holds {MirrorFaker.PlaceholderText}, " +
+                        "which its adapter can't be saved without, and Bitween hides a saved secret, so staging can't see it change.",
                     "secret" => $"Fill in {what} with staging's own secret: it is empty.",
                     "login" => $"Fill in {what} with your test login, in place of {MirrorFaker.PlaceholderText}.",
                     _ => $"Fill in {what} with your test system's, in place of the placeholder, which leads nowhere.",
                 } + (alerts ? " Tests run without it: it only sends alerts." : ""),
-                blank.Section, blank.Key, alerts ? "alerts" : null, row?.StagingId, row?.ProdId, row?.Type, blank.Field, Kinds.Of(blank.Section).Noun);
+                blank.Section, blank.Key, alerts ? "alerts" : blank.StoodIn ? "filledIn" : null, row?.StagingId, row?.ProdId, row?.Type,
+                blank.Field, Kinds.Of(blank.Section).Noun);
         }
+    }
+
+    // ------------------------------------------------------------------ secrets saved as placeholders
+
+    /// <summary>The secrets a bring saved as placeholders, each by <see cref="StandInId"/>, until a person says each was filled in.</summary>
+    const string StandInsKey = "mirror/standins.json";
+
+    internal static string StandInId(MirrorBlank blank) => $"{blank.Section}/{blank.Key}/{string.Join("/", blank.Path)}";
+
+    /// <summary>
+    /// The secrets of subscriptions about to be made that their adapters can't be saved without, and that come
+    /// empty because the copy never brings one: each gets a placeholder, so the subscription is made, and is
+    /// said for staging to remember, since once saved Bitween hides it like a filled one.
+    /// <paramref name="missingFor"/> is Bitween's own check, what saving it would refuse for (see
+    /// <see cref="AdapterRequirements.MissingFor"/>); an adapter it can't describe yet - one this bring
+    /// installs - is left for saving to refuse, as before.
+    /// </summary>
+    internal static async Task<List<(Change Change, string Id)>> StandInAsync(IEnumerable<Change> changes, IReadOnlyList<MirrorBlank> blanks,
+        Func<string, ICollection<KeyAndValue>, Task<IReadOnlyCollection<string>>> missingFor)
+    {
+        var stoodIn = new List<(Change, string)>();
+        foreach (var change in changes.Where(c => c.Op == Op.Create && c.Section == "subscriptions"))
+        foreach (var role in new[] { "receiver", "validator", "mapper", "handler" })
+        {
+            if (change.Want[role] is not JsonObject block || (string)block["adapter"] is not { Length: > 0 } adapter) continue;
+            var properties = block["properties"] as JsonObject ?? [];
+            IReadOnlyCollection<string> missing;
+            try
+            {
+                missing = await missingFor(SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(adapter, (string)block["version"]),
+                    properties.Select(p => new KeyAndValue { Key = p.Key, Value = p.Value?.ToString() }).ToList());
+            }
+            catch (Exception) { continue; }
+            foreach (var blank in blanks.Where(b => b.Section == change.Section && b.Key == change.Key && b.Kind == "secret"
+                         && b.Path.Count == 3 && b.Path[0] == role && missing.Contains(b.Path[2], StringComparer.OrdinalIgnoreCase)))
+            {
+                properties[blank.Path[2]] = MirrorFaker.PlaceholderText;
+                stoodIn.Add((change, StandInId(blank)));
+            }
+        }
+        return stoodIn;
+    }
+
+    async Task<HashSet<string>> ReadStandInsAsync()
+    {
+        try
+        {
+            await using var stream = await cloudFiles.OpenReadAsync(StandInsKey);
+            return await JsonSerializer.DeserializeAsync<HashSet<string>>(stream, ManifestJson) ?? [];
+        }
+        catch (Exception ex) when (StorageErrors.IsNotFound(ex))
+        {
+            return [];
+        }
+    }
+
+    Task SaveStandInsAsync(HashSet<string> standIns) =>
+        cloudFiles.WriteTextAsync(JsonSerializer.Serialize(standIns, ManifestJson),
+            new WriteFileSettings { Key = StandInsKey, ContentType = "application/json" });
+
+    /// <summary>A person has filled in an item's secrets a bring saved as placeholders: how many it closes.</summary>
+    public async Task<int> FilledInAsync(string section, string key)
+    {
+        var standIns = await ReadStandInsAsync();
+        var closed = standIns.RemoveWhere(id => id.StartsWith($"{section}/{key}/", StringComparison.Ordinal));
+        if (closed > 0) await SaveStandInsAsync(standIns);
+        return closed;
     }
 
     /// <summary>Kinds that only send alerts: an exchange runs the same whether they are filled in or not.</summary>

@@ -1,8 +1,13 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using System.Text.Json.Nodes;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using SW.Bitween.Cli.Configuration;
 using SW.Bitween.Services.Mirror;
+using SW.PrimitiveTypes;
 
 namespace SW.Bitween.UnitTests;
 
@@ -108,5 +113,79 @@ public class MirrorBringTests
         Assert.AreEqual("Faked in the same shape as prod's: the properties of “P1” and “P2”.",
             MirrorService.FakedNote(index, [("partners", "P2"), ("partners", "P1"), ("partners", "Bare")]).Text);
         Assert.IsNull(MirrorService.FakedNote(index, [("partners", "Bare")]));
+    }
+
+    // ------------------------------------------------------------------ secrets saved as placeholders
+
+    static readonly MirrorFaker Faker = new(Encoding.UTF8.GetBytes("a key only these tests use"));
+
+    /// <summary>Prod's "Agent tracing", whose adapter can't be saved without its Password; its ApiKey it can.</summary>
+    static MirrorSetupCopy Tracing() => MirrorSetup.Copy(new Dictionary<string, List<Existing>>
+    {
+        ["subscriptions"] = [new Existing("1", "Agent tracing", (JsonObject)JsonNode.Parse("""
+            {
+              "name": "Agent tracing", "type": "Receiving",
+              "receiver": { "adapter": "infolink5.receivers.cassini", "properties": {
+                "Url": "https://cassini.example.com", "Password": "__private__", "ApiKey": "__private__" } }
+            }
+            """)!, new JsonObject())],
+    }, Faker, new HashSet<string>());
+
+    /// <summary>Bitween's check: what saving would refuse for, of Url and Password.</summary>
+    static Task<IReadOnlyCollection<string>> Requires(string adapter, ICollection<KeyAndValue> provided) =>
+        Task.FromResult<IReadOnlyCollection<string>>(new[] { "Url", "Password" }
+            .Where(n => string.IsNullOrEmpty(provided.FirstOrDefault(p => p.Key == n)?.Value)).ToList());
+
+    [TestMethod]
+    public async Task A_secret_its_adapter_cannot_be_saved_without_is_saved_as_a_placeholder()
+    {
+        var copy = Tracing();
+        var item = copy.Sections["subscriptions"].Single();
+        var creating = new Change(Op.Create, "subscriptions", "Agent tracing", item);
+
+        var stoodIn = await MirrorService.StandInAsync([creating], copy.Blanks, Requires);
+
+        var properties = item["receiver"]!["properties"]!;
+        Assert.AreEqual("set-me", (string)properties["Password"]!);
+        Assert.AreEqual("", (string)properties["ApiKey"]!); // it can do without: left empty, as before
+        Assert.AreEqual("https://set-me.invalid", (string)properties["Url"]!);
+        CollectionAssert.AreEqual(new[] { "subscriptions/Agent tracing/receiver/properties/Password" }, stoodIn.Select(s => s.Id).ToList());
+        Assert.AreSame(creating, stoodIn.Single().Change);
+    }
+
+    [TestMethod]
+    public async Task Only_a_subscription_being_made_whose_adapter_can_be_described_gets_one()
+    {
+        var copy = Tracing();
+        var item = copy.Sections["subscriptions"].Single();
+
+        // Staging's own is never touched; one whose adapter this bring installs is left for saving to refuse.
+        Assert.AreEqual(0, (await MirrorService.StandInAsync([new Change(Op.Update, "subscriptions", "Agent tracing", item)], copy.Blanks, Requires)).Count);
+        Assert.AreEqual(0, (await MirrorService.StandInAsync([new Change(Op.Create, "subscriptions", "Agent tracing", item)], copy.Blanks,
+            (_, _) => throw new InvalidOperationException("not installed"))).Count);
+        Assert.AreEqual("", (string)item["receiver"]!["properties"]!["Password"]!);
+    }
+
+    [TestMethod]
+    public void A_secret_saved_as_a_placeholder_stays_to_do_until_a_person_says_it_is_filled_in()
+    {
+        var copy = Tracing();
+        var staging = new Context(null);
+        staging.Current["subscriptions"] = [new Existing("7", "Agent tracing", (JsonObject)JsonNode.Parse("""
+            { "name": "Agent tracing", "receiver": { "adapter": "infolink5.receivers.cassini", "properties": {
+                "Url": "https://test.cassini.example.com", "Password": "__private__", "ApiKey": "" } } }
+            """)!, new JsonObject())];
+        var password = "subscriptions/Agent tracing/receiver/properties/Password";
+
+        var open = MirrorService.TakeStagingsOwn(copy, staging, new HashSet<string> { password });
+
+        // Hidden like a filled one, so it reads as no difference; but it still stops tests until ticked.
+        Assert.AreEqual("__private__", (string)copy.Sections["subscriptions"].Single()["receiver"]!["properties"]!["Password"]!);
+        CollectionAssert.AreEquivalent(new[] { "receiver · Password True", "receiver · ApiKey False" },
+            open.Select(b => $"{b.Field} {b.StoodIn}").ToList());
+
+        // Ticked: only the empty ApiKey is left.
+        CollectionAssert.AreEqual(new[] { "receiver · ApiKey" },
+            MirrorService.TakeStagingsOwn(Tracing(), staging, new HashSet<string>()).Select(b => b.Field).ToList());
     }
 }

@@ -146,7 +146,7 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
         config.Rename(ConfigurationName);
         var planner = new Planner(selfCtx, config);
         await planner.ReadAsync();
-        var open = TakeStagingsOwn(copy, selfCtx);
+        var open = TakeStagingsOwn(copy, selfCtx, await ReadStandInsAsync());
 
         // A subscription staging doesn't have yet, whose adapter it lacks and can't get from the
         // marketplace, would only fail: it waits, and says for which adapter. One staging has already
@@ -180,9 +180,11 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
 
     /// <summary>
     /// Every address and secret the copy didn't bring takes staging's own where staging has one, so
-    /// staging's never reads as a difference from prod's. Those still empty or a placeholder are left to do.
+    /// staging's never reads as a difference from prod's. Those still empty or a placeholder are left to do,
+    /// as is a secret a bring saved as a placeholder (<paramref name="standIns"/>, see <see cref="StandInId"/>),
+    /// which reads back hidden like a filled one.
     /// </summary>
-    static List<MirrorBlank> TakeStagingsOwn(MirrorSetupCopy copy, Context staging)
+    internal static List<MirrorBlank> TakeStagingsOwn(MirrorSetupCopy copy, Context staging, ISet<string> standIns)
     {
         var open = new List<MirrorBlank>();
         foreach (var blank in copy.Blanks)
@@ -191,7 +193,10 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
             var item = copy.Sections.GetValueOrDefault(blank.Section)?.FirstOrDefault(i => Kinds.Of(blank.Section).KeyOf(i) == blank.Key);
             if (At(mine, blank.Path) is JsonValue v && v.TryGetValue<string>(out var value) && !MirrorFaker.IsPlaceholder(value)
                 && At(item, blank.Path.Take(blank.Path.Count - 1)) is JsonObject owner)
+            {
                 owner[blank.Path[^1]] = value;
+                if (standIns.Contains(StandInId(blank))) open.Add(blank with { StoodIn = true });
+            }
             else
                 open.Add(blank);
         }
