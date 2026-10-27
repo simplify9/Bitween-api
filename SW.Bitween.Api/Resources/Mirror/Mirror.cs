@@ -290,6 +290,30 @@ public class TestMany(BitweenDbContext dbContext, RequestContext requestContext,
     }
 }
 
+public class MirrorFilledInRequest
+{
+    /// <summary>The item's kind: subscriptions.</summary>
+    public string Section { get; set; }
+
+    /// <summary>The item, by its name.</summary>
+    public string Key { get; set; }
+}
+
+/// <summary>
+/// Says a person has put staging's own value in each secret a bring had to save as a placeholder on the
+/// item: Bitween hides a saved secret, so staging can't see it change. Its to-dos close and its tests run.
+/// </summary>
+[HandlerName("filledin")]
+public class FilledIn(BitweenDbContext dbContext, RequestContext requestContext, MirrorService mirror)
+    : ICommandHandler<MirrorFilledInRequest, object>
+{
+    public async Task<object> Handle(MirrorFilledInRequest request)
+    {
+        await requestContext.EnsurePermission(dbContext, Model.Permissions.Mirror.Operate);
+        return new { Closed = await mirror.FilledInAsync(request?.Section, request?.Key) };
+    }
+}
+
 public class MirrorTestStopRequest;
 
 /// <summary>Drops the tests waiting their turn; the one under way finishes. How many were dropped.</summary>

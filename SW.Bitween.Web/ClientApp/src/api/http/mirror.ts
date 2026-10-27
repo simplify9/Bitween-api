@@ -65,6 +65,11 @@ export const mirrorMethods = {
     return post<{ dropped: number }>("/mirror/teststop", {});
   },
 
+  /** Says staging's own secrets are in where a bring saved placeholders on the item, which staging can't see. */
+  mirrorFilledIn(section: string, key: string): Promise<{ closed: number }> {
+    return post<{ closed: number }>("/mirror/filledin", { section, key });
+  },
+
   /** What bringing the picked items from prod does; with `apply`, brings them. */
   bringFromProd(section: MirrorBringSection, keys: string[], apply: boolean): Promise<MirrorBring> {
     return post<MirrorBring>("/mirror/bring", { section, keys, apply });

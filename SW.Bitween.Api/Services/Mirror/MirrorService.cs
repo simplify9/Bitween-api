@@ -134,7 +134,7 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
         var skipped = await ReadAsync(prodCtx, renamed);
         var (copy, _) = CopyOf(prodCtx);
         var used = AdapterUses(copy.Sections);
-        var prodAdapters = await AdaptersAsync(prod, used.Keys);
+        var prodAdapters = await AdaptersAsync(prod, used.Keys, isProd: true);
 
         // ---- staging, as it is
         var self = openSelf();
@@ -146,7 +146,7 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
         config.Rename(ConfigurationName);
         var planner = new Planner(selfCtx, config);
         await planner.ReadAsync();
-        var open = TakeStagingsOwn(copy, selfCtx);
+        var open = TakeStagingsOwn(copy, selfCtx, await ReadStandInsAsync());
 
         // A subscription staging doesn't have yet, whose adapter it lacks and can't get from the
         // marketplace, would only fail: it waits, and says for which adapter. One staging has already
@@ -180,9 +180,11 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
 
     /// <summary>
     /// Every address and secret the copy didn't bring takes staging's own where staging has one, so
-    /// staging's never reads as a difference from prod's. Those still empty or a placeholder are left to do.
+    /// staging's never reads as a difference from prod's. Those still empty or a placeholder are left to do,
+    /// as is a secret a bring saved as a placeholder (<paramref name="standIns"/>, see <see cref="StandInId"/>),
+    /// which reads back hidden like a filled one.
     /// </summary>
-    static List<MirrorBlank> TakeStagingsOwn(MirrorSetupCopy copy, Context staging)
+    internal static List<MirrorBlank> TakeStagingsOwn(MirrorSetupCopy copy, Context staging, ISet<string> standIns)
     {
         var open = new List<MirrorBlank>();
         foreach (var blank in copy.Blanks)
@@ -191,7 +193,10 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
             var item = copy.Sections.GetValueOrDefault(blank.Section)?.FirstOrDefault(i => Kinds.Of(blank.Section).KeyOf(i) == blank.Key);
             if (At(mine, blank.Path) is JsonValue v && v.TryGetValue<string>(out var value) && !MirrorFaker.IsPlaceholder(value)
                 && At(item, blank.Path.Take(blank.Path.Count - 1)) is JsonObject owner)
+            {
                 owner[blank.Path[^1]] = value;
+                if (standIns.Contains(StandInId(blank))) open.Add(blank with { StoodIn = true });
+            }
             else
                 open.Add(blank);
         }
@@ -348,27 +353,46 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
     sealed record AdapterInfo(string Id, bool Native, string Current, IReadOnlyCollection<string> Versions, bool FromRegistry);
 
     /// <summary>
-    /// The adapters a Bitween lists, and for any one its items use that the lists leave out - a
-    /// database's, say - what versions it has of it.
+    /// Prod's listed adapters as last read, by its address. A prod whose release can't list them without
+    /// starting each published one to describe it takes half a minute and more, every picker and
+    /// comparison asks, and what prod has installed seldom changes.
     /// </summary>
-    static async Task<Dictionary<string, AdapterInfo>> AdaptersAsync(BitweenApi api, IEnumerable<string> used)
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (DateTimeOffset At, Dictionary<string, AdapterInfo> Listed)> ProdAdapters =
+        new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The adapters a Bitween lists, and for any one its items use that the lists leave out - a
+    /// database's, say - what versions it has of it. Prod's lists are read again once ten minutes old;
+    /// staging's every time, since a copy installs adapters.
+    /// </summary>
+    static async Task<Dictionary<string, AdapterInfo>> AdaptersAsync(BitweenApi api, IEnumerable<string> used, bool isProd = false)
     {
-        var found = new Dictionary<string, AdapterInfo>(StringComparer.OrdinalIgnoreCase);
-        foreach (var prefix in AdapterPrefixes)
+        Dictionary<string, AdapterInfo> listed;
+        if (isProd && ProdAdapters.TryGetValue(api.Url, out var read) && DateTimeOffset.UtcNow - read.At < TimeSpan.FromMinutes(10))
+            listed = read.Listed;
+        else
         {
-            JsonNode answer;
-            try { answer = await api.GetAsync($"api/adapters/catalog?prefix={prefix}"); }
-            catch (BitweenApiException ex) when (ex.Status is HttpStatusCode.NotFound or HttpStatusCode.Forbidden) { continue; }
-            foreach (var row in (answer as JsonArray ?? []).OfType<JsonObject>())
+            listed = new Dictionary<string, AdapterInfo>(StringComparer.OrdinalIgnoreCase);
+            foreach (var prefix in AdapterPrefixes)
             {
-                var id = (string)row["key"];
-                if (string.IsNullOrEmpty(id)) continue;
-                var history = (row["versionHistory"] as JsonArray ?? []).OfType<JsonObject>().ToList();
-                found[id] = new AdapterInfo(id, (bool?)row["native"] ?? false, (string)row["currentVersion"],
-                    (row["versions"] as JsonArray ?? []).Select(v => v?.ToString()).Where(v => v != null).ToList(),
-                    history.Any(h => ((string)h["publishedBy"])?.StartsWith("registry:", StringComparison.Ordinal) == true));
+                JsonNode answer;
+                // Without their startup properties, which nothing here reads: describing a published
+                // adapter starts it. A release from before the option ignores it and describes them.
+                try { answer = await api.GetAsync($"api/adapters/catalog?prefix={prefix}&startupValues=false"); }
+                catch (BitweenApiException ex) when (ex.Status is HttpStatusCode.NotFound or HttpStatusCode.Forbidden) { continue; }
+                foreach (var row in (answer as JsonArray ?? []).OfType<JsonObject>())
+                {
+                    var id = (string)row["key"];
+                    if (string.IsNullOrEmpty(id)) continue;
+                    var history = (row["versionHistory"] as JsonArray ?? []).OfType<JsonObject>().ToList();
+                    listed[id] = new AdapterInfo(id, (bool?)row["native"] ?? false, (string)row["currentVersion"],
+                        (row["versions"] as JsonArray ?? []).Select(v => v?.ToString()).Where(v => v != null).ToList(),
+                        history.Any(h => ((string)h["publishedBy"])?.StartsWith("registry:", StringComparison.Ordinal) == true));
+                }
             }
+            if (isProd) ProdAdapters[api.Url] = (DateTimeOffset.UtcNow, listed);
         }
+        var found = new Dictionary<string, AdapterInfo>(listed, StringComparer.OrdinalIgnoreCase);
         foreach (var id in used.Where(id => !found.ContainsKey(id) && !NativeAdapterDiscoveryService.IsNative(id)))
         {
             JsonNode listing;

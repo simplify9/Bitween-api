@@ -83,6 +83,20 @@ public class MirrorFakerTests
     }
 
     [TestMethod]
+    public void Logins_are_left_for_the_teams_test_login()
+    {
+        Assert.AreEqual("login", MirrorFaker.BlankKind("Username", "acme"));
+        Assert.AreEqual("login", MirrorFaker.BlankKind("SftpUser", "ops"));
+        Assert.AreEqual("login", MirrorFaker.BlankKind("client_id", "acme-prod"));
+        // An access key's id goes by a secret's name, so it stays a secret.
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("AccessKeyId", "AKIAEXAMPLE7Q2"));
+        // An address named like a login is still a login: the team's own goes there.
+        Assert.AreEqual("login", MirrorFaker.BlankKind("LoginUser", "ops@acmecargo.net"));
+        Assert.IsNull(MirrorFaker.BlankKind("UserAgent", "Bitween/10"));
+        Assert.IsNull(MirrorFaker.BlankKind("Username", "{{partner.ftpUser}}"));
+    }
+
+    [TestMethod]
     public void A_placeholder_stands_in_and_reads_as_still_to_fill_in()
     {
         Assert.AreEqual("sftp://set-me.invalid", MirrorFaker.Placeholder("address", "Url", "sftp://ws05.acmeparcel.net:22/in"));

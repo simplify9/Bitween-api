@@ -41,7 +41,10 @@ public class Catalog(
         // reflection and should not be made to queue, and how many published adapters may be
         // running at a time is capped in ServerlessAdapterDescriber - process-wide, which is the
         // only place it can be, since this handler knows nothing of the other requests in flight.
-        var described = await Task.WhenAll(adapters.Select(async a => (a.Key, Values: await Describe(a.Key))));
+        // Not at all for a caller after versions alone: a published adapter is described by starting
+        // it, which on a cold cache takes half a minute for a kind.
+        var described = request.StartupValues == false ? []
+            : await Task.WhenAll(adapters.Select(async a => (a.Key, Values: await Describe(a.Key))));
         var byKey = described.ToDictionary(d => d.Key, d => d.Values);
 
         return adapters.Select(a => new
@@ -58,7 +61,7 @@ public class Catalog(
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(v => System.Version.TryParse(v.Split('-')[0], out var parsed) ? parsed : new System.Version())
                 .ToList(),
-            StartupValues = byKey[a.Key],
+            StartupValues = byKey.GetValueOrDefault(a.Key),
 
             // Additive: a client that predates the catalog ignores all of these. Every one is null
             // or empty for an adapter published before manifests existed.

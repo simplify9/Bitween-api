@@ -1,10 +1,10 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { api, type MirrorItem, type MirrorNote, type MirrorSample, type MirrorSampleFile, type SubscriptionType } from "../../api";
 import { keys } from "../../api/queryKeys";
-import { Badge } from "../../components/ui/basics";
+import { Badge, Button } from "../../components/ui/basics";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { whole } from "../../lib/numbers";
 import { subscriptionPath } from "../../lib/subscriptionPaths";
@@ -76,12 +76,14 @@ const FEW = 5;
  */
 export function FillIns({ notes, links = false }: { notes: MirrorNote[]; links?: boolean }) {
   const [all, setAll] = useState(false);
+  const { canOperate } = useMirror();
   const items = useMemo(() => {
-    const byItem = new Map<string, { note: MirrorNote; fields: string[]; alerts: boolean }>();
+    const byItem = new Map<string, { note: MirrorNote; fields: string[]; alerts: boolean; standIn: boolean }>();
     for (const n of notes) {
       const id = `${n.section}/${n.key}`;
-      const item = byItem.get(id) ?? { note: n, fields: [], alerts: n.action === "alerts" };
+      const item = byItem.get(id) ?? { note: n, fields: [], alerts: n.action === "alerts", standIn: false };
       if (n.field) item.fields.push(n.field);
+      if (n.action === "filledIn") item.standIn = true;
       byItem.set(id, item);
     }
     return [...byItem.values()].sort((a, b) => Number(a.alerts) - Number(b.alerts));
@@ -90,7 +92,7 @@ export function FillIns({ notes, links = false }: { notes: MirrorNote[]; links?:
   return (
     <div>
       <ul className="divide-y divide-ink-100 rounded-lg border border-ink-100 bg-white">
-        {shown.map(({ note, fields, alerts }) => (
+        {shown.map(({ note, fields, alerts, standIn }) => (
           <li key={`${note.section}/${note.key}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
             <span className="min-w-0 flex-1 truncate" title={note.key ?? undefined}>
               <span className="font-medium text-ink-900">{note.key}</span> <span className="text-[12.5px] text-ink-500">{note.noun}</span>
@@ -104,6 +106,7 @@ export function FillIns({ notes, links = false }: { notes: MirrorNote[]; links?:
               <Badge tone="warn" title="A test that needs it won't run until it is filled in">Stops tests</Badge>
             )}
             {links && <NoteLinks note={note} />}
+            {links && standIn && canOperate && <FilledIn section={note.section!} itemKey={note.key!} />}
           </li>
         ))}
       </ul>
@@ -113,6 +116,24 @@ export function FillIns({ notes, links = false }: { notes: MirrorNote[]; links?:
         </button>
       )}
     </div>
+  );
+}
+
+/**
+ * For a secret a bring saved as a placeholder so its subscription could be made: Bitween hides it once
+ * saved, so only a person can say staging's own is in.
+ */
+function FilledIn({ section, itemKey }: { section: string; itemKey: string }) {
+  const queryClient = useQueryClient();
+  const tick = useMutation({
+    mutationFn: () => api.mirrorFilledIn(section, itemKey),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.mirror.all }),
+  });
+  return (
+    <Button size="sm" busy={tick.isPending} onClick={() => tick.mutate()}
+      title={`Staging can't see a saved secret, so it can't tell this was filled in. Tick once staging's own is in “${itemKey}”.`}>
+      Filled in
+    </Button>
   );
 }
 
