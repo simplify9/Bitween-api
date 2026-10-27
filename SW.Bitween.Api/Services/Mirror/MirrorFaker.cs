@@ -39,15 +39,17 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
 
     /// <summary>
     /// What a setting or a value of prod's is that staging never holds, so a copy leaves it empty for
-    /// staging's own: an address (a URL, a host, an email, a connection string) or a secret (one prod
-    /// masks, or one named like a secret). Null for anything else. A host built from a {{token}} isn't
-    /// one yet, nor is a secret that names one: the token is what is copied. Hosts every system names
-    /// alike, such as an XML namespace's www.w3.org, are nobody's.
+    /// staging's own: an address (a URL, a host, an email, a connection string), a secret (one prod
+    /// masks, or one named like a secret) or a login (one named like a user name). Null for anything
+    /// else. A host built from a {{token}} isn't one yet, nor is a secret or a login that names one: the
+    /// token is what is copied. Hosts every system names alike, such as an XML namespace's www.w3.org,
+    /// are nobody's.
     /// </summary>
     public static string BlankKind(string key, string value)
     {
         if (string.IsNullOrEmpty(value)) return null;
         if (value == Masked || IsSecretLike(key) && !TokenPattern.IsMatch(value)) return "secret";
+        if (IsLoginKey(key) && !TokenPattern.IsMatch(value)) return "login";
         if (IsConnectionStringKey(key) || LooksLikeConnectionString(value) || HostsIn(key, value).Any(h => !Untouched(h))) return "address";
         return null;
     }
@@ -95,6 +97,16 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
     {
         var k = (key ?? "").ToLowerInvariant().Replace("_", "").Replace("-", "");
         return k is "pass" or "key" or "pin" || SecretWords.Any(k.Contains);
+    }
+
+    /// <summary>
+    /// A name a login goes by - a user name, a client id - which prod's never is on
+    /// staging: the team's test login is. SftpUsername and ftpUser are; UserAgent isn't.
+    /// </summary>
+    public static bool IsLoginKey(string key)
+    {
+        var k = (key ?? "").ToLowerInvariant().Replace("_", "").Replace("-", "").Replace(".", "");
+        return LoginEndings.Any(k.EndsWith);
     }
 
     /// <summary>How every stand-in secret starts, which tells one from a secret set on staging.</summary>
@@ -535,6 +547,8 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
 
     static readonly string[] SecretWords =
         ["password", "passwd", "pwd", "secret", "token", "credential", "apikey", "accesskey", "privatekey", "passphrase", "certificate", "signingkey"];
+
+    static readonly string[] LoginEndings = ["user", "username", "userid", "login", "loginname", "loginid", "clientid"];
 
     static readonly string[] AddressWords = ["url", "uri", "host", "server", "endpoint", "address", "domain", "webhook", "smtp", "imap", "ftp"];
 

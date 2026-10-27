@@ -15,7 +15,11 @@ namespace SW.Bitween.Services.Mirror;
 /// <param name="Path">Where it is in the item, as its configuration file says it: handler, properties, Url.</param>
 /// <param name="Field">Where it is, in words: handler · Url.</param>
 /// <param name="Kind">address, secret or login: what staging's own value is.</param>
-public record MirrorBlank(string Section, string Key, IReadOnlyList<string> Path, string Field, string Kind);
+/// <param name="StoodIn">
+/// A secret a bring saved as a placeholder, which Bitween hides like any saved secret: open until a person
+/// says it was filled in.
+/// </param>
+public record MirrorBlank(string Section, string Key, IReadOnlyList<string> Path, string Field, string Kind, bool StoodIn = false);
 
 /// <summary>A partner property or global value that is faked, unless it is kept because it is a setting.</summary>
 public record MirrorFakedKey(string Id, string Label, int Count, bool Kept);
@@ -192,7 +196,7 @@ public static class MirrorSetup
 
     /// <summary>
     /// Every partner property and global value that gets faked, by key, and whether it is kept. A
-    /// secret or an address is never offered: neither can be kept, whatever the list says.
+    /// secret, an address or a login is never offered: none can be kept, whatever the list says.
     /// </summary>
     static List<MirrorFakedKey> FakedKeys(IReadOnlyDictionary<string, List<Existing>> prod, ISet<string> keep)
     {
@@ -216,7 +220,7 @@ public static class MirrorSetup
         {
             var text = value is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
             if (string.IsNullOrEmpty(text) || text == MirrorFaker.Masked || secret.Contains(name)) continue;
-            if (MirrorFaker.IsAddressKey(name) || MirrorFaker.IsSecretLike(name) || name.EndsWith("port", StringComparison.OrdinalIgnoreCase)) continue;
+            if (MirrorFaker.IsAddressKey(name) || MirrorFaker.IsSecretLike(name) || MirrorFaker.IsLoginKey(name) || name.EndsWith("port", StringComparison.OrdinalIgnoreCase)) continue;
             yield return name;
         }
     }
