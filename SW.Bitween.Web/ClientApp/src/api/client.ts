@@ -1,5 +1,14 @@
 import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
+  MirrorBring,
+  MirrorBringSection,
+  MirrorListed,
+  MirrorListFilter,
+  MirrorProdKinds,
+  MirrorProdListAnswer,
+  MirrorStatus,
+  MirrorSubscriptionAnswer,
+  MirrorTest,
   InviteResult,
   PasswordLinkInfo,
   AdapterInfo,
@@ -294,6 +303,8 @@ export interface ApiClient {
     partnerId?: number | null;
     categoryId?: number | null;
     inactive?: boolean | null;
+    /** On a mirror: only those prod has too, or only those whose test says this. */
+    mirror?: MirrorListFilter | null;
     offset: number;
     limit: number;
   }): Promise<Paged<SubscriptionRow>>;
@@ -475,6 +486,8 @@ export interface ApiClient {
   searchApiGateways(query: {
     search: string;
     inactive?: boolean | null;
+    /** On a mirror: only those prod has too, or only those whose test says this. */
+    mirror?: MirrorListFilter | null;
     offset: number;
     limit: number;
   }): Promise<Paged<ApiGatewayRow>>;
@@ -509,6 +522,8 @@ export interface ApiClient {
     search: string;
     informationTypeId?: number | null;
     inactive?: boolean | null;
+    /** On a mirror: only those prod has too, or only those whose test says this. */
+    mirror?: MirrorListFilter | null;
     offset: number;
     limit: number;
   }): Promise<Paged<BusGatewayRow>>;
@@ -654,6 +669,20 @@ export interface ApiClient {
     policyId: number,
     input: { subscriptionId: number; groupId: string } & RetryAlertConfig,
   ): Promise<void>;
+
+  // - prod mirror -
+  getMirror(): Promise<MirrorStatus>;
+  getMirrorProdKinds(): Promise<MirrorProdKinds>;
+  getMirrorProd(section: MirrorBringSection, type?: string): Promise<MirrorProdListAnswer>;
+  bringFromProd(section: MirrorBringSection, keys: string[], apply: boolean): Promise<MirrorBring>;
+  getMirrorSubscription(id: number): Promise<MirrorSubscriptionAnswer>;
+  getMirrorTest(id: number): Promise<MirrorTest>;
+  takeMirrorTest(id: number): Promise<MirrorTest>;
+  runMirrorTest(id: number): Promise<MirrorTest>;
+  clearMirrorTest(id: number): Promise<MirrorTest>;
+  getMirrorListed(section: MirrorBringSection): Promise<MirrorListed>;
+  testMirrorMany(section: MirrorBringSection, ids: number[]): Promise<{ subscriptions: string[] }>;
+  stopMirrorTests(): Promise<{ dropped: number }>;
 
   // - settings -
   listSettings(): Promise<SettingRow[]>;

@@ -298,7 +298,11 @@ export function SettingsPage() {
 
   const saveAll = useMutation({
     mutationFn: async () => {
-      for (const [key, value] of Object.entries(settingsDraft.get())) {
+      // In the page's order: an address goes before the login typed for it, which saving the address
+      // would otherwise empty again.
+      const order = (rows ?? []).map((r) => r.key);
+      const changed = Object.entries(settingsDraft.get()).sort(([a], [b]) => order.indexOf(a) - order.indexOf(b));
+      for (const [key, value] of changed) {
         await api.updateSetting(key, value);
       }
     },

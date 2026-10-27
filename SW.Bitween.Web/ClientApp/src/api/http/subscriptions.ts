@@ -12,6 +12,7 @@ import {
   type SubscriptionRun,
   type SubscriptionType,
   type InformationTypeRow,
+  type MirrorListFilter,
   type NewResponseSubscriptionDraft,
   type Paged,
   type PartnerRow,
@@ -421,6 +422,8 @@ export const subscriptionMethods = {
     partnerId?: number | null;
     categoryId?: number | null;
     inactive?: boolean | null;
+    /** On a mirror: only those prod has too, or only those whose test says this. */
+    mirror?: MirrorListFilter | null;
     offset: number;
     limit: number;
   }): Promise<Paged<SubscriptionRow>> {
@@ -432,6 +435,7 @@ export const subscriptionMethods = {
         ["PartnerId", SEARCHY_RULE.equalsTo, query.partnerId ?? ""],
         ["CategoryId", SEARCHY_RULE.equalsTo, query.categoryId ?? ""],
         ["Inactive", SEARCHY_RULE.equalsTo, query.inactive == null ? "" : String(query.inactive)],
+        ["Mirror", SEARCHY_RULE.equalsTo, query.mirror ?? ""],
       ],
       sort: ["Name", SEARCHY_SORT.asc],
       offset: query.offset,

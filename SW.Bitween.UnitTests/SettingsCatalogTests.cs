@@ -26,6 +26,7 @@ public class SettingsCatalogTests
                 "Marketplace",
                 "AI",
                 "Mail server",
+                "Prod mirror",
                 "Reliability & jobs",
                 "Messaging",
                 "Database",

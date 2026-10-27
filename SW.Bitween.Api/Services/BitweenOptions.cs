@@ -174,6 +174,9 @@ namespace SW.Bitween
         /// </summary>
         public SW.Bitween.NativeAdapters.ChannelMessages.MailServerOptions MailServer { get; } = new();
 
+        /// <summary>The prod this staging copies its setup from, faked, to rehearse upgrades on.</summary>
+        public global::SW.Bitween.Services.Mirror.MirrorOptions Mirror { get; } = new();
+
         /// <summary>
         /// The AI provider AI features call. One instance for the life of the app, for the same
         /// reason as <see cref="MailServer"/>: Settings changes it in place.

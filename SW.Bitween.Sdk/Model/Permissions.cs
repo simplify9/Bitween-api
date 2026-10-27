@@ -175,6 +175,16 @@ public static class Permissions
         public const string View = "audit.view";
     }
 
+    /// <summary>A staging that mirrors a prod, to rehearse upgrades on.</summary>
+    public static class Mirror
+    {
+        /// <summary>See how close this staging is to prod, and what is left to do.</summary>
+        public const string View = "mirror.view";
+
+        /// <summary>Bring prod's items onto this staging, keeping what it has, and test them with prod's traffic.</summary>
+        public const string Operate = "mirror.operate";
+    }
+
     public static class AdapterSource
     {
         /// <summary>Read the source an adapter version was published with, and compare versions.</summary>
@@ -353,7 +363,13 @@ public static class PermissionCatalog
             "The code each adapter version was published with, and adapters written in Bitween.",
             (View, "Read an adapter's source and compare its versions."),
             (Edit, "Write Python and JavaScript adapters in the editor: drafts, building, testing and trying them."),
-            (Operate, "Publish versions from the editor, and make a published version the one that runs."))
+            (Operate, "Publish versions from the editor, and make a published version the one that runs.")),
+
+        // Administration: it brings prod's items onto this Bitween and runs prod's traffic through them.
+        Area("mirror", "Prod mirror", "Administration",
+            "A staging that copies a prod's setup, faked, to rehearse upgrades on.",
+            (View, "See how close staging is to prod, and what is left to do."),
+            (Operate, "Bring prod's items onto this staging, keeping what it has, and test them with prod's traffic."))
     ];
 
     /// <summary>Every valid permission key.</summary>

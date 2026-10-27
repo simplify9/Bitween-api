@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
@@ -48,8 +49,15 @@ public class Update(
             throw new SWValidationException("SETTING_INVALID_VALUE", $"{definition.Label}: {ex.Message}");
         }
 
+        var before = settings.LiveValue(definition);
         await Store(definition, value);
         settings.Apply(definition, value);
+        if (definition.Clears is { } clears && settings.LiveValue(definition) != before)
+            foreach (var cleared in clears.Select(SettingsCatalog.Find))
+            {
+                await Store(cleared, string.Empty);
+                settings.Apply(cleared, string.Empty);
+            }
 
         // Some settings need more than the property assignment above - re-scheduling a job, for
         // instance. Runs after Apply so the hook reads the value that's now in effect.

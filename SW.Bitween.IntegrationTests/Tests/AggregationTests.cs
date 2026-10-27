@@ -17,6 +17,43 @@ namespace SW.Bitween.IntegrationTests.Tests;
 public class AggregationTests(BitweenFixture fixture)
 {
     [Fact]
+    public async Task A_mirror_test_rolls_up_only_what_tests_ran()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var job = scope.ServiceProvider.GetRequiredService<AggregationJob>();
+
+        var doc = new Document(null, "Agg Prefix Doc", DocumentFormat.Json);
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+        var source = new Subscription("Agg Prefix Source", doc.Id) { Inactive = false };
+        db.Set<Subscription>().Add(source);
+        await db.SaveChangesAsync();
+
+        // One exchange a test ran, one of staging's own.
+        var ids = new List<string>();
+        foreach (var correlation in new[] { "rehearsal-run1", "the-team-s-own" })
+        {
+            var xchange = new Xchange(source, new XchangeFile("{}"), correlationId: correlation);
+            db.Set<Xchange>().Add(xchange);
+            await db.SaveChangesAsync();
+            db.Set<XchangeResult>().Add(new XchangeResult(xchange.Id, null, null));
+            await db.SaveChangesAsync();
+            ids.Add(xchange.Id);
+        }
+        var aggregation = new Subscription("Agg Prefix", source.Id, Partner.SystemId) { Inactive = false, AggregationTarget = XchangeFileType.Input };
+        db.Set<Subscription>().Add(aggregation);
+        await db.SaveChangesAsync();
+        fixture.App.Services.GetRequiredService<IInfolinkCache>().Revoke();
+
+        await job.Execute(new AggregationJobParams(aggregation.Id, null, "rehearsal-agg", "rehearsal-"));
+
+        // The test's is rolled up; the team's waits for its own roll-up.
+        Assert.NotNull(await db.Set<XchangeAggregation>().AsNoTracking().SingleOrDefaultAsync(a => a.Id == ids[0]));
+        Assert.Null(await db.Set<XchangeAggregation>().AsNoTracking().SingleOrDefaultAsync(a => a.Id == ids[1]));
+    }
+
+    [Fact]
     public async Task Aggregation_job_creates_one_xchange_from_successful_source_xchanges()
     {
         await using var scope = fixture.CreateScope();

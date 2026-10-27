@@ -194,8 +194,11 @@ public class GatewayController(
         var xchangeId = string.IsNullOrEmpty(idempotencyKey)
             ? null
             : await IdempotencyGuard.FindAsync(dbContext, idempotencyScope, idempotencyKey);
+        // A mirror's rehearsal calls as prod's partner did, under a correlation of its own, and sends
+        // what the rehearsal before it sent.
+        var rehearsal = Services.Mirror.MirrorTraffic.CorrelationFor(options, Request.Headers);
         // Not for a replayed call: its payload is a repeat by definition, and it is answered already.
-        var duplicate = xchangeId is null
+        var duplicate = xchangeId is null && rehearsal is null
             ? await new DuplicateArrivals(dbContext).CheckAsync(document, partner.Id, xchangeFile)
             : null;
 
@@ -217,7 +220,7 @@ public class GatewayController(
 
             // The sets already read at the top of the request, from the cache.
             var xchange = await xchangeService.CreateXchange(subscription, xchangeFile, xchangeReferences.ToArray(),
-                Guid.NewGuid().ToString("N"), partner, globalAdapterValuesSet);
+                rehearsal ?? Guid.NewGuid().ToString("N"), partner, globalAdapterValuesSet);
             if (resultSync)
             {
                 // Before the save publishes the exchange, so its result can't arrive unannounced. The

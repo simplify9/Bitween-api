@@ -2,10 +2,12 @@ import { useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { CornerDownLeft, Plus } from "lucide-react";
-import { api } from "../../api";
+import { api, type MirrorListFilter, type SubscriptionRow } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { BringFromProd } from "../mirror/BringFromProd";
+import { PROD_FILTER_OPTIONS, ProdNotice, ProdStatus, TestFromProd, useProdListing } from "../mirror/ProdList";
 import { Button, EmptyState, LoadError, LoadingBlock, ProblemText } from "../../components/ui/basics";
 import { ExceptionLine } from "../../components/ui/Exception";
 import { Pagination } from "../../components/ui/Pagination";
@@ -38,12 +40,14 @@ export function ResponseSubscriptionsPage() {
   const inactiveParam = searchParams.get("inactive");
   const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
+  const prod = useProdListing("subscriptions");
+  const prodFilter = prod.ready ? (searchParams.get("prod") as MirrorListFilter | null) : null;
   const canSeeInfoTypes = useSessionCan("documents.view");
 
   const rows = useQuery({
-    queryKey: keys.subscriptions.rowsSearch({ type: "Response", q, inactive, offset }),
+    queryKey: keys.subscriptions.rowsSearch({ type: "Response", q, inactive, prodFilter, offset }),
     queryFn: () =>
-      api.searchSubscriptionRows({ search: q, type: "Response", inactive, offset, limit: PAGE_SIZE }),
+      api.searchSubscriptionRows({ search: q, type: "Response", inactive, mirror: prodFilter, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
   // The list rows don't carry work group, retry policy or who points at what; the
@@ -72,7 +76,13 @@ export function ResponseSubscriptionsPage() {
       <PageHeader
         title="Response subscriptions"
         description="Pipelines that run on what another subscription's delivery hands back - an order id, an acknowledgement, a label."
-        actions={createAction}
+        actions={
+          <>
+            <BringFromProd section="subscriptions" type="Response" label="response subscriptions" />
+            <TestFromProd listing={prod} section="subscriptions" type="Response" label="response subscriptions" />
+            {createAction}
+          </>
+        }
         help={{
           title: "How response subscriptions work",
           body: (
@@ -105,7 +115,19 @@ export function ResponseSubscriptionsPage() {
             options={STATUS_OPTIONS}
           />
         </div>
+        {prod.ready && (
+          <div className="w-44">
+            <FilterSelect
+              aria-label="Filter by how it stands against prod"
+              value={prodFilter ?? ""}
+              onChange={(v) => setParam("prod", v || null)}
+              options={PROD_FILTER_OPTIONS}
+            />
+          </div>
+        )}
       </div>
+
+      <ProdNotice listing={prod} />
 
       {rows.isPending ? (
         <LoadingBlock label="Loading response subscriptions…" />
@@ -114,9 +136,9 @@ export function ResponseSubscriptionsPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<CornerDownLeft />}
-          title={q || inactive !== null ? "No response subscriptions match" : "No response subscriptions yet"} action={q || inactive !== null ? undefined : createAction}
+          title={q || inactive !== null || prodFilter ? "No response subscriptions match" : "No response subscriptions yet"} action={q || inactive !== null || prodFilter ? undefined : createAction}
         >
-          {q || inactive !== null
+          {q || inactive !== null || prodFilter
             ? "Try a different search or filter."
             : "Create one, then pick it in another subscription's Response step."}
         </EmptyState>
@@ -222,6 +244,13 @@ export function ResponseSubscriptionsPage() {
                 </span>
               ),
             },
+            ...(prod.ready
+              ? [{
+                  header: "Prod",
+                  headerTitle: "How its test with prod's traffic last went: Same, Check, Different or Not tested; - when prod has no subscription of its name.",
+                  cell: (r: SubscriptionRow) => <ProdStatus listing={prod} id={r.id} />,
+                }]
+              : []),
             {
               header: "Last error",
               truncate: true,

@@ -121,6 +121,7 @@ The database schema is created on first start. A new database refuses to start w
 | [Configuration](docs/configuration.md) | Every configuration key, runtime setting and Helm value |
 | [Deployment](docs/deployment.md) | Docker image, Helm chart, databases, storage and CI/CD |
 | [Operations](docs/operations.md) | Monitoring, troubleshooting, logs and data retention |
+| [Prod mirror](docs/prod-mirror.md) | Copying a prod's setup onto a staging, every value faked, to try an upgrade there first |
 | [Admin UI](docs/admin-ui.md) | A tour of the web interface |
 | [API reference](docs/api-reference.md) | REST conventions and every endpoint |
 | [Development](docs/development.md) | Local setup, tests, migrations and extending Bitween |

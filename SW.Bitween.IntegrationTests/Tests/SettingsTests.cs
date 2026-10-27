@@ -31,6 +31,9 @@ public class SettingsTests(BitweenFixture fixture) : IAsyncLifetime
     private const string EditableKey = "Bitween.JwtExpiryMinutes";
     private const string EnvironmentOwnedKey = "Bitween.QueuePrefix";
     private const string CronKey = "Bitween.RetryJobCron";
+    private const string ProdAddressKey = "Bitween.Mirror.SourceUrl";
+    private const string ProdTokenKey = "Bitween.Mirror.SourceToken";
+    private const string ProdPasswordKey = "Bitween.Mirror.SourcePassword";
 
     private readonly Dictionary<string, string> _originals = new();
 
@@ -42,7 +45,7 @@ public class SettingsTests(BitweenFixture fixture) : IAsyncLifetime
     /// </summary>
     public async Task InitializeAsync()
     {
-        foreach (var key in new[] { SecretKey, EditableKey })
+        foreach (var key in new[] { SecretKey, EditableKey, ProdAddressKey, ProdTokenKey, ProdPasswordKey })
             _originals[key] = await LiveValue(key);
     }
 
@@ -156,6 +159,33 @@ public class SettingsTests(BitweenFixture fixture) : IAsyncLifetime
         // Stored unchecked, this fails much later - when something reads the session length and
         // cannot parse it, far from the screen where it was typed.
         Assert.StartsWith("SETTING_INVALID_VALUE", ex.Message);
+    }
+
+    [Fact]
+    public async Task A_new_prod_address_empties_the_login_saved_for_the_old_one()
+    {
+        await Store(ProdAddressKey, "https://bitween.acme.com");
+        await Store(ProdTokenKey, "bwt_saved-for-acme");
+        await Store(ProdPasswordKey, "saved-for-acme");
+
+        // Saving the same address again changes nothing.
+        await Store(ProdAddressKey, "https://bitween.acme.com/");
+        Assert.Equal("bwt_saved-for-acme", await LiveValue(ProdTokenKey));
+
+        // Whoever points staging at another address doesn't get the old login sent there.
+        await Store(ProdAddressKey, "https://elsewhere.example.net");
+        Assert.Equal("", await LiveValue(ProdTokenKey));
+        Assert.Equal("", await LiveValue(ProdPasswordKey));
+    }
+
+    [Theory]
+    [InlineData("https://viewer:pw@bitween.acme.com")]
+    [InlineData("https://bitween.acme.com/?token=x")]
+    [InlineData("https://bitween.acme.com/#x")]
+    public async Task Prod_address_is_only_an_address(string address)
+    {
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() => Store(ProdAddressKey, address));
+        Assert.Contains("more than an address", ex.Message);
     }
 
     [Fact]

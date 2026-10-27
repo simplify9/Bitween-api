@@ -77,6 +77,15 @@ public class InformationTypes : Kind
 
     protected override bool Include(string id, JsonObject api) => id != AggregationDocumentId;
 
+    public override List<string> Differences(Context ctx, JsonObject want, Existing have)
+    {
+        var differ = base.Differences(ctx, want, have);
+        // Bitween keeps a message type name only while the type is on the bus, so one an older
+        // Bitween kept for a type off it would read as a change on every apply after.
+        if (!((bool?)want["busEnabled"] ?? (bool?)have.File["busEnabled"] ?? false)) differ.Remove("busMessageTypeName");
+        return differ;
+    }
+
     protected override JsonObject UpdateBody(Context ctx, Existing have, JsonObject want)
     {
         var body = base.UpdateBody(ctx, have, want);

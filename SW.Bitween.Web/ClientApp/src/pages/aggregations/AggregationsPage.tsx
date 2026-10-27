@@ -2,10 +2,12 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Layers, Play, Plus, TriangleAlert } from "lucide-react";
-import { api, type SubscriptionRow, type ScheduleHealth } from "../../api";
+import { api, type SubscriptionRow, type ScheduleHealth, type MirrorListFilter } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { BringFromProd } from "../mirror/BringFromProd";
+import { PROD_FILTER_OPTIONS, ProdNotice, ProdStatus, TestFromProd, useProdListing } from "../mirror/ProdList";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { ExceptionLine } from "../../components/ui/Exception";
@@ -99,12 +101,14 @@ export function AggregationsPage() {
   const inactiveParam = searchParams.get("inactive");
   const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
+  const prod = useProdListing("subscriptions");
+  const prodFilter = prod.ready ? (searchParams.get("prod") as MirrorListFilter | null) : null;
   const canOperate = useSessionCan("subscriptions.operate");
 
   const rows = useQuery({
-    queryKey: keys.subscriptions.rowsSearch({ type: "Aggregation", q, inactive, offset }),
+    queryKey: keys.subscriptions.rowsSearch({ type: "Aggregation", q, inactive, prodFilter, offset }),
     queryFn: () =>
-      api.searchSubscriptionRows({ search: q, type: "Aggregation", inactive, offset, limit: PAGE_SIZE }),
+      api.searchSubscriptionRows({ search: q, type: "Aggregation", inactive, mirror: prodFilter, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
   // The list rows don't carry work group or retry policy; the subscriptions cache does,
@@ -138,7 +142,13 @@ export function AggregationsPage() {
       <PageHeader
         title="Aggregations"
         description="Collect a subscription's exchanges on a schedule into one exchange listing links to their files. The files are not combined - a mapper or delivery does that."
-        actions={createAction}
+        actions={
+          <>
+            <BringFromProd section="subscriptions" type="Aggregation" label="aggregations" />
+            <TestFromProd listing={prod} section="subscriptions" type="Aggregation" label="aggregations" />
+            {createAction}
+          </>
+        }
         help={{
           title: "How aggregations work",
           body: (
@@ -172,15 +182,27 @@ export function AggregationsPage() {
             options={STATUS_OPTIONS}
           />
         </div>
+        {prod.ready && (
+          <div className="w-44">
+            <FilterSelect
+              aria-label="Filter by how it stands against prod"
+              value={prodFilter ?? ""}
+              onChange={(v) => setParam("prod", v || null)}
+              options={PROD_FILTER_OPTIONS}
+            />
+          </div>
+        )}
       </div>
+
+      <ProdNotice listing={prod} />
 
       {rows.isPending ? (
         <LoadingBlock label="Loading aggregations…" />
       ) : rows.isError ? (
         <LoadError error={rows.error} what="aggregations" onRetry={() => void rows.refetch()} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<Layers />} title={q || inactive !== null ? "No aggregations match" : "No aggregations yet"} action={q || inactive !== null ? undefined : createAction}>
-          {q || inactive !== null
+        <EmptyState icon={<Layers />} title={q || inactive !== null || prodFilter ? "No aggregations match" : "No aggregations yet"} action={q || inactive !== null || prodFilter ? undefined : createAction}>
+          {q || inactive !== null || prodFilter
             ? "Try a different search or filter."
             : "Create one here, or open the subscription you want summarised and choose “Create an aggregation of this” from its More actions menu."}
         </EmptyState>
@@ -374,6 +396,13 @@ export function AggregationsPage() {
                 </span>
               ),
             },
+            ...(prod.ready
+              ? [{
+                  header: "Prod",
+                  headerTitle: "How its test with prod's traffic last went: Same, Check, Different or Not tested; - when prod has no subscription of its name.",
+                  cell: (r: SubscriptionRow) => <ProdStatus listing={prod} id={r.id} />,
+                }]
+              : []),
             {
               header: "Last error",
               headerTitle: "The most recent failure this aggregation recorded. Open the row for the full run history.",

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 namespace SW.Bitween
 {
     public class BusService(XchangeService xchangeService, IInfolinkCache cache,
-        RequestContext requestContext) : IConsume
+        RequestContext requestContext, BitweenOptions options) : IConsume
     {
         private const string MessageTypeNameToDocumentId = "MessageTypeNameToDocumentId";
 
@@ -31,7 +31,11 @@ namespace SW.Bitween
             var sourceXchangeId = requestContext.GetValueOf(StartupValuesFiller.SourceXchangeBusValue,
                 RequestValueType.ServiceBusValue);
 
-            await xchangeService.SubmitFilterXchange(map[messageTypeName], xf, null, requestContext.CorrelationId,
+            // A mirror's rehearsal keeps its correlation across the bus, which would start a new one.
+            var rehearsal = requestContext.GetValueOf(Services.Mirror.MirrorTraffic.BusValue, RequestValueType.ServiceBusValue);
+            var correlationId = Services.Mirror.MirrorTraffic.IsRehearsal(options, rehearsal) ? rehearsal : requestContext.CorrelationId;
+
+            await xchangeService.SubmitFilterXchange(map[messageTypeName], xf, null, correlationId,
                 string.IsNullOrWhiteSpace(sourceXchangeId) ? null : new XchangeSource(sourceXchangeId));
         }
 

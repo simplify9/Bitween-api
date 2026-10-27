@@ -104,7 +104,8 @@ namespace SW.Bitween.Resources.Subscriptions
 
                 return dbContext.FindAsync<Subscription>(subId);
             }
-            public Validate(BitweenDbContext dbContext, IHttpContextAccessor httpContextAccessor, AdapterRequirements adapterRequirements)
+            public Validate(BitweenDbContext dbContext, IHttpContextAccessor httpContextAccessor, AdapterRequirements adapterRequirements,
+                Services.Mirror.MirrorCopyGate mirrorCopy)
             {
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.MatchExpression).Must(ValidateMatch);
@@ -154,7 +155,7 @@ namespace SW.Bitween.Resources.Subscriptions
                 {
                     var subscription = await GetSub(dbContext, httpContextAccessor);
                     var failure = await ResponseRoutingValidation.CheckDestination(dbContext, responseSubId,
-                        subscription?.Id, subscription?.ResponseSubscriptionId);
+                        subscription?.Id, subscription?.ResponseSubscriptionId, mirrorCopy.RecreatingProd);
                     if (failure != null)
                         context.AddFailure(nameof(SubscriptionUpdate.ResponseSubscriptionId), failure);
                 });

@@ -359,6 +359,8 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<XchangeService>();
                     services.AddScoped<NotificationChannelSender>();
                     services.AddSingleton<FileLinks>();
+                    // The lists' searches filter by how their items stand against prod on a mirror.
+                    services.AddScoped<Services.Mirror.MirrorService>();
                     services.AddScoped<OidcSignIn>();
                     services.AddScoped<ReceiverBookmarks>();
                     services.AddSingleton<SealedState>();

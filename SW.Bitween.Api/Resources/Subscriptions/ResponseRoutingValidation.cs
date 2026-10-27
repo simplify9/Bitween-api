@@ -31,8 +31,12 @@ internal static class ResponseRoutingValidation
     /// <summary>Returns the failure message, or null when the destination is allowed.</summary>
     /// <param name="selfId">The subscription being saved; null while it is being created.</param>
     /// <param name="savedTarget">What it points at today; null while it is being created.</param>
+    /// <param name="recreatingProd">
+    /// A mirror's copy recreating what prod already has (see <see cref="Services.Mirror.MirrorCopyGate"/>):
+    /// an Internal or ApiCall target is prod's saved one, left alone there, so it is let through here too.
+    /// </param>
     public static async Task<string> CheckDestination(BitweenDbContext dbContext, int? responseSubscriptionId,
-        int? selfId = null, int? savedTarget = null)
+        int? selfId = null, int? savedTarget = null, bool recreatingProd = false)
     {
         if (responseSubscriptionId is null || responseSubscriptionId == savedTarget) return null;
 
@@ -41,7 +45,8 @@ internal static class ResponseRoutingValidation
             .Select(s => (SubscriptionType?)s.Type)
             .SingleOrDefaultAsync();
 
-        if (type != SubscriptionType.Response)
+        var keptLegacy = recreatingProd && type is SubscriptionType.Internal or SubscriptionType.ApiCall;
+        if (type != SubscriptionType.Response && !keptLegacy)
             return "A response can only be handed to a response subscription. To reach anything else, " +
                    "publish the response on the bus and let a gateway's routes pick it up.";
 

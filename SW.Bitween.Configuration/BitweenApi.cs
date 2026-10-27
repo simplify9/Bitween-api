@@ -17,7 +17,9 @@ public class BitweenApiException(string message, HttpStatusCode? status = null) 
 /// Calls to one Bitween's API as the signed-in member: the access token goes with each call, and is
 /// renewed with the refresh token when it has expired, the way the browser renews it - the renewed
 /// tokens are saved back to the profile. Or, for a job with no profile, as a service account: its
-/// token is traded for a session, and traded again whenever that runs out; nothing is saved.
+/// token is traded for a session, and traded again whenever that runs out; nothing is saved. Or as a
+/// member by email and password, for a Bitween too old to have service accounts: signed in again
+/// whenever the session runs out, the password held only by this object.
 /// </summary>
 public class BitweenApi : IDisposable
 {
@@ -25,6 +27,7 @@ public class BitweenApi : IDisposable
     readonly Profiles profiles;
     readonly string profileName;
     readonly string serviceToken;
+    readonly (string Email, string Password)? member;
     readonly SemaphoreSlim renewing = new(1, 1);
     Profile profile;
 
@@ -46,6 +49,13 @@ public class BitweenApi : IDisposable
         : this(null, null, new Profile { Url = url.TrimEnd('/'), Insecure = insecure }, handler)
     {
         this.serviceToken = serviceToken;
+    }
+
+    /// <summary>As a member, by email and password: for a Bitween with no service accounts.</summary>
+    public BitweenApi(string url, string email, string password, bool insecure = false, HttpMessageHandler handler = null)
+        : this(null, null, new Profile { Url = url.TrimEnd('/'), Insecure = insecure }, handler)
+    {
+        member = (email, password);
     }
 
     public string Url => profile.Url;
@@ -154,7 +164,9 @@ public class BitweenApi : IDisposable
     async Task<JsonNode> SendAsync(Func<HttpRequestMessage> make)
     {
         var token = profile.AccessToken;
-        if (Expired(token)) await RenewAsync(token);
+        // A token it can't renew - one handed over with no way to sign in again - is sent as it is: the
+        // server allows for clocks a little apart, and says itself when it won't take it.
+        if (Expired(token) && CanRenew) await RenewAsync(token);
         var response = await SendOnceAsync(make());
         if (response.StatusCode == HttpStatusCode.Unauthorized)
         {
@@ -171,6 +183,8 @@ public class BitweenApi : IDisposable
             return string.IsNullOrWhiteSpace(text) ? null : JsonNode.Parse(text);
         }
     }
+
+    bool CanRenew => serviceToken != null || member != null || !string.IsNullOrEmpty(profile.RefreshToken);
 
     Task<HttpResponseMessage> SendOnceAsync(HttpRequestMessage request)
     {
@@ -189,6 +203,7 @@ public class BitweenApi : IDisposable
         {
             if (profile.AccessToken != stale && !Expired(profile.AccessToken)) return;
             if (serviceToken != null) await TradeAsync();
+            else if (member != null) await SignInAgainAsync();
             else await RefreshAsync();
         }
         finally
@@ -204,6 +219,18 @@ public class BitweenApi : IDisposable
         if (!response.IsSuccessStatusCode)
             throw new BitweenApiException($"{profile.Url} refused the service token: {Refusal(response.StatusCode, body)}", response.StatusCode);
         profile.AccessToken = (string)JsonNode.Parse(body)?["jwt"];
+    }
+
+    async Task SignInAgainAsync()
+    {
+        var response = await http.PostAsJsonAsync("api/accounts/login", new { Username = member!.Value.Email, Password = member.Value.Password });
+        var body = await response.Content.ReadAsStringAsync();
+        if (!response.IsSuccessStatusCode)
+            throw new BitweenApiException($"{profile.Url} refused the sign-in: {Refusal(response.StatusCode, body)}", response.StatusCode);
+        var answer = JsonNode.Parse(body);
+        if ((bool?)answer?["mustChangePassword"] == true)
+            throw new BitweenApiException($"The account must change its password first: sign in to {profile.Url} in a browser and change it.");
+        profile.AccessToken = (string)answer?["jwt"];
     }
 
     async Task RefreshAsync()

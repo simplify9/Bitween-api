@@ -213,6 +213,16 @@ export const keys = {
     insights: ["metrics", "insights"] as const,
   },
 
+  mirror: {
+    all: ["mirror"] as const,
+    status: ["mirror", "status"] as const,
+    prodKinds: ["mirror", "prodKinds"] as const,
+    prod: (section: string, type?: string) => ["mirror", "prod", section, type ?? "all"] as const,
+    subscription: (id: number) => ["mirror", "subscription", id] as const,
+    test: (id: number) => ["mirror", "test", id] as const,
+    listed: (section: string) => ["mirror", "listed", section] as const,
+  },
+
   settings: {
     all: ["settings"] as const,
     list: ["settings", "list"] as const,

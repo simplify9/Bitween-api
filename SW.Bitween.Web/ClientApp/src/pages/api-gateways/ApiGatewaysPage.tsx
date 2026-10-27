@@ -1,9 +1,11 @@
 import { useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Plus, Webhook } from "lucide-react";
-import { api, type SubscriptionRow } from "../../api";
+import { api, type ApiGatewayRow, type MirrorListFilter, type SubscriptionRow } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { BringFromProd } from "../mirror/BringFromProd";
+import { PROD_FILTER_OPTIONS, ProdNotice, ProdStatus, TestFromProd, useProdListing } from "../mirror/ProdList";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
@@ -34,10 +36,12 @@ export function ApiGatewaysPage() {
   const inactiveParam = searchParams.get("inactive");
   const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
+  const prod = useProdListing("apiGateways");
+  const prodFilter = prod.ready ? (searchParams.get("prod") as MirrorListFilter | null) : null;
 
   const gateways = useQuery({
-    queryKey: keys.apiGateways.search({ q, inactive, offset }),
-    queryFn: () => api.searchApiGateways({ search: q, inactive, offset, limit: PAGE_SIZE }),
+    queryKey: keys.apiGateways.search({ q, inactive, prodFilter, offset }),
+    queryFn: () => api.searchApiGateways({ search: q, inactive, mirror: prodFilter, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
   const subscriptionsById = useSubscriptionRowsById();
@@ -60,7 +64,13 @@ export function ApiGatewaysPage() {
       <PageHeader
         title="API gateways"
         description="URLs partners call to push documents in. Each attached partner is routed to one subscription."
-        actions={createAction}
+        actions={
+          <>
+            <BringFromProd section="apiGateways" label="API gateways" />
+            <TestFromProd listing={prod} section="apiGateways" label="API gateways" />
+            {createAction}
+          </>
+        }
         help={{
           title: "How API gateways work",
           body: (
@@ -95,15 +105,27 @@ export function ApiGatewaysPage() {
             options={STATUS_OPTIONS}
           />
         </div>
+        {prod.ready && (
+          <div className="w-44">
+            <FilterSelect
+              aria-label="Filter by how it stands against prod"
+              value={prodFilter ?? ""}
+              onChange={(v) => setParam("prod", v || null)}
+              options={PROD_FILTER_OPTIONS}
+            />
+          </div>
+        )}
       </div>
+
+      <ProdNotice listing={prod} />
 
       {gateways.isPending ? (
         <LoadingBlock label="Loading API gateways…" />
       ) : gateways.isError ? (
         <LoadError error={gateways.error} what="API gateways" onRetry={() => void gateways.refetch()} />
       ) : rows.length === 0 ? (
-        <EmptyState icon={<Webhook />} title={q || inactive !== null ? "No gateways match" : "No API gateways yet"} action={q || inactive !== null ? undefined : createAction}>
-          {q || inactive !== null ? "Try a different search or filter." : "Create a gateway to give partners a URL to push documents to."}
+        <EmptyState icon={<Webhook />} title={q || inactive !== null || prodFilter ? "No gateways match" : "No API gateways yet"} action={q || inactive !== null || prodFilter ? undefined : createAction}>
+          {q || inactive !== null || prodFilter ? "Try a different search or filter." : "Create a gateway to give partners a URL to push documents to."}
         </EmptyState>
       ) : (
         <Table
@@ -178,6 +200,13 @@ export function ApiGatewaysPage() {
                 />
               ),
             },
+            ...(prod.ready
+              ? [{
+                  header: "Prod",
+                  headerTitle: "How the tests with prod's traffic of the subscriptions it leads to last went: Same, Check, Different or Not tested; - when prod has no gateway of its name.",
+                  cell: (g: ApiGatewayRow) => <ProdStatus listing={prod} id={g.id} />,
+                }]
+              : []),
           ]}
         />
       )}

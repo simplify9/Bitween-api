@@ -96,12 +96,14 @@ A permission is written `area.action`. A member holds the union of their roles' 
 | Administration | `settings` | view, edit |
 | Administration | `audit` | view |
 | Administration | `adapter-source` | view, edit, operate |
+| Administration | `mirror` | view, operate |
 
 - `exchanges.operate` covers retrying and resubmitting exchanges, including running a scheduled retry now.
 - `subscriptions.operate` covers pause, resume, receive now, roll up now and resetting a retry budget.
 - `data-sources.operate` covers testing a connection. `data-source-statements` lets people write SQL for a database without the right to change its credentials.
 - `documents` is the information types area.
 - The audit trail has only `view`, because nothing can change it.
+- `mirror` is labelled "Prod mirror". `view` covers comparing a staging with the prod it mirrors; `operate` covers bringing prod's items onto it and testing them with prod's traffic. See [Prod mirror](prod-mirror.md).
 - `adapter-source` is labelled "Adapter code". `view` covers reading the source a published adapter version carries and comparing versions. `edit` covers the adapter editor's drafts: starting, editing, deleting, building, checking and trying them, which runs their code on the Bitween server. `operate` covers publishing a version, from the editor or as a package through the API, making a version current and withdrawing one. Listing an adapter's versions needs only `subscriptions.view`.
 
 ### Built-in roles

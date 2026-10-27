@@ -2253,3 +2253,355 @@ export interface ConnectionInput {
   username?: string | null;
   password?: string | null;
 }
+
+// ── Prod mirror ──
+
+/** Whether this Bitween is a mirror and how it reaches prod - known without calling prod. */
+export interface MirrorStatus {
+  /** Set by the deployment: only a mirror can be copied onto. */
+  target: boolean;
+  sourceUrl: string | null;
+  signIn: "token" | "member" | null;
+  configured: boolean;
+}
+
+/** inSync, differs, missing; waiting for an adapter staging lacks; extra: only on staging. */
+export type MirrorItemState = "inSync" | "differs" | "missing" | "waiting" | "extra";
+
+/**
+ * One of prod's items and how staging's compares, with where each is: its id on staging and on
+ * prod, and a subscription's type, which decides its page. A SQL statement's ids are its data
+ * source's, the page it is on.
+ */
+export interface MirrorItem {
+  key: string;
+  state: MirrorItemState;
+  fields: string[];
+  reason: string | null;
+  /** The last copy tried it and Bitween turned it down: copying again won't change that. */
+  refused: boolean;
+  stagingId: string | null;
+  prodId: string | null;
+  type: string | null;
+}
+
+/**
+ * A line of what is left to do, or worth knowing. needsYou: only a person can do it. fill: an address or
+ * secret staging has no value for yet, to fill in with staging's own. faked: what came faked. copy,
+ * notCovered and onPurpose: how staging stands against prod.
+ */
+export interface MirrorNote {
+  id: string;
+  group: "needsYou" | "fill" | "faked" | "copy" | "notCovered" | "onPurpose";
+  text: string;
+  /** The item it is about, to open it. */
+  section: string | null;
+  key: string | null;
+  /** Where it is done: adapters-installed or adapters-marketplace. */
+  action: string | null;
+  /** The item on staging and on prod, to open it on each; null where a side doesn't have it yet. */
+  stagingId?: string | null;
+  prodId?: string | null;
+  /** For a subscription: its type, which decides its page. */
+  type?: string | null;
+  /** For a fill-in: the field to fill in, as its page names it. */
+  field?: string | null;
+  /** For a fill-in: what kind of item it is in, in words. */
+  noun?: string | null;
+}
+
+/** One of prod's exchange files as staging keeps it: faked, or not kept and why. */
+export interface MirrorSampleFile {
+  /** Null when it isn't kept. */
+  key: string | null;
+  /** Its name, faked. */
+  name: string | null;
+  /** json, xml, html, csv, xlsx or text when kept; what it is when it isn't: pdf, zip, edi, binary, large... */
+  format: string | null;
+  size: number;
+  notCopied: string | null;
+  /** Opens the faked file on staging. */
+  url: string | null;
+}
+
+/** One of prod's exchanges, faked, and how it ended on prod. */
+export interface MirrorSample {
+  prodExchangeId: string;
+  startedOn: string;
+  outcome: "success" | "badResponse" | "failed";
+  /** The partner's HTTP status, when prod's error names one. */
+  status: number | null;
+  /** The kinds of error prod's error names, outermost first. Its message isn't kept: it can hold prod's data. */
+  errorTypes: string[];
+  input: MirrorSampleFile | null;
+  output: MirrorSampleFile | null;
+  response: MirrorSampleFile | null;
+  /** The partner it ran as, by name. */
+  partner: string | null;
+  /** The handler it ran, as prod recorded it: the adapter, and its version where one was pinned. */
+  handler: string | null;
+  mapper: string | null;
+  /** Its subscription, by name; null for a document being routed. */
+  subscription: string | null;
+  /** The type of what came in, by name. */
+  informationType: string | null;
+  /** The exchange on prod whose answer or message started it; null for the one that came in. */
+  parent: string | null;
+  /** For an aggregation: a few of the files it rolled up, faked. */
+  rolled?: MirrorSampleFile[] | null;
+}
+
+/**
+ * One thing that came in on prod and every exchange it led to: a document routed, a partner's call
+ * through a gateway, a file a receiver read, an aggregation, then the answers those handed on.
+ */
+export interface MirrorFamily {
+  /** Its first exchange's id on prod. */
+  id: string;
+  /** How it came in on prod. */
+  entry: "document" | "gateway" | "api" | "receiver" | "aggregation" | "direct";
+  /** What it came in through, by name: the information type, the gateway, the receiving subscription. */
+  door: string | null;
+  /** The partner who called, for a gateway or the partner API. */
+  partner: string | null;
+  /** Its exchanges in the order they started on prod; the first is the one that came in. */
+  members: MirrorSample[];
+  /** How many more exchanges prod's family had than the sample keeps. */
+  cut: number;
+  /** Prod doesn't say which subscriptions a document of it went to: staging's are run, but not counted as more than prod's. */
+  unlinked?: boolean;
+}
+
+/**
+ * One line of a rehearsed exchange's compare. different and check count towards the verdict; info is a
+ * difference that explains, such as the upgrade itself; faked is the same as prod's with faked values.
+ */
+export interface MirrorDiff {
+  /** The part of the exchange it is about; entry and family are a family's own: how it came in, and what it led to. */
+  part: "result" | "output" | "answer" | "calls" | "input" | "used" | "entry" | "family";
+  name: string;
+  level: "different" | "check" | "info" | "faked" | "same";
+  /** Prod's side, as staging can show it: faked. Null where only staging's side says anything. */
+  prod: string | null;
+  staging: string | null;
+  note: string | null;
+  fields: MirrorFieldDiff[] | null;
+  /** For a setup item: where it opens on staging. */
+  section: string | null;
+  stagingId: string | null;
+  type: string | null;
+}
+
+export interface MirrorFieldDiff {
+  path: string;
+  level: "different" | "check" | "info" | "same";
+  prod: string | null;
+  staging: string | null;
+}
+
+/** One exchange of a rehearsed family: prod's, the twin staging ran, and how the two compare. */
+export interface MirrorRun {
+  /** Null for one staging ran that prod's family didn't. */
+  prodExchangeId: string | null;
+  /** Its subscription, or the information type of a document being routed. */
+  subscription: string;
+  /** Null when it didn't run. */
+  stagingExchangeId: string | null;
+  ranOn: string;
+  /** How it ended on staging; null when it didn't run or finish. */
+  outcome: "success" | "badResponse" | "failed" | null;
+  status: number | null;
+  errorTypes: string[];
+  verdict: "same" | "check" | "different" | null;
+  /** Why it didn't run, or didn't finish. */
+  notRun: string | null;
+  output: MirrorSampleFile | null;
+  response: MirrorSampleFile | null;
+  diffs: MirrorDiff[];
+}
+
+/** One of prod's families, sent in on staging the way it came in on prod, and every exchange staging ran for it. */
+export interface MirrorFamilyRun {
+  familyId: string;
+  /** The correlation id it ran under on staging; null when it didn't run. */
+  correlation: string | null;
+  ranOn: string;
+  /** The worst of its exchanges and how it came in; null when it didn't run. */
+  verdict: "same" | "check" | "different" | null;
+  notRun: string | null;
+  /** The family's own lines: how it came in, the release, and anything prod's family had more of. */
+  diffs: MirrorDiff[];
+  members: MirrorRun[];
+}
+
+/** The kinds a page brings from prod. */
+export type MirrorBringSection = "subscriptions" | "apiGateways" | "busGateways";
+
+/** How many of prod's items there are of each kind a page lists, read from prod's lists alone. */
+export interface MirrorProdKinds {
+  /** By subscription type, and every one of them under "all". */
+  subscriptions: Record<string, number>;
+  apiGateways: number;
+  busGateways: number;
+  /** Why prod couldn't be read; pages still offer to bring, and the list says why. */
+  error: string | null;
+}
+
+/** An item's traffic on prod over the window. */
+export interface MirrorProdCounts {
+  total: number;
+  failed: number;
+  lastOn: string | null;
+  /** One count a day, oldest first. */
+  daily: number[];
+}
+
+/** One of prod's items as a page offers it: its traffic, and whether staging has it. */
+export interface MirrorProdItem {
+  key: string;
+  prodId: string | null;
+  type: string | null;
+  /** What it is for, in a few words: a subscription's partner and information type, a gateway's partners. */
+  detail: string;
+  state: MirrorItemState;
+  stagingId: string | null;
+  reason: string | null;
+  traffic: MirrorProdCounts | null;
+}
+
+/** Prod's items of one kind, busiest first. */
+export interface MirrorProdList {
+  section: MirrorBringSection;
+  noun: string;
+  plural: string;
+  /** The window the traffic covers; null when prod can't say, and trafficNote says why. */
+  days: number | null;
+  trafficNote: string | null;
+  items: MirrorProdItem[];
+}
+
+export type MirrorProdListAnswer = MirrorProdList | { error: string };
+
+/**
+ * What happens to one item a bring touches: new (staging gets prod's, faked), kept (staging has it
+ * and keeps its own), adds (staging has it and gets the partner or route that leads to what comes),
+ * waits (it can't come yet: reason says why), install (an adapter from the marketplace).
+ */
+export type MirrorPieceState = "new" | "kept" | "adds" | "waits" | "install";
+
+export interface MirrorPiece {
+  section: string;
+  noun: string;
+  key: string;
+  state: MirrorPieceState;
+  /** Why it comes: picked, or what needs it. */
+  why: string;
+  reason: string | null;
+  stagingId: string | null;
+  type: string | null;
+}
+
+/**
+ * One of staging's subscriptions beside prod's of the same name: it and what it needs, each the same,
+ * faked, different field by field or not on staging, then the adapters they run; what bringing it
+ * would do; and what only a person can do first.
+ */
+export interface MirrorSubscriptionView {
+  key: string;
+  /** Whether prod has a subscription of this name: without one there is nothing to compare or test with. */
+  onProd: boolean;
+  prodId: string | null;
+  prodUrl: string;
+  used: MirrorDiff[];
+  toBring: MirrorPiece[];
+  needsYou: MirrorNote[];
+  /**
+   * The adapters it and what it needs run that don't come with Bitween: one may call addresses written in
+   * its code, which staging can't see, so a test asks first.
+   */
+  customAdapters?: string[] | null;
+}
+
+export type MirrorSubscriptionAnswer = MirrorSubscriptionView | { error: string };
+
+/** A run of a subscription's test whose exchanges are still on staging. */
+export interface MirrorTestRun {
+  correlation: string;
+  startedOn: string;
+}
+
+/** How a subscription's test last ran, kept after what it made is cleared. */
+export interface MirrorTestVerdict {
+  /** The worst of its arrivals; one that didn't run counts as one to check. */
+  verdict: "same" | "check" | "different";
+  ranOn: string;
+  same: number;
+  check: number;
+  different: number;
+  notRun: number;
+}
+
+/** One of staging's items that prod has too, and how its test last ran. */
+export interface MirrorListedItem {
+  id: number;
+  key: string;
+  /** It, or a subscription a gateway leads to, runs an adapter that doesn't come with Bitween. */
+  custom: boolean;
+  /** A subscription's type; null for a gateway. */
+  type: SubscriptionType | null;
+  /** noTraffic when prod had none of it to take; null when it hasn't been tested. A gateway's is the worst of the tested subscriptions it leads to. */
+  verdict: MirrorTestVerdict["verdict"] | "noTraffic" | null;
+  ranOn: string | null;
+  /** How many of the subscriptions it is, or a gateway leads to, have been tested, of `of`. */
+  tested: number;
+  of: number;
+}
+
+/** Staging's items of one kind that prod has too: what a list shows beside its rows. */
+export interface MirrorListed {
+  items: MirrorListedItem[];
+  /** The subscription whose test is under way, by name. */
+  testing: string | null;
+  /** Those waiting their turn after it. */
+  waiting: string[];
+  /** Why prod can't be read, when it can't. */
+  error: string | null;
+}
+
+/** A list's filter on how its items stand against prod. */
+export type MirrorListFilter = "fromProd" | "untested" | "same" | "check" | "different" | "noTraffic";
+
+/**
+ * A subscription's test with prod's traffic: prod's latest arrivals it takes part in, each sent in on
+ * staging the way it came in on prod, and how they last ran.
+ */
+export interface MirrorTest {
+  /** queued: it waits its turn after `busy`. */
+  state: "idle" | "taking" | "running" | "queued" | "failed";
+  /** Other work of the mirror under way, which this test waits for, in words: The test of “Push labels”. */
+  busy: string | null;
+  done: number;
+  total: number;
+  error: string | null;
+  takenOn: string | null;
+  /** Why prod had none to take. */
+  reason: string | null;
+  families: MirrorFamily[];
+  ranOn: string | null;
+  runs: MirrorFamilyRun[];
+  setupError: string | null;
+  made: MirrorTestRun[];
+  /** How many exchanges the test's runs have left on staging. */
+  exchanges: number;
+  /** How the arrivals last ran, kept after a clear; null until they run. */
+  last: MirrorTestVerdict | null;
+}
+
+/** What bringing the picked items does, or did. */
+export interface MirrorBring {
+  applied: boolean;
+  pieces: MirrorPiece[];
+  /** What only a person can do first: upload an adapter, say. */
+  needsYou: MirrorNote[];
+  failed: { section: string; noun: string; key: string; error: string }[];
+}
