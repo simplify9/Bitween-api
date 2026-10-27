@@ -762,6 +762,16 @@ export interface ApiClient {
   checkExchangeFilesExport(selection: BulkRetrySelection): Promise<ExportFilesCheck>;
   getRetryTree(id: string): Promise<RetryTree>;
   /** Manually injects a payload, addressed at a subscription or an information type. */
+  /**
+   * Turns a plain-English question into the Exchanges page's filter, through the AI provider under
+   * Settings, AI. Only the question, the time and names (partners, subscriptions, information
+   * types, promoted-property keys) are sent. `query` is the page's own URL parameters; `answer`
+   * holds `{count}` where the page's total goes; `sent` is exactly what went to the provider.
+   */
+  askExchanges(
+    question: string,
+    signal?: AbortSignal,
+  ): Promise<{ query: string; answer: string; notes: string[]; model: string | null; sent: string }>;
   createExchange(input: {
     target: "subscription" | "informationType";
     subscriptionId?: number;

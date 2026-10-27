@@ -2,6 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "rea
 import { Bookmark, Check, ChevronDown, Clock, Link as LinkIcon, Plus, Search, Trash2, X } from "lucide-react";
 import { SearchSelect, type SearchSelectOption } from "../../components/ui/SearchSelect";
 import { Button } from "../../components/ui/basics";
+import { AskButton, type AskedQuestion } from "./AskExchanges";
 import { Dropdown } from "./Dropdown";
 import {
   BUILT_IN_VIEWS,
@@ -42,12 +43,15 @@ export function QueryBar({
   apply,
   options,
   lookups,
+  onAsked,
 }: {
   searchParams: URLSearchParams;
   /** Sets or drops parameters; changing a filter goes back to the first page. */
   apply: (changes: Changes) => void;
   options: FilterOptions;
   lookups: ChipLookups;
+  /** A question the Ask box turned into the filter. */
+  onAsked: (asked: AskedQuestion) => void;
 }) {
   const chips = filterChips(searchParams, lookups);
 
@@ -63,6 +67,7 @@ export function QueryBar({
         <SearchField searchParams={searchParams} apply={apply} />
       </div>
       <ViewsMenu searchParams={searchParams} apply={apply} />
+      <AskButton searchParams={searchParams} apply={apply} onAsked={onAsked} />
     </div>
   );
 }

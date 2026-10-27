@@ -14,7 +14,7 @@ import type {
   ScheduledRetryRow,
 } from "../types";
 import { partnerMethods } from "./partners";
-import { download, get, post } from "./request";
+import { download, get, post, request } from "./request";
 import { searchyQueryString } from "./searchQuery";
 
 // --- backend shapes (camelCase over the wire) ---
@@ -378,6 +378,14 @@ export const exchangeMethods = {
 
   checkExchangeFilesExport(selection: BulkRetrySelection): Promise<ExportFilesCheck> {
     return post<ExportFilesCheck>("/xchanges/export/check", selectionBody(selection));
+  },
+
+  async askExchanges(question: string, signal?: AbortSignal) {
+    const res = await request<{ query: string; answer: string; notes?: string[]; model?: string | null; sent: string }>(
+      "/xchangequeries",
+      { method: "POST", body: { question, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }, signal },
+    );
+    return { query: res.query, answer: res.answer, notes: res.notes ?? [], model: res.model ?? null, sent: res.sent };
   },
 
   async createExchange(input: {
