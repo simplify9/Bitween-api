@@ -196,7 +196,7 @@ public static class MirrorSetup
 
     /// <summary>
     /// Every partner property and global value that gets faked, by key, and whether it is kept. A
-    /// secret or an address is never offered: neither can be kept, whatever the list says.
+    /// secret, an address or a login is never offered: none can be kept, whatever the list says.
     /// </summary>
     static List<MirrorFakedKey> FakedKeys(IReadOnlyDictionary<string, List<Existing>> prod, ISet<string> keep)
     {
@@ -220,7 +220,7 @@ public static class MirrorSetup
         {
             var text = value is JsonValue v && v.TryGetValue<string>(out var s) ? s : null;
             if (string.IsNullOrEmpty(text) || text == MirrorFaker.Masked || secret.Contains(name)) continue;
-            if (MirrorFaker.IsAddressKey(name) || MirrorFaker.IsSecretLike(name) || name.EndsWith("port", StringComparison.OrdinalIgnoreCase)) continue;
+            if (MirrorFaker.IsAddressKey(name) || MirrorFaker.IsSecretLike(name) || MirrorFaker.IsLoginKey(name) || name.EndsWith("port", StringComparison.OrdinalIgnoreCase)) continue;
             yield return name;
         }
     }
