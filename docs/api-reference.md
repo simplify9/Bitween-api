@@ -84,6 +84,7 @@ All need the global values permissions: `global-values.view` to read, `.create`,
 | `GET /api/xchanges/retrytree?id=` | `exchanges.view` | The retry chain any attempt belongs to |
 | `POST /api/xchanges` | signed in, no permission checked | Create an exchange by hand |
 | `POST /api/xchanges/{id}/retry` | `exchanges.operate` | `{ reason, reset }` |
+| `POST /api/xchangeexplanations` | `exchanges.view` | Explain a failed exchange with AI: `{ xchangeId }`, replying with `summary`, `cause`, `fix`, `model`, and `sent` (exactly what went to the provider, masked). Recorded as an `explain-failure` operator action. See [Explaining a failure](configuration.md#explaining-a-failure). |
 | `POST /api/xchanges/bulkretrypreview` | `exchanges.operate` | Plan a bulk retry without running it |
 | `POST /api/xchanges/bulkretry` | `exchanges.operate` | Run a bulk retry |
 | `POST /api/xchanges/export` | `exchanges.view` | The selected exchanges' files as one zip |

@@ -14,7 +14,7 @@ import type {
   ScheduledRetryRow,
 } from "../types";
 import { partnerMethods } from "./partners";
-import { download, get, post } from "./request";
+import { download, get, post, request } from "./request";
 import { searchyQueryString } from "./searchQuery";
 
 // --- backend shapes (camelCase over the wire) ---
@@ -324,6 +324,13 @@ export const exchangeMethods = {
       buckets: res.buckets ?? [],
       bucketMinutes: res.bucketMinutes ?? 0,
     };
+  },
+
+  explainExchange(
+    xchangeId: string,
+    signal?: AbortSignal,
+  ): Promise<{ summary: string; cause: string; fix: string; model: string | null; sent: string }> {
+    return request("/xchangeexplanations", { method: "POST", body: { xchangeId }, signal });
   },
 
   async retryExchange(id: string, { reset }: { reset: boolean }): Promise<{ id: string }> {
