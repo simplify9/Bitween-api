@@ -131,6 +131,8 @@ public class MirrorBringTests
             """)!, new JsonObject())],
     }, Faker, new HashSet<string>());
 
+    const string Password = """["subscriptions","Agent tracing","receiver","properties","Password"]""";
+
     /// <summary>Bitween's check: what saving would refuse for, of Url and Password.</summary>
     static Task<IReadOnlyCollection<string>> Requires(string adapter, ICollection<KeyAndValue> provided) =>
         Task.FromResult<IReadOnlyCollection<string>>(new[] { "Url", "Password" }
@@ -149,7 +151,7 @@ public class MirrorBringTests
         Assert.AreEqual("set-me", (string)properties["Password"]!);
         Assert.AreEqual("", (string)properties["ApiKey"]!); // it can do without: left empty, as before
         Assert.AreEqual("https://set-me.invalid", (string)properties["Url"]!);
-        CollectionAssert.AreEqual(new[] { "subscriptions/Agent tracing/receiver/properties/Password" }, stoodIn.Select(s => s.Id).ToList());
+        CollectionAssert.AreEqual(new[] { Password }, stoodIn.Select(s => s.Id).ToList());
         Assert.AreSame(creating, stoodIn.Single().Change);
     }
 
@@ -175,9 +177,7 @@ public class MirrorBringTests
             { "name": "Agent tracing", "receiver": { "adapter": "infolink5.receivers.cassini", "properties": {
                 "Url": "https://test.cassini.example.com", "Password": "__private__", "ApiKey": "" } } }
             """)!, new JsonObject())];
-        var password = "subscriptions/Agent tracing/receiver/properties/Password";
-
-        var open = MirrorService.TakeStagingsOwn(copy, staging, new HashSet<string> { password });
+        var open = MirrorService.TakeStagingsOwn(copy, staging, new HashSet<string> { Password });
 
         // Hidden like a filled one, so it reads as no difference; but it still stops tests until ticked.
         Assert.AreEqual("__private__", (string)copy.Sections["subscriptions"].Single()["receiver"]!["properties"]!["Password"]!);
@@ -187,5 +187,41 @@ public class MirrorBringTests
         // Ticked: only the empty ApiKey is left.
         CollectionAssert.AreEqual(new[] { "receiver · ApiKey" },
             MirrorService.TakeStagingsOwn(Tracing(), staging, new HashSet<string>()).Select(b => b.Field).ToList());
+    }
+
+    [TestMethod]
+    public async Task Adapters_go_in_before_the_placeholders_are_worked_out_and_only_whats_made_keeps_one()
+    {
+        var install = new Change(Op.Install, Kinds.Adapters, "infolink5.receivers.cassini");
+        var made = new Change(Op.Create, "subscriptions", "Agent tracing");
+        var refused = new Change(Op.Create, "subscriptions", "Agent export");
+        var steps = new List<string>();
+
+        var (failed, saved) = await MirrorService.ApplyBringingAsync([install, made, refused],
+            part =>
+            {
+                steps.Add("apply " + string.Join(", ", part.Select(c => c.Key)));
+                return Task.FromResult(part.Contains(refused) ? new List<(Change Change, string Error)> { (refused, "Missing: Token") } : []);
+            },
+            all =>
+            {
+                steps.Add("placeholders");
+                return Task.FromResult(new List<(Change Change, string Id)> { (made, "made"), (refused, "refused") });
+            });
+
+        CollectionAssert.AreEqual(new[] { "apply infolink5.receivers.cassini", "placeholders", "apply Agent tracing, Agent export" }, steps);
+        Assert.AreSame(refused, failed.Single().Change);
+        CollectionAssert.AreEqual(new[] { "made" }, saved);
+    }
+
+    [TestMethod]
+    public void Filled_in_closes_that_items_placeholders_and_no_other_whatever_its_name()
+    {
+        static string Id(string key, string field) => MirrorService.StandInId(new MirrorBlank("subscriptions", key, ["handler", "properties", field], field, "secret"));
+        var standIns = new HashSet<string> { Id("A", "Password"), Id("A", "Token"), Id("A/B", "Password"), Id("A/handler", "Password") };
+
+        Assert.AreEqual(2, MirrorService.CloseStandIns(standIns, "subscriptions", "A"));
+
+        CollectionAssert.AreEquivalent(new[] { Id("A/B", "Password"), Id("A/handler", "Password") }, standIns.ToList());
     }
 }

@@ -6,6 +6,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.DependencyInjection;
 using SW.Bitween.Cli;
@@ -177,19 +178,14 @@ public sealed partial class MirrorService
             var bringing = await PlanBringingAsync(comparison, kind, keys);
             if (!apply) return new MirrorBring(false, bringing.Pieces, bringing.NeedsYou, []);
 
-            List<(Change Change, string Id)> stoodIn;
-            await using (var scope = scopes.CreateAsyncScope())
-                stoodIn = await StandInAsync(bringing.Plan.Changes, comparison.Copy.Blanks,
-                    scope.ServiceProvider.GetRequiredService<AdapterRequirements>().MissingFor);
-            var failed = await comparison.Planner.ApplyAllAsync(bringing.Plan);
+            await using var scope = scopes.CreateAsyncScope();
+            var requirements = scope.ServiceProvider.GetRequiredService<AdapterRequirements>();
+            var (failed, saved) = await ApplyBringingAsync(bringing.Plan.Changes,
+                part => comparison.Planner.ApplyAllAsync(bringing.Plan, part),
+                all => StandInAsync(all, comparison.Copy.Blanks, requirements.MissingFor));
             foreach (var change in bringing.Plan.Changes) LastFailures.TryRemove((change.Section, change.Key), out _);
             foreach (var (change, error) in failed) LastFailures[(change.Section, change.Key)] = error;
-            if (stoodIn.Where(s => failed.All(f => !ReferenceEquals(f.Change, s.Change))).Select(s => s.Id).ToList() is { Count: > 0 } saved)
-            {
-                var standIns = await ReadStandInsAsync();
-                standIns.UnionWith(saved);
-                await SaveStandInsAsync(standIns);
-            }
+            if (saved.Count > 0) await UpdateStandInsAsync(standIns => { standIns.UnionWith(saved); return true; });
             var made = bringing.Pieces.Select(p => p.State == "new" ? p with { StagingId = IdOn(comparison.Staging, p.Section, p.Key, bringing.Index) } : p).ToList();
             return new MirrorBring(true, made, bringing.NeedsYou, failed.Select(f => new MirrorFailure(f.Change.Section, f.Change.Noun, f.Change.Key, f.Error)).ToList());
         }
@@ -267,15 +263,35 @@ public sealed partial class MirrorService
     /// <summary>The secrets a bring saved as placeholders, each by <see cref="StandInId"/>, until a person says each was filled in.</summary>
     const string StandInsKey = "mirror/standins.json";
 
-    internal static string StandInId(MirrorBlank blank) => $"{blank.Section}/{blank.Key}/{string.Join("/", blank.Path)}";
+    /// <summary>One read-change-write of <see cref="StandInsKey"/> at a time: a bring and a Filled in can come together. One staging runs one node.</summary>
+    static readonly SemaphoreSlim StandInsLock = new(1, 1);
+
+    /// <summary>A secret's place, as its kind, its item's name and its path, which a name with a slash in it can't run into another's.</summary>
+    internal static string StandInId(MirrorBlank blank) => JsonSerializer.Serialize<string[]>([blank.Section, blank.Key, .. blank.Path]);
+
+    /// <summary>
+    /// Carries out a bring's changes: adapters first, so the placeholders (see <see cref="StandInAsync"/>) can ask
+    /// what an adapter the bring installs can't do without, then the rest. What failed and why, and the placeholders
+    /// saved with what was made.
+    /// </summary>
+    internal static async Task<(List<(Change Change, string Error)> Failed, List<string> Saved)> ApplyBringingAsync(IReadOnlyList<Change> changes,
+        Func<IReadOnlyList<Change>, Task<List<(Change Change, string Error)>>> apply,
+        Func<IReadOnlyList<Change>, Task<List<(Change Change, string Id)>>> standIn)
+    {
+        var adapters = changes.Where(c => c.Section == Kinds.Adapters).ToList();
+        var failed = adapters.Count > 0 ? await apply(adapters) : [];
+        var stoodIn = await standIn(changes);
+        failed.AddRange(await apply(changes.Where(c => c.Section != Kinds.Adapters).ToList()));
+        return (failed, stoodIn.Where(s => failed.All(f => !ReferenceEquals(f.Change, s.Change))).Select(s => s.Id).ToList());
+    }
 
     /// <summary>
     /// The secrets of subscriptions about to be made that their adapters can't be saved without, and that come
     /// empty because the copy never brings one: each gets a placeholder, so the subscription is made, and is
     /// said for staging to remember, since once saved Bitween hides it like a filled one.
     /// <paramref name="missingFor"/> is Bitween's own check, what saving it would refuse for (see
-    /// <see cref="AdapterRequirements.MissingFor"/>); an adapter it can't describe yet - one this bring
-    /// installs - is left for saving to refuse, as before.
+    /// <see cref="AdapterRequirements.MissingFor"/>); an adapter it can't describe - one that failed to
+    /// install - is left for saving to refuse.
     /// </summary>
     internal static async Task<List<(Change Change, string Id)>> StandInAsync(IEnumerable<Change> changes, IReadOnlyList<MirrorBlank> blanks,
         Func<string, ICollection<KeyAndValue>, Task<IReadOnlyCollection<string>>> missingFor)
@@ -316,18 +332,34 @@ public sealed partial class MirrorService
         }
     }
 
-    Task SaveStandInsAsync(HashSet<string> standIns) =>
-        cloudFiles.WriteTextAsync(JsonSerializer.Serialize(standIns, ManifestJson),
-            new WriteFileSettings { Key = StandInsKey, ContentType = "application/json" });
+    /// <summary>Changes the placeholders kept, written back when <paramref name="change"/> says it changed them.</summary>
+    async Task UpdateStandInsAsync(Func<HashSet<string>, bool> change)
+    {
+        await StandInsLock.WaitAsync();
+        try
+        {
+            var standIns = await ReadStandInsAsync();
+            if (change(standIns))
+                await cloudFiles.WriteTextAsync(JsonSerializer.Serialize(standIns, ManifestJson),
+                    new WriteFileSettings { Key = StandInsKey, ContentType = "application/json" });
+        }
+        finally
+        {
+            StandInsLock.Release();
+        }
+    }
 
     /// <summary>A person has filled in an item's secrets a bring saved as placeholders: how many it closes.</summary>
     public async Task<int> FilledInAsync(string section, string key)
     {
-        var standIns = await ReadStandInsAsync();
-        var closed = standIns.RemoveWhere(id => id.StartsWith($"{section}/{key}/", StringComparison.Ordinal));
-        if (closed > 0) await SaveStandInsAsync(standIns);
+        var closed = 0;
+        await UpdateStandInsAsync(standIns => (closed = CloseStandIns(standIns, section, key)) > 0);
         return closed;
     }
+
+    /// <summary>Takes out the item's placeholders, and only that item's: how many.</summary>
+    internal static int CloseStandIns(HashSet<string> standIns, string section, string key) =>
+        standIns.RemoveWhere(id => JsonSerializer.Deserialize<string[]>(id) is [var s, var k, ..] && s == section && k == key);
 
     /// <summary>Kinds that only send alerts: an exchange runs the same whether they are filled in or not.</summary>
     internal static bool OnlyAlerts(string section) => section is "notificationChannels" or "notifiers";
