@@ -284,10 +284,10 @@ export function DiffLine({ diff, run, sample }: { diff: MirrorDiff; run?: Mirror
   const [comparing, setComparing] = useState(false);
   const files = filesOf(diff, run, sample);
   const fields = diff.fields ?? [];
-  const canOpen = fields.length > 0 || !!files?.prod?.url || !!files?.staging?.url || !!diff.note;
+  const staging = diff.section ? itemPath(diff.section, diff.stagingId, diff.type) : null;
+  const canOpen = fields.length > 0 || !!files?.prod?.url || !!files?.staging?.url || !!diff.note || !!staging;
   const level = LEVEL[diff.level];
   const Icon = level.icon;
-  const staging = diff.section ? itemPath(diff.section, diff.stagingId, diff.type) : null;
   return (
     <li className="rounded-md bg-white px-2 py-1.5 text-[12.5px] ring-1 ring-ink-100">
       <button type="button" aria-expanded={open} disabled={!canOpen} onClick={() => setOpen(!open)}

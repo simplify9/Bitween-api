@@ -55,6 +55,45 @@ export default function FileCompare({ prodUrl, stagingUrl, format }: { prodUrl: 
   );
 }
 
+/**
+ * Valid JSON indented token by token, so every value stays as written: parsing and writing it again
+ * turned 1.0 into 1 and rounded long ids, hiding the very differences being compared.
+ */
+function indented(json: string): string {
+  const out: string[] = [];
+  let depth = 0;
+  const line = () => out.push("\n", "  ".repeat(depth));
+  for (let i = 0; i < json.length; i++) {
+    const c = json[i];
+    if (c === '"') {
+      let end = i + 1;
+      while (json[end] !== '"') end += json[end] === "\\" ? 2 : 1;
+      out.push(json.slice(i, end + 1));
+      i = end;
+    } else if (c === "{" || c === "[") {
+      let next = i + 1;
+      while (/\s/.test(json[next] ?? "")) next++;
+      if (json[next] === (c === "{" ? "}" : "]")) {
+        out.push(c, json[next]);
+        i = next;
+      } else {
+        depth++;
+        out.push(c);
+        line();
+      }
+    } else if (c === "}" || c === "]") {
+      depth--;
+      line();
+      out.push(c);
+    } else if (c === ",") {
+      out.push(c);
+      line();
+    } else if (c === ":") out.push(": ");
+    else if (!/\s/.test(c)) out.push(c);
+  }
+  return out.join("");
+}
+
 async function read(url: string | null): Promise<string> {
   if (!url) return "";
   const response = await fetch(url);
@@ -66,10 +105,11 @@ async function read(url: string | null): Promise<string> {
 export function laidOut(text: string, format: string | null): string {
   if (format === "json") {
     try {
-      return JSON.stringify(JSON.parse(text), null, 2);
+      JSON.parse(text);
     } catch {
       return text;
     }
+    return indented(text);
   }
   if (format === "xml" && !text.trim().includes("\n")) {
     let depth = 0;

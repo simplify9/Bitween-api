@@ -17,7 +17,7 @@ namespace SW.Bitween.Resources.ApiGateways
             // the full list is the data, so that's what the view permission covers.
             if (!lookup)
                 await requestContext.EnsurePermission(dbContext, Model.Permissions.ApiGateways.View);
-            await mirror.FilterAsync(searchyRequest, "apiGateways");
+            await mirror.FilterAsync(searchyRequest, "apiGateways", requestContext, dbContext);
 
             var query = from gateway in dbContext.Set<ApiGateway>()
                         select new ApiGatewayRow

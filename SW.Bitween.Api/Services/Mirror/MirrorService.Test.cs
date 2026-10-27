@@ -156,8 +156,11 @@ public sealed partial class MirrorService
         progress?.Invoke(0, families.Count);
 
         var (setup, setupError) = await SetupAsync(selfToken);
-        // An address or secret left empty would send prod's traffic nowhere, or somewhere it shouldn't go.
-        if (setup != null && OpenFor(setup, name) is { Count: > 0 } open)
+        // An address or secret left empty would send prod's traffic nowhere, or somewhere it shouldn't go;
+        // without prod's setup there is no telling, so it doesn't run.
+        if (setup == null)
+            throw new MirrorRefusal($"Staging can't check that what it needs is filled in, so the test doesn't run. {setupError}");
+        if (OpenFor(setup, name) is { Count: > 0 } open)
             throw new MirrorRefusal($"{(open.Count == 1 ? "An address or secret it needs is" : $"{open.Count} addresses and secrets it needs are")} still empty " +
                 "on staging. Fill them in under Left to do, then run the test.");
         var startedOn = DateTimeOffset.UtcNow;

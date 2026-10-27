@@ -27,7 +27,7 @@ public class MirrorFakerTests
     [TestMethod]
     public void A_value_keeps_its_shape_and_loses_its_content()
     {
-        foreach (var value in new[] { "SO-1001-X", "ACME Ltd.", "0045 2231 8890", "traxis_prod" })
+        foreach (var value in new[] { "SO-1001-X", "ACME Ltd.", "0045 2231 8890", "acme_prod" })
         {
             var fake = Faker.Fake(value);
             Assert.AreNotEqual(value, fake);
@@ -73,25 +73,26 @@ public class MirrorFakerTests
     [TestMethod]
     public void Addresses_are_left_for_stagings_own()
     {
-        Assert.AreEqual("address", MirrorFaker.BlankKind("BaseUrl", "https://ws05.ffdx.net:8443/api/v2/orders?apikey=XK99&mode=live"));
-        Assert.AreEqual("address", MirrorFaker.BlankKind("SftpHost", "ws05.ffdx.net"));
-        Assert.AreEqual("address", MirrorFaker.BlankKind("Recipients", "ops@traxis.app, Lina <lina@traxis.app>"));
+        Assert.AreEqual("address", MirrorFaker.BlankKind("BaseUrl", "https://ws05.acmeparcel.net:8443/api/v2/orders?apikey=XK99&mode=live"));
+        Assert.AreEqual("address", MirrorFaker.BlankKind("SftpHost", "ws05.acmeparcel.net"));
+        Assert.AreEqual("address", MirrorFaker.BlankKind("Recipients", "ops@acmecargo.net, Lina <lina@acmecargo.net>"));
         Assert.AreEqual("address", MirrorFaker.BlankKind("Server", "10.20.30.40"));
-        Assert.AreEqual("address", MirrorFaker.BlankKind("ConnectionString", "Host=db.traxis.app;Port=5432;Database=ship;Username=traxis;Password=S3cret!x"));
-        Assert.AreEqual("address", MirrorFaker.BlankKind("Broker", "amqp://bitween:hunter2@mq.traxis.app:5672/prod"));
-        Assert.AreEqual("address", MirrorFaker.BlankKind("note", "mail ops@traxis.app"));
+        Assert.AreEqual("address", MirrorFaker.BlankKind("ConnectionString", "Host=db.acmecargo.net;Port=5432;Database=ship;Username=app"));
+        Assert.AreEqual("address", MirrorFaker.BlankKind("Broker", "amqp://mq.acmecargo.net:5672/prod"));
+        Assert.AreEqual("address", MirrorFaker.BlankKind("note", "mail ops@acmecargo.net"));
     }
 
     [TestMethod]
     public void A_placeholder_stands_in_and_reads_as_still_to_fill_in()
     {
-        Assert.AreEqual("sftp://set-me.invalid", MirrorFaker.Placeholder("address", "Url", "sftp://ws05.ffdx.net:22/in"));
-        Assert.AreEqual("set-me@set-me.invalid", MirrorFaker.Placeholder("address", "To", "ops@traxis.app, lina@traxis.app"));
+        Assert.AreEqual("sftp://set-me.invalid", MirrorFaker.Placeholder("address", "Url", "sftp://ws05.acmeparcel.net:22/in"));
+        Assert.AreEqual("set-me@set-me.invalid", MirrorFaker.Placeholder("address", "To", "ops@acmecargo.net, lina@acmecargo.net"));
         Assert.AreEqual("set-me.invalid", MirrorFaker.Placeholder("address", "Host", "10.20.30.40"));
         Assert.AreEqual("", MirrorFaker.Placeholder("secret", "Password", MirrorFaker.Masked));
         Assert.AreEqual("set-me", MirrorFaker.Placeholder("login", "clientId", "acme-prod"));
 
         Assert.IsTrue(MirrorFaker.IsPlaceholder("https://set-me.invalid"));
+        Assert.IsTrue(MirrorFaker.IsPlaceholder(" Set-Me "));
         Assert.IsTrue(MirrorFaker.IsPlaceholder(""));
         Assert.IsFalse(MirrorFaker.IsPlaceholder("https://sandbox.carrier.com/v2"));
     }
@@ -169,5 +170,17 @@ public class MirrorFakerTests
         Assert.AreNotEqual("Europe/Paris", Faker.Datum("timeZone", "Europe/Paris"));
         Assert.AreEqual("Europe/Paris", Faker.Datum("timeZone", "Europe/Paris", keepReal: true));
         Assert.AreEqual("2222", Faker.Datum("SftpPort", "2222"));
+    }
+
+    [TestMethod]
+    [Timeout(5000)]
+    public void A_long_value_with_no_address_in_it_is_faked_in_time()
+    {
+        // Like an attachment encoded in a file: a megabyte with neither :// nor @ once took minutes.
+        var faker = new MirrorFaker(System.Text.Encoding.UTF8.GetBytes("a key only these tests use"), []);
+        var value = new string('a', 1_000_000);
+
+        Assert.AreEqual(value.Length, faker.Fake(value).Length);
+        Assert.IsNull(MirrorFaker.BlankKind("Payload", value));
     }
 }

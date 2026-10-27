@@ -133,14 +133,16 @@ public sealed partial class MirrorService
 
     /// <summary>
     /// Turns a list's <see cref="ListFilter"/> into the ids of the items it keeps, so the list counts and
-    /// pages them as usual however many there are. Refused with why when prod can't be read.
+    /// pages them as usual however many there are. Only for whoever may view the mirror, lookups too, since
+    /// it says what prod has; refused with why when prod can't be read.
     /// </summary>
-    public async Task FilterAsync(SearchyRequest request, string section)
+    public async Task FilterAsync(SearchyRequest request, string section, RequestContext requestContext, BitweenDbContext db)
     {
         foreach (var condition in request.Conditions ?? [])
         {
             var filters = condition.Filters.Where(f => string.Equals(f.Field, ListFilter, StringComparison.OrdinalIgnoreCase)).ToList();
             if (filters.Count == 0) continue;
+            await requestContext.EnsurePermission(db, Model.Permissions.Mirror.View);
             var listed = await ListedAsync(section);
             if (listed.Error != null) throw new SWValidationException("MIRROR_PROD", listed.Error);
             foreach (var filter in filters)

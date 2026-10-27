@@ -66,6 +66,12 @@ public sealed record SettingDefinition(
     /// <summary>The only values a string setting takes, offered as a dropdown. Null for free text.</summary>
     public IReadOnlyList<string> Choices { get; init; }
 
+    /// <summary>
+    /// Settings emptied when this one is saved with another value: a login saved for one address is
+    /// never sent to another, so it is entered again.
+    /// </summary>
+    public IReadOnlyList<string> Clears { get; init; }
+
     /// <summary>Only editable settings get a row; the rest are read straight off the options.</summary>
     public bool Stored => Access == SettingAccess.Editable;
 }
@@ -409,10 +415,13 @@ public static class SettingsCatalog
 
         new("Bitween.Mirror.SourceUrl", "Prod mirror",
             "Prod's address",
-            "The prod this staging copies, e.g. https://bitween.acme.com. Read only, through its own API: nothing is installed or changed there.",
+            "The prod this staging copies, e.g. https://bitween.acme.com. Read only, through its own API: nothing is installed or changed there. Plain http only for an address inside the cluster. Changing it empties the saved token and password, to enter again.",
             SettingKind.String, false,
             t => t.Bitween.Mirror.SourceUrl,
-            (t, v) => t.Bitween.Mirror.SourceUrl = AbsoluteUrl(v)),
+            (t, v) => t.Bitween.Mirror.SourceUrl = AbsoluteUrl(v))
+        {
+            Clears = ["Bitween.Mirror.SourceToken", "Bitween.Mirror.SourcePassword"]
+        },
 
         new("Bitween.Mirror.SourceToken", "Prod mirror",
             "Service account token",
@@ -703,14 +712,19 @@ public static class SettingsCatalog
     /// <summary>Empty clears it.</summary>
     private static string Trimmed(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    /// <summary>Empty clears it. Otherwise an absolute http(s) address, kept without a trailing slash.</summary>
+    /// <summary>
+    /// Empty clears it. Otherwise an absolute http(s) address, kept without a trailing slash; without a
+    /// login, query or fragment, which would be shown with it and sent with every call.
+    /// </summary>
     private static string AbsoluteUrl(string value)
     {
         var url = Trimmed(value);
         if (url == null) return null;
-        return Uri.TryCreate(url, UriKind.Absolute, out var parsed) && parsed.Scheme is "https" or "http" && parsed.Host.Length > 0
-            ? url.TrimEnd('/')
-            : throw new FormatException($"'{url}' isn't an address. Use one like https://bitween.acme.com.");
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var parsed) || parsed.Scheme is not ("https" or "http") || parsed.Host.Length == 0)
+            throw new FormatException($"'{url}' isn't an address. Use one like https://bitween.acme.com.");
+        if (parsed.UserInfo.Length > 0 || parsed.Query.Length > 0 || parsed.Fragment.Length > 0 || url.Contains('?') || url.Contains('#'))
+            throw new FormatException($"'{url}' has more than an address: leave out any login, ? or #. Use one like https://bitween.acme.com.");
+        return url.TrimEnd('/');
     }
 
     /// <summary>One of <paramref name="choices"/>, spelled the way the list spells it.</summary>

@@ -18,7 +18,7 @@ namespace SW.Bitween.Resources.BusGateways
             // the full list is the data, so that's what the view permission covers.
             if (!lookup)
                 await requestContext.EnsurePermission(dbContext, Model.Permissions.BusGateways.View);
-            await mirror.FilterAsync(searchyRequest, "busGateways");
+            await mirror.FilterAsync(searchyRequest, "busGateways", requestContext, dbContext);
 
             var documents = dbContext.Set<Document>();
             var dataSources = dbContext.Set<Domain.DataSources.DataSource>();

@@ -76,7 +76,8 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
 
     /// <summary>Whether a value of staging's is still what the copy left: empty, or a placeholder.</summary>
     public static bool IsPlaceholder(string value) =>
-        string.IsNullOrEmpty(value) || value == PlaceholderText || value.Contains(PlaceholderHost, StringComparison.OrdinalIgnoreCase);
+        string.IsNullOrEmpty(value) || string.Equals(value.Trim(), PlaceholderText, StringComparison.OrdinalIgnoreCase)
+        || value.Contains(PlaceholderHost, StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// A partner's property or a global value that is neither an address nor a secret: someone's data,
@@ -505,19 +506,27 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
     byte[] Bytes(string purpose, string input, int count)
     {
         var result = new byte[count];
-        var data = Encoding.UTF8.GetBytes(purpose + "\0" + input);
+        using var hmac = new HMACSHA256(key);
+        // Only the first block reads the input; the rest grow from it. Each reading it took a long value's
+        // length squared: a megabyte in a file, minutes.
+        var first = Block(hmac, 0, Encoding.UTF8.GetBytes(purpose + "\0" + input));
         var filled = 0;
         for (var block = 0; filled < count; block++)
         {
-            using var hmac = new HMACSHA256(key);
-            hmac.TransformBlock(BitConverter.GetBytes(block), 0, 4, null, 0);
-            hmac.TransformFinalBlock(data, 0, data.Length);
-            var hash = hmac.Hash!;
+            var hash = block == 0 ? first : Block(hmac, block, first);
             var take = Math.Min(hash.Length, count - filled);
             Array.Copy(hash, 0, result, filled, take);
             filled += take;
         }
         return result;
+    }
+
+    static byte[] Block(HMACSHA256 hmac, int block, byte[] data)
+    {
+        hmac.Initialize();
+        hmac.TransformBlock(BitConverter.GetBytes(block), 0, 4, null, 0);
+        hmac.TransformFinalBlock(data, 0, data.Length);
+        return hmac.Hash!;
     }
 
     const string Base36 = "abcdefghijklmnopqrstuvwxyz0123456789";
@@ -530,8 +539,10 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
     static readonly string[] AddressWords = ["url", "uri", "host", "server", "endpoint", "address", "domain", "webhook", "smtp", "imap", "ftp"];
 
     static readonly Regex TokenPattern = new(@"\{\{[^}]*\}\}", RegexOptions.Compiled);
-    static readonly Regex UrlPattern = new(@"(?<scheme>[A-Za-z][A-Za-z0-9+.\-]*)://(?<auth>[^\s/?#""'<>\\]+)(?<rest>[^\s""'<>\\]*)", RegexOptions.Compiled);
-    static readonly Regex EmailPattern = new(@"[A-Za-z0-9._%+\-]+@(?:[A-Za-z0-9\-]+\.)+[A-Za-z]{2,63}", RegexOptions.Compiled);
+    // Scheme and local part are bounded, as real ones are: unbounded, a long value with neither :// nor @,
+    // such as a file's encoded attachment, took a search from every position to its end.
+    static readonly Regex UrlPattern = new(@"(?<scheme>[A-Za-z][A-Za-z0-9+.\-]{0,31})://(?<auth>[^\s/?#""'<>\\]+)(?<rest>[^\s""'<>\\]*)", RegexOptions.Compiled);
+    static readonly Regex EmailPattern = new(@"[A-Za-z0-9._%+\-]{1,64}@(?:[A-Za-z0-9\-]+\.)+[A-Za-z]{2,63}", RegexOptions.Compiled);
     static readonly Regex HostPattern = new(@"^(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z][A-Za-z0-9\-]{1,62}\.?$", RegexOptions.Compiled);
     static readonly Regex ConnectionHostPattern = new(@"(^|;)\s*(host|server|data source|address|endpoint|accountname)\s*=", RegexOptions.Compiled | RegexOptions.IgnoreCase);
     static readonly Regex IsoDate = new(@"^\d{4}-\d{2}-\d{2}(?=$|[T ])", RegexOptions.Compiled);

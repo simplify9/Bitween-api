@@ -102,13 +102,13 @@ public class MirrorSetupTests
     public void Global_values_are_faked_and_data_sources_and_bus_gateways_arrive_switched_off()
     {
         var copy = MirrorSetup.Copy(Prod(
-            ("globalValues", "spaces", """{ "id": "spaces", "name": "Spaces", "values": { "bucket": "traxis-prod", "endpoint": "https://fra1.digitaloceanspaces.com" }, "secretProperties": [] }"""),
-            ("dataSources", "Warehouse", """{ "name": "Warehouse", "inactive": false, "properties": { "ConnectionString": "Host=db.traxis.app;Password=pw;Database=wh" } }"""),
-            ("busGateways", "Orders in", """{ "name": "Orders in", "inactive": false, "endpointProperties": { "Host": "mq.traxis.app" } }""")),
+            ("globalValues", "spaces", """{ "id": "spaces", "name": "Spaces", "values": { "bucket": "acme-prod", "endpoint": "https://fra1.digitaloceanspaces.com" }, "secretProperties": [] }"""),
+            ("dataSources", "Warehouse", """{ "name": "Warehouse", "inactive": false, "properties": { "ConnectionString": "Host=db.acmecargo.net;Password=pw;Database=wh" } }"""),
+            ("busGateways", "Orders in", """{ "name": "Orders in", "inactive": false, "endpointProperties": { "Host": "mq.acmecargo.net" } }""")),
             Faker, new HashSet<string>());
 
         var values = Only(copy, "globalValues")["values"]!;
-        Assert.AreNotEqual("traxis-prod", (string)values["bucket"]!);
+        Assert.AreNotEqual("acme-prod", (string)values["bucket"]!);
         Assert.AreEqual("https://set-me.invalid", (string)values["endpoint"]!);
 
         var ds = Only(copy, "dataSources");

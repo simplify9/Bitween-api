@@ -175,9 +175,9 @@ public sealed partial class MirrorService
             {
                 var subscription = await db.Subscriptions().AsNoTracking().FirstOrDefaultAsync(s => s.Name == family.Door, cancellation);
                 if (subscription == null) return new Entered(null, NotRun: NoSubscription(family.Door));
-                // The way prod does it: rolling up what staging ran of the subscription it aggregates.
+                // The way prod does it: rolling up what tests ran of the subscription it aggregates, never staging's own.
                 await ActivatorUtilities.CreateInstance<AggregationJob>(scope.ServiceProvider)
-                    .Execute(new AggregationJobParams(subscription.Id, null, correlation));
+                    .Execute(new AggregationJobParams(subscription.Id, null, correlation, MirrorTraffic.Prefix));
                 if (await db.Set<Xchange>().AnyAsync(x => x.CorrelationId == correlation, cancellation))
                     return new Entered(new MirrorDiff("entry", "How it came in", Same, "Prod's exchanges, rolled up", "Staging's own, rolled up",
                         "It rolls up what staging ran in this rehearsal, so what came in lists other files than prod's."), Rolled: "Staging's own, listed");
@@ -278,12 +278,15 @@ public sealed partial class MirrorService
         if (entity.ApiCredentials.FirstOrDefault(c => c.KeyPrefix == MirrorFaker.SecretPrefix[..5]) is not { } stale)
             return null;
 
-        // A key keeps what it holds for as long as its name stays, so it goes first, then comes back as the stand-in.
+        // A key keeps what it holds for as long as its name stays, so it goes first, then comes back as the
+        // stand-in; together, or the partner would be left without it.
         var others = entity.ApiCredentials.Where(c => c.Name != stale.Name).Select(c => new ApiCredential(c.Name, c.Key)).ToList();
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellation);
         entity.SetApiCredentials(others);
         await db.SaveChangesAsync(cancellation);
         entity.SetApiCredentials([.. others, new ApiCredential(stale.Name, StandIn(stale.Name))]);
         await db.SaveChangesAsync(cancellation);
+        await transaction.CommitAsync(cancellation);
         return StandIn(stale.Name);
     }
 

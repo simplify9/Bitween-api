@@ -12,7 +12,11 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween;
 
 /// <param name="Correlation">The roll-up's correlation id: a mirror's rehearsal names one, so the roll-up runs as its traffic.</param>
-public record AggregationJobParams(int SubscriptionId, string? CronExpression, string? Correlation = null);
+/// <param name="InputPrefix">
+/// Only exchanges whose correlation starts with it are rolled up: a mirror's test rolls up what tests ran,
+/// never staging's own exchanges. Null rolls up every one waiting.
+/// </param>
+public record AggregationJobParams(int SubscriptionId, string? CronExpression, string? Correlation = null, string? InputPrefix = null);
 
 [ScheduleConfig(AllowConcurrentExecution = false, MisfireInstructions = MisfireInstructions.Skip)]
 public class AggregationJob(
@@ -35,7 +39,7 @@ public class AggregationJob(
         if (!await runFlagUpdater.MarkAsRunning(aggSub.Id)) return;
         try
         {
-            await RollUpAsync(aggSub, jobParams.Correlation);
+            await RollUpAsync(aggSub, jobParams.Correlation, jobParams.InputPrefix);
         }
         finally
         {
@@ -44,7 +48,7 @@ public class AggregationJob(
         }
     }
 
-    async Task RollUpAsync(Subscription aggSub, string correlationId)
+    async Task RollUpAsync(Subscription aggSub, string correlationId, string inputPrefix)
     {
 
         var startedOn = DateTime.UtcNow;
@@ -64,7 +68,8 @@ public class AggregationJob(
                 join agg in dbContext.Set<XchangeAggregation>() on xchange.Id equals agg.Id into xa
                 from agg in xa.DefaultIfEmpty()
                 where result.Success == true && agg == null &&
-                      xchange.SubscriptionId == aggSub.AggregationForId && !aggSub.Inactive
+                      xchange.SubscriptionId == aggSub.AggregationForId && !aggSub.Inactive &&
+                      (inputPrefix == null || xchange.CorrelationId.StartsWith(inputPrefix))
                 orderby xchange.StartedOn
                 select new { xchange.Id, xchange.FilesPrefix };
 

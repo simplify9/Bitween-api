@@ -256,7 +256,8 @@ public class Planner(Context ctx, ConfigFile config)
             foreach (var change in plan.Changes)
             {
                 try { await CarryOutAsync(change); }
-                catch (Exception ex) when (ex is BitweenApiException or ConfigException or HttpRequestException)
+                // A timed-out call surfaces as TaskCanceledException: one slow item, not a reason to stop.
+                catch (Exception ex) when (ex is BitweenApiException or ConfigException or HttpRequestException or TaskCanceledException)
                 {
                     failed.Add((change, ex.Message));
                 }

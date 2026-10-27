@@ -43,7 +43,7 @@ namespace SW.Bitween.Resources.Subscriptions
             // the full list is the data, so that's what the view permission covers.
             if (!lookup)
                 await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Subscriptions.View);
-            await _mirror.FilterAsync(searchyRequest, "subscriptions");
+            await _mirror.FilterAsync(searchyRequest, "subscriptions", _requestContext, _dbContext);
 
             var query = from subscriber in _dbContext.Set<Subscription>()
                 join document in _dbContext.Set<Document>() on subscriber.DocumentId equals document.Id

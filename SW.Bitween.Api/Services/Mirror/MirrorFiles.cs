@@ -243,11 +243,11 @@ public static class MirrorFiles
         return faker.Fake(value);
     }
 
-    static readonly Regex Tag = new(@"<!--.*?-->|<[^<>]+>", RegexOptions.Compiled | RegexOptions.Singleline);
+    static readonly Regex Tag = new(@"<!--.*?-->|<!\[CDATA\[.*?\]\]>|<[^<>]+>", RegexOptions.Compiled | RegexOptions.Singleline);
     static readonly Regex AttributeValue = new(@"(?<=\s[\w:.\-]+\s*=\s*)(""[^""]*""|'[^']*')", RegexOptions.Compiled);
     static readonly Regex Entity = new(@"&(?:#[0-9]+|#x[0-9a-fA-F]+|[A-Za-z][A-Za-z0-9]*);", RegexOptions.Compiled);
 
-    /// <summary>Markup that isn't well-formed XML: tags kept with their attributes' values faked, comments and the text between tags faked, entities kept.</summary>
+    /// <summary>Markup that isn't well-formed XML: tags kept with their attributes' values faked, comments, CDATA and the text between tags faked, entities kept.</summary>
     static string Markup(MirrorFaker faker, string text)
     {
         var result = new StringBuilder(text.Length);
@@ -255,8 +255,8 @@ public static class MirrorFiles
         foreach (Match tag in Tag.Matches(text))
         {
             result.Append(Between(faker, text[at..tag.Index]));
-            result.Append(tag.Value.StartsWith("<!--", StringComparison.Ordinal)
-                ? "<!--" + faker.Fake(tag.Value[4..^3]) + "-->"
+            result.Append(tag.Value.StartsWith("<!--", StringComparison.Ordinal) ? "<!--" + faker.Fake(tag.Value[4..^3]) + "-->"
+                : tag.Value.StartsWith("<![CDATA[", StringComparison.Ordinal) ? "<![CDATA[" + faker.Fake(tag.Value[9..^3]) + "]]>"
                 : AttributeValue.Replace(tag.Value, v => v.Value[0] + faker.Fake(v.Value[1..^1]) + v.Value[^1]));
             at = tag.Index + tag.Length;
         }

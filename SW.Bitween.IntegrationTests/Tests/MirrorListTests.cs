@@ -150,6 +150,18 @@ public class MirrorListTests(BitweenFixture fixture)
             if (body != null) await body();
         });
 
+    [Fact]
+    public async Task The_prod_filter_is_only_for_whoever_may_view_the_mirror()
+    {
+        await using var scope = fixture.CreateScope();
+        await scope.AsNewViewer($"no-mirror-{Guid.NewGuid():N}");
+        var search = ActivatorUtilities.CreateInstance<Resources.Subscriptions.Search>(scope.ServiceProvider);
+
+        // A Viewer sees the subscriptions, but not which of them prod has, or how their tests went.
+        await search.Handle(new SearchyRequest("filter=Name:4:anything") { PageSize = 5 });
+        await Assert.ThrowsAsync<SWUnauthorizedException>(() => search.Handle(new SearchyRequest("filter=Mirror:1:fromProd") { PageSize = 5 }, lookup: true));
+    }
+
     static async Task Until(Func<bool> condition)
     {
         for (var i = 0; i < 200 && !condition(); i++) await Task.Delay(25);

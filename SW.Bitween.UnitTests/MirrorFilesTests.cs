@@ -140,6 +140,18 @@ public class MirrorFilesTests
     }
 
     [TestMethod]
+    public void Cdata_in_markup_that_isnt_well_formed_is_faked_too()
+    {
+        // Not XML (the <br> never closes), so it takes the markup path, which read CDATA as one tag.
+        var file = Fake("<note><br><![CDATA[call John on 0791234567]]></note>", "reply.html");
+
+        var text = Text(file);
+        StringAssert.Contains(text, "<![CDATA[");
+        StringAssert.Contains(text, "]]>");
+        Assert.IsFalse(text.Contains("John") || text.Contains("0791234567"), text);
+    }
+
+    [TestMethod]
     public void Text_in_a_one_byte_encoding_keeps_every_byte_it_doesnt_fake()
     {
         var bytes = Encoding.Latin1.GetBytes("Café Müller, 12 rue d'Arc\n");

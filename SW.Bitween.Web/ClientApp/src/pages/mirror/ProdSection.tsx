@@ -194,14 +194,20 @@ function TestPart({ subscriptionId, view, canOperate }: { subscriptionId: number
   const state = test.data?.state;
   const was = useRef(state);
   useEffect(() => {
-    if (was.current === "running" && state !== "running") changed();
+    // Once a run is over, however it was last seen: a short one can go from waiting its turn to done
+    // between two looks.
+    const runs = (s?: string) => s === "running" || s === "queued";
+    if (runs(was.current) && !runs(state)) changed();
     was.current = state;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
-  const take = useMutation({ mutationFn: () => api.takeMirrorTest(subscriptionId), onSuccess: set });
-  const run = useMutation({ mutationFn: () => api.runMirrorTest(subscriptionId), onSuccess: set });
+  // Only the latest action's error shows: an earlier one's is over once another starts.
+  const [last, setLast] = useState<"take" | "run" | "clear">();
+  const take = useMutation({ mutationFn: () => api.takeMirrorTest(subscriptionId), onMutate: () => setLast("take"), onSuccess: set });
+  const run = useMutation({ mutationFn: () => api.runMirrorTest(subscriptionId), onMutate: () => setLast("run"), onSuccess: set });
   const clear = useMutation({
     mutationFn: () => api.clearMirrorTest(subscriptionId),
+    onMutate: () => setLast("clear"),
     onSuccess: (t) => {
       set(t);
       changed();
@@ -225,7 +231,7 @@ function TestPart({ subscriptionId, view, canOperate }: { subscriptionId: number
           open={open}
           onToggle={(id) => setOpen(open === id ? null : id)}
           busy={{ take: take.isPending, run: run.isPending }}
-          error={(take.error ?? run.error ?? clear.error)?.message}
+          error={last && { take, run, clear }[last].error?.message}
           toFill={toFill}
           onTake={() => take.mutate()}
           onRun={() => (custom.length > 0 ? setConfirmingRun(true) : run.mutate())}

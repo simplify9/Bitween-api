@@ -7,12 +7,12 @@ Prod is only read, through its own API, with a view-only login. Nothing is insta
 ## What it needs
 
 - **Prod on r10.0 or later.** A prod on r8, on Infolink (r6 and before), or on a build changed for one client is refused with the reason. Move such a client to r10 first.
-- **A staging marked as a mirror.** Copying replaces the staging's setup, so it only runs on a Bitween whose deployment sets `Bitween__Mirror__Target=true`. A prod never sets it, so a prod can't be overwritten from its Settings page. Without it the pages still compare, but nothing is brought or tested.
+- **A staging marked as a mirror.** Bringing adds prod's items to the staging, so it only runs on a Bitween whose deployment sets `Bitween__Mirror__Target=true`. A prod never sets it, so nothing can be brought onto a prod from its Settings page. Without it the pages still compare, but nothing is brought or tested.
 - **A view-only login on prod**, one of:
   - a service account with the built-in **Viewer** role, and a token issued to it (**Administration, Service accounts** on prod). Releases that have service accounts take this;
   - on r10.0, which has none, the email and password of a member with the Viewer role.
 
-Enter prod's address and the login in **Settings, Prod mirror**. The token and password are stored encrypted, which needs `Bitween:SettingsEncryptionKey`.
+Enter prod's address and the login in **Settings, Prod mirror**. The token and password are stored encrypted, which needs `Bitween:SettingsEncryptionKey`. The address is only an address, with no login, `?` or `#` in it; use `https`, and plain `http` only for an address inside the same cluster. Changing the address empties the saved token and password, so a login is never sent to an address it wasn't entered for: enter it again.
 
 ## What is copied, and how
 
@@ -109,7 +109,7 @@ Running a test sends each arrival in on the staging the way it came in on prod, 
 | A partner's call to the partner API | As that partner, to the staging's partner API |
 | A document | To the staging, which routes it to the subscriptions that want it |
 | A file a receiver read | Handed straight to the receiving subscription. Reading it from a server needs your test server, set in its place |
-| An aggregation | **Aggregate now**, rolling up what the staging ran of the subscription it aggregates; when it ran none, the files prod rolled up, faked |
+| An aggregation | **Aggregate now**, rolling up what the staging's tests ran of the subscription it aggregates, never the staging's own exchanges; when they ran none, the files prod rolled up, faked |
 | An exchange started by hand | Started the same way |
 
 The staging's subscriptions stay paused, and its data sources and bus gateways switched off, so nothing runs on its own. Only the test's traffic gets through: it carries a correlation id of its own, which every exchange it leads to carries on, across the bus too, and calls through a gateway carry a key the test opens for as long as it runs. That traffic passes paused subscriptions, goes through the bus gateways prod has on, and is never taken for a duplicate of the test before it. Anyone else's traffic meets the staging as it is.
@@ -124,7 +124,7 @@ Each of the staging's exchanges is paired with its twin on prod (the same subscr
 
 An arrival's verdict is the worst of its exchanges'. Both sides go through the same faker, so a value that is only faked reads the same on both. Opening an arrival shows how it came in, then its exchanges, the ones that differ first. Opening an exchange shows what changed first, prod beside staging, and folds what is the same into one line. A changed file opens field by field, and side by side. **What it used** compares the subscription, its information type, the partner it ran as, the global values it names and its adapters with prod's: prod's setup as it is today, faked as the copy fakes it, since prod's API doesn't give the setup an exchange ran with, only its adapters. These only explain a verdict, and so does what the partner's test system answered.
 
-An arrival doesn't run when it can't be sent in the way it came in on prod, and the page says why: a subscription, partner, gateway or information type the staging doesn't have yet, or an input that isn't kept.
+A test doesn't run while prod can't be read, since staging can't then check that what it needs is filled in. An arrival doesn't run when it can't be sent in the way it came in on prod, and the page says why: a subscription, partner, gateway or information type the staging doesn't have yet, or an input that isn't kept.
 
 A run replaces the one before it.
 

@@ -21,7 +21,7 @@ namespace SW.Bitween.Services.Mirror;
 /// </summary>
 public static class MirrorTraffic
 {
-    const string Prefix = "rehearsal-";
+    internal const string Prefix = "rehearsal-";
 
     public const string Header = "X-Bitween-Mirror-Rehearsal";
 
