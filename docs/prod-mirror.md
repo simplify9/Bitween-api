@@ -14,6 +14,8 @@ Prod is only read, through its own API, with a view-only login. Nothing is insta
 
 Enter prod's address and the login in **Settings, Prod mirror**. The token and password are stored encrypted, which needs `Bitween:SettingsEncryptionKey`. The address is only an address, with no login, `?` or `#` in it; use `https`, and plain `http` only for an address inside the same cluster. Changing the address empties the saved token and password, so a login is never sent to an address it wasn't entered for: enter it again.
 
+Reading prod's setup takes a request an item, and prod allows each login 600 requests a minute, so the staging keeps what it read for five minutes: the picker, bringing and the tests share one read, and a change made on prod shows on the staging within five minutes.
+
 ## What is copied, and how
 
 Everything a configuration file can hold is copied by name: subscription categories, work groups, information types, partners, global values, connections, notification channels, retry policies, data sources and their SQL statements, subscriptions, API gateways, bus gateways and legacy notifiers. A kind prod's release doesn't have is left out and says so. The copy goes through the same engine as [`bitween apply`](cli.md).
