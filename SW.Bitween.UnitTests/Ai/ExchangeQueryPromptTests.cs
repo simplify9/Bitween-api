@@ -49,6 +49,15 @@ public class ExchangeQueryPromptTests
     }
 
     [TestMethod]
+    public void An_id_too_big_for_one_is_dropped_not_thrown()
+    {
+        var query = ExchangeQueryPrompt.Parse("""{ "partnerIds": [99999999999, 12] }""", Names);
+
+        Assert.AreEqual("partnerId=12", query.Query);
+        CollectionAssert.AreEqual(new[] { "There is no partner with id 99999999999." }, new System.Collections.Generic.List<string>(query.Notes));
+    }
+
+    [TestMethod]
     public void Only_filters_that_are_set_are_turned_round()
     {
         var query = ExchangeQueryPrompt.Parse("""
@@ -78,7 +87,18 @@ public class ExchangeQueryPromptTests
     [TestMethod]
     public void The_message_has_the_names_and_the_time_and_nothing_else()
     {
-        var message = ExchangeQueryPrompt.Message("failed skynet since monday", new DateTime(2026, 10, 27, 14, 5, 0), "Asia/Amman", Names);
+        var culture = System.Globalization.CultureInfo.CurrentCulture;
+        string message;
+        try
+        {
+            // A Hijri calendar and Arabic day names must not reach the model.
+            System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("ar-SA");
+            message = ExchangeQueryPrompt.Message("failed skynet since monday", new DateTime(2026, 10, 27, 14, 5, 0), "Asia/Amman", Names);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = culture;
+        }
 
         StringAssert.Contains(message, "Now: 2026-10-27 14:05, Tuesday, in Asia/Amman.");
         StringAssert.Contains(message, "12: SkyNet Express");

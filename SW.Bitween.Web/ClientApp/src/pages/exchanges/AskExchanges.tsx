@@ -5,7 +5,7 @@ import { api, getAppConfig } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { Button, FormError } from "../../components/ui/basics";
-import { countLabel, viewSearch } from "./exchangeFilters";
+import { FILTER_KEYS, countLabel, viewSearch } from "./exchangeFilters";
 
 type Changes = Record<string, string | string[] | null>;
 
@@ -25,11 +25,9 @@ export interface AskedQuestion {
  * link, its saved views. Only the question, the time and names go to the AI provider.
  */
 export function AskButton({
-  searchParams,
   apply,
   onAsked,
 }: {
-  searchParams: URLSearchParams;
   apply: (changes: Changes) => void;
   onAsked: (asked: AskedQuestion) => void;
 }) {
@@ -57,10 +55,16 @@ export function AskButton({
     setError(null);
     try {
       const res = await api.askExchanges(question.trim(), controller.current.signal);
-      // The answer replaces every filter, as picking a saved view does; the open row stays.
+      // Nothing usable came back: the page keeps its filters rather than showing everything.
+      if (!res.query && res.notes.length > 0) {
+        setError(res.notes.join(" "));
+        return;
+      }
+      // The answer replaces every filter, as picking a saved view does, including one changed
+      // while it was asked; the open row stays.
       const target = new URLSearchParams(res.query);
       const changes: Changes = {};
-      for (const k of new Set([...searchParams.keys(), ...target.keys()])) if (k !== "open") changes[k] = target.getAll(k);
+      for (const k of new Set([...FILTER_KEYS, ...target.keys()])) if (k !== "open") changes[k] = target.getAll(k);
       apply(changes);
       onAsked({ question: question.trim(), search: viewSearch(target), ...res });
       setOpen(false);
@@ -192,8 +196,8 @@ export function AskedLine({
           </p>
           {asked.notes.length > 0 && (
             <ul className="mt-1 list-disc pl-4 text-xs text-warn-700">
-              {asked.notes.map((n) => (
-                <li key={n}>{n}</li>
+              {asked.notes.map((n, i) => (
+                <li key={i}>{n}</li>
               ))}
             </ul>
           )}

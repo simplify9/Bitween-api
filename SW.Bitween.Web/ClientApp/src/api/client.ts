@@ -771,7 +771,6 @@ export interface ApiClient {
   /** How many of the selection's exchanges the export would come without files for. Changes nothing. */
   checkExchangeFilesExport(selection: BulkRetrySelection): Promise<ExportFilesCheck>;
   getRetryTree(id: string): Promise<RetryTree>;
-  /** Manually injects a payload, addressed at a subscription or an information type. */
   /**
    * Turns a plain-English question into the Exchanges page's filter, through the AI provider under
    * Settings, AI. Only the question, the time and names (partners, subscriptions, information
@@ -782,6 +781,7 @@ export interface ApiClient {
     question: string,
     signal?: AbortSignal,
   ): Promise<{ query: string; answer: string; notes: string[]; model: string | null; sent: string }>;
+  /** Manually injects a payload, addressed at a subscription or an information type. */
   createExchange(input: {
     target: "subscription" | "informationType";
     subscriptionId?: number;

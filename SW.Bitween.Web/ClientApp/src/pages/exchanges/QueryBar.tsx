@@ -67,7 +67,7 @@ export function QueryBar({
         <SearchField searchParams={searchParams} apply={apply} />
       </div>
       <ViewsMenu searchParams={searchParams} apply={apply} />
-      <AskButton searchParams={searchParams} apply={apply} onAsked={onAsked} />
+      <AskButton apply={apply} onAsked={onAsked} />
     </div>
   );
 }

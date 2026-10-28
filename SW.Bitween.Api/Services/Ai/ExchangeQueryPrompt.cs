@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -106,7 +107,8 @@ public static class ExchangeQueryPrompt
     public static string Message(string question, DateTime now, string timeZone, QueryNames names)
     {
         var message = new StringBuilder();
-        message.AppendLine($"Now: {now:yyyy-MM-dd HH:mm}, {now:dddd}, in {timeZone}.");
+        // Fixed wording whatever the server's culture: an Arabic one would change the year and the weekday.
+        message.AppendLine(string.Create(CultureInfo.InvariantCulture, $"Now: {now:yyyy-MM-dd HH:mm}, {now:dddd}, in {timeZone}."));
         message.AppendLine();
         message.AppendLine("<question>");
         message.AppendLine(question.Trim());
@@ -241,9 +243,10 @@ public static class ExchangeQueryPrompt
         foreach (var token in json[field] as JArray ?? [])
         {
             if (token.Type != JTokenType.Integer) continue;
-            var id = (int)token;
-            if (known.Any(n => n.Id == id)) ids.Add(id);
-            else notes.Add($"There is no {Words(kind)} with id {id}.");
+            // As text first: a number too big for an id is just an id that doesn't exist.
+            var text = token.ToString(Formatting.None);
+            if (int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id) && known.Any(n => n.Id == id)) ids.Add(id);
+            else notes.Add($"There is no {Words(kind)} with id {text}.");
         }
         if (ids.Count == 0) return;
         query.Add((parameter, string.Join(",", ids.Distinct())));

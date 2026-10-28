@@ -96,7 +96,9 @@ public class Ask(RequestContext requestContext, BitweenDbContext dbContext, AiMo
             .ToList();
 
         var documents = await dbContext.Set<Document>().AsNoTracking()
-            .OrderBy(d => d.Name).Take(ExchangeQueryPrompt.MaxNames + 1).ToListAsync();
+            .OrderBy(d => d.Name).Take(ExchangeQueryPrompt.MaxNames + 1)
+            .Select(d => new { d.Id, d.Name, d.PromotedProperties })
+            .ToListAsync();
         var informationTypes = documents
             .Select(d => new QueryName(d.Id, d.Name, d.PromotedProperties is { Count: > 0 } promoted
                 ? "promotes " + string.Join(", ", promoted.Keys)

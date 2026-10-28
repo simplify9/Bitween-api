@@ -11,8 +11,16 @@ import { apiPath, renderApp } from "../../../__tests__/support/renderApp";
 
 const NONE = { result: [], totalCount: 0 };
 
-function openPage(aiConfigured: boolean, searched: string[] = []) {
-  return renderApp("/exchanges", {
+const ANSWER = {
+  query: "status=failed&range=24h",
+  answer: "{count} failed exchanges in the last day",
+  notes: ["There is no partner with id 99."],
+  model: "claude-sonnet-5-5",
+  sent: "Now: 2026-10-27 14:05\n<question>\nfailed in the last day\n</question>",
+};
+
+function openPage(aiConfigured: boolean, searched: string[] = [], answered = ANSWER, path = "/exchanges") {
+  return renderApp(path, {
     config: { aiConfigured },
     handlers: [
       http.get(apiPath("/xchanges"), ({ request }) => {
@@ -29,13 +37,7 @@ function openPage(aiConfigured: boolean, searched: string[] = []) {
         const body = (await request.json()) as { question: string; timeZone: string };
         expect(body.question).toBe("failed in the last day");
         expect(body.timeZone).toBeTruthy();
-        return HttpResponse.json({
-          query: "status=failed&range=24h",
-          answer: "{count} failed exchanges in the last day",
-          notes: ["There is no partner with id 99."],
-          model: "claude-sonnet-5-5",
-          sent: "Now: 2026-10-27 14:05\n<question>\nfailed in the last day\n</question>",
-        });
+        return HttpResponse.json(answered);
       }),
     ],
   });
@@ -61,6 +63,20 @@ describe("Ask your exchanges", { timeout: 20000 }, () => {
     // A filter changed by hand is no longer what was asked, so the answer goes.
     await user.click(screen.getByRole("button", { name: "Clear all filters" }));
     await waitFor(() => expect(screen.queryByRole("status", { name: "Answer" })).not.toBeInTheDocument());
+  });
+
+  it("keeps the page's filters when nothing usable came back", async () => {
+    const unusable = { ...ANSWER, query: "", answer: "", notes: ["There is no partner with id 99."] };
+    const { user, router } = openPage(true, [], unusable, "/exchanges?status=success");
+
+    await user.click(await screen.findByRole("button", { name: "Ask" }));
+    await user.type(screen.getByLabelText("Ask your exchanges"), "failed in the last day");
+    await user.click(screen.getAllByRole("button", { name: "Ask" }).at(-1)!);
+
+    expect(await screen.findByText("There is no partner with id 99.")).toBeVisible();
+    expect(screen.getByLabelText("Ask your exchanges")).toBeVisible();
+    expect(screen.queryByRole("status", { name: "Answer" })).not.toBeInTheDocument();
+    expect(router.state.location.search).toBe("?status=success");
   });
 
   it("says where to turn it on until Settings has a provider key", async () => {
