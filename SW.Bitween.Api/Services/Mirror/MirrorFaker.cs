@@ -111,6 +111,9 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
         var v = (value ?? "").Trim();
         if (JwtPattern.IsMatch(v) || AuthHeaderPattern.IsMatch(v)) return true;
         if (v.Length < 20 || v.StartsWith('/') || System.Guid.TryParse(v, out _) || !KeyPattern.IsMatch(v)) return false;
+        // A long run of hex, of digits and letters both, is a key or a hash, which reads as low as words do. One of
+        // 32 is a GUID's shape, and isn't.
+        if (v.Length is >= 40 and <= 512 && HexPattern.IsMatch(v) && v.Any(char.IsDigit) && v.Any(char.IsLetter)) return true;
         var kinds = (v.Any(char.IsUpper) ? 1 : 0) + (v.Any(char.IsLower) ? 1 : 0) + (v.Any(char.IsDigit) ? 1 : 0);
         return kinds >= 2 && BitsPerChar(v) >= 4.0;
     }
@@ -575,7 +578,8 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
 
     static readonly Regex TokenPattern = new(@"\{\{[^}]*\}\}", RegexOptions.Compiled);
     static readonly Regex JwtPattern = new(@"^eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]*$", RegexOptions.Compiled);
-    static readonly Regex AuthHeaderPattern = new(@"^(Bearer|Basic)\s+[A-Za-z0-9+/=_\-.]{16,}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    static readonly Regex AuthHeaderPattern = new(@"^(Bearer|Basic)\s+[A-Za-z0-9+/=_\-.]{4,}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    static readonly Regex HexPattern = new(@"^[0-9A-Fa-f]+$", RegexOptions.Compiled);
     static readonly Regex KeyPattern = new(@"^[A-Za-z0-9+/=_\-]+$", RegexOptions.Compiled);
     // Scheme and local part are bounded, as real ones are: unbounded, a long value with neither :// nor @,
     // such as a file's encoded attachment, took a search from every position to its end.

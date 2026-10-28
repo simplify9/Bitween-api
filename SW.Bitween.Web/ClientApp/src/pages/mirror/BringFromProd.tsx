@@ -386,7 +386,7 @@ function AsIs({ notes }: { notes: MirrorNote[] }) {
               {settings.map((s) => (
                 <div key={s.id} className="contents">
                   <dt className="truncate text-ink-600" title={s.field ?? undefined}>{s.field}</dt>
-                  <dd className="truncate font-mono text-ink-800" title={s.text}>{s.text}</dd>
+                  <AsIsValue text={s.text} />
                 </div>
               ))}
             </dl>
@@ -399,6 +399,20 @@ function AsIs({ notes }: { notes: MirrorNote[] }) {
         </button>
       )}
     </div>
+  );
+}
+
+/** A setting's value, a long one shortened until it is clicked, to read all of it before bringing. */
+function AsIsValue({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  if (text.length <= 48) return <dd className="truncate font-mono text-ink-800" title={text}>{text}</dd>;
+  return (
+    <dd className="min-w-0 font-mono text-ink-800">
+      <button type="button" className={open ? "whitespace-pre-wrap break-all text-left" : "block w-full truncate text-left"}
+        title={open ? "Click to shorten it" : "Click to read all of it"} onClick={() => setOpen(!open)}>
+        {open ? text : `${text.slice(0, 32)}… (${whole(text.length)} characters)`}
+      </button>
+    </dd>
   );
 }
 

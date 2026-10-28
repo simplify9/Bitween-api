@@ -251,7 +251,7 @@ public class MirrorBringTests
         // Yes or no, a short number, a token alone and what is left for staging's own aren't listed; nor is what isn't made.
         CollectionAssert.AreEqual(new[] { "receiver · Protocol", "receiver · TargetPath", "receiver · Rules" }, notes.Select(n => n.Field).ToList());
         Assert.AreEqual("sftp", notes[0].Text);
-        Assert.AreEqual(new string('x', 32) + "… (60 characters)", notes[2].Text);
+        Assert.AreEqual(new string('x', 60), notes[2].Text); // whole: the page shortens it until asked
         Assert.IsTrue(notes.All(n => n.Group == "asIs" && n.Noun == "subscription"));
     }
 }

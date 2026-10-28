@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -97,6 +98,10 @@ public class MirrorFakerTests
         Assert.AreEqual("secret", MirrorFaker.BlankKind("Header", "Bearer " + Part("made up bearer value 42")));
         Assert.AreEqual("secret", MirrorFaker.BlankKind("Adapter", key));
         Assert.AreEqual("secret", MirrorFaker.BlankKind("LicenseKey", "short"));
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("Header", "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes("made:up"))));
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("Signature", Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("made up"))).ToLowerInvariant()));
+        // 32 hex digits is a GUID's shape: an id, not a key.
+        Assert.IsNull(MirrorFaker.BlankKind("Reference", Guid.NewGuid().ToString("N")));
         // Ids, paths, names and words aren't.
         Assert.IsNull(MirrorFaker.BlankKind("AccountId", Guid.NewGuid().ToString()));
         Assert.IsNull(MirrorFaker.BlankKind("TargetPath", "/traxis/Orders2024/Out/Archive"));

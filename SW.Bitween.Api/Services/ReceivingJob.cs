@@ -29,7 +29,14 @@ public class ReceivingJob(
         var rec = await dbContext.Set<Subscription>()
             .FirstOrDefaultAsync(s => s.Id == jobParams.SubscriptionId && !s.Inactive);
 
-        if (rec == null || Services.Mirror.MirrorTraffic.HoldsScheduledRun(options, rec, jobParams.CronExpression)) return;
+        if (rec == null) return;
+        if (Services.Mirror.MirrorTraffic.HoldsScheduledRun(options, rec, jobParams.CronExpression))
+        {
+            // Held, but its next run still moves on, so its page doesn't show one in the past.
+            try { rec.SetSchedules(); await dbContext.SaveChangesAsync(); }
+            catch (BitweenException) { }
+            return;
+        }
 
         // Atomic DB-level guard: returns false if another execution is already running.
         var isIdle = await runFlagUpdater.MarkAsRunning(rec.Id);

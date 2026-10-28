@@ -281,39 +281,54 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
     /// setup is a request an item - nearly 200 on Traxis's - and the picker, its preview, the bring and each
     /// test's take all want it within minutes, against the 600 a minute prod allows staging's login.
     /// </summary>
-    static readonly System.Collections.Concurrent.ConcurrentDictionary<string,
-        (DateTimeOffset At, Dictionary<string, List<(string Id, JsonObject Api)>> Raw, Dictionary<string, string> Skipped)> ProdSetups =
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (DateTimeOffset At, Lazy<Task<ProdSetup>> Read)> ProdSetups =
         new(StringComparer.Ordinal);
+
+    sealed record ProdSetup(Dictionary<string, List<(string Id, JsonObject Api)>> Raw, Dictionary<string, string> Skipped);
 
     /// <summary>
     /// Every kind prod has, each read on its own, read again once five minutes old: a kind prod's release
-    /// doesn't have, or the login can't read, is left out and says why, rather than stopping the rest. A copy
-    /// each time, since a comparison renames in it.
+    /// doesn't have, or the login can't read, is left out and says why, rather than stopping the rest. One
+    /// read at a time per prod - whoever asks while it runs waits on it - and a copy each, since a comparison
+    /// renames in it. A read that fails isn't kept.
     /// </summary>
     static async Task<(Dictionary<string, List<(string Id, JsonObject Api)>> Raw, Dictionary<string, string> Skipped)> AnsweredAsync(Context ctx)
     {
-        if (!ProdSetups.TryGetValue(ctx.Api.Url, out var read) || DateTimeOffset.UtcNow - read.At >= TimeSpan.FromMinutes(5))
+        var url = ctx.Api.Url;
+        var entry = ProdSetups.AddOrUpdate(url,
+            _ => (DateTimeOffset.UtcNow, new Lazy<Task<ProdSetup>>(() => ReadSetupAsync(ctx))),
+            (_, old) => DateTimeOffset.UtcNow - old.At < TimeSpan.FromMinutes(5) ? old
+                : (DateTimeOffset.UtcNow, new Lazy<Task<ProdSetup>>(() => ReadSetupAsync(ctx))));
+        ProdSetup read;
+        try { read = await entry.Read.Value; }
+        catch
         {
-            var skipped = new Dictionary<string, string>(StringComparer.Ordinal);
-            var raw = new Dictionary<string, List<(string Id, JsonObject Api)>>(StringComparer.Ordinal);
-            foreach (var kind in Kinds.All)
-            {
-                try { raw[kind.Section] = await kind.ReadAsync(ctx); }
-                catch (BitweenApiException ex) when (ex.Status == HttpStatusCode.NotFound)
-                {
-                    skipped[kind.Section] = NotOnProdsRelease;
-                    raw[kind.Section] = [];
-                }
-                catch (BitweenApiException ex) when (ex.Status == HttpStatusCode.Forbidden)
-                {
-                    skipped[kind.Section] = "Staging's login on prod can't read these.";
-                    raw[kind.Section] = [];
-                }
-            }
-            ProdSetups[ctx.Api.Url] = read = (DateTimeOffset.UtcNow, raw, skipped);
+            ProdSetups.TryRemove(new KeyValuePair<string, (DateTimeOffset, Lazy<Task<ProdSetup>>)>(url, entry));
+            throw;
         }
         return (read.Raw.ToDictionary(k => k.Key, k => k.Value.Select(x => (x.Id, (JsonObject)x.Api.DeepClone())).ToList(), StringComparer.Ordinal),
             new Dictionary<string, string>(read.Skipped, StringComparer.Ordinal));
+    }
+
+    static async Task<ProdSetup> ReadSetupAsync(Context ctx)
+    {
+        var skipped = new Dictionary<string, string>(StringComparer.Ordinal);
+        var raw = new Dictionary<string, List<(string Id, JsonObject Api)>>(StringComparer.Ordinal);
+        foreach (var kind in Kinds.All)
+        {
+            try { raw[kind.Section] = await kind.ReadAsync(ctx); }
+            catch (BitweenApiException ex) when (ex.Status == HttpStatusCode.NotFound)
+            {
+                skipped[kind.Section] = NotOnProdsRelease;
+                raw[kind.Section] = [];
+            }
+            catch (BitweenApiException ex) when (ex.Status == HttpStatusCode.Forbidden)
+            {
+                skipped[kind.Section] = "Staging's login on prod can't read these.";
+                raw[kind.Section] = [];
+            }
+        }
+        return new ProdSetup(raw, skipped);
     }
 
     /// <summary>

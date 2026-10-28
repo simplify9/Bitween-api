@@ -365,15 +365,13 @@ public sealed partial class MirrorService
     /// <summary>
     /// The adapters' settings of the items a bring makes that come as prod has them, each with its value, so a
     /// person sees them before they come: what decides a secret is its name and its value, and a name can say
-    /// nothing. A long value shows its start and its length.
+    /// nothing. Each whole: the page shortens a long one until it is asked for.
     /// </summary>
     internal static IEnumerable<MirrorNote> AsIsNotes(MirrorSetupCopy copy, IEnumerable<(string Section, string Key)> items)
     {
         var making = items.ToHashSet();
         foreach (var s in (copy.AsIs ?? []).Where(s => making.Contains((s.Section, s.Key))))
-            yield return new MirrorNote($"asIs:{s.Section}:{s.Key}:{s.Field}", "asIs",
-                s.Value.Length <= 48 ? s.Value : $"{s.Value[..32]}… ({s.Value.Length:N0} characters)",
-                s.Section, s.Key, Field: s.Field, Noun: Kinds.Of(s.Section).Noun);
+            yield return new MirrorNote($"asIs:{s.Section}:{s.Key}:{s.Field}", "asIs", s.Value, s.Section, s.Key, Field: s.Field, Noun: Kinds.Of(s.Section).Noun);
     }
 
     /// <summary>Kinds that only send alerts: an exchange runs the same whether they are filled in or not.</summary>
