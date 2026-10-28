@@ -65,11 +65,11 @@ public class Ask(RequestContext requestContext, BitweenDbContext dbContext, AiMo
         var names = await NamesAsync();
         var message = ExchangeQueryPrompt.Message(question, now, zone.Id, names);
 
-        var answer = await model.Complete(new AiPrompt(ExchangeQueryPrompt.Instructions, message, Json: true, MaxTokens: 2000));
-        var query = ExchangeQueryPrompt.Parse(answer, names);
-
+        // Recorded before it goes, so a call that fails or times out after sending is on record too.
         await dbContext.RecordNowAsync(requestContext, OperatorAction.AskExchanges, "exchanges",
             $"Asked {models.ModelName}: {question}");
+        var answer = await model.Complete(new AiPrompt(ExchangeQueryPrompt.Instructions, message, Json: true, MaxTokens: 2000));
+        var query = ExchangeQueryPrompt.Parse(answer, names);
 
         return new XchangeQueryResponse
         {
