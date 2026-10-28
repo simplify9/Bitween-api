@@ -36,6 +36,14 @@ public static class MirrorTraffic
     public static bool IsRehearsal(BitweenOptions options, string correlationId) =>
         options.Mirror.Target && correlationId?.StartsWith(Prefix, StringComparison.Ordinal) == true;
 
+    /// <summary>
+    /// A paused scheduled job's or aggregation's run on its schedule, on a mirror, which holds it back.
+    /// Bitween otherwise runs a paused one's schedule, so a brought receiver would poll the team's test
+    /// system on its own. Receive now, Roll up now and a test have no schedule, and run.
+    /// </summary>
+    public static bool HoldsScheduledRun(BitweenOptions options, Subscription subscription, string cronExpression) =>
+        options?.Mirror.Target == true && subscription.PausedOn != null && cronExpression != null;
+
     /// <summary>A key for one rehearsal's calls through a door; close it when the rehearsal ends.</summary>
     public static string OpenKey()
     {

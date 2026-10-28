@@ -224,4 +224,34 @@ public class MirrorBringTests
 
         CollectionAssert.AreEquivalent(new[] { Id("A/B", "Password"), Id("A/handler", "Password") }, standIns.ToList());
     }
+
+    [TestMethod]
+    public void The_preview_shows_each_setting_that_comes_as_it_is_with_its_value()
+    {
+        var copy = MirrorSetup.Copy(new Dictionary<string, List<Existing>>
+        {
+            ["subscriptions"] =
+            [
+                new Existing("1", "Agent tracing", (JsonObject)JsonNode.Parse($$$"""
+                    {
+                      "name": "Agent tracing", "type": "Receiving",
+                      "receiver": { "adapter": "infolink5.receivers.ftp", "properties": {
+                        "Host": "sftp.acmecargo.net", "Protocol": "sftp", "Port": "22", "CheckFileExistence": "false",
+                        "Token": "{{globals.carrier.token}}", "TargetPath": "/acme/prod/out/event", "Rules": "{{{new string('x', 60)}}}" } }
+                    }
+                    """)!, new JsonObject()),
+                new Existing("2", "Already there", (JsonObject)JsonNode.Parse("""
+                    { "name": "Already there", "handler": { "adapter": "x", "properties": { "Agent": "SODEXI" } } }
+                    """)!, new JsonObject()),
+            ],
+        }, Faker, new HashSet<string>());
+
+        var notes = MirrorService.AsIsNotes(copy, [("subscriptions", "Agent tracing")]).ToList();
+
+        // Yes or no, a short number, a token alone and what is left for staging's own aren't listed; nor is what isn't made.
+        CollectionAssert.AreEqual(new[] { "receiver · Protocol", "receiver · TargetPath", "receiver · Rules" }, notes.Select(n => n.Field).ToList());
+        Assert.AreEqual("sftp", notes[0].Text);
+        Assert.AreEqual(new string('x', 60), notes[2].Text); // whole: the page shortens it until asked
+        Assert.IsTrue(notes.All(n => n.Group == "asIs" && n.Noun == "subscription"));
+    }
 }

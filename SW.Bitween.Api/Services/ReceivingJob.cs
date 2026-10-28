@@ -21,7 +21,8 @@ public class ReceivingJob(
     IAdapterInvoker adapterInvoker,
     XchangeService xchangeService,
     ILogger<ReceivingJob> logger,
-    Services.ReceiverBookmarks bookmarks = null) : IScheduledJob<ReceivingJobParams>
+    Services.ReceiverBookmarks bookmarks = null,
+    BitweenOptions options = null) : IScheduledJob<ReceivingJobParams>
 {
     public async Task Execute(ReceivingJobParams jobParams)
     {
@@ -29,6 +30,13 @@ public class ReceivingJob(
             .FirstOrDefaultAsync(s => s.Id == jobParams.SubscriptionId && !s.Inactive);
 
         if (rec == null) return;
+        if (Services.Mirror.MirrorTraffic.HoldsScheduledRun(options, rec, jobParams.CronExpression))
+        {
+            // Held, but its next run still moves on, so its page doesn't show one in the past.
+            try { rec.SetSchedules(); await dbContext.SaveChangesAsync(); }
+            catch (BitweenException) { }
+            return;
+        }
 
         // Atomic DB-level guard: returns false if another execution is already running.
         var isIdle = await runFlagUpdater.MarkAsRunning(rec.Id);
