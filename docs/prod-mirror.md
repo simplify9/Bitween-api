@@ -35,7 +35,7 @@ Each address, secret and login left this way is something to fill in. Bringing l
 
 The same value always becomes the same fake, so a code named in two places still matches, and copying again changes nothing. A partner property or global value that is a setting rather than data, such as a time zone or a date format, can be kept as it is: list it in **Settings, Prod mirror, Values copied as they are**, one per line, as `partner:timeZone` or `global:formats/date`. Addresses and secrets are never kept.
 
-Copied subscriptions arrive paused, and data sources and bus gateways switched off, so nothing on the staging runs on its own.
+Copied subscriptions arrive paused, and data sources and bus gateways switched off, so nothing on the staging runs on its own. On a mirror, a paused scheduled job or aggregation doesn't run on its schedule either, as it would elsewhere: **Receive now**, **Roll up now** and tests still run it.
 
 Legacy setups are copied as prod has them: Internal and ApiCall subscriptions, legacy notifiers, and a response handed to an Internal or ApiCall subscription. Bitween keeps such a response link on an item that already has it but refuses a new one, and a copy is a new save. So the copy alone may recreate it: its calls carry a key it opens for the length of the copy, on a Bitween marked as a mirror. Someone editing on the staging never carries one and meets the same rule as on prod.
 

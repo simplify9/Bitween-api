@@ -21,14 +21,15 @@ public class ReceivingJob(
     IAdapterInvoker adapterInvoker,
     XchangeService xchangeService,
     ILogger<ReceivingJob> logger,
-    Services.ReceiverBookmarks bookmarks = null) : IScheduledJob<ReceivingJobParams>
+    Services.ReceiverBookmarks bookmarks = null,
+    BitweenOptions options = null) : IScheduledJob<ReceivingJobParams>
 {
     public async Task Execute(ReceivingJobParams jobParams)
     {
         var rec = await dbContext.Set<Subscription>()
             .FirstOrDefaultAsync(s => s.Id == jobParams.SubscriptionId && !s.Inactive);
 
-        if (rec == null) return;
+        if (rec == null || Services.Mirror.MirrorTraffic.HoldsScheduledRun(options, rec, jobParams.CronExpression)) return;
 
         // Atomic DB-level guard: returns false if another execution is already running.
         var isIdle = await runFlagUpdater.MarkAsRunning(rec.Id);
