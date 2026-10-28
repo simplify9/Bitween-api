@@ -43,6 +43,26 @@ public class MaskingTests
         Assert.IsFalse(masked.Contains("A5"));
     }
 
+    /// <summary>A file without a header row must not send its first record as column names.</summary>
+    [TestMethod]
+    public void A_csv_without_a_header_keeps_none_of_its_first_row()
+    {
+        var masked = new Masking().Document("Lina Haddad,lina@acme.example,SO-77\nOmar Said,omar@acme.example,SO-78", "text/csv")!;
+
+        foreach (var leaked in new[] { "Lina", "lina@acme.example", "SO-77", "Omar", "SO-78" })
+            Assert.IsFalse(masked.Contains(leaked), $"'{leaked}' was sent: {masked}");
+        StringAssert.Contains(masked, "<text>");
+    }
+
+    [TestMethod]
+    public void A_csv_with_a_header_has_every_row_masked()
+    {
+        var masked = new Masking().Document("name,email\nLina Haddad,lina@acme.example", "text/csv")!;
+
+        Assert.IsFalse(masked.Contains("Lina") || masked.Contains("lina@acme.example"), masked);
+        StringAssert.Contains(masked, "<text>");
+    }
+
     /// <summary>Nothing is sent of a document that can't be masked; guessing would send it whole.</summary>
     [TestMethod]
     public void A_document_that_isnt_json_xml_or_csv_isnt_sent_at_all()
@@ -100,6 +120,10 @@ public class MaskingTests
     {
         var json = FailurePrompt.Parse("""```json {"summary":"S","cause":"C","fix":"F"} ```""");
         Assert.AreEqual(("S", "C", "F"), (json.Summary, json.Cause, json.Fix));
+
+        var steps = FailurePrompt.Parse("""{"summary":"S","cause":{"step":"mapping"},"fix":["Fix the Url.","Retry it."]}""");
+        Assert.AreEqual("Fix the Url.\nRetry it.", steps.Fix);
+        Assert.AreEqual("""{"step":"mapping"}""", steps.Cause);
 
         var prose = FailurePrompt.Parse("The partner timed out; retry.");
         Assert.AreEqual(("The partner timed out; retry.", "", ""), (prose.Summary, prose.Cause, prose.Fix));

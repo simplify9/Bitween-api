@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Linq;
 using Newtonsoft.Json.Linq;
 
 namespace SW.Bitween.Services.Ai;
@@ -44,9 +45,9 @@ public static class FailurePrompt
             try
             {
                 var json = JObject.Parse(answer[start..(end + 1)]);
-                var summary = (string?)json["summary"];
+                var summary = Text(json["summary"]);
                 if (!string.IsNullOrWhiteSpace(summary))
-                    return new(summary.Trim(), ((string?)json["cause"] ?? "").Trim(), ((string?)json["fix"] ?? "").Trim());
+                    return new(summary.Trim(), (Text(json["cause"]) ?? "").Trim(), (Text(json["fix"]) ?? "").Trim());
             }
             catch (Newtonsoft.Json.JsonException)
             {
@@ -55,4 +56,13 @@ public static class FailurePrompt
         }
         return new(answer.Trim(), "", "");
     }
+
+    /// <summary>A field as text, whatever the model made it: a fix often comes back as a list of steps.</summary>
+    static string? Text(JToken? token) => token switch
+    {
+        null or { Type: JTokenType.Null } => null,
+        JValue value => value.ToString(),
+        JArray list => string.Join("\n", list.Select(i => i.Type == JTokenType.String ? (string?)i : i.ToString(Newtonsoft.Json.Formatting.None))),
+        _ => token.ToString(Newtonsoft.Json.Formatting.None),
+    };
 }
