@@ -80,6 +80,7 @@ All need the global values permissions: `global-values.view` to read, `.create`,
 | Method and path | Permission | Description |
 |---|---|---|
 | `GET /api/xchanges` | `exchanges.view` or `dashboard.view`, or signed in with `lookup=true` | Searchy. See the filters below. A lookup returns at most 100 exchange ids, newest first, each with its information type's name. |
+| `POST /api/xchangequeries` | `exchanges.view` | Turn a question into an Exchanges page filter with AI: `{ question, timeZone }` returns `{ query, answer, notes, model, sent }`. See [Asking your exchanges](configuration.md#asking-your-exchanges). |
 | `GET /api/xchanges/statuslist` | `exchanges.view` | Status values for filters |
 | `GET /api/xchanges/retrytree?id=` | `exchanges.view` | The retry chain any attempt belongs to |
 | `POST /api/xchanges` | signed in, no permission checked | Create an exchange by hand |
