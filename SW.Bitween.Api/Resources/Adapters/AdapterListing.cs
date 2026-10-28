@@ -40,6 +40,13 @@ public class AdapterListing(
     Services.Adapters.AdapterCatalog catalog,
     Services.Adapters.NativeAdapterManifests nativeManifests)
 {
+    /// <summary>
+    /// How many adapters' metadata the lists may be reading from storage at once, across the whole
+    /// process: a screen asks for its four kinds together, each reads every other kind's adapters,
+    /// and storage services limit their callers.
+    /// </summary>
+    private static readonly System.Threading.SemaphoreSlim MetadataReads = new(16, 16);
+
     /// <param name="prefix">The plural, lowercase kind: <c>receivers</c>, <c>handlers</c>, …</param>
     /// <returns>Native adapters first, then the published ones.</returns>
     public async Task<List<AdapterEntry>> List(string prefix)
@@ -147,16 +154,38 @@ public class AdapterListing(
         var kind = prefix?.TrimEnd('s') ?? "";
         if (string.IsNullOrWhiteSpace(kind)) return byConvention;
 
-        foreach (var item in await cloudFilesService.ListAsync($"{root}/"))
-        {
-            if (item.Size <= 0 || named.Contains(item.Key)) continue;
+        var others = (await cloudFilesService.ListAsync($"{root}/"))
+            .Where(item => item.Size > 0 && !named.Contains(item.Key))
+            .ToList();
 
-            var declared = await DeclaredKindsAsync(item.Key, root);
-            if (declared.Contains(kind, System.StringComparer.OrdinalIgnoreCase))
-                byConvention.Add(item);
-        }
+        // Side by side: once the installer's metadata cache runs out, five minutes by default, this
+        // reads every other kind's adapters from storage, and one after another that took half a
+        // minute for a few dozen. Each adapter once, however many of its versions are listed.
+        var declared = (await Task.WhenAll(others.Select(i => AdapterIdOf(i.Key, root)).Distinct(System.StringComparer.Ordinal)
+                .Select(async adapterId =>
+                {
+                    await MetadataReads.WaitAsync();
+                    try { return (Id: adapterId, Kinds: await DeclaredKindsAsync(adapterId)); }
+                    finally { MetadataReads.Release(); }
+                })))
+            .ToDictionary(d => d.Id, d => d.Kinds, System.StringComparer.Ordinal);
 
+        byConvention.AddRange(others.Where(item =>
+            declared[AdapterIdOf(item.Key, root)].Contains(kind, System.StringComparer.OrdinalIgnoreCase)));
         return byConvention;
+    }
+
+    /// <summary>The adapter a listed file is a package of.</summary>
+    private static string AdapterIdOf(string key, string root)
+    {
+        var adapterId = key.StartsWith($"{root}/", System.StringComparison.OrdinalIgnoreCase)
+            ? key[(root.Length + 1)..]
+            : key;
+
+        // Versioned uploads keep the adapter id one segment up from the version.
+        return Semver.IsVersionNumber(adapterId.Split('/').Last())
+            ? string.Join('/', adapterId.Split('/')[..^1])
+            : adapterId;
     }
 
     /// <summary>
@@ -164,18 +193,10 @@ public class AdapterListing(
     /// whose metadata cannot be read declares nothing rather than taking the whole catalogue down
     /// with it - the list is what an operator needs to configure anything at all.
     /// </summary>
-    private async Task<string[]> DeclaredKindsAsync(string key, string root)
+    private async Task<string[]> DeclaredKindsAsync(string adapterId)
     {
         try
         {
-            var adapterId = key.StartsWith($"{root}/", System.StringComparison.OrdinalIgnoreCase)
-                ? key[(root.Length + 1)..]
-                : key;
-
-            // Versioned uploads keep the adapter id one segment up from the version.
-            if (Semver.IsVersionNumber(adapterId.Split('/').Last()))
-                adapterId = string.Join('/', adapterId.Split('/')[..^1]);
-
             var metadata = await adapterInstaller.GetMetadataAsync(adapterId);
             if (metadata?.AdapterValues == null) return [];
 
