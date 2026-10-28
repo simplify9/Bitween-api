@@ -29,7 +29,7 @@ These behaviours were found while documenting Bitween from its source code, and 
 | The dashboard's *Failures to act on* tile says it covers 14 days, but counts failures of any age. | `ClientApp/src/pages/dashboard/DashboardPage.tsx` |
 | An exchange's delivered time is never recorded. | `Domain/XchangeDelivery.cs` |
 | Exchanges, results and notifications are kept for ever by default (`ExchangeRetentionDays` 0), while their files expire from storage. The retention panel on the Settings page warns when exchanges outlive their files. | `Services/Retention/ExchangeRetentionJob.cs` |
-| Cached configuration can stay stale on other instances for up to 10 minutes if the revoke broadcast fails. Adapter descriptions and catalog entries are cached per node; publishing, promoting or withdrawing through Bitween clears them everywhere over the bus, but a package published straight to storage is seen with its old properties for up to a minute. | `Services/Caching/InMemoryInfolinkCache.cs`, `Services/ServerlessAdapterDescriber.cs` |
+| Cached configuration can stay stale on other instances for up to 10 minutes if the revoke broadcast fails. Adapter descriptions and catalog entries are cached per node; publishing, promoting or withdrawing through Bitween clears them everywhere over the bus, but a package published straight to storage is seen with its old properties for up to a minute, or five for one without a manifest, which is described by starting it. That answer is kept until the adapter's package changes, so it is started once a build rather than every five minutes. | `Services/Caching/InMemoryInfolinkCache.cs`, `Services/ServerlessAdapterDescriber.cs` |
 
 ## Adapters
 

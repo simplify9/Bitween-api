@@ -186,6 +186,55 @@ public class AdapterCatalogTests(BitweenFixture fixture)
     }
 
     [Fact]
+    public async Task An_adapter_is_started_to_describe_it_once_a_build()
+    {
+        // No manifest, so describing it means starting it.
+        var id = await PublishHandler();
+
+        await using var scope = fixture.CreateScope();
+        var services = scope.ServiceProvider;
+        var cloudFiles = services.GetRequiredService<ICloudFilesService>();
+        var clock = new TestClock();
+        var starts = new CountingScopes(services.GetRequiredService<IServiceScopeFactory>());
+        var installer = new SW.Serverless.AdapterInstaller(services.GetRequiredService<ServerlessOptions>(),
+            new MemoryCache(new MemoryCacheOptions { Clock = clock }), cloudFiles);
+        var describer = new ServerlessAdapterDescriber(starts, new MemoryCache(new MemoryCacheOptions { Clock = clock }), installer);
+
+        await describer.Describe(id);
+        // Long past the five minutes an answer used to last, and the installer's metadata cache with it.
+        clock.Advance(TimeSpan.FromMinutes(30));
+        Assert.True((await describer.Describe(id)).ContainsKey("ContentType"));
+        Assert.Equal(1, starts.Created);
+
+        // A new build is asked about once the installer has it.
+        await AdapterInstaller.InstallAsync(cloudFiles, SampleProject, id, SampleEntry,
+            extraFiles: new Dictionary<string, string> { ["rebuilt.txt"] = "a new build" });
+        clock.Advance(TimeSpan.FromMinutes(6));
+        await describer.Describe(id);
+        Assert.Equal(2, starts.Created);
+    }
+
+    /// <summary>A clock the test moves on itself.</summary>
+    sealed class TestClock : Microsoft.Extensions.Internal.ISystemClock
+    {
+        public DateTimeOffset UtcNow { get; private set; } = DateTimeOffset.UtcNow;
+        public void Advance(TimeSpan by) => UtcNow += by;
+    }
+
+    /// <summary>Counts the scopes it makes: the describer makes one for each adapter it starts.</summary>
+    sealed class CountingScopes(IServiceScopeFactory inner) : IServiceScopeFactory
+    {
+        int _created;
+        public int Created => _created;
+
+        public IServiceScope CreateScope()
+        {
+            Interlocked.Increment(ref _created);
+            return inner.CreateScope();
+        }
+    }
+
+    [Fact]
     public async Task Catalog_entries_are_never_listed_as_adapters()
     {
         var id = await PublishHandler(versions: ["1.0.0", "1.1.0"]);
