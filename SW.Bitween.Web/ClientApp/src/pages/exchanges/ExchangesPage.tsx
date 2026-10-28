@@ -21,6 +21,7 @@ import { NONE } from "../../lib/none";
 import { RetryDialog } from "./shared";
 import { ExchangeList } from "./ExchangeList";
 import { ExchangeDetailPanel } from "./ExchangeDetailPanel";
+import { AskedLine, type AskedQuestion } from "./AskExchanges";
 import { QueryBar, type FilterOptions } from "./QueryBar";
 import { StatusTabs } from "./StatusTabs";
 import { VolumeChart } from "./VolumeChart";
@@ -86,6 +87,8 @@ export function ExchangesPage() {
   /** Mirrors the confirm dialog's own choice, because the plan depends on it. */
   const [bulkReset, setBulkReset] = useState(false);
   const [bulkResult, setBulkResult] = useState<string | null>(null);
+  /** The last question asked, shown while its filter is the page's. */
+  const [asked, setAsked] = useState<AskedQuestion | null>(null);
   const queryClient = useQueryClient();
 
   const apply = useCallback(
@@ -471,7 +474,11 @@ export function ExchangesPage() {
           onToggleLatest={() => apply({ latest: query.latest ? null : "1" })}
         />
 
-        <QueryBar searchParams={searchParams} apply={apply} options={filterOptions} lookups={lookups} />
+        <QueryBar searchParams={searchParams} apply={apply} options={filterOptions} lookups={lookups} onAsked={setAsked} />
+
+        {asked && asked.search === viewSearch(searchParams) && (
+          <AskedLine asked={asked} total={total} counting={isLoading || reloading} onDismiss={() => setAsked(null)} />
+        )}
 
         {volume && volume.buckets.length > 0 && (
           <VolumeChart

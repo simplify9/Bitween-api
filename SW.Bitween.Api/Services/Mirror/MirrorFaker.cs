@@ -40,7 +40,8 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
     /// <summary>
     /// What a setting or a value of prod's is that staging never holds, so a copy leaves it empty for
     /// staging's own: an address (a URL, a host, an email, a connection string), a secret (one prod
-    /// masks, or one named like a secret) or a login (one named like a user name). Null for anything
+    /// masks, one named like a secret, or one that reads as a credential whatever its name) or a login
+    /// (one named like a user name). Null for anything
     /// else. A host built from a {{token}} isn't one yet, nor is a secret or a login that names one: the
     /// token is what is copied. Hosts every system names alike, such as an XML namespace's www.w3.org,
     /// are nobody's.
@@ -48,7 +49,7 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
     public static string BlankKind(string key, string value)
     {
         if (string.IsNullOrEmpty(value)) return null;
-        if (value == Masked || IsSecretLike(key) && !TokenPattern.IsMatch(value)) return "secret";
+        if (value == Masked || IsSecretLike(key) && !TokenPattern.IsMatch(value) || LooksLikeCredential(value)) return "secret";
         if (IsLoginKey(key) && !TokenPattern.IsMatch(value)) return "login";
         if (IsConnectionStringKey(key) || LooksLikeConnectionString(value) || HostsIn(key, value).Any(h => !Untouched(h))) return "address";
         return null;
@@ -98,6 +99,28 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
         var k = (key ?? "").ToLowerInvariant().Replace("_", "").Replace("-", "");
         return k is "pass" or "key" or "pin" || SecretWords.Any(k.Contains);
     }
+
+    /// <summary>
+    /// A value that reads as a credential whatever its name: a JWT, a bearer or basic header, or a long run
+    /// of letters and digits with no word in it, such as a license or access key. Prod shows a secret as
+    /// it is when its adapter doesn't say it is one, and a name like TraxisJwt or LicenseKey says nothing.
+    /// A GUID or a path isn't one.
+    /// </summary>
+    public static bool LooksLikeCredential(string value)
+    {
+        var v = (value ?? "").Trim();
+        if (JwtPattern.IsMatch(v) || AuthHeaderPattern.IsMatch(v)) return true;
+        if (v.Length < 20 || v.StartsWith('/') || System.Guid.TryParse(v, out _) || !KeyPattern.IsMatch(v)) return false;
+        // A long run of hex, of digits and letters both, is a key or a hash, which reads as low as words do. One of
+        // 32 is a GUID's shape, and isn't.
+        if (v.Length is >= 40 and <= 512 && HexPattern.IsMatch(v) && v.Any(char.IsDigit) && v.Any(char.IsLetter)) return true;
+        var kinds = (v.Any(char.IsUpper) ? 1 : 0) + (v.Any(char.IsLower) ? 1 : 0) + (v.Any(char.IsDigit) ? 1 : 0);
+        return kinds >= 2 && BitsPerChar(v) >= 4.0;
+    }
+
+    /// <summary>How unpredictable a value's characters are: about 4.3 for a random key of 20, under 4 for words and paths.</summary>
+    static double BitsPerChar(string v) =>
+        -v.GroupBy(c => c).Sum(g => (double)g.Count() / v.Length * Math.Log2((double)g.Count() / v.Length));
 
     /// <summary>
     /// A name a login goes by - a user name, a client id - which prod's never is on
@@ -546,13 +569,18 @@ public sealed class MirrorFaker(byte[] key, IEnumerable<string> keep = null)
     static readonly HashSet<string> KeptWords = new(StringComparer.OrdinalIgnoreCase) { "true", "false", "null", "none" };
 
     static readonly string[] SecretWords =
-        ["password", "passwd", "pwd", "secret", "token", "credential", "apikey", "accesskey", "privatekey", "passphrase", "certificate", "signingkey"];
+        ["password", "passwd", "pwd", "secret", "token", "credential", "apikey", "accesskey", "privatekey", "passphrase", "certificate", "signingkey",
+         "jwt", "bearer", "licensekey"];
 
     static readonly string[] LoginEndings = ["user", "username", "userid", "login", "loginname", "loginid", "clientid"];
 
     static readonly string[] AddressWords = ["url", "uri", "host", "server", "endpoint", "address", "domain", "webhook", "smtp", "imap", "ftp"];
 
     static readonly Regex TokenPattern = new(@"\{\{[^}]*\}\}", RegexOptions.Compiled);
+    static readonly Regex JwtPattern = new(@"^eyJ[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]{8,}\.[A-Za-z0-9_\-]*$", RegexOptions.Compiled);
+    static readonly Regex AuthHeaderPattern = new(@"^(Bearer|Basic)\s+[A-Za-z0-9+/=_\-.]{4,}$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    static readonly Regex HexPattern = new(@"^[0-9A-Fa-f]+$", RegexOptions.Compiled);
+    static readonly Regex KeyPattern = new(@"^[A-Za-z0-9+/=_\-]+$", RegexOptions.Compiled);
     // Scheme and local part are bounded, as real ones are: unbounded, a long value with neither :// nor @,
     // such as a file's encoded attachment, took a search from every position to its end.
     static readonly Regex UrlPattern = new(@"(?<scheme>[A-Za-z][A-Za-z0-9+.\-]{0,31})://(?<auth>[^\s/?#""'<>\\]+)(?<rest>[^\s""'<>\\]*)", RegexOptions.Compiled);

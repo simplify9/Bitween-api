@@ -277,10 +277,40 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
     };
 
     /// <summary>
-    /// Every kind prod has, each read on its own: a kind prod's release doesn't have, or the login
-    /// can't read, is left out and says why, rather than stopping the rest.
+    /// What prod's API last answered for each kind, by its address, with the kinds it didn't and why. Its
+    /// setup is a request an item - nearly 200 on Traxis's - and the picker, its preview, the bring and each
+    /// test's take all want it within minutes, against the 600 a minute prod allows staging's login.
     /// </summary>
-    static async Task<Dictionary<string, string>> ReadAsync(Context ctx, List<string> renamed)
+    static readonly System.Collections.Concurrent.ConcurrentDictionary<string, (DateTimeOffset At, Lazy<Task<ProdSetup>> Read)> ProdSetups =
+        new(StringComparer.Ordinal);
+
+    sealed record ProdSetup(Dictionary<string, List<(string Id, JsonObject Api)>> Raw, Dictionary<string, string> Skipped);
+
+    /// <summary>
+    /// Every kind prod has, each read on its own, read again once five minutes old: a kind prod's release
+    /// doesn't have, or the login can't read, is left out and says why, rather than stopping the rest. One
+    /// read at a time per prod - whoever asks while it runs waits on it - and a copy each, since a comparison
+    /// renames in it. A read that fails isn't kept.
+    /// </summary>
+    static async Task<(Dictionary<string, List<(string Id, JsonObject Api)>> Raw, Dictionary<string, string> Skipped)> AnsweredAsync(Context ctx)
+    {
+        var url = ctx.Api.Url;
+        var entry = ProdSetups.AddOrUpdate(url,
+            _ => (DateTimeOffset.UtcNow, new Lazy<Task<ProdSetup>>(() => ReadSetupAsync(ctx))),
+            (_, old) => DateTimeOffset.UtcNow - old.At < TimeSpan.FromMinutes(5) ? old
+                : (DateTimeOffset.UtcNow, new Lazy<Task<ProdSetup>>(() => ReadSetupAsync(ctx))));
+        ProdSetup read;
+        try { read = await entry.Read.Value; }
+        catch
+        {
+            ProdSetups.TryRemove(new KeyValuePair<string, (DateTimeOffset, Lazy<Task<ProdSetup>>)>(url, entry));
+            throw;
+        }
+        return (read.Raw.ToDictionary(k => k.Key, k => k.Value.Select(x => (x.Id, (JsonObject)x.Api.DeepClone())).ToList(), StringComparer.Ordinal),
+            new Dictionary<string, string>(read.Skipped, StringComparer.Ordinal));
+    }
+
+    static async Task<ProdSetup> ReadSetupAsync(Context ctx)
     {
         var skipped = new Dictionary<string, string>(StringComparer.Ordinal);
         var raw = new Dictionary<string, List<(string Id, JsonObject Api)>>(StringComparer.Ordinal);
@@ -291,14 +321,25 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
             {
                 skipped[kind.Section] = NotOnProdsRelease;
                 raw[kind.Section] = [];
-                continue;
             }
             catch (BitweenApiException ex) when (ex.Status == HttpStatusCode.Forbidden)
             {
                 skipped[kind.Section] = "Staging's login on prod can't read these.";
                 raw[kind.Section] = [];
-                continue;
             }
+        }
+        return new ProdSetup(raw, skipped);
+    }
+
+    /// <summary>
+    /// Every kind prod has, as the copy reads it (see <see cref="AnsweredAsync"/>): several of one name are
+    /// told apart, and a kind in a form this release doesn't read is left out and says why.
+    /// </summary>
+    static async Task<Dictionary<string, string>> ReadAsync(Context ctx, List<string> renamed)
+    {
+        var (raw, skipped) = await AnsweredAsync(ctx);
+        foreach (var kind in Kinds.All.Where(k => !skipped.ContainsKey(k.Section)))
+        {
             renamed.AddRange(Distinguish(ctx, kind, raw[kind.Section]));
             foreach (var (id, api) in raw[kind.Section]) ctx.Know(kind.Section, kind.KeyOfApi(ctx, api), id);
         }
@@ -373,13 +414,19 @@ public sealed partial class MirrorService(BitweenOptions options, FileLinks link
         else
         {
             listed = new Dictionary<string, AdapterInfo>(StringComparer.OrdinalIgnoreCase);
-            foreach (var prefix in AdapterPrefixes)
+            async Task<JsonNode> ListOf(string prefix)
             {
-                JsonNode answer;
                 // Without their startup properties, which nothing here reads: describing a published
                 // adapter starts it. A release from before the option ignores it and describes them.
-                try { answer = await api.GetAsync($"api/adapters/catalog?prefix={prefix}&startupValues=false"); }
-                catch (BitweenApiException ex) when (ex.Status is HttpStatusCode.NotFound or HttpStatusCode.Forbidden) { continue; }
+                try { return await api.GetAsync($"api/adapters/catalog?prefix={prefix}&startupValues=false"); }
+                catch (BitweenApiException ex) when (ex.Status is HttpStatusCode.NotFound or HttpStatusCode.Forbidden) { return null; }
+            }
+            // Staging's kinds side by side, each a read of its storage; prod's one after another, to go easy on it.
+            var answers = new List<JsonNode>();
+            if (isProd) foreach (var prefix in AdapterPrefixes) answers.Add(await ListOf(prefix));
+            else answers.AddRange(await Task.WhenAll(AdapterPrefixes.Select(ListOf)));
+            foreach (var answer in answers)
+            {
                 foreach (var row in (answer as JsonArray ?? []).OfType<JsonObject>())
                 {
                     var id = (string)row["key"];

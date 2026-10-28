@@ -14,6 +14,8 @@ Prod is only read, through its own API, with a view-only login. Nothing is insta
 
 Enter prod's address and the login in **Settings, Prod mirror**. The token and password are stored encrypted, which needs `Bitween:SettingsEncryptionKey`. The address is only an address, with no login, `?` or `#` in it; use `https`, and plain `http` only for an address inside the same cluster. Changing the address empties the saved token and password, so a login is never sent to an address it wasn't entered for: enter it again.
 
+Reading prod's setup takes a request an item, and prod allows each login 600 requests a minute, so the staging keeps what it read for five minutes: the picker, bringing and the tests share one read, and a change made on prod shows on the staging within five minutes.
+
 ## What is copied, and how
 
 Everything a configuration file can hold is copied by name: subscription categories, work groups, information types, partners, global values, connections, notification channels, retry policies, data sources and their SQL statements, subscriptions, API gateways, bus gateways and legacy notifiers. A kind prod's release doesn't have is left out and says so. The copy goes through the same engine as [`bitween apply`](cli.md).
@@ -24,7 +26,7 @@ Values are handled the moment they arrive, before anything is saved, so the stag
 |---|---|---|
 | How a flow behaves | formats, schedules, filters and match expressions, mapping rules, methods, delimiters, file name patterns, `{{globals.…}}` tokens | Copied as it is |
 | Addresses | hosts, URLs, email addresses, connection strings, an API gateway's issuer, a connection's login URLs | Never copied: a placeholder that leads nowhere, `https://set-me.invalid` or `set-me@set-me.invalid`, until you fill in your test system's |
-| Secrets | anything prod shows as `__private__`, values named like secrets (`apiKey`, `password`, `token`) | Never copied: left empty until you fill in staging's own. One a subscription's adapter can't be saved without is saved as `set-me` |
+| Secrets | anything prod shows as `__private__`, values named like secrets (`apiKey`, `password`, `token`, `jwt`, `licenseKey`), and values that read as a credential whatever their name: a JWT, a `Bearer` or `Basic` header, a long random key | Never copied: left empty until you fill in staging's own. One a subscription's adapter can't be saved without is saved as `set-me` |
 | Logins | a connection's client id and username; any setting, partner property or global value named like a user name or client id (`Username`, `SftpUser`, `ClientId`) | Never copied: `set-me` until you fill in your test login |
 | Partner properties and global values | account numbers, codes, names | A fake of the same shape: digits stay digits, letters keep their case, dates stay dates in their format, GUIDs stay GUIDs, JSON keeps its keys |
 | Partner API keys | | Keys of staging's own, the same on every copy |
@@ -33,7 +35,7 @@ Each address, secret and login left this way is something to fill in. Bringing l
 
 The same value always becomes the same fake, so a code named in two places still matches, and copying again changes nothing. A partner property or global value that is a setting rather than data, such as a time zone or a date format, can be kept as it is: list it in **Settings, Prod mirror, Values copied as they are**, one per line, as `partner:timeZone` or `global:formats/date`. Addresses and secrets are never kept.
 
-Copied subscriptions arrive paused, and data sources and bus gateways switched off, so nothing on the staging runs on its own.
+Copied subscriptions arrive paused, and data sources and bus gateways switched off, so nothing on the staging runs on its own. On a mirror, a paused scheduled job or aggregation doesn't run on its schedule either, as it would elsewhere: **Receive now**, **Roll up now** and tests still run it.
 
 Legacy setups are copied as prod has them: Internal and ApiCall subscriptions, legacy notifiers, and a response handed to an Internal or ApiCall subscription. Bitween keeps such a response link on an item that already has it but refuses a new one, and a copy is a new save. So the copy alone may recreate it: its calls carry a key it opens for the length of the copy, on a Bitween marked as a mirror. Someone editing on the staging never carries one and meets the same rule as on prod.
 
@@ -56,7 +58,7 @@ Tick the ones to bring, or all of them. **See what comes** then lists everything
 
 A picked gateway brings every subscription it leads to.
 
-What the staging doesn't have comes as prod has it, handled as above, so subscriptions arrive paused and data sources and bus gateways switched off. The preview counts what comes by kind, saying how many you picked and how many they need, with each item behind **Show them**, lists the items you'll fill in on staging after bringing, one row each with its fields, and says which partners' and global values' data comes faked. What the staging has stays as it is, so edits made on the staging are never overwritten: a gateway the staging has only gets the partner or route that leads to what comes. Nothing is removed. An item that can't come yet, such as a subscription waiting for an adapter, stays behind and says why, and so does anything that needs it.
+What the staging doesn't have comes as prod has it, handled as above, so subscriptions arrive paused and data sources and bus gateways switched off. The preview counts what comes by kind, saying how many you picked and how many they need, with each item behind **Show them**, lists the items you'll fill in on staging after bringing, one row each with its fields, and says which partners' and global values' data comes faked. Under **Copied as-is from prod** it lists every adapter setting that comes as prod has it, with its value: a secret is told by its name and its value, so check none of these is one, or someone's data, and clear any that is on the staging after bringing. What the staging has stays as it is, so edits made on the staging are never overwritten: a gateway the staging has only gets the partner or route that leads to what comes. Nothing is removed. An item that can't come yet, such as a subscription waiting for an adapter, stays behind and says why, and so does anything that needs it.
 
 **Bring** then brings them. It carries on past an item that fails, and lists each failure with Bitween's reason.
 

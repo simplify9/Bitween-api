@@ -387,6 +387,14 @@ export const exchangeMethods = {
     return post<ExportFilesCheck>("/xchanges/export/check", selectionBody(selection));
   },
 
+  async askExchanges(question: string, signal?: AbortSignal) {
+    const res = await request<{ query: string; answer: string; notes?: string[]; model?: string | null; sent: string }>(
+      "/xchangequeries",
+      { method: "POST", body: { question, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }, signal },
+    );
+    return { query: res.query, answer: res.answer, notes: res.notes ?? [], model: res.model ?? null, sent: res.sent };
+  },
+
   async createExchange(input: {
     target: "subscription" | "informationType";
     subscriptionId?: number;

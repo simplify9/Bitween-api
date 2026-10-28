@@ -150,7 +150,7 @@ Saving the result publishes its id on the work group's `-Result` lane. There, ea
 
 While a subscription is paused, messages that reach it by content are stored as on-hold exchanges. That covers documents matched to internal subscriptions and bus gateway routes. Resuming the subscription publishes an event that turns every on-hold exchange into a real exchange and deletes the holds.
 
-API gateway calls, legacy API calls, scheduled job runs, aggregations and exchanges created by hand ignore the pause and still create exchanges.
+API gateway calls, legacy API calls, scheduled job runs, aggregations and exchanges created by hand ignore the pause and still create exchanges. On a staging marked as a [prod mirror](prod-mirror.md), a paused scheduled job or aggregation doesn't run on its schedule; **Receive now** and **Roll up now** still run it.
 
 ## Aggregation
 

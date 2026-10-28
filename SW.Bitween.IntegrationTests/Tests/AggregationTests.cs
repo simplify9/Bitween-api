@@ -54,6 +54,43 @@ public class AggregationTests(BitweenFixture fixture)
     }
 
     [Fact]
+    public async Task On_a_mirror_a_paused_aggregation_waits_out_its_schedule_but_rolls_up_by_hand()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var mirror = new BitweenOptions();
+        mirror.Mirror.Target = true;
+        var job = ActivatorUtilities.CreateInstance<AggregationJob>(scope.ServiceProvider, mirror);
+
+        var doc = new Document(null, "Agg Paused Doc", DocumentFormat.Json);
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+        var source = new Subscription("Agg Paused Source", doc.Id) { Inactive = false };
+        db.Set<Subscription>().Add(source);
+        await db.SaveChangesAsync();
+        var xchange = new Xchange(source, new XchangeFile("{}"));
+        db.Set<Xchange>().Add(xchange);
+        await db.SaveChangesAsync();
+        db.Set<XchangeResult>().Add(new XchangeResult(xchange.Id, null, null));
+        var aggregation = new Subscription("Agg Paused", source.Id, Partner.SystemId) { Inactive = false, AggregationTarget = XchangeFileType.Input };
+        aggregation.SetSchedules(new[] { new Schedule(Recurrence.Hourly, TimeSpan.FromMinutes(30)) });
+        aggregation.Pause();
+        db.Set<Subscription>().Add(aggregation);
+        await db.SaveChangesAsync();
+        fixture.App.Services.GetRequiredService<IInfolinkCache>().Revoke();
+
+        // Its schedule fires: held back, as a brought one arrives paused, but its next run moves on.
+        var next = await db.Subscriptions().AsNoTracking().Where(s => s.Id == aggregation.Id).Select(s => s.AggregateOn).SingleAsync();
+        await job.Execute(new AggregationJobParams(aggregation.Id, "0 0 * * * ?"));
+        Assert.Null(await db.Set<XchangeAggregation>().AsNoTracking().SingleOrDefaultAsync(a => a.Id == xchange.Id));
+        Assert.True(await db.Subscriptions().AsNoTracking().Where(s => s.Id == aggregation.Id).Select(s => s.AggregateOn).SingleAsync() >= next);
+
+        // Roll up now, which has no schedule, runs.
+        await job.Execute(new AggregationJobParams(aggregation.Id, null));
+        Assert.NotNull(await db.Set<XchangeAggregation>().AsNoTracking().SingleOrDefaultAsync(a => a.Id == xchange.Id));
+    }
+
+    [Fact]
     public async Task Aggregation_job_creates_one_xchange_from_successful_source_xchanges()
     {
         await using var scope = fixture.CreateScope();
