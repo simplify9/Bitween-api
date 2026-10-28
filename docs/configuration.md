@@ -233,11 +233,11 @@ Sample documents an AI feature sends go to this provider, with the names - never
 
 - the error, which step failed, the subscription's kind and adapters, and the names of the handler's settings, never their values (they hold partner and global values already filled in, some of them credentials);
 - the retry policy's groups, the attempt's place in its retry chain, why it won't be retried and any scheduled retry, and the first line of up to three earlier attempts' errors;
-- the input, mapped and response documents, with every value replaced by its type: `"name": "Lina"` goes as `"name": "<text>"`. Long lists show their first three entries. A document that isn't JSON, XML or CSV isn't sent at all.
+- the input, mapped and response documents, with every value replaced by its type: `"name": "Lina"` goes as `"name": "<text>"`. Long lists show their first three entries. A CSV's every row is masked, a header row included, so a file without one can't send its first record as column names. A document that isn't JSON, XML or CSV, or is over 1 MB, isn't sent at all.
 
 Error text is masked too: a document inside it, such as a partner's response body, is masked as a document; every value the exchange's documents hold is taken out wherever it appears; quoted text, numbers of four or more digits, email addresses and URL query strings are replaced; and a stack frame keeps its file name and line but not the server's folders.
 
-The answer says what happened, the most likely cause and what to change. **See what was sent** shows exactly the masked text that went. Anyone who can view the exchange can ask, and each request is recorded as an `explain-failure` operator action in the audit trail.
+The answer says what happened, the most likely cause and what to change. **See what was sent** shows exactly the masked text that went. Anyone who can view the exchange can ask, and each request is recorded as an `explain-failure` operator action in the audit trail before anything is sent, so a call that fails afterwards is on record too.
 
 The page also has a **Notification channels** section. Channels are records rather than settings: they have their own table, each opens on a page of its own, and the `notifiers` permissions cover them rather than `settings`. See [Notification channels](retries-and-alerts.md#notification-channels).
 

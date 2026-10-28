@@ -53,6 +53,9 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
     /// <summary>Earlier attempts whose errors are worth showing beside this one.</summary>
     const int EarlierAttempts = 3;
 
+    /// <summary>The largest document masked and sent; a few records are enough to explain a failure.</summary>
+    const int MaxMaskedFileBytes = 1_000_000;
+
     public async Task<XchangeExplanationResponse> Handle(XchangeExplanationRequest request)
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Exchanges.View);
@@ -125,10 +128,11 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
         }
 
         var message = sent.ToString();
-        var explanation = FailurePrompt.Parse(await model.Complete(new AiPrompt(FailurePrompt.Instructions, message, Json: true, MaxTokens: 4000)));
 
+        // Recorded before it goes, so a call that fails or times out after sending is on record too.
         await dbContext.RecordNowAsync(requestContext, OperatorAction.ExplainFailure, xchange.Id,
-            $"Explained by {models.ModelName}; documents and error sent masked.");
+            $"Sent to {models.ModelName}; documents and error masked.");
+        var explanation = FailurePrompt.Parse(await model.Complete(new AiPrompt(FailurePrompt.Instructions, message, Json: true, MaxTokens: 4000)));
 
         return new XchangeExplanationResponse
         {
@@ -145,6 +149,12 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
     {
         if (size <= 0) return;
         var name = type.ToString().ToLowerInvariant();
+        // Masking reads the whole document before cutting what it sends; past this, it isn't read.
+        if (size > MaxMaskedFileBytes)
+        {
+            files.Add((name, "(not sent: too large to mask)"));
+            return;
+        }
         string text;
         try
         {

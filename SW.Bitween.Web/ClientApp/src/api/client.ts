@@ -752,6 +752,7 @@ export interface ApiClient {
    * values captured when the exchange first ran. Fails with
    * AUTO_RETRY_SCHEDULED when an auto-retry is already pending.
    */
+  retryExchange(id: string, opts: { reset: boolean }): Promise<{ id: string }>;
   /**
    * Explains a failed exchange in plain words through the AI provider under Settings, AI. The
    * error and documents go masked - every value replaced by its type - and `sent` is exactly what
@@ -761,8 +762,6 @@ export interface ApiClient {
     xchangeId: string,
     signal?: AbortSignal,
   ): Promise<{ summary: string; cause: string; fix: string; model: string | null; sent: string }>;
-
-  retryExchange(id: string, opts: { reset: boolean }): Promise<{ id: string }>;
   /** Retries many; exchanges with a pending auto-retry are skipped, not failed. */
   bulkRetryExchanges(selection: BulkRetrySelection, opts: { reset: boolean }): Promise<BulkRetryPlan>;
   previewBulkRetry(selection: BulkRetrySelection, opts: { reset: boolean }): Promise<BulkRetryPlan>;

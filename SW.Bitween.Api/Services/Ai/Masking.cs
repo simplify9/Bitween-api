@@ -162,7 +162,9 @@ public sealed class Masking
         var type = contentType?.ToLowerInvariant() ?? "";
         if (type.Contains("json")) yield return new JsonFormat();
         else if (type.Contains("xml")) yield return new XmlFormat();
-        else if (type.Contains("csv")) yield return new CsvFormat(new CsvOptions());
+        // Read without a header: a header's names would be kept as keys, and a file without one
+        // would send its first row as them. Every row is masked, a real header row included.
+        else if (type.Contains("csv")) yield return new CsvFormat(new CsvOptions { HasHeader = false });
         else
         {
             // Unknown: the two formats that say so of themselves. CSV is never guessed - nearly any
