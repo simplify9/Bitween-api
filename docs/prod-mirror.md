@@ -26,7 +26,7 @@ Values are handled the moment they arrive, before anything is saved, so the stag
 |---|---|---|
 | How a flow behaves | formats, schedules, filters and match expressions, mapping rules, methods, delimiters, file name patterns, `{{globals.…}}` tokens | Copied as it is |
 | Addresses | hosts, URLs, email addresses, connection strings, an API gateway's issuer, a connection's login URLs | Never copied: a placeholder that leads nowhere, `https://set-me.invalid` or `set-me@set-me.invalid`, until you fill in your test system's |
-| Secrets | anything prod shows as `__private__`, values named like secrets (`apiKey`, `password`, `token`) | Never copied: left empty until you fill in staging's own. One a subscription's adapter can't be saved without is saved as `set-me` |
+| Secrets | anything prod shows as `__private__`, values named like secrets (`apiKey`, `password`, `token`, `jwt`, `licenseKey`), and values that read as a credential whatever their name: a JWT, a `Bearer` or `Basic` header, a long random key | Never copied: left empty until you fill in staging's own. One a subscription's adapter can't be saved without is saved as `set-me` |
 | Logins | a connection's client id and username; any setting, partner property or global value named like a user name or client id (`Username`, `SftpUser`, `ClientId`) | Never copied: `set-me` until you fill in your test login |
 | Partner properties and global values | account numbers, codes, names | A fake of the same shape: digits stay digits, letters keep their case, dates stay dates in their format, GUIDs stay GUIDs, JSON keeps its keys |
 | Partner API keys | | Keys of staging's own, the same on every copy |

@@ -82,6 +82,29 @@ public class MirrorFakerTests
         Assert.AreEqual("address", MirrorFaker.BlankKind("note", "mail ops@acmecargo.net"));
     }
 
+    /// <summary>
+    /// Prod shows a secret as it is when its adapter doesn't say it is one, under names like TraxisJwt or
+    /// LicenseKey. Made up here, as it runs, so nothing in the code reads as a real one.
+    /// </summary>
+    [TestMethod]
+    public void A_value_that_reads_as_a_credential_is_a_secret_whatever_its_name()
+    {
+        static string Part(string text) => Convert.ToBase64String(Encoding.UTF8.GetBytes(text)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        var jwt = $"{Part("""{"alg":"HS256","typ":"JWT"}""")}.{Part("""{"nameid":"made-up","exp":1}""")}.{Part("a signature made up for this test")}";
+        var key = "==" + Convert.ToBase64String(Encoding.UTF8.GetBytes("A license key Made Up for these 2 tests only"));
+
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("TraxisJwt", jwt));
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("Header", "Bearer " + Part("made up bearer value 42")));
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("Adapter", key));
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("LicenseKey", "short"));
+        // Ids, paths, names and words aren't.
+        Assert.IsNull(MirrorFaker.BlankKind("AccountId", Guid.NewGuid().ToString()));
+        Assert.IsNull(MirrorFaker.BlankKind("TargetPath", "/traxis/Orders2024/Out/Archive"));
+        Assert.IsNull(MirrorFaker.BlankKind("Handler", "infolink6.handlers.traxis.importtrackingupdates"));
+        Assert.IsNull(MirrorFaker.BlankKind("Agent", "SODEXI"));
+        Assert.IsNull(MirrorFaker.BlankKind("Subject", "Daily shipments report for 2026"));
+    }
+
     [TestMethod]
     public void Logins_are_left_for_the_teams_test_login()
     {
