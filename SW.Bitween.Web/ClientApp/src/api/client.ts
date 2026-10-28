@@ -86,6 +86,7 @@ import type {
   RetryAlertConfig,
   RetryAttempts,
   RetryPolicy,
+  RetrySuggestion,
   RetryPolicyDetail,
   RetryPolicyListRow,
   RetryUsageRow,
@@ -633,6 +634,14 @@ export interface ApiClient {
   }): Promise<Paged<RetryPolicyListRow>>;
   getRetryPolicy(id: number): Promise<RetryPolicyDetail>;
   createRetryPolicy(input: { name: string }): Promise<RetryPolicy>;
+  /**
+   * Asks the AI provider under Settings, AI for a retry policy from a subscription's recent
+   * failures. Only masked error lines, their counts and how often a retry fixed them go, with the
+   * current policy's rules; never documents. Saves nothing.
+   */
+  suggestRetryPolicy(subscriptionId: number, signal?: AbortSignal): Promise<RetrySuggestion>;
+  /** Creates a policy from a suggestion's groups; returns its id. */
+  saveSuggestedRetryPolicy(name: string, groups: RetrySuggestion["groups"]): Promise<number>;
   updateRetryPolicy(
     id: number,
     changes: {

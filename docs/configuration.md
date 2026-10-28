@@ -216,7 +216,7 @@ The **Mail server** section is the one SMTP server every Email notification chan
 
 ### AI
 
-The **AI** section is the provider every AI feature calls; they are [Generate with AI](mapping.md#generate-with-ai) in the mapping editor and [Explain this failure](#explaining-a-failure) on a failed exchange. It is read on each call, and AI features stay off until an API key is set.
+The **AI** section is the provider every AI feature calls; they are [Generate with AI](mapping.md#generate-with-ai) in the mapping editor and [Explain this failure](#explaining-a-failure) on a failed exchange, and [Suggest with AI](retries-and-alerts.md#suggesting-a-policy-with-ai) beside a subscription's retry policy. It is read on each call, and AI features stay off until an API key is set.
 
 - **Provider** is `Anthropic` or `OpenAI`. Any other value, such as a misspelling in configuration, leaves AI features off. `OpenAI` also covers anything that speaks its chat completions API at **API address**: an Azure OpenAI resource (`https://your-resource.openai.azure.com/openai/v1/`), a local Ollama (`http://localhost:11434/v1/`) or a proxy.
 - **Model** empty uses `claude-opus-5-5` with Anthropic. OpenAI needs one named, or the Azure deployment's name.

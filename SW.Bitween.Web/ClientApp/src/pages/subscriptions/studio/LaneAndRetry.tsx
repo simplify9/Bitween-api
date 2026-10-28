@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import { Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../../api";
 import { useSessionCan } from "../../../auth/useSessionCan";
@@ -9,6 +10,7 @@ import { CreateRetryPolicyDialog } from "../../../components/config/RetryPolicyD
 import { keys } from "../../../api/queryKeys";
 import { workGroupQueueName } from "../../../lib/busMessageName";
 import { Fact } from "./Fact";
+import { SuggestRetryPolicy } from "./SuggestRetryPolicy";
 
 /**
  * Which lane a subscription runs in, and what happens when it fails.
@@ -30,6 +32,7 @@ export function LaneAndRetry({
   idPrefix,
   inlineRetryGroups = null,
   inlineReplaced = false,
+  subscriptionId,
 }: {
   workGroupId: number | null;
   retryPolicyId: number | null;
@@ -42,6 +45,8 @@ export function LaneAndRetry({
   canEdit: boolean;
   /** Ids have to be unique per page - the create pages render this beside their own fields. */
   idPrefix: string;
+  /** A saved subscription, whose own failures a retry policy can be suggested from. */
+  subscriptionId?: number;
 }) {
   const canCreateWorkGroup = useSessionCan("workgroups.create");
   const canCreateRetryPolicy = useSessionCan("retry-policies.create");
@@ -53,6 +58,7 @@ export function LaneAndRetry({
   /** undefined = closed, null = creating, number = editing that group. */
   const [groupDialog, setGroupDialog] = useState<number | null | undefined>(undefined);
   const [creatingPolicy, setCreatingPolicy] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
 
   return (
     <>
@@ -136,6 +142,17 @@ export function LaneAndRetry({
               + New
             </button>
           )}
+          {canCreateRetryPolicy && canEdit && subscriptionId !== undefined && (
+            <button
+              type="button"
+              onClick={() => setSuggesting(true)}
+              title="Propose a retry policy from this subscription's own failures, with AI"
+              className="inline-flex items-center gap-1 text-[12px] font-medium link"
+            >
+              <Sparkles className="size-3" aria-hidden />
+              Suggest with AI
+            </button>
+          )}
         </div>
       </Fact>
       {groupDialog !== undefined && (
@@ -143,6 +160,13 @@ export function LaneAndRetry({
           groupId={groupDialog}
           onClose={() => setGroupDialog(undefined)}
           onSaved={onWorkGroupChange}
+        />
+      )}
+      {suggesting && subscriptionId !== undefined && (
+        <SuggestRetryPolicy
+          subscriptionId={subscriptionId}
+          onClose={() => setSuggesting(false)}
+          onCreated={onRetryPolicyChange}
         />
       )}
       {creatingPolicy && (

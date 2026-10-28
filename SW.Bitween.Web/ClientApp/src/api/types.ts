@@ -2608,3 +2608,28 @@ export interface MirrorBring {
   needsYou: MirrorNote[];
   failed: { section: string; noun: string; key: string; error: string }[];
 }
+
+/** A retry policy the AI proposed from a subscription's failures. Nothing is saved until it's created. */
+export interface RetrySuggestion {
+  name: string;
+  summary: string;
+  /** In the server's own shape (delays in ms), passed back untouched to save them. */
+  groups: {
+    name: string;
+    priority: number;
+    appliesTo: string[];
+    action: "Allow" | "Block";
+    matchers: { type: string; value?: string; pattern?: string; path?: string }[];
+    budget: {
+      maxAttemptsPerError: number;
+      maxAttemptsTotal: number | null;
+      delayStrategy: { type: string; delayMs?: number; initialDelayMs?: number; incrementMs?: number; multiplier?: number; maxDelayMs?: number };
+    } | null;
+    notes?: string | null;
+  }[];
+  coverage: { error: string; count: number; retried: number; fixedByRetry: number; now: string; suggested: string }[];
+  failures: number;
+  days: number;
+  model: string | null;
+  sent: string;
+}

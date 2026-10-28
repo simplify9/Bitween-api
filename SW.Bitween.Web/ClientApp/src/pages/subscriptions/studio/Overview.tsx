@@ -279,6 +279,7 @@ export function Overview({
           idPrefix="in"
           inlineRetryGroups={s.customRetryGroups ?? null}
           inlineReplaced={draft.retryPolicyId !== s.retryPolicyId}
+          subscriptionId={s.id}
         />
         <CategoryField
           categoryId={draft.categoryId}

@@ -16,6 +16,7 @@ import {
   type Paged,
 } from "../types";
 import { get, post, request } from "./request";
+import type { RetrySuggestion } from "../types";
 import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
 interface SearchyResponse<T> {
@@ -265,6 +266,15 @@ export const retryPolicyMethods = {
   async createRetryPolicy({ name }: { name: string }): Promise<RetryPolicy> {
     const id = await post<number>("/retrypolicies", { name, groups: [] });
     return { id, name, groups: [], createdOn: "", alertChannelId: null };
+  },
+
+  async suggestRetryPolicy(subscriptionId: number, signal?: AbortSignal): Promise<RetrySuggestion> {
+    return request<RetrySuggestion>("/retrysuggestions", { method: "POST", body: { subscriptionId }, signal });
+  },
+
+  /** Saves a suggestion's groups exactly as the server wrote them, so no field is lost on the way. */
+  async saveSuggestedRetryPolicy(name: string, groups: RetrySuggestion["groups"]): Promise<number> {
+    return post<number>("/retrypolicies", { name, groups });
   },
 
   async updateRetryPolicy(
