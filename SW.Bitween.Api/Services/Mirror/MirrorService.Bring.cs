@@ -227,6 +227,7 @@ public sealed partial class MirrorService
         var needsYou = AdapterNotes(adapters);
         needsYou.AddRange(plan.Problems.Distinct().Select(p => new MirrorNote($"problem:{p}", "needsYou", $"On staging: {p}")));
         needsYou.AddRange(FillIns(comparison, needs.Keys));
+        needsYou.AddRange(AsIsNotes(comparison.Copy, pieces.Where(p => p.State == "new").Select(p => (p.Section, p.Key))));
         if (FakedNote(index, needs.Keys) is { } faked) needsYou.Add(faked);
         return new Bringing(pieces, needsYou, plan, needs, index, adapters);
     }
@@ -360,6 +361,20 @@ public sealed partial class MirrorService
     /// <summary>Takes out the item's placeholders, and only that item's: how many.</summary>
     internal static int CloseStandIns(HashSet<string> standIns, string section, string key) =>
         standIns.RemoveWhere(id => JsonSerializer.Deserialize<string[]>(id) is [var s, var k, ..] && s == section && k == key);
+
+    /// <summary>
+    /// The adapters' settings of the items a bring makes that come as prod has them, each with its value, so a
+    /// person sees them before they come: what decides a secret is its name and its value, and a name can say
+    /// nothing. A long value shows its start and its length.
+    /// </summary>
+    internal static IEnumerable<MirrorNote> AsIsNotes(MirrorSetupCopy copy, IEnumerable<(string Section, string Key)> items)
+    {
+        var making = items.ToHashSet();
+        foreach (var s in (copy.AsIs ?? []).Where(s => making.Contains((s.Section, s.Key))))
+            yield return new MirrorNote($"asIs:{s.Section}:{s.Key}:{s.Field}", "asIs",
+                s.Value.Length <= 48 ? s.Value : $"{s.Value[..32]}… ({s.Value.Length:N0} characters)",
+                s.Section, s.Key, Field: s.Field, Noun: Kinds.Of(s.Section).Noun);
+    }
 
     /// <summary>Kinds that only send alerts: an exchange runs the same whether they are filled in or not.</summary>
     internal static bool OnlyAlerts(string section) => section is "notificationChannels" or "notifiers";

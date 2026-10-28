@@ -21,11 +21,19 @@ namespace SW.Bitween.Services.Mirror;
 /// </param>
 public record MirrorBlank(string Section, string Key, IReadOnlyList<string> Path, string Field, string Kind, bool StoodIn = false);
 
+/// <summary>
+/// An adapter's setting the copy brings as prod has it, since it says how a flow behaves - neither an
+/// address, a secret nor a login by its name or its value - for a person to look over before it comes.
+/// </summary>
+/// <param name="Field">Where it is, in words: handler · Protocol.</param>
+public record MirrorAsIs(string Section, string Key, string Field, string Value);
+
 /// <summary>A partner property or global value that is faked, unless it is kept because it is a setting.</summary>
 public record MirrorFakedKey(string Id, string Label, int Count, bool Kept);
 
 /// <summary>Prod's setup as staging gets it: every value handled, and what that turned up.</summary>
 /// <param name="Blanks">Every address and secret of prod's the copy left empty.</param>
+/// <param name="AsIs">Adapters' settings it brings as prod has them, that could say anything of prod's.</param>
 /// <param name="SwitchedOff">
 /// The data sources and bus gateways prod has on and the copy switched off, as section/key: a test's
 /// traffic still goes through them, as prod's does.
@@ -34,7 +42,8 @@ public record MirrorSetupCopy(
     Dictionary<string, List<JsonObject>> Sections,
     IReadOnlyList<MirrorBlank> Blanks,
     IReadOnlyList<MirrorFakedKey> FakedKeys,
-    IReadOnlySet<string> SwitchedOff = null);
+    IReadOnlySet<string> SwitchedOff = null,
+    IReadOnlyList<MirrorAsIs> AsIs = null);
 
 /// <summary>
 /// Prod's setup, read as a configuration file would say it, with what staging must not hold taken out:
@@ -54,17 +63,19 @@ public static class MirrorSetup
     {
         var sections = new Dictionary<string, List<JsonObject>>(StringComparer.Ordinal);
         var blanks = new List<MirrorBlank>();
+        var asIs = new List<MirrorAsIs>();
         foreach (var (section, items) in prod)
             sections[section] = items.Where(e => e.Key != null).OrderBy(e => e.Key, StringComparer.Ordinal)
-                .Select(e => Handle(section, e.Key, (JsonObject)e.File.DeepClone(), faker, keep, blanks)).ToList();
+                .Select(e => Handle(section, e.Key, (JsonObject)e.File.DeepClone(), faker, keep, blanks, asIs)).ToList();
         var switchedOff = prod.Where(p => p.Key is "dataSources" or "busGateways")
             .SelectMany(p => p.Value.Where(e => e.Key != null && !Values.Same(e.File["inactive"], true)).Select(e => $"{p.Key}/{e.Key}"))
             .ToHashSet(StringComparer.Ordinal);
 
-        return new MirrorSetupCopy(sections, blanks, FakedKeys(prod, keep), switchedOff);
+        return new MirrorSetupCopy(sections, blanks, FakedKeys(prod, keep), switchedOff, asIs);
     }
 
-    static JsonObject Handle(string section, string key, JsonObject item, MirrorFaker faker, ISet<string> keep, List<MirrorBlank> blanks)
+    static JsonObject Handle(string section, string key, JsonObject item, MirrorFaker faker, ISet<string> keep, List<MirrorBlank> blanks,
+        List<MirrorAsIs> asIs)
     {
         var where = $"{section}/{key}";
         void Blank(JsonObject owner, string name, string kind, params string[] path)
@@ -72,6 +83,8 @@ public static class MirrorSetup
             owner[name] = MirrorFaker.Placeholder(kind, name, (string)owner[name] ?? "");
             blanks.Add(new MirrorBlank(section, key, path, string.Join(" · ", path.Where(p => p != "properties")), kind));
         }
+        void AsIs(string value, params string[] path) =>
+            asIs.Add(new MirrorAsIs(section, key, string.Join(" · ", path.Where(p => p != "properties")), value));
 
         switch (section)
         {
@@ -100,23 +113,24 @@ public static class MirrorSetup
             case "notificationChannels":
             case "notifiers":
             case "dataSources":
-                Settings(item, Blank, "properties");
+                Settings(item, Blank, AsIs, "properties");
                 if (section == "dataSources") item["inactive"] = true;
                 break;
 
             case "busGateways":
-                Settings(item, Blank, "endpointProperties");
+                Settings(item, Blank, AsIs, "endpointProperties");
                 item["inactive"] = true;
                 break;
 
             case "apiGateways":
                 // Its issuer is where partner logins are checked: an address like any other.
-                Settings(item, Blank, "authentication");
+                Settings(item, Blank, AsIs, "authentication");
                 break;
 
             case "subscriptions":
                 foreach (var role in new[] { "receiver", "validator", "mapper", "handler" })
-                    Settings(item[role] as JsonObject, (owner, name, kind, path) => Blank(owner, name, kind, [role, .. path]), "properties");
+                    Settings(item[role] as JsonObject, (owner, name, kind, path) => Blank(owner, name, kind, [role, .. path]),
+                        (value, path) => AsIs(value, [role, .. path]), "properties");
                 item["paused"] = true;
                 break;
         }
@@ -125,14 +139,31 @@ public static class MirrorSetup
 
     delegate void Blanker(JsonObject owner, string name, string kind, params string[] path);
 
-    /// <summary>How an adapter behaves: copied, except addresses and secrets, which are left empty.</summary>
-    static void Settings(JsonObject item, Blanker blank, string field)
+    delegate void Copied(string value, params string[] path);
+
+    /// <summary>
+    /// How an adapter behaves: copied, except addresses, secrets and logins, which are left for staging's own.
+    /// What is copied and could say anything of prod's is told (see <see cref="Telling"/>).
+    /// </summary>
+    static void Settings(JsonObject item, Blanker blank, Copied asIs, string field)
     {
         if (item?[field] is not JsonObject properties) return;
         foreach (var name in properties.Select(p => p.Key).ToList())
-            if (properties[name] is JsonValue v && v.TryGetValue<string>(out var value) && MirrorFaker.BlankKind(name, value) is { } kind)
-                blank(properties, name, kind, field, name);
+            if (properties[name] is JsonValue v && v.TryGetValue<string>(out var value))
+            {
+                if (MirrorFaker.BlankKind(name, value) is { } kind) blank(properties, name, kind, field, name);
+                else if (Telling(value)) asIs(value, field, name);
+            }
     }
+
+    /// <summary>Whether a value copied as it is could say anything of prod's: not a yes or no, a short number or {{tokens}} alone.</summary>
+    static bool Telling(string value)
+    {
+        var v = value?.Trim() ?? "";
+        return v.Length > 0 && !bool.TryParse(v, out _) && !(v.Length <= 4 && v.All(char.IsDigit)) && !TokensOnly.IsMatch(v);
+    }
+
+    static readonly Regex TokensOnly = new(@"^(\{\{[^}]*\}\}\s*)+$", RegexOptions.Compiled);
 
     /// <summary>Someone's data: faked, unless kept; an address or a secret in it is left empty, as anywhere.</summary>
     static void Data(JsonObject item, string field, Func<string, string, bool> kept, MirrorFaker faker, Blanker blank)

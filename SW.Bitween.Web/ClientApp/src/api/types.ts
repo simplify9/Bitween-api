@@ -2292,7 +2292,7 @@ export interface MirrorItem {
  */
 export interface MirrorNote {
   id: string;
-  group: "needsYou" | "fill" | "faked" | "copy" | "notCovered" | "onPurpose";
+  group: "needsYou" | "fill" | "faked" | "asIs" | "copy" | "notCovered" | "onPurpose";
   text: string;
   /** The item it is about, to open it. */
   section: string | null;
