@@ -7,6 +7,7 @@ import {
   type MirrorBring,
   type MirrorBringSection,
   type MirrorItemState,
+  type MirrorNote,
   type MirrorPiece,
   type MirrorPieceState,
   type MirrorProdCounts,
@@ -294,6 +295,7 @@ function Preview({
   const needsYou = result.needsYou.filter((n) => n.group === "needsYou");
   const fill = result.needsYou.filter((n) => n.group === "fill");
   const faked = result.needsYou.find((n) => n.group === "faked");
+  const asIs = result.needsYou.filter((n) => n.group === "asIs");
   return (
     <div className="space-y-4">
       {doing === 0 && !result.pieces.some((p) => p.state === "waits") && (
@@ -330,6 +332,21 @@ function Preview({
         </section>
       )}
       {faked && <p className="text-[12.5px] text-ink-600">{faked.text}</p>}
+      {asIs.length > 0 && (
+        <section>
+          <h3
+            className="text-sm font-semibold text-ink-900"
+            title="These settings decide how a flow behaves, so they come as prod has them. A secret is told by its name and its value; one whose name and value say nothing would come too. Clear any such one on staging after bringing."
+          >
+            Copied as-is from prod{" "}
+            <span className="font-normal text-ink-500">
+              ({plural(asIs.length, "setting", "settings")} in {plural(new Set(asIs.map((n) => `${n.section}/${n.key}`)).size, "item", "items")})
+            </span>
+          </h3>
+          <p className="text-[12.5px] text-ink-600">Check none of these is a secret or someone's data.</p>
+          <div className="mt-1.5"><AsIs notes={asIs} /></div>
+        </section>
+      )}
       <PieceGroup title="Already on staging, kept as it is" description="What staging has already: none of it changes." pieces={kept} picked={picked} />
       <p className="text-[12.5px] text-ink-500">
         Subscriptions arrive paused, and bus gateways and data sources switched off. Nothing on staging is overwritten or removed.
@@ -342,6 +359,60 @@ function Preview({
         </Button>
       </div>
     </div>
+  );
+}
+
+/** How many items' settings show before "Show all". */
+const FEW = 5;
+
+/** The settings each item brings as prod has them, one row an item, every setting with its value. */
+function AsIs({ notes }: { notes: MirrorNote[] }) {
+  const [all, setAll] = useState(false);
+  const items = useMemo(() => {
+    const byItem = new Map<string, { note: MirrorNote; settings: MirrorNote[] }>();
+    for (const n of notes) {
+      const id = `${n.section}/${n.key}`;
+      byItem.set(id, { note: byItem.get(id)?.note ?? n, settings: [...(byItem.get(id)?.settings ?? []), n] });
+    }
+    return [...byItem.values()];
+  }, [notes]);
+  return (
+    <div>
+      <ul className="divide-y divide-ink-100 rounded-lg border border-ink-100 bg-white">
+        {(all ? items : items.slice(0, FEW)).map(({ note, settings }) => (
+          <li key={`${note.section}/${note.key}`} className="px-3 py-2 text-sm">
+            <span className="font-medium text-ink-900">{note.key}</span> <span className="text-[12.5px] text-ink-500">{note.noun}</span>
+            <dl className="mt-1 grid grid-cols-[minmax(0,14rem)_minmax(0,1fr)] gap-x-3 gap-y-0.5 text-[12.5px]">
+              {settings.map((s) => (
+                <div key={s.id} className="contents">
+                  <dt className="truncate text-ink-600" title={s.field ?? undefined}>{s.field}</dt>
+                  <AsIsValue text={s.text} />
+                </div>
+              ))}
+            </dl>
+          </li>
+        ))}
+      </ul>
+      {items.length > FEW && (
+        <button type="button" className="link mt-1 text-[12.5px]" onClick={() => setAll(!all)}>
+          {all ? "Show fewer" : `Show all ${whole(items.length)}`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** A setting's value, a long one shortened until it is clicked, to read all of it before bringing. */
+function AsIsValue({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  if (text.length <= 48) return <dd className="truncate font-mono text-ink-800" title={text}>{text}</dd>;
+  return (
+    <dd className="min-w-0 font-mono text-ink-800">
+      <button type="button" className={open ? "whitespace-pre-wrap break-all text-left" : "block w-full truncate text-left"}
+        title={open ? "Click to shorten it" : "Click to read all of it"} onClick={() => setOpen(!open)}>
+        {open ? text : `${text.slice(0, 32)}… (${whole(text.length)} characters)`}
+      </button>
+    </dd>
   );
 }
 

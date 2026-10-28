@@ -15,6 +15,7 @@ import { useSubscriptionsCache } from "../../components/config/lookups";
 import { RetryDialog, type JourneyStage } from "./shared";
 import { journeyStages } from "./journey";
 import { RetryChain } from "./RetryChain";
+import { ExplainFailure } from "./ExplainFailure";
 import { hasRetryChain, newestAttempt, retryTreeQuery } from "./retryTree";
 import { keys } from "../../api/queryKeys";
 
@@ -476,6 +477,13 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
             ))
           )}
           {actionError && <ProblemText>{actionError}</ProblemText>}
+        </div>
+      )}
+
+      {/* Outside the operate gate: an explanation changes nothing, so seeing the exchange is enough. */}
+      {(x.status === "failed" || x.status === "badResponse") && (
+        <div className={`flex items-center gap-2 ${canOperate ? "" : "border-t border-ink-100 pt-3"}`}>
+          <ExplainFailure xchangeId={x.id} />
         </div>
       )}
 

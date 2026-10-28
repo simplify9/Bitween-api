@@ -23,7 +23,8 @@ public class AggregationJob(
     BitweenDbContext dbContext,
     RunFlagUpdater runFlagUpdater,
     XchangeService xchangeService,
-    ILogger<AggregationJob> logger) : IScheduledJob<AggregationJobParams>
+    ILogger<AggregationJob> logger,
+    BitweenOptions options = null) : IScheduledJob<AggregationJobParams>
 {
     public async Task Execute(AggregationJobParams jobParams)
     {
@@ -31,6 +32,13 @@ public class AggregationJob(
             .FirstOrDefaultAsync(s => s.Id == jobParams.SubscriptionId && !s.Inactive);
 
         if (aggSub == null) return;
+        if (Services.Mirror.MirrorTraffic.HoldsScheduledRun(options, aggSub, jobParams.CronExpression))
+        {
+            // Held, but its next run still moves on, so its page doesn't show one in the past.
+            try { aggSub.SetSchedules(); await dbContext.SaveChangesAsync(); }
+            catch (BitweenException) { }
+            return;
+        }
 
         // Quartz runs each fire once across the cluster, but each schedule of a subscription and each
         // "aggregate now" is a job of its own, so two runs of one aggregation can still overlap, on one

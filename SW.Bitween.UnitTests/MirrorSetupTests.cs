@@ -46,7 +46,8 @@ public class MirrorSetupTests
               "name": "Push labels", "type": "Internal", "paused": false,
               "matchExpression": { "type": "one_of", "path": "$.country", "values": ["FR"] },
               "handler": { "adapter": "NativeHttpHandler", "properties": {
-                "Url": "https://api.carrier.com/v2/labels", "Method": "POST", "Password": "__private__", "Token": "{{globals.carrier.token}}" } }
+                "Url": "https://api.carrier.com/v2/labels", "Method": "POST", "Username": "acme", "Password": "__private__",
+                "Token": "{{globals.carrier.token}}" } }
             }
             """)), Faker, new HashSet<string>());
 
@@ -59,8 +60,10 @@ public class MirrorSetupTests
         // Bitween won't save a handler without its Url: a placeholder that leads nowhere stands in.
         Assert.AreEqual("https://set-me.invalid", (string)p["Url"]!);
         Assert.AreEqual("", (string)p["Password"]!);
+        // Prod's login never comes: the team's test login goes there.
+        Assert.AreEqual("set-me", (string)p["Username"]!);
 
-        CollectionAssert.AreEquivalent(new[] { "handler · Url address", "handler · Password secret" },
+        CollectionAssert.AreEquivalent(new[] { "handler · Url address", "handler · Username login", "handler · Password secret" },
             copy.Blanks.Select(b => $"{b.Field} {b.Kind}").ToList());
         var url = copy.Blanks.Single(b => b.Kind == "address");
         Assert.AreEqual(("subscriptions", "Push labels"), (url.Section, url.Key));
@@ -74,10 +77,10 @@ public class MirrorSetupTests
             {
               "name": "Acme", "secretProperties": ["sftpPassword"], "loginIdentity": "acme-client-778",
               "properties": { "accountNumber": "AC-1001", "timeZone": "Europe/Paris", "sftpPassword": "__private__",
-                              "apiKey": "live_9f8e7d", "webhookUrl": "https://hooks.acme.com/in" },
+                              "apiKey": "live_9f8e7d", "webhookUrl": "https://hooks.acme.com/in", "sftpUser": "acme-ftp" },
               "keys": { "main": "abcde...(hidden)" }
             }
-            """)), Faker, new HashSet<string> { "partner:timeZone", "partner:apiKey", "partner:webhookUrl" });
+            """)), Faker, new HashSet<string> { "partner:timeZone", "partner:apiKey", "partner:webhookUrl", "partner:sftpUser" });
 
         var a = Only(copy, "partners");
         var p = a["properties"]!;
@@ -85,15 +88,16 @@ public class MirrorSetupTests
         Assert.AreEqual("AC-1001".Length, ((string)p["accountNumber"]!).Length);
         // Kept, because it was asked for and it is a setting.
         Assert.AreEqual("Europe/Paris", (string)p["timeZone"]!);
-        // Asked for, and never kept: a name a secret goes by, and an address. They are staging's own to fill in.
+        // Asked for, and never kept: a name a secret goes by, an address and a login. They are staging's own to fill in.
         Assert.AreEqual("", (string)p["apiKey"]!);
         Assert.AreEqual("https://set-me.invalid", (string)p["webhookUrl"]!);
         Assert.AreEqual("", (string)p["sftpPassword"]!);
-        CollectionAssert.AreEquivalent(new[] { "apiKey", "webhookUrl", "sftpPassword" }, copy.Blanks.Select(b => b.Field).ToList());
+        Assert.AreEqual("set-me", (string)p["sftpUser"]!);
+        CollectionAssert.AreEquivalent(new[] { "apiKey", "webhookUrl", "sftpPassword", "sftpUser" }, copy.Blanks.Select(b => b.Field).ToList());
         Assert.AreNotEqual("acme-client-778", (string)a["loginIdentity"]!);
         StringAssert.StartsWith((string)a["keys"]!["main"]!, "mirror-");
 
-        // Offered for keeping: data that could be a setting, never a secret, an address or a secret's name.
+        // Offered for keeping: data that could be a setting, never a secret, an address, a login or a secret's name.
         CollectionAssert.AreEquivalent(new[] { "partner:accountNumber", "partner:timeZone" }, copy.FakedKeys.Select(k => k.Id).ToList());
         Assert.IsTrue(copy.FakedKeys.Single(k => k.Id == "partner:timeZone").Kept);
     }

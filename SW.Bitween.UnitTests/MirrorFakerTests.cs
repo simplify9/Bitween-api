@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Nodes;
 using System.Text.RegularExpressions;
@@ -80,6 +81,47 @@ public class MirrorFakerTests
         Assert.AreEqual("address", MirrorFaker.BlankKind("ConnectionString", "Host=db.acmecargo.net;Port=5432;Database=ship;Username=app"));
         Assert.AreEqual("address", MirrorFaker.BlankKind("Broker", "amqp://mq.acmecargo.net:5672/prod"));
         Assert.AreEqual("address", MirrorFaker.BlankKind("note", "mail ops@acmecargo.net"));
+    }
+
+    /// <summary>
+    /// Prod shows a secret as it is when its adapter doesn't say it is one, under names like TraxisJwt or
+    /// LicenseKey. Made up here, as it runs, so nothing in the code reads as a real one.
+    /// </summary>
+    [TestMethod]
+    public void A_value_that_reads_as_a_credential_is_a_secret_whatever_its_name()
+    {
+        static string Part(string text) => Convert.ToBase64String(Encoding.UTF8.GetBytes(text)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        var jwt = $"{Part("""{"alg":"HS256","typ":"JWT"}""")}.{Part("""{"nameid":"made-up","exp":1}""")}.{Part("a signature made up for this test")}";
+        var key = "==" + Convert.ToBase64String(Encoding.UTF8.GetBytes("A license key Made Up for these 2 tests only"));
+
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("TraxisJwt", jwt));
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("Header", "Bearer " + Part("made up bearer value 42")));
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("Adapter", key));
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("LicenseKey", "short"));
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("Header", "Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes("made:up"))));
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("Signature", Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes("made up"))).ToLowerInvariant()));
+        // 32 hex digits is a GUID's shape: an id, not a key.
+        Assert.IsNull(MirrorFaker.BlankKind("Reference", Guid.NewGuid().ToString("N")));
+        // Ids, paths, names and words aren't.
+        Assert.IsNull(MirrorFaker.BlankKind("AccountId", Guid.NewGuid().ToString()));
+        Assert.IsNull(MirrorFaker.BlankKind("TargetPath", "/traxis/Orders2024/Out/Archive"));
+        Assert.IsNull(MirrorFaker.BlankKind("Handler", "infolink6.handlers.traxis.importtrackingupdates"));
+        Assert.IsNull(MirrorFaker.BlankKind("Agent", "SODEXI"));
+        Assert.IsNull(MirrorFaker.BlankKind("Subject", "Daily shipments report for 2026"));
+    }
+
+    [TestMethod]
+    public void Logins_are_left_for_the_teams_test_login()
+    {
+        Assert.AreEqual("login", MirrorFaker.BlankKind("Username", "acme"));
+        Assert.AreEqual("login", MirrorFaker.BlankKind("SftpUser", "ops"));
+        Assert.AreEqual("login", MirrorFaker.BlankKind("client_id", "acme-prod"));
+        // An access key's id goes by a secret's name, so it stays a secret.
+        Assert.AreEqual("secret", MirrorFaker.BlankKind("AccessKeyId", "AKIAEXAMPLE7Q2"));
+        // An address named like a login is still a login: the team's own goes there.
+        Assert.AreEqual("login", MirrorFaker.BlankKind("LoginUser", "ops@acmecargo.net"));
+        Assert.IsNull(MirrorFaker.BlankKind("UserAgent", "Bitween/10"));
+        Assert.IsNull(MirrorFaker.BlankKind("Username", "{{partner.ftpUser}}"));
     }
 
     [TestMethod]

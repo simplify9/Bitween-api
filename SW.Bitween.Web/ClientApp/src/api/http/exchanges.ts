@@ -326,6 +326,13 @@ export const exchangeMethods = {
     };
   },
 
+  explainExchange(
+    xchangeId: string,
+    signal?: AbortSignal,
+  ): Promise<{ summary: string; cause: string; fix: string; model: string | null; sent: string }> {
+    return request("/xchangeexplanations", { method: "POST", body: { xchangeId }, signal });
+  },
+
   async retryExchange(id: string, { reset }: { reset: boolean }): Promise<{ id: string }> {
     await post(`/xchanges/${id}/retry`, { reason: "Manual retry", reset });
     // Retry.cs returns null - look up the retry it just created (the newest

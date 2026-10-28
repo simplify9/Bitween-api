@@ -246,14 +246,15 @@ public class Planner(Context ctx, ConfigFile config)
     /// <summary>
     /// Every change it can make, carrying on past one that fails, and why each that failed did: for a
     /// copy of a whole Bitween, where one subscription waiting for its adapter shouldn't hold up the
-    /// rest. A change that names what failed before it fails too, and says so.
+    /// rest. A change that names what failed before it fails too, and says so. With <paramref name="only"/>,
+    /// just those of the plan's changes, so a caller can do something between one part and the next.
     /// </summary>
-    public async Task<List<(Change Change, string Error)>> ApplyAllAsync(Plan plan)
+    public async Task<List<(Change Change, string Error)>> ApplyAllAsync(Plan plan, IReadOnlyList<Change> only = null)
     {
         var failed = new List<(Change, string)>();
         try
         {
-            foreach (var change in plan.Changes)
+            foreach (var change in only ?? plan.Changes)
             {
                 try { await CarryOutAsync(change); }
                 // A timed-out call surfaces as TaskCanceledException: one slow item, not a reason to stop.

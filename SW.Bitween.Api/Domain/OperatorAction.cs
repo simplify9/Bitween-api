@@ -19,6 +19,9 @@ public class OperatorAction
     public const string InstallKit = "install-kit";
     public const string AskExchanges = "ask-exchanges";
 
+    /// <summary>A failed exchange sent, masked, to the AI provider under Settings, AI for an explanation.</summary>
+    public const string ExplainFailure = "explain-failure";
+
     private OperatorAction()
     {
     }

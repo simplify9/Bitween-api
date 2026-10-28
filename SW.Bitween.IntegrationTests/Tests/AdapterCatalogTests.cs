@@ -121,12 +121,12 @@ public class AdapterCatalogTests(BitweenFixture fixture)
             .Set<Subscription>().AsNoTracking().SingleAsync(s => s.Id == id);
     }
 
-    async Task<JArray> CatalogOf(string prefix)
+    async Task<JArray> CatalogOf(string prefix, bool? startupValues = null)
     {
         await using var scope = fixture.CreateScope();
         scope.Superuser();
         var handler = ActivatorUtilities.CreateInstance<Resources.Adapters.Catalog>(scope.ServiceProvider);
-        return JArray.FromObject(await handler.Handle(new AdapterSearchRequest { Prefix = prefix }),
+        return JArray.FromObject(await handler.Handle(new AdapterSearchRequest { Prefix = prefix, StartupValues = startupValues }),
             // Camel-cased property names, as the API sends them, with dictionary keys - property
             // names of the adapter - left as they are.
             JsonSerializer.Create(new JsonSerializerSettings
@@ -231,6 +231,19 @@ public class AdapterCatalogTests(BitweenFixture fixture)
         Assert.True((bool)values["Token"]!["private"]);
         Assert.Null((string)values["Token"]!["default"]); // a secret's default is withheld, as before
         Assert.Null(values["ContentType"]); // from the manifest, not by asking the adapter
+    }
+
+    [Fact]
+    public async Task Asked_without_startup_values_the_catalog_lists_versions_and_starts_nothing()
+    {
+        var id = await PublishHandler(versions: ["1.0.0", "1.1.0"]);
+
+        var listed = (await CatalogOf("handlers", startupValues: false)).Single(a => (string)a["key"] == id);
+
+        Assert.Equal("1.1.0", (string)listed["currentVersion"]);
+        Assert.Equal(["1.0.0", "1.1.0"], ((JArray)listed["versionHistory"]).Select(v => (string)v["version"]));
+        // Null rather than empty: a describe that fails answers empty, so null means none was tried.
+        Assert.Equal(JTokenType.Null, listed["startupValues"]!.Type);
     }
 
     [Fact]

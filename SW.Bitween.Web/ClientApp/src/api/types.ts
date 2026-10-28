@@ -2292,12 +2292,15 @@ export interface MirrorItem {
  */
 export interface MirrorNote {
   id: string;
-  group: "needsYou" | "fill" | "faked" | "copy" | "notCovered" | "onPurpose";
+  group: "needsYou" | "fill" | "faked" | "asIs" | "copy" | "notCovered" | "onPurpose";
   text: string;
   /** The item it is about, to open it. */
   section: string | null;
   key: string | null;
-  /** Where it is done: adapters-installed or adapters-marketplace. */
+  /**
+   * Where it is done: adapters-installed or adapters-marketplace. For a fill-in: alerts (tests run
+   * without it), or filledIn (a secret saved as a placeholder, which a person ticks once filled in).
+   */
   action: string | null;
   /** The item on staging and on prod, to open it on each; null where a side doesn't have it yet. */
   stagingId?: string | null;
