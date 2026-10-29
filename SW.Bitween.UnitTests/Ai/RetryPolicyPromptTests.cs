@@ -57,6 +57,7 @@ public class RetryPolicyPromptTests
         StringAssert.Contains(e.Message, "can't be saved");
 
         Assert.ThrowsException<SWValidationException>(() => RetryPolicyPrompt.Parse("I would retry timeouts."));
+        Assert.ThrowsException<SWValidationException>(() => RetryPolicyPrompt.Parse("""{ "name": "N", "groups": [null] }"""));
     }
 
     [TestMethod]

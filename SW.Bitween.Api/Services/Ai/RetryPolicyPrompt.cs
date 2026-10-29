@@ -15,7 +15,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Services.Ai;
 
 /// <summary>One kind of failure a subscription had: the same first line, give or take its details.</summary>
-/// <param name="Sample">The real first line and a little more - matched against here, never sent.</param>
+/// <param name="Sample">The real error in full - matched against here, never sent.</param>
 /// <param name="Masked">What the model sees of it.</param>
 /// <param name="Retried">How many of these were retried.</param>
 /// <param name="FixedByRetry">How many of those retries succeeded - the mark of a passing glitch.</param>
@@ -46,7 +46,7 @@ public static class RetryPolicyPrompt
     /// <summary>How many kinds of failure are sent, most frequent first.</summary>
     public const int MaxKinds = 15;
 
-    /// <summary>How much of each error is kept to match against: enough for its exception types and message.</summary>
+    /// <summary>How much of each error is read to tell its kind: enough for its exception types and message.</summary>
     public const int SampleLength = 4_000;
 
     public const string Instructions = """
@@ -80,7 +80,7 @@ public static class RetryPolicyPrompt
 
         You get the subscription's kinds of failure from recent weeks, most frequent first, each
         with a count and how often a retry fixed it, plus its current policy. Each error is masked:
-        values became <text>, <number>, <email>, <query>. Match only on wording that survived
+        values became <text>, <number>, <email>, <query>, <secret>, <url>. Match only on wording that survived
         masking - never on a <placeholder>, which is not in the real text.
 
         Guidance:
@@ -152,7 +152,7 @@ public static class RetryPolicyPrompt
             {
             }
         }
-        if (raw?.Groups is not { Count: > 0 })
+        if (raw?.Groups is not { Count: > 0 } || raw.Groups.Any(g => g is null))
             throw new SWValidationException("AI_SUGGESTION", "The AI's answer wasn't a retry policy. Try again.");
 
         var groups = raw.Groups.Select((g, i) => new RetryGroup

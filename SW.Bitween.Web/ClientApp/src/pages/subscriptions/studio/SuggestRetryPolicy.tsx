@@ -85,7 +85,8 @@ export function SuggestRetryPolicy({
     setError(null);
     try {
       const id = await api.saveSuggestedRetryPolicy(name.trim(), suggestion.groups);
-      await queryClient.invalidateQueries({ queryKey: keys.retryPolicies.list });
+      // Not waited for: a list that is slow to reload mustn't keep the new policy from being picked.
+      void queryClient.invalidateQueries({ queryKey: keys.retryPolicies.list });
       onCreated(id);
       onClose();
     } catch (e) {
@@ -181,7 +182,7 @@ export function SuggestRetryPolicy({
                     <th className="px-2 py-1.5 text-right font-medium" title="Of those retried, how many the retry fixed">
                       Fixed by retry
                     </th>
-                    <th className="px-2 py-1.5 font-medium" title="What the policy in use does with it">Now</th>
+                    <th className="px-2 py-1.5 font-medium" title="What the policy in use does with it, as if none of its groups' retries were used up yet">Now</th>
                     <th className="px-2 py-1.5 font-medium" title="What the suggested policy would do, tried on the real error">
                       Suggested
                     </th>
@@ -206,7 +207,13 @@ export function SuggestRetryPolicy({
 
           <p className="text-xs text-ink-500">
             {suggestion.model ? `Written by ${suggestion.model}. ` : ""}
-            <button type="button" className="link" aria-expanded={showSent} onClick={() => setShowSent((s) => !s)}>
+            <button
+              type="button"
+              className="link"
+              aria-expanded={showSent}
+              onClick={() => setShowSent((s) => !s)}
+              title="The message that went to the AI provider, after fixed instructions that are the same on every call"
+            >
               {showSent ? "Hide what was sent" : "See what was sent"}
             </button>
           </p>

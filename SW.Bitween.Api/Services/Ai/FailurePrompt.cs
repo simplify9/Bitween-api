@@ -21,7 +21,7 @@ public static class FailurePrompt
         exchanges can be retried by a retry policy, or by hand.
 
         Every value in the documents and the error has been masked before you see it: text is <text>,
-        numbers are <number>, booleans are <true|false>, and long lists show their first entries. Keys,
+        numbers are <number>, booleans are <true|false>, credentials and tokens are <secret>, and long lists show their first entries. Keys,
         structure and the error's wording are real. Never guess at a masked value; reason from structure,
         names, types and the error.
 

@@ -297,7 +297,7 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `POST /api/workgroups/{id}/delete` | `workgroups.delete`. Refused while subscriptions use it. |
 | `GET /api/retrypolicies`, `GET /api/retrypolicies/{id}` | `retry-policies.view` |
 | `POST /api/retrypolicies` | `retry-policies.create`. `{ name, groups, alertChannelId }`; see [Retry policies](retries-and-alerts.md#retry-policies). An alert names a notification channel; `alertHandlerId` is refused. |
-| `POST /api/retrysuggestions` | `subscriptions.view` and `retry-policies.create` | Suggest a retry policy with AI from a subscription's failures: `{ subscriptionId, days }` (1-90, default 30), replying with `name`, `summary`, `groups` (ready for `POST /api/retrypolicies`), `coverage`, `model` and `sent`. Saves nothing. See [Suggesting a policy with AI](retries-and-alerts.md#suggesting-a-policy-with-ai). |
+| `POST /api/retrysuggestions` | `subscriptions.view` and `retry-policies.create`. Suggest a retry policy with AI from a subscription's failures: `{ subscriptionId, days }` (1-90, default 30), replying with `name`, `summary`, `groups` (ready for `POST /api/retrypolicies`), `coverage`, `model` and `sent`. Saves nothing. See [Suggesting a policy with AI](retries-and-alerts.md#suggesting-a-policy-with-ai). |
 | `POST /api/retrypolicies/{id}` | `retry-policies.edit` |
 | `DELETE /api/retrypolicies/{id}` | `retry-policies.delete` |
 | `POST /api/retrypolicies/test` | `retry-policies.view` |

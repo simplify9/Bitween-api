@@ -45,7 +45,7 @@ public class RetrySuggestionResponse
     public int Days { get; set; }
     public string? Model { get; set; }
 
-    /// <summary>Exactly what went to the provider.</summary>
+    /// <summary>The message that went to the provider, after the fixed <see cref="RetryPolicyPrompt.Instructions"/>.</summary>
     public string Sent { get; set; } = "";
 }
 
@@ -83,18 +83,20 @@ public class Suggest(RequestContext requestContext, BitweenDbContext dbContext, 
         var since = DateTime.UtcNow.AddDays(-days);
 
         // The newest failures, by the (SubscriptionId, FinishedOn) index; only the start of each
-        // error, which is where its type and message are.
-        var failed = await dbContext.Set<XchangeResult>().AsNoTracking()
-            .Where(r => r.SubscriptionId == subscription.Id && r.FinishedOn >= since && (!r.Success || r.ResponseBad))
+        // error, which is where its type and message are. Bad responses are counted apart, so many
+        // of them can't crowd the failures out.
+        var inWindow = dbContext.Set<XchangeResult>().AsNoTracking()
+            .Where(r => r.SubscriptionId == subscription.Id && r.FinishedOn >= since);
+        var errors = await inWindow
+            .Where(r => !r.Success)
             .OrderByDescending(r => r.FinishedOn)
             .Take(RetryPolicyPrompt.MaxFailures)
             .Select(r => new
             {
-                r.Id, r.Success, r.FinishedOn,
+                r.Id, r.FinishedOn,
                 Exception = r.Exception == null ? null : r.Exception.Substring(0, RetryPolicyPrompt.SampleLength),
             })
             .ToListAsync();
-        var errors = failed.Where(f => !f.Success).ToList();
         if (errors.Count == 0)
             throw new SWValidationException("NO_FAILURES",
                 $"This subscription has no failed exchanges in the last {days} days, so there is nothing to learn a policy from.");
@@ -107,22 +109,33 @@ public class Suggest(RequestContext requestContext, BitweenDbContext dbContext, 
             .ToListAsync();
         var retriedFrom = retries.GroupBy(r => r.RetryFor!).ToDictionary(g => g.Key, g => g.Any(r => r.Fixed));
 
-        var kinds = errors
+        var groups = errors
             .GroupBy(e => ErrorFingerprint.Of(e.Exception ?? ""))
-            .Select(g =>
-            {
-                var newest = g.First();
-                var sample = newest.Exception ?? "";
-                return new FailureKind(sample, RetryPolicyPrompt.Mask(ErrorFingerprint.Sample(sample)), g.Count(),
-                    g.Count(e => retriedFrom.ContainsKey(e.Id)), g.Count(e => retriedFrom.TryGetValue(e.Id, out var ok) && ok),
-                    g.Min(e => e.FinishedOn), g.Max(e => e.FinishedOn));
-            })
-            .OrderByDescending(k => k.Count)
+            .OrderByDescending(g => g.Count())
             .Take(RetryPolicyPrompt.MaxKinds)
             .ToList();
 
+        // Each kind's newest error in full, as the live retry sees it: a matcher may hit deep in the stack.
+        var newestIds = groups.Select(g => g.First().Id).ToList();
+        var full = await dbContext.Set<XchangeResult>().AsNoTracking()
+            .Where(r => newestIds.Contains(r.Id))
+            .Select(r => new { r.Id, r.Exception })
+            .ToDictionaryAsync(r => r.Id, r => r.Exception);
+
+        var kinds = groups
+            .Select(g =>
+            {
+                var newest = g.First();
+                return new FailureKind(full.GetValueOrDefault(newest.Id) ?? newest.Exception ?? "",
+                    RetryPolicyPrompt.Mask(ErrorFingerprint.Sample(newest.Exception ?? "")), g.Count(),
+                    g.Count(e => retriedFrom.ContainsKey(e.Id)), g.Count(e => retriedFrom.TryGetValue(e.Id, out var ok) && ok),
+                    g.Min(e => e.FinishedOn), g.Max(e => e.FinishedOn));
+            })
+            .ToList();
+        var badResponses = await inWindow.CountAsync(r => r.Success && r.ResponseBad);
+
         var describe = $"Subscription kind: {subscription.Type}; mapper: {subscription.MapperId ?? "none"}; handler: {subscription.HandlerId ?? "none"}";
-        var message = RetryPolicyPrompt.Message(describe, days, errors.Count, failed.Count - errors.Count, kinds, current);
+        var message = RetryPolicyPrompt.Message(describe, days, errors.Count, badResponses, kinds, current);
         // Recorded before it goes, so a call that fails or times out after sending is on record too.
         await dbContext.RecordNowAsync(requestContext, OperatorAction.SuggestRetryPolicy, $"subscription {subscription.Id}",
             $"Sent to {models.ModelName}: {errors.Count} failures, errors masked.");

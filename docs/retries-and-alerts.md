@@ -179,11 +179,11 @@ It returns each simulated attempt with the matched group, whether it would retry
 
 **Suggest with AI**, beside the retry policy on a subscription's page, proposes a policy from that subscription's own failures in the last 30 days, using the provider under [Settings, AI](configuration.md#ai). It sends the provider only:
 
-- each kind of error (the newest 2,000 failures, grouped by their first line, the 15 most frequent) as one line with its values masked: quoted text, numbers of four or more digits, email addresses and addresses (`<url>`) are replaced;
+- each kind of error (the newest 2,000 failures, grouped by their first line, the 15 most frequent) as one line with its values masked: quoted text, numbers of four or more digits, email addresses, addresses (`<url>`) and anything that looks like a credential or token (`<secret>`) are replaced;
 - how often each happened, how often it was retried and how often the retry succeeded;
 - the subscription's kind and adapters, and the current policy's groups without their alert settings.
 
-Documents and response bodies are never sent; bad responses are only counted. Failures from before the upgrade that started recording each result's subscription (2026-10-14) aren't seen, so on an upgraded install the first suggestions learn only from failures since. The suggestion is checked as a saved policy would be, alerts are left to you, and it is then run on the real errors on the server: **What changes** shows, for each kind of error, what the current policy does with it and what the suggestion would. **See what was sent** shows exactly what went.
+Documents and response bodies are never sent; bad responses are only counted. Failures from before the upgrade that started recording each result's subscription (2026-10-14) aren't seen, so on an upgraded install the first suggestions learn only from failures since. The suggestion is checked as a saved policy would be, alerts are left to you, and it is then run on the real errors on the server: **What changes** shows, for each kind of error, what the current policy does with it, as if none of its groups' retries were used up yet, and what the suggestion would. **See what was sent** shows exactly the message that went; the fixed instructions sent before it are the same on every call and hold nothing of yours.
 
 Nothing changes until **Save as a new policy**, which creates the policy and picks it for the subscription; saving the subscription starts using it. Asking needs `subscriptions.view` and `retry-policies.create`, and is recorded as a `suggest-retry-policy` operator action before anything is sent. `POST /api/retrysuggestions { subscriptionId, days }` is the call behind it.
 

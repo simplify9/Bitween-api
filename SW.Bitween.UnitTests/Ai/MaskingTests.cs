@@ -100,6 +100,19 @@ public class MaskingTests
         StringAssert.Contains(masked, "is not allowed");
     }
 
+    [TestMethod]
+    public void An_error_loses_credentials_a_partner_echoed()
+    {
+        var masked = new Masking().Error(
+            "401 Unauthorized: Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOjEyM30.c2lnbmF0dXJlMTIzNDU2 rejected, api_key=sk_live_51Hx, password: hunter2, key a1b2c3d4e5f6a7b8c9d0e1f2");
+
+        foreach (var leaked in new[] { "eyJhbGciOiJIUzI1NiJ9", "eyJzdWIiOjEyM30", "c2lnbmF0dXJlMTIzNDU2", "sk_live_51Hx", "hunter2", "a1b2c3d4e5f6a7b8c9d0e1f2" })
+            Assert.IsFalse(masked.Contains(leaked), $"'{leaked}' was not masked: {masked}");
+        StringAssert.Contains(masked, "401 Unauthorized: Authorization: Bearer <secret>");
+        StringAssert.Contains(masked, "api_key=<secret>");
+        StringAssert.Contains(masked, "password: <secret>");
+    }
+
     /// <summary>A frame keeps its file and line; the folders above it describe the server, not the failure.</summary>
     [TestMethod]
     public void Stack_frames_keep_their_file_but_not_the_servers_folders()

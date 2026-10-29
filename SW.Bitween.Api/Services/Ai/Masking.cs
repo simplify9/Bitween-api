@@ -30,6 +30,7 @@ public sealed class Masking
 {
     public const string Text = "<text>";
     public const string Number = "<number>";
+    public const string Secret = "<secret>";
     public const string Boolean = "<true|false>";
 
     /// <summary>A long list shows this many entries, then how many more there were.</summary>
@@ -92,6 +93,10 @@ public sealed class Masking
         text = Email.Replace(text, "<email>");
         text = Quoted.Replace(text, m => $"{m.Groups["q"].Value}{Text}{m.Groups["q"].Value}");
         text = QueryString.Replace(text, "?<query>");
+        // Credentials a partner's error can echo unquoted: "Bearer eyJ...", "api_key=...", or a bare token.
+        text = Scheme.Replace(text, m => $"{m.Groups["scheme"].Value} {Secret}");
+        text = Labelled.Replace(text, m => $"{m.Groups["label"].Value}{m.Groups["sep"].Value}{Secret}");
+        text = TokenLike.Replace(text, Secret);
         return LongNumber.Replace(text, Number);
     }
 
@@ -182,4 +187,11 @@ public sealed class Masking
     static readonly Regex Quoted = new(@"(?<q>['""])(?!<)[^'""\r\n]{1,200}\k<q>", RegexOptions.Compiled);
     static readonly Regex QueryString = new(@"\?[^\s'""<>]+", RegexOptions.Compiled);
     static readonly Regex LongNumber = new(@"(?<![\w.:])\d{4,}(?![\w])", RegexOptions.Compiled);
+    static readonly Regex Scheme = new(@"\b(?<scheme>bearer|basic)\s+(?!<)[A-Za-z0-9._~+/=-]{8,}", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    static readonly Regex Labelled = new(
+        @"(?<label>\b(?:password|passwd|pwd|secret|client[_-]?secret|token|access[_-]?token|refresh[_-]?token|api[_-]?key|access[_-]?key|authorization)\b)(?<sep>\s*[:=]\s*)(?!<)(?!(?:bearer|basic)\b)[^\s,;&'""]+",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase);
+    // 20 or more characters mixing letters and digits: keys, tokens, hashes, ids. Exception and
+    // namespace names have no digits, and dots split them anyway.
+    static readonly Regex TokenLike = new(@"(?<![\w+/=-])(?=[A-Za-z0-9_+/=-]*\d)(?=[A-Za-z0-9_+/=-]*[A-Za-z])[A-Za-z0-9_+/=-]{20,}(?![\w+/=-])", RegexOptions.Compiled);
 }
