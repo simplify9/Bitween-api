@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.DependencyInjection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
@@ -184,6 +186,55 @@ public class AdapterCatalogTests(BitweenFixture fixture)
     }
 
     [Fact]
+    public async Task An_adapter_is_started_to_describe_it_once_a_build()
+    {
+        // No manifest, so describing it means starting it.
+        var id = await PublishHandler();
+
+        await using var scope = fixture.CreateScope();
+        var services = scope.ServiceProvider;
+        var cloudFiles = services.GetRequiredService<ICloudFilesService>();
+        var clock = new TestClock();
+        var starts = new CountingScopes(services.GetRequiredService<IServiceScopeFactory>());
+        var installer = new SW.Serverless.AdapterInstaller(services.GetRequiredService<ServerlessOptions>(),
+            new MemoryCache(new MemoryCacheOptions { Clock = clock }), cloudFiles);
+        var describer = new ServerlessAdapterDescriber(starts, new MemoryCache(new MemoryCacheOptions { Clock = clock }), installer);
+
+        await describer.Describe(id);
+        // Long past the five minutes an answer used to last, and the installer's metadata cache with it.
+        clock.Advance(TimeSpan.FromMinutes(30));
+        Assert.True((await describer.Describe(id)).ContainsKey("ContentType"));
+        Assert.Equal(1, starts.Created);
+
+        // A new build is asked about once the installer has it.
+        await AdapterInstaller.InstallAsync(cloudFiles, SampleProject, id, SampleEntry,
+            extraFiles: new Dictionary<string, string> { ["rebuilt.txt"] = "a new build" });
+        clock.Advance(TimeSpan.FromMinutes(6));
+        await describer.Describe(id);
+        Assert.Equal(2, starts.Created);
+    }
+
+    /// <summary>A clock the test moves on itself.</summary>
+    sealed class TestClock : Microsoft.Extensions.Internal.ISystemClock
+    {
+        public DateTimeOffset UtcNow { get; private set; } = DateTimeOffset.UtcNow;
+        public void Advance(TimeSpan by) => UtcNow += by;
+    }
+
+    /// <summary>Counts the scopes it makes: the describer makes one for each adapter it starts.</summary>
+    sealed class CountingScopes(IServiceScopeFactory inner) : IServiceScopeFactory
+    {
+        int _created;
+        public int Created => _created;
+
+        public IServiceScope CreateScope()
+        {
+            Interlocked.Increment(ref _created);
+            return inner.CreateScope();
+        }
+    }
+
+    [Fact]
     public async Task Catalog_entries_are_never_listed_as_adapters()
     {
         var id = await PublishHandler(versions: ["1.0.0", "1.1.0"]);
@@ -244,6 +295,69 @@ public class AdapterCatalogTests(BitweenFixture fixture)
         Assert.Equal(["1.0.0", "1.1.0"], ((JArray)listed["versionHistory"]).Select(v => (string)v["version"]));
         // Null rather than empty: a describe that fails answers empty, so null means none was tried.
         Assert.Equal(JTokenType.Null, listed["startupValues"]!.Type);
+    }
+
+    [Fact]
+    public async Task Listing_a_kind_reads_the_other_adapters_side_by_side()
+    {
+        // Named for no kind, so a list of handlers only learns what they are from each one's metadata.
+        var ids = Enumerable.Range(0, 6).Select(_ => $"acme.sidebyside{Interlocked.Increment(ref _seq)}").ToList();
+        await using (var scope = fixture.CreateScope())
+        {
+            var cloudFiles = scope.ServiceProvider.GetRequiredService<ICloudFilesService>();
+            foreach (var id in ids)
+                await AdapterInstaller.InstallAsync(cloudFiles, SampleProject, id, SampleEntry,
+                    new Dictionary<string, string> { ["Kind"] = "handler" });
+        }
+
+        await using var listScope = fixture.CreateScope();
+        var services = listScope.ServiceProvider;
+        var storage = new SlowStorage(services.GetRequiredService<ICloudFilesService>());
+        // An empty metadata cache of its own, as the installer's is every five minutes.
+        var installer = new SW.Serverless.AdapterInstaller(services.GetRequiredService<ServerlessOptions>(),
+            new MemoryCache(new MemoryCacheOptions()), storage);
+        var listing = ActivatorUtilities.CreateInstance<Resources.Adapters.AdapterListing>(services, storage, installer);
+
+        var keys = (await listing.List("handlers")).Select(a => a.Key).ToList();
+
+        Assert.All(ids, id => Assert.Contains(id, keys));
+        Assert.True(storage.MostAtOnce > 1, "Each metadata read waited for the one before it.");
+    }
+
+    /// <summary>
+    /// Storage that answers lists and metadata reads after a delay, as a remote one does, and keeps
+    /// the most it was answering at once.
+    /// </summary>
+    sealed class SlowStorage(ICloudFilesService inner) : ICloudFilesService
+    {
+        readonly object _gate = new();
+        int _answering;
+        public int MostAtOnce { get; private set; }
+
+        async Task<T> Slowly<T>(Func<Task<T>> read)
+        {
+            lock (_gate) MostAtOnce = Math.Max(MostAtOnce, ++_answering);
+            try
+            {
+                await Task.Delay(50);
+                return await read();
+            }
+            finally
+            {
+                lock (_gate) _answering--;
+            }
+        }
+
+        public Task<IEnumerable<CloudFileInfo>> ListAsync(string prefix) => Slowly(() => inner.ListAsync(prefix));
+        public Task<IReadOnlyDictionary<string, string>> GetMetadataAsync(string key) => Slowly(() => inner.GetMetadataAsync(key));
+
+        public Task<RemoteBlob> WriteAsync(Stream inputStream, WriteFileSettings settings) => inner.WriteAsync(inputStream, settings);
+        public Task<RemoteBlob> WriteTextAsync(string text, WriteFileSettings settings) => inner.WriteTextAsync(text, settings);
+        public string GetSignedUrl(string key, TimeSpan expiry) => inner.GetSignedUrl(key, expiry);
+        public string GetUrl(string key) => inner.GetUrl(key);
+        public WriteWrapper OpenWrite(WriteFileSettings settings) => inner.OpenWrite(settings);
+        public Task<Stream> OpenReadAsync(string key) => inner.OpenReadAsync(key);
+        public Task<bool> DeleteAsync(string key) => inner.DeleteAsync(key);
     }
 
     [Fact]
