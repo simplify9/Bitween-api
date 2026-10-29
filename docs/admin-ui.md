@@ -45,7 +45,7 @@ Selecting a stage opens its editor. Adapter stages pick an adapter and fill in i
 
 When a stage uses a database or broker adapter, it also binds the subscription to a data source and picks the statement and operation, the receive mode and batch size, or where to publish. See [Databases](databases.md) and [External brokers](external-brokers.md).
 
-With no stage selected, the overview shows health, next and last run, work group, retry policy, a retry budget banner once a budget is spent, receive attempts or recent runs, recent exchanges, notifications and change history. The **Notifications** card picks channels and when each sends; a new channel can be made from there without losing the page's edits. Header buttons pause or resume, receive or roll up now, create an aggregation of this subscription, and delete it.
+With no stage selected, the overview shows health, next and last run, work group, retry policy, a retry budget banner once a budget is spent, receive attempts or recent runs, recent exchanges, notifications and change history. The **Notifications** card picks channels and when each sends; a new channel can be made from there without losing the page's edits. **Suggest with AI**, beside the retry policy, proposes one from the subscription's own failures ([Suggesting a policy with AI](retries-and-alerts.md#suggesting-a-policy-with-ai)). Header buttons pause or resume, receive or roll up now, create an aggregation of this subscription, and delete it.
 
 Edits stay a draft until saved from the bar at the bottom of the page.
 
