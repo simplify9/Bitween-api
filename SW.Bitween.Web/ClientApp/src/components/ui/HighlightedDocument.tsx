@@ -6,7 +6,7 @@ import { colourDocument } from "../../lib/documentHighlight";
  *
  * Read-only on purpose. Beautifying puts a document on separate lines; colour is what
  * lets an eye land on the right one, and the places that pays for itself are the ones
- * nobody types into — the mapped output, and the payload someone opens to work out why
+ * nobody types into - the mapped output, and the payload someone opens to work out why
  * an exchange failed.
  */
 export function HighlightedDocument({

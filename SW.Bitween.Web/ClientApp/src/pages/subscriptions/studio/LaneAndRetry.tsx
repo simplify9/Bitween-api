@@ -1,21 +1,23 @@
 import { useState } from "react";
 import { Link } from "react-router";
+import { Sparkles } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../../api";
-import { useSessionCan } from "../../../auth/guards";
+import { useSessionCan } from "../../../auth/useSessionCan";
 import { SearchSelect } from "../../../components/ui/SearchSelect";
 import { WorkGroupDialog } from "../../../components/config/WorkGroupDialog";
 import { CreateRetryPolicyDialog } from "../../../components/config/RetryPolicyDialog";
 import { keys } from "../../../api/queryKeys";
 import { workGroupQueueName } from "../../../lib/busMessageName";
 import { Fact } from "./Fact";
+import { SuggestRetryPolicy } from "./SuggestRetryPolicy";
 
 /**
  * Which lane a subscription runs in, and what happens when it fails.
  *
  * Extracted from `Overview` so the create pages can offer the same two settings the
- * edit page does. They belong to no pipeline stage — they are properties of the
- * subscription itself — which is why they sit beside the facts rather than in the rail.
+ * edit page does. They belong to no pipeline stage - they are properties of the
+ * subscription itself - which is why they sit beside the facts rather than in the rail.
  *
  * Both were create-time blind spots: the API has always accepted them on a create, but
  * no create page asked, so every new subscription was born ungrouped and un-retried and
@@ -28,14 +30,23 @@ export function LaneAndRetry({
   onRetryPolicyChange,
   canEdit,
   idPrefix,
+  inlineRetryGroups = null,
+  inlineReplaced = false,
+  subscriptionId,
 }: {
   workGroupId: number | null;
   retryPolicyId: number | null;
+  /** Rule groups of a retry policy set on the subscription itself through the API, if it has one. */
+  inlineRetryGroups?: number | null;
+  /** A named policy has been picked in its place; saving replaces it. */
+  inlineReplaced?: boolean;
   onWorkGroupChange: (id: number | null) => void;
   onRetryPolicyChange: (id: number | null) => void;
   canEdit: boolean;
-  /** Ids have to be unique per page — the create pages render this beside their own fields. */
+  /** Ids have to be unique per page - the create pages render this beside their own fields. */
   idPrefix: string;
+  /** A saved subscription, whose own failures a retry policy can be suggested from. */
+  subscriptionId?: number;
 }) {
   const canCreateWorkGroup = useSessionCan("workgroups.create");
   const canCreateRetryPolicy = useSessionCan("retry-policies.create");
@@ -47,6 +58,7 @@ export function LaneAndRetry({
   /** undefined = closed, null = creating, number = editing that group. */
   const [groupDialog, setGroupDialog] = useState<number | null | undefined>(undefined);
   const [creatingPolicy, setCreatingPolicy] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
 
   return (
     <>
@@ -54,6 +66,7 @@ export function LaneAndRetry({
         <div className="w-52">
           <SearchSelect
             id={`${idPrefix}-wg`}
+            aria-label="Work group"
             value={workGroupId === null ? "" : String(workGroupId)}
             disabled={!canEdit}
             onChange={(v) => onWorkGroupChange(v === "" ? null : Number(v))}
@@ -72,7 +85,7 @@ export function LaneAndRetry({
             <button
               type="button"
               onClick={() => setGroupDialog(workGroupId)}
-              className="text-[12px] font-medium text-crimson-700 hover:underline"
+              className="text-[12px] font-medium link"
             >
               Edit it
             </button>
@@ -81,7 +94,7 @@ export function LaneAndRetry({
             <button
               type="button"
               onClick={() => setGroupDialog(null)}
-              className="text-[12px] font-medium text-crimson-700 hover:underline"
+              className="text-[12px] font-medium link"
             >
               + New
             </button>
@@ -92,18 +105,30 @@ export function LaneAndRetry({
         <div className="w-52">
           <SearchSelect
             id={`${idPrefix}-rp`}
+            aria-label="Retry policy"
             value={retryPolicyId === null ? "" : String(retryPolicyId)}
             disabled={!canEdit}
             onChange={(v) => onRetryPolicyChange(v === "" ? null : Number(v))}
-            clearLabel="None — failures are not retried"
+            clearLabel={
+              inlineRetryGroups !== null && !inlineReplaced
+                ? "Its own rules, set through the API"
+                : "None - failures are not retried"
+            }
             options={(retryPolicies.data ?? []).map((p) => ({ value: String(p.id), label: p.name }))}
           />
         </div>
+        {inlineRetryGroups !== null && (
+          <p className="mt-1 max-w-xs text-[12px] text-ink-600">
+            {inlineReplaced
+              ? "Saving replaces the retry rules set on this subscription through the API with this policy."
+              : `Retries by ${inlineRetryGroups} rule group${inlineRetryGroups === 1 ? "" : "s"} set on this subscription through the API. Picking a named policy replaces them.`}
+          </p>
+        )}
         <div className="mt-1 flex items-center gap-3">
           {retryPolicyId !== null && (
             <Link
               to={`/retry-policies/${retryPolicyId}`}
-              className="text-[12px] font-medium text-crimson-700 hover:underline"
+              className="text-[12px] font-medium link"
             >
               View
             </Link>
@@ -112,9 +137,20 @@ export function LaneAndRetry({
             <button
               type="button"
               onClick={() => setCreatingPolicy(true)}
-              className="text-[12px] font-medium text-crimson-700 hover:underline"
+              className="text-[12px] font-medium link"
             >
               + New
+            </button>
+          )}
+          {canCreateRetryPolicy && canEdit && subscriptionId !== undefined && (
+            <button
+              type="button"
+              onClick={() => setSuggesting(true)}
+              title="Propose a retry policy from this subscription's own failures, with AI"
+              className="inline-flex items-center gap-1 text-[12px] font-medium link"
+            >
+              <Sparkles className="size-3" aria-hidden />
+              Suggest with AI
             </button>
           )}
         </div>
@@ -126,8 +162,15 @@ export function LaneAndRetry({
           onSaved={onWorkGroupChange}
         />
       )}
+      {suggesting && subscriptionId !== undefined && (
+        <SuggestRetryPolicy
+          subscriptionId={subscriptionId}
+          onClose={() => setSuggesting(false)}
+          onCreated={onRetryPolicyChange}
+        />
+      )}
       {creatingPolicy && (
-        // Selects the new policy rather than navigating to it — the rest of the policy is
+        // Selects the new policy rather than navigating to it - the rest of the policy is
         // configured behind "View", and leaving here would abandon the subscription edit.
         <CreateRetryPolicyDialog
           onClose={() => setCreatingPolicy(false)}

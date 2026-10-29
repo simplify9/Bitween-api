@@ -3,7 +3,7 @@ import type { DashboardData, ExchangeStatus } from "../types";
 import { subscriptionMethods } from "./subscriptions";
 import { get } from "./request";
 
-// ——— backend shapes (camelCase over the wire) ———
+// --- backend shapes (camelCase over the wire) ---
 interface SearchyResponse<T> {
   result: T[];
   totalCount: number;
@@ -33,92 +33,51 @@ interface RawRetrySummary {
   }[];
 }
 
-const isBad = (raw: Pick<RawXchangeForDashboard, "status" | "responseBad">) =>
-  raw.status === false || (raw.status === true && raw.responseBad === true);
-const isProcessing = (raw: Pick<RawXchangeForDashboard, "status">) => raw.status === null;
 const toStatus = (raw: Pick<RawXchangeForDashboard, "status" | "responseBad">): ExchangeStatus =>
   raw.status === null ? "processing" : !raw.status ? "failed" : raw.responseBad ? "badResponse" : "success";
 
+const LATEST = 6;
+
 export const dashboardMethods = {
+  /**
+   * What the dashboard shows beside the metrics (which come from /metrics/overview): the latest
+   * failures, what is in flight, retries, queue alerts and subscriptions needing attention.
+   *
+   * Traffic, rates and the busiest used to be counted here, in the browser, from up to 1000
+   * exchanges fetched every minute: wrong at any volume above that, and a heavy query for every
+   * open dashboard. They come from the server's hourly metrics now; what is left here is small,
+   * bounded queries over the last two weeks.
+   */
   async getDashboard(): Promise<DashboardData> {
-    const dayMs = 86_400_000;
-    const startOfTodayUtc = new Date(new Date().setUTCHours(0, 0, 0, 0)).getTime();
-    // 14 calendar days including today.
-    const windowStart = startOfTodayUtc - 13 * dayMs;
-
-    // One bulk fetch covers every stat that's derived from exchange rows
-    // (today/yesterday/successRate7d/trafficByDay/busiest/latestFailures) —
-    // far fewer round trips than counting each bucket with its own filtered
-    // request, and exact rather than approximated. Bounded to a generous page
-    // size for what's a modest-scale ops tool; a very high-volume deployment
-    // would need real pagination here.
-    const [xchangeRes, delayedRes, failuresRes, retrySummary, alertsRaw, subscriptionRows] = await Promise.all([
+    const now = Date.now();
+    const since = (ms: number) => encodeURIComponent(`StartedOn:6:${new Date(now - ms).toISOString()}`);
+    const twoWeeks = since(14 * 86_400_000);
+    const latest = (status: number) =>
       get<SearchyResponse<RawXchangeForDashboard>>(
-        `/xchanges?filter=${encodeURIComponent(`StartedOn:6:${new Date(windowStart).toISOString()}`)}&size=1000&sort=StartedOn:1`,
-      ),
-      get<SearchyResponse<unknown>>("/delayedretries?size=1"),
-      // Counted by the search rather than from the rows above, for two reasons: those are capped
-      // at a page of 1000 and at 14 days, and this number has to agree with the list the tile
-      // opens — which carries no date bound. Only the total is wanted, so no rows are fetched.
-      get<SearchyResponse<unknown>>(
-        `/xchanges?filter=${encodeURIComponent("StatusFilter:1:3")}&filter=${encodeURIComponent("LatestOnly:1:true")}&size=1`,
-      ),
-      get<RawRetrySummary>("/dashboard/retrysummary"),
-      // Depends on RabbitMQ management being configured on the backend — don't let it take the
-      // rest of the dashboard down when it isn't; the "Queue alerts" tile flags it instead.
-      get<RawAlert[]>("/ops/alerts").catch(() => null),
-      subscriptionMethods.listSubscriptionRows(),
-    ]);
+        `/xchanges?filter=${twoWeeks}&filter=${encodeURIComponent(`StatusFilter:1:${status}`)}&sort=StartedOn:2&size=${LATEST}`,
+      );
 
-    const rows = xchangeRes.result;
-    const startedAt = (r: RawXchangeForDashboard) => Date.parse(r.startedOn);
+    const [failed, badResponses, inFlight, delayedRes, failuresRes, retrySummary, alertsRaw, subscriptionRows] =
+      await Promise.all([
+        latest(3),
+        latest(2),
+        get<SearchyResponse<unknown>>(`/xchanges?filter=${since(86_400_000)}&filter=${encodeURIComponent("StatusFilter:1:0")}&size=1`),
+        get<SearchyResponse<unknown>>("/delayedretries?size=1"),
+        // Only the total is wanted: the problems still to deal with, which the tile's list opens.
+        get<SearchyResponse<unknown>>(
+          `/xchanges?filter=${encodeURIComponent("StatusFilter:1:3")}&filter=${encodeURIComponent("LatestOnly:1:true")}&size=1`,
+        ),
+        get<RawRetrySummary>("/dashboard/retrysummary"),
+        // Depends on RabbitMQ management being configured on the backend - don't let it take the
+        // rest of the dashboard down when it isn't; the "Queue alerts" tile flags it instead.
+        get<RawAlert[]>("/ops/alerts").catch(() => null),
+        subscriptionMethods.listSubscriptionRows(),
+      ]);
+
     const subscriptionNameById = new Map(subscriptionRows.map((i) => [i.id, i.name]));
-
-    const todayRows = rows.filter((r) => startedAt(r) >= startOfTodayUtc);
-    const yesterdayRows = rows.filter((r) => {
-      const t = startedAt(r);
-      return t >= startOfTodayUtc - dayMs && t < startOfTodayUtc;
-    });
-    // The last 7 calendar days including today — the same boundary as the
-    // final 7 entries of trafficByDay below.
-    const sevenDaysAgo = startOfTodayUtc - 6 * dayMs;
-    const week = rows.filter((r) => startedAt(r) >= sevenDaysAgo);
-    const finished7d = week.filter((r) => !isProcessing(r));
-    const successRate7d =
-      finished7d.length === 0
-        ? 100
-        : Math.round((finished7d.filter((r) => !isBad(r)).length / finished7d.length) * 100);
-
-    const trafficByDay = Array.from({ length: 14 }, (_, i) => {
-      const dayStart = windowStart + i * dayMs;
-      const dayRows = rows.filter((r) => {
-        const t = startedAt(r);
-        return t >= dayStart && t < dayStart + dayMs;
-      });
-      return {
-        date: new Date(dayStart).toISOString(),
-        success: dayRows.filter((r) => !isBad(r)).length,
-        failed: dayRows.filter(isBad).length,
-      };
-    });
-
-    const bySubscription = new Map<number, { count: number; failed: number }>();
-    for (const r of week) {
-      if (r.subscriptionId === null) continue;
-      const entry = bySubscription.get(r.subscriptionId) ?? { count: 0, failed: 0 };
-      entry.count++;
-      if (isBad(r)) entry.failed++;
-      bySubscription.set(r.subscriptionId, entry);
-    }
-    const busiest = [...bySubscription.entries()]
-      .map(([id, v]) => ({ id, name: subscriptionNameById.get(id) ?? `#${id}`, ...v }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 5);
-
-    const latestFailures = rows
-      .filter(isBad)
+    const latestFailures = [...failed.result, ...badResponses.result]
       .sort((a, b) => b.startedOn.localeCompare(a.startedOn))
-      .slice(0, 6)
+      .slice(0, LATEST)
       .map((r) => ({
         id: r.id,
         status: toStatus(r),
@@ -130,20 +89,12 @@ export const dashboardMethods = {
       }));
 
     return {
-      today: {
-        total: todayRows.length,
-        failed: todayRows.filter(isBad).length,
-        processing: todayRows.filter(isProcessing).length,
-      },
-      yesterdayTotal: yesterdayRows.length,
+      inFlight: inFlight.totalCount,
       failuresToActOn: failuresRes.totalCount,
       failingChains: retrySummary.failingChains ?? [],
       retriesLast7Days: retrySummary.retriesLast7Days ?? { finished: 0, succeeded: 0 },
-      successRate7d,
       pendingRetries: delayedRes.totalCount,
       queueAlerts: alertsRaw === null ? null : alertsRaw.filter((a) => a.severity !== "Info").length,
-      trafficByDay,
-      busiest,
       latestFailures,
       attention: {
         failingSubscriptions: subscriptionRows

@@ -2,7 +2,7 @@ namespace SW.Bitween.Adapters.Bus.Sqs;
 
 /// <summary>
 /// Bound by name from the DataSource's properties. The attributes are what Bitween's data source
-/// form is built from — see AdapterSettingAttribute for why the UI no longer keeps its own copy of
+/// form is built from - see AdapterSettingAttribute for why the UI no longer keeps its own copy of
 /// this list.
 /// </summary>
 [AdapterSettings(
@@ -24,7 +24,7 @@ public class SqsOptions
     public string Region { get; set; } = "eu-west-1";
 
     /// <summary>
-    /// Leave both blank to use the ambient credential chain — instance profile, IRSA, or the
+    /// Leave both blank to use the ambient credential chain - instance profile, IRSA, or the
     /// environment. That is the right answer on AWS; explicit keys are for everything else.
     /// </summary>
     [AdapterSetting(Secret = true,
@@ -42,9 +42,9 @@ public class SqsOptions
     [AdapterSetting(Hidden = true)]
     public string Endpoints { get; set; }
 
-    /// <summary>Long polling. 20 is the maximum and the only sensible value — 0 burns money and API calls.</summary>
+    /// <summary>Long polling. 20 is the maximum and the only sensible value - 0 burns money and API calls.</summary>
     [AdapterSetting(Default = "20",
-        Hint = "Long polling, in seconds. 20 is the maximum and the only sensible value — 0 burns "
+        Hint = "Long polling, in seconds. 20 is the maximum and the only sensible value - 0 burns "
                + "money and API calls.")]
     public int WaitTimeSeconds { get; set; } = 20;
 

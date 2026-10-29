@@ -21,10 +21,14 @@ service:
   port: 80
 
 probes:
-  enabled: false
+  # Startup /health/live, liveness /health/live, readiness /health/ready (database and RabbitMQ).
+  enabled: true
+  # Five-second checks: 480 gives a starting pod 40 minutes, for migrations, before it is restarted.
+  # Longer than a migration statement may run (30 minutes), so one that runs out logs why.
+  startupFailureThreshold: 480
 
 # North-south routing. The chart uses ingress-nginx by default. Set
-# gateway.enabled=true to switch to Gateway API (HTTPRoute) instead — this
+# gateway.enabled=true to switch to Gateway API (HTTPRoute) instead - this
 # automatically suppresses the Ingress resource below.
 ingress:
   enabled: true
@@ -44,7 +48,7 @@ ingress:
     #   hosts:
   #     - chart-example.local
 
-# Gateway API (HTTPRoute). Disabled by default — the chart renders nothing
+# Gateway API (HTTPRoute). Disabled by default - the chart renders nothing
 # Gateway-API-related unless gateway.enabled is set to true at deploy time.
 # When enabled, the Ingress above is suppressed and routing works exactly like
 # the Gateway API chart. Override parentRefs/hostnames/routes for your cluster
@@ -74,16 +78,60 @@ environmentVariables:
   Bitween__RabbitMqManagementUrl: ""
   Bitween__RabbitMqManagementPassword: ""
   Bitween__RabbitMqManagementUsername: ""
+  # Metrics and traces over OpenTelemetry, off until a collector is named (docs/operations.md):
+  # OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.monitoring:4317"
+  # OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  # OTEL_SERVICE_NAME: "bitween"
   
 # Each key here becomes both an entry in the release Secret and an env var of the same name.
 #
 # Bitween__SettingsEncryptionKey encrypts secret settings (e.g. the Rebex license key) before
 # they're stored in the Settings table. Without it those settings stay configuration-only and
 # show read-only in the UI. Rotating it makes anything already stored unreadable.
+#
+# Bitween__InitialAdminPassword is the password for admin@Bitween.systems on a new installation,
+# which refuses to start without it. Ignored once that account's default password is changed.
 secrets:
   # Bitween__SettingsEncryptionKey: "<32+ random characters>"
+  # Bitween__InitialAdminPassword: "<the first administrator's password>"
 
-resources: {}
+# The image runs as its built-in non-root user; these keep the container from regaining root.
+# readOnlyRootFilesystem: nothing in the image can be changed by whatever runs in it. Bitween writes
+# only to /tmp and to its cache of downloaded adapter packages (/app/adapters), which are scratch
+# volumes (emptyDir, below), as temporary as the container's own layer was. Set it to false if
+# something on a deployment needs to write elsewhere.
+securityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+# The two places Bitween writes, as scratch space on the node: created empty with the pod, gone with
+# it. Not persistent volumes; the adapter cache is fetched again from storage when empty. A size
+# limit, such as 2Gi, caps each one.
+scratch:
+  tmpSizeLimit: ""
+  adapterCacheSizeLimit: ""
+
+# Requests so the scheduler places pods somewhere with room. No limits by default: a memory limit
+# set too low kills a pod mid-exchange, and what is enough depends on payload sizes and prefetch.
+resources:
+  requests:
+    cpu: 250m
+    memory: 512Mi
+
+# Keeps one pod running through node drains and upgrades. Only rendered with more than one replica,
+# where it can be honoured.
+podDisruptionBudget:
+  minAvailable: 1
+
+# Off by default. When enabled, replicas follow CPU between minReplicas and maxReplicas.
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 4
+  targetCPUUtilizationPercentage: 70
   # We usually recommend not to specify default resources and to leave this as a conscious
   # choice for the user. This also increases chances charts run on environments with little
   # resources, such as Minikube. If you do want to specify resources, uncomment the following
@@ -139,10 +187,20 @@ serverlessCommandTimeout: ''
 documentPrefix: 'temp30/infolinkdocs'
 storageProvider: ''
 busDefaultQueuePrefetch: '12'
+# How many exchanges of the ungrouped lane (and the bus's other consumers) run at once on each pod.
+# Empty takes busDefaultQueuePrefetch. '1' runs them one at a time, in order, as before 10.1.
+busDefaultConcurrency: ''
+
+# How long a stopping pod has before it is killed. Must stay above the app's 45 s shutdown, which
+# lets running exchanges finish for up to 30 s.
+terminationGracePeriodSeconds: 60
 
 global:
 
-  environment: Development
+  # Production unless a deployment says otherwise. Development turns on the developer exception
+  # page, which shows stack traces and request headers to whoever triggers an error, and allows
+  # the Local storage provider. A deployment that depends on either sets this explicitly.
+  environment: Production
   
   token:
     key: '6547647654764764767657658658758765876532542'

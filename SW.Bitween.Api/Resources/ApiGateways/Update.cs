@@ -28,6 +28,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
             entity.Name = model.Name;
             entity.UrlName = model.UrlName;
             entity.Inactive = model.Inactive;
+            if (model.FailureAnswer != null) entity.FailureAnswer = model.FailureAnswer.Value;
             if (model.Authentication != null)
                 GatewayAuthentication.Apply(entity, model.Authentication);
 

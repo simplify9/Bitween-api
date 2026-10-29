@@ -16,13 +16,13 @@ namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
 /// Sends a real "retry budget exhausted" alert through <see cref="NativeSmtpHandler"/> to a local
-/// MailHog instance and reads it back over MailHog's own API — the one part of the feature no unit
+/// MailHog instance and reads it back over MailHog's own API - the one part of the feature no unit
 /// test can prove, because it depends on an actual SMTP handshake succeeding.
 /// </summary>
 /// <remarks>
 /// MailHog is started by <see cref="BitweenFixture"/> alongside PostgreSQL and RabbitMQ, so these
 /// tests run everywhere the rest of the suite does. They used to return early when a local MailHog
-/// was missing, which xunit reports as a pass — a green run then said nothing about whether an alert
+/// was missing, which xunit reports as a pass - a green run then said nothing about whether an alert
 /// can actually be delivered.
 /// </remarks>
 [Collection("Bitween")]
@@ -34,7 +34,7 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
 
     private string MessagesApi => $"{fixture.MailHogApi}/api/v2/messages";
 
-    // Deleting is only exposed on MailHog's v1 API — the v2 route 404s and would silently leave
+    // Deleting is only exposed on MailHog's v1 API - the v2 route 404s and would silently leave
     // messages behind, making the assertions depend on leftovers from the previous run.
     private async Task ClearMailHog()
     {
@@ -60,6 +60,32 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
         return doc.RootElement.GetProperty("total").GetInt32();
     }
 
+    /// <summary>A channel that mails MailHog, visible to the sender straight away.</summary>
+    private async Task<int> MailHogChannel(AsyncServiceScope scope)
+    {
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var channel = new NotificationChannel
+        {
+            Name = $"MailHog {Guid.NewGuid():N}",
+            HandlerId = "NativeSmtpHandler",
+            HandlerProperties = new Dictionary<string, string>
+            {
+                ["Host"] = "localhost",
+                ["Port"] = fixture.MailHogSmtpPort.ToString(),
+                ["UseTls"] = "false",
+                ["From"] = "bitween-alerts@example.com",
+                ["To"] = "ops@example.com",
+                ["Subject"] = "Retries stopped for {{ SubscriptionName }}",
+                ["Body"] = "{{ GroupName }} used all {{ MaxAttemptsTotal }} retries."
+            }
+        };
+        db.Add(channel);
+        await db.SaveChangesAsync();
+        // Written straight to the table, so the cache the sender reads has not heard of it.
+        scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+        return channel.Id;
+    }
+
     [Fact]
     public async Task Exhausted_budget_alert_arrives_in_MailHog_with_the_group_and_subscription_named()
     {
@@ -73,8 +99,10 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
 
-        // A group whose own alert config points at MailHog directly — the narrowest level, so the
+        // A group whose own alert config points at MailHog directly - the narrowest level, so the
         // resolver has nothing to fall through to and the test proves that level specifically.
+        var channelId = await MailHogChannel(scope);
+
         var groupId = Guid.NewGuid();
         var policy = new RetryPolicy
         {
@@ -95,17 +123,7 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
                         DelayStrategy = new FixedDelayStrategy { DelayMs = 1000 }
                     },
                     AlertMode = RetryAlertMode.Send,
-                    AlertHandlerId = "NativeSmtpHandler",
-                    AlertHandlerProperties = new Dictionary<string, string>
-                    {
-                        ["Host"] = "localhost",
-                        ["Port"] = fixture.MailHogSmtpPort.ToString(),
-                        ["UseTls"] = "false",
-                        ["From"] = "bitween-alerts@example.com",
-                        ["To"] = "ops@example.com",
-                        ["Subject"] = "Retries stopped for {{ SubscriptionName }}",
-                        ["Body"] = "{{ GroupName }} used all {{ MaxAttemptsTotal }} retries."
-                    }
+                    AlertChannelId = channelId
                 }
             ]
         };
@@ -124,7 +142,7 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
 
         // Reproduces exactly what TryScheduleAutoRetry does: evaluate against the real budget table,
         // and when it reports exhaustion, raise the event the same way XchangeResult does in
-        // production. RetryAlertService.Process is then invoked directly rather than over the bus —
+        // production. RetryAlertService.Process is then invoked directly rather than over the bus -
         // this suite calls handlers directly throughout (see RetryJobTests, DelayedRetriesTests)
         // rather than relying on live message transport, which is SW.Bus's own concern, not this
         // feature's.
@@ -132,7 +150,7 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
             new RetryGroupBudget(db, scope.ServiceProvider, sub.Id));
 
         // Total is 1, so the first message (a different "parcel" failing the same way) spends the
-        // whole budget and is itself allowed to retry — exhaustion only shows up for the next one.
+        // whole budget and is itself allowed to retry - exhaustion only shows up for the next one.
         var firstMessage = await evaluator.Evaluate(XchangeResultType.Error,
             "System.TimeoutException: contains timeout", 0);
         Assert.True(firstMessage.ShouldRetry);
@@ -171,7 +189,7 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
         Assert.True(loggedNotification.Success);
         Assert.Equal(XchangeNotification.RetryBudgetAlertName, loggedNotification.NotifierName);
 
-        // Redelivery of the same event must not double-send — same guard the real bus retry path
+        // Redelivery of the same event must not double-send - same guard the real bus retry path
         // relies on. Compared against the count after the first send rather than an absolute
         // number, so a stray message could never make this pass by accident.
         var totalAfterFirstSend = await MailHogTotal();
@@ -191,6 +209,8 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
         var doc = new Document(null, "Failed Send Doc", DocumentFormat.Json);
         db.Set<Document>().Add(doc);
         await db.SaveChangesAsync();
+
+        var channelId = await MailHogChannel(scope);
 
         var groupId = Guid.NewGuid();
         var policy = new RetryPolicy
@@ -212,17 +232,7 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
                         DelayStrategy = new FixedDelayStrategy { DelayMs = 1000 }
                     },
                     AlertMode = RetryAlertMode.Send,
-                    AlertHandlerId = "NativeSmtpHandler",
-                    AlertHandlerProperties = new Dictionary<string, string>
-                    {
-                        ["Host"] = "localhost",
-                        ["Port"] = fixture.MailHogSmtpPort.ToString(),
-                        ["UseTls"] = "false",
-                        ["From"] = "bitween-alerts@example.com",
-                        ["To"] = "ops@example.com",
-                        ["Subject"] = "Retries stopped for {{ SubscriptionName }}",
-                        ["Body"] = "{{ GroupName }} used all {{ MaxAttemptsTotal }} retries."
-                    }
+                    AlertChannelId = channelId
                 }
             ]
         };
@@ -239,9 +249,9 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
             .CreateXchange(sub, new XchangeFile("{}"));
         await db.SaveChangesAsync();
 
-        // Stands in for a first attempt that threw — a dropped connection, a refused relay. Written
+        // Stands in for a first attempt that threw - a dropped connection, a refused relay. Written
         // directly because what matters is the row it leaves behind, not how the send failed.
-        db.Add(XchangeNotification.ForRetryBudgetAlert(xchange.Id, "System.Net.Sockets.SocketException: refused"));
+        db.Add(XchangeNotification.ForRetryBudgetAlert(xchange.Id, channelId, "System.Net.Sockets.SocketException: refused"));
         await db.SaveChangesAsync();
 
         var xchangeResult = new XchangeResult(xchange.Id, null, null, exception: "timeout");
@@ -261,7 +271,7 @@ public class RetryAlertServiceTests(BitweenFixture fixture)
                            && n.Success));
 
         // And now that one did get through, the guard has to hold: no third row, no second email.
-        // Both are asserted — a redelivery that wrongly logged another success while sending nothing
+        // Both are asserted - a redelivery that wrongly logged another success while sending nothing
         // would otherwise pass here.
         var rowsAfterDelivery = await db.Set<XchangeNotification>()
             .CountAsync(n => n.XchangeId == xchange.Id);

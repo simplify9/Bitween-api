@@ -10,7 +10,7 @@ namespace SW.Bitween.Resources.Subscriptions;
 
 /// <summary>
 /// Paged, filterable history of one Receiving subscription's own <see cref="ReceiveAttempt"/>
-/// rows — independent of <see cref="GetRuns"/>, which reads the scheduler's own (always-succeeds)
+/// rows - independent of <see cref="GetRuns"/>, which reads the scheduler's own (always-succeeds)
 /// history instead.
 /// </summary>
 [HandlerName("receiveattempts")]

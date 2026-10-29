@@ -14,7 +14,7 @@ the contract.
 DataSource (Kind = Relational)          ← the connection: host, credentials, pool
    │  one resident adapter process per node, holding an ADO.NET pool
    │
-   ├── DataSourceStatement records ..... the named SQL it may run — its own permission,
+   ├── DataSourceStatement records ..... the named SQL it may run - its own permission,
    │                                     its own audit trail, its own usage count
    │
    ├── operations endpoints ............ Test / Inspect / Telemetry on the data source screen
@@ -29,7 +29,7 @@ Two rules run through everything below:
 
 1. **SQL is configuration; messages carry values.** Statements are records on the data source. A
    subscription names one and supplies parameters. `AllowAdHocSql` is off by default and should stay off
-   — a mapper is a template evaluated over message content, so SQL it can emit is SQL an inbound
+   - a mapper is a template evaluated over message content, so SQL it can emit is SQL an inbound
    message can steer.
 2. **The adapter is shared.** One process per data source per node serves every subscription bound
    to it, concurrently. It keeps no per-message state.
@@ -57,45 +57,45 @@ Settings marked **secret** are never returned by the API, which masks them. They
 | `CommandTimeoutSeconds` | 30 | Default per statement; a statement may raise its own. |
 | `MaxRows` | 1000 | Rows one query may return. Exceeding it opens a paging cursor rather than truncating. |
 | `CursorIdleTimeoutSeconds` | 60 | An unread paging cursor holds a pooled connection, so idle ones are reclaimed. |
-| *(statements)* | — | Not a setting: they are records on the data source. See §3. |
+| *(statements)* | - | Not a setting: they are records on the data source. See §3. |
 | `AllowAdHocSql` | false | Lets a caller send SQL text instead of naming a statement. |
 | `LogParameterValues` | false | Logs parameter values at Debug. For a controlled test only. |
-| `ReceiveMode` | — | Default for subscriptions that do not choose one. §6. |
+| `ReceiveMode` | - | Default for subscriptions that do not choose one. §6. |
 | `ReceiveBatchSize` | 500 | Default rows one poll takes; a subscription may override. |
-| `ReceiveStatement`, `CursorColumn`, `KeyColumn`, `MarkProcessedStatement` | — | **Legacy.** Still honoured if set, hidden from the form. See §6.1 for where each now lives. |
+| `ReceiveStatement`, `CursorColumn`, `KeyColumn`, `MarkProcessedStatement` | - | **Legacy.** Still honoured if set, hidden from the form. See §6.1 for where each now lives. |
 
-### 2.1a MySQL — `bitween.db.mysql`
+### 2.1a MySQL - `bitween.db.mysql`
 
-Serves MariaDB too. `Database` is also the schema — MySQL has no separate one — so it is what an
+Serves MariaDB too. `Database` is also the schema - MySQL has no separate one - so it is what an
 unqualified name resolves against, and a discovery call with no schema means the database this
 connection opened rather than every database on the server.
 
 | Setting | Default | Notes |
 |---|---|---|
 | `Host`, `Port` | localhost, 3306 | |
-| `Database` | — | Required. Also the schema. |
-| `UserName`, `Password` | — | |
+| `Database` | - | Required. Also the schema. |
+| `UserName`, `Password` | - | |
 | `SslMode` | Preferred | Required or above off localhost. |
 | `ConnectionIdleLifetimeSeconds` | 180 | Keep below the server's `wait_timeout`; a connection the server closed first surfaces as a broken pipe on the next message. |
-| `ServerPrepare` | true | Off for a connection through ProxySQL, where prepared statements pin a backend. Also what makes the save-time check real — with it off, `Prepare` does nothing and every statement reports valid. |
+| `ServerPrepare` | true | Off for a connection through ProxySQL, where prepared statements pin a backend. Also what makes the save-time check real - with it off, `Prepare` does nothing and every statement reports valid. |
 | `AllowZeroDateTime` | false | MySQL permits `0000-00-00`, which no .NET date type holds. |
 
 No sequences (AUTO_INCREMENT belongs to a column), no MERGE, no RETURNING, no array type. A
-procedure returns result sets by SELECTing — the capability PostgreSQL declares false.
+procedure returns result sets by SELECTing - the capability PostgreSQL declares false.
 
-### 2.1b SQL Server — `bitween.db.sqlserver`
+### 2.1b SQL Server - `bitween.db.sqlserver`
 
 Serves Azure SQL too. The default schema belongs to the LOGIN rather than the connection, so
-`Schema` is applied per connection with `EXECUTE AS` — and failure is not fatal, because
+`Schema` is applied per connection with `EXECUTE AS` - and failure is not fatal, because
 impersonating a schema's owner is a privilege many service accounts do not have.
 
 | Setting | Default | Notes |
 |---|---|---|
 | `Host`, `Port` | localhost, 1433 | `Port` is ignored for `host\instance`, which resolves through the Browser service. |
-| `Database` | — | Required. |
-| `UserName`, `Password` | — | |
-| `Schema` | — | Run as this schema, for unqualified names. |
-| `Encrypt` | true | On by default in the modern driver — a change from the old one, and why an instance that worked for years fails on upgrade. |
+| `Database` | - | Required. |
+| `UserName`, `Password` | - | |
+| `Schema` | - | Run as this schema, for unqualified names. |
+| `Encrypt` | true | On by default in the modern driver - a change from the old one, and why an instance that worked for years fails on upgrade. |
 | `TrustServerCertificate` | false | Needed for the usual self-signed on-premises certificate. Use knowingly. |
 | `MultipleActiveResultSets` | false | Stops the connection resetting cleanly between uses, which is the opposite of what a shared pool wants. |
 | `SnapshotIsolation` | false | Readers do not block writers. Needs the database to have it enabled. |
@@ -104,44 +104,44 @@ MERGE, OUTPUT and snapshot isolation are all real here. Query Notifications over
 exists and is not wired, so `changeNotification` is false.
 
 **Its statement check is not the shared one.** `SqlCommand.Prepare` refuses unless every parameter
-has an explicit type — which a caller checking somebody else's SQL does not know — so this adapter
+has an explicit type - which a caller checking somebody else's SQL does not know - so this adapter
 asks `sys.sp_describe_undeclared_parameters`, which parses the batch and binds every name in it.
 
-### 2.2 Oracle — `bitween.db.oracle`
+### 2.2 Oracle - `bitween.db.oracle`
 
 | Setting | Default | Notes |
 |---|---|---|
 | `Host` | localhost | **required** |
 | `Port` | 1521 | |
-| `ServiceName` | — | What `lsnrctl services` lists, e.g. `FREEPDB1`. What a modern Oracle wants. |
-| `Sid` | — | For an older instance with no service name. **Set exactly one of ServiceName and Sid** — both, or neither, is refused with a message saying so rather than guessed at. |
-| `ConnectDescriptor` | — | A full TNS descriptor or Easy Connect string, *instead of* host/port/service. The escape hatch for RAC, Data Guard and wallet-based cloud connections. |
-| `UserName` | — | **required** |
-| `Password` | — | **required, secret** |
+| `ServiceName` | - | What `lsnrctl services` lists, e.g. `FREEPDB1`. What a modern Oracle wants. |
+| `Sid` | - | For an older instance with no service name. **Set exactly one of ServiceName and Sid** - both, or neither, is refused with a message saying so rather than guessed at. |
+| `ConnectDescriptor` | - | A full TNS descriptor or Easy Connect string, *instead of* host/port/service. The escape hatch for RAC, Data Guard and wallet-based cloud connections. |
+| `UserName` | - | **required** |
+| `Password` | - | **required, secret** |
 | `Schema` | login's own | Default schema for the schema browser only. It does not change how unqualified names resolve. |
 | `AsSysDba` | false | Almost never right for an integration login. |
-| `WalletDirectory` | — | Holds `cwallet.sso`, for mTLS or Autonomous Database. Pair with `ConnectDescriptor`. |
+| `WalletDirectory` | - | Holds `cwallet.sso`, for mTLS or Autonomous Database. Pair with `ConnectDescriptor`. |
 | `FetchSize` | 100 | Rows per round trip. |
-| `BindByName` | true | **Leave it on.** Off, ODP.NET binds by position, so a statement using `:id` twice — or listing parameters in a different order than the caller supplies them — silently binds the wrong values. |
+| `BindByName` | true | **Leave it on.** Off, ODP.NET binds by position, so a statement using `:id` twice - or listing parameters in a different order than the caller supplies them - silently binds the wrong values. |
 
 Parameters are written `:name`.
 
-### 2.3 PostgreSQL — `bitween.db.postgresql`
+### 2.3 PostgreSQL - `bitween.db.postgresql`
 
 | Setting | Default | Notes |
 |---|---|---|
 | `Host` | localhost | **required** |
 | `Port` | 5432 | |
-| `Database` | — | **required.** PostgreSQL connects to a database, not a server. |
-| `UserName` | — | **required** |
-| `Password` | — | **required, secret** |
-| `SslMode` | Prefer | `Require` or above for anything non-local. `Prefer` silently falls back to plaintext if the server does not offer TLS — which is the case you wanted to be told about. |
+| `Database` | - | **required.** PostgreSQL connects to a database, not a server. |
+| `UserName` | - | **required** |
+| `Password` | - | **required, secret** |
+| `SslMode` | Prefer | `Require` or above for anything non-local. `Prefer` silently falls back to plaintext if the server does not offer TLS - which is the case you wanted to be told about. |
 | `Schema` | server default | Sets `search_path`. Point a data source at a schema without rewriting the SQL. |
-| `ApplicationName` | Bitween | How this connection appears in `pg_stat_activity` — how a DBA works out which connections are yours. |
+| `ApplicationName` | Bitween | How this connection appears in `pg_stat_activity` - how a DBA works out which connections are yours. |
 | `AutoPrepare` | false | Caches a plan per connection. Faster for repeated statements; a plan cached against skewed data can be worse than replanning. |
 | `ConnectionIdleLifetimeSeconds` | 300 | Prunes pooled connections above `MinPoolSize`. |
 
-Parameters are written `@name`. **Not `:name`** — that collides with PostgreSQL's `::` cast
+Parameters are written `@name`. **Not `:name`** - that collides with PostgreSQL's `::` cast
 operator, and `value::text` would be read as a parameter called `text`.
 
 ---
@@ -149,7 +149,7 @@ operator, and `value::text` would be read as a parameter called `text`.
 ## 3. Statements
 
 The SQL a data source is allowed to run. **Each statement is its own record**, not a field on the
-data source — `POST /datasourcestatements`, with `dataSourceId` in the body:
+data source - `POST /datasourcestatements`, with `dataSourceId` in the body:
 
 ```json
 { "name": "insertOrder",
@@ -169,7 +169,7 @@ the SQL is kept.
 Statements have to live on the **connection**: a subscription's adapter property values have
 `{{partner.X}}` substituted into them before the adapter sees them, so SQL there would be an
 injection surface fed by ordinary partner data. But a field on the data source meant that writing a
-query required `data-sources.edit` — the same right that changes the **credentials**.
+query required `data-sources.edit` - the same right that changes the **credentials**.
 
 Hence a separate record with a separate permission, `data-source-statements.*`. Rationale and the
 costs accepted are in [design/provider-plan-databases.md §12a](design/provider-plan-databases.md).
@@ -179,7 +179,7 @@ costs accepted are in [design/provider-plan-databases.md §12a](design/provider-
 | | |
 |---|---|
 | **Permissions** | `data-source-statements.{view,create,edit,delete}`, distinct from the connection's |
-| **Namespacing** | Unique per data source, case-insensitively — a collision is an error naming the clash, not a silent overwrite. The same name on another data source is a different statement |
+| **Namespacing** | Unique per data source, case-insensitively - a collision is an error naming the clash, not a silent overwrite. The same name on another data source is a different statement |
 | **Ownership** | `workGroupId` says who to ask before changing it |
 | **Audit** | Created/modified by whom and when, per statement |
 | **Usage** | `POST /datasourcestatements/{id}/usage` lists which subscriptions name it, in which slot, with which operation. `UsageCount` rides on the list rows |
@@ -191,7 +191,7 @@ costs accepted are in [design/provider-plan-databases.md §12a](design/provider-
   configuration nothing will read.
 * **Deleting one in use is refused**, and the refusal names the subscriptions.
 * **Renaming one in use is refused.** A rename breaks every subscription naming the old name, and
-  nothing on this side can repair that. Changing the *SQL* is allowed — that is the common case.
+  nothing on this side can repair that. Changing the *SQL* is allowed - that is the common case.
 
 ### 3.4 Procedures
 
@@ -215,7 +215,7 @@ message through a subscription.
 Reachable from the data source screen. `Discover`, `Describe` and `GetStats` are relayed by
 `POST /datasources/{id}/inspect`, which allow-lists them; `TestConnection` backs the Test button.
 
-**`Query`, `Execute`, `Call` and `Batch` are deliberately NOT relayable through Inspect** — a
+**`Query`, `Execute`, `Call` and `Batch` are deliberately NOT relayable through Inspect** - a
 View-level read must not become a way to run SQL against a customer's database by naming it in a
 request body.
 
@@ -267,13 +267,13 @@ to go and fix: a host, a password, a grant, a missing column.
 **`privileges` is probed with the real credentials, and it is the half that matters.** "Oracle
 supports change notification" is worthless if the login lacks `CHANGE NOTIFICATION`. Oracle reads
 `session_privs`; PostgreSQL reads role attributes plus `has_database_privilege`, so
-`REPLICATION` shows up — the gate on log-based CDC, if that ever becomes a provider.
+`REPLICATION` shows up - the gate on log-based CDC, if that ever becomes a provider.
 
 Where the engines differ honestly:
 
 | | Oracle | PostgreSQL |
 |---|---|---|
-| `procedureResultSets` | **true** — via a declared REF CURSOR out parameter | **false** — a `CALL` cannot return a set; a set-returning *function* is queried with `Query` instead |
+| `procedureResultSets` | **true** - via a declared REF CURSOR out parameter | **false** - a `CALL` cannot return a set; a set-returning *function* is queried with `Query` instead |
 | `multipleResultSets` | false | true |
 | `arrayTypes` | false | true |
 | `isolationLevels` | ReadCommitted, Serializable | + RepeatableRead |
@@ -289,7 +289,7 @@ declared rather than omitted so the UI can say *not available* instead of leavin
 ```
 
 `objectType` is one of `table`, `view`, `materialized_view`, `procedure`, `function`, `sequence`
-(Oracle adds `package`). Paged, filtered, and never `SELECT COUNT(*)` — row counts are the
+(Oracle adds `package`). Paged, filtered, and never `SELECT COUNT(*)` - row counts are the
 optimiser's estimate (Oracle `ALL_TABLES.num_rows`, PostgreSQL `reltuples`), as fresh as the last
 stats gather.
 
@@ -312,7 +312,7 @@ stats gather.
 ```
 
 `includeColumns` is off by default on purpose: columns for four thousand tables is a download, not
-a menu. For a routine, `parameters` is always populated — a procedure without its argument list is
+a menu. For a routine, `parameters` is always populated - a procedure without its argument list is
 just a name nobody can call.
 
 Oracle reads `ALL_*`, never `DBA_*`: `ALL_*` is what this login can see, which is the honest answer
@@ -349,13 +349,13 @@ Called by the pipeline, not by the data source screen.
 
 **Paging.** When the result exceeds `MaxRows`, `cursorId` comes back with `hasMore: true`. Continue
 with `Fetch({ cursorId, take })` until `cursorId` is null; `CloseCursor(cursorId)` abandons it early.
-An open cursor pins a pooled connection, which is why it has an idle timeout — an abandoned cursor
+An open cursor pins a pooled connection, which is why it has an idle timeout - an abandoned cursor
 is a connection nobody else can have.
 
 ### `Execute(StatementRequest)`
 
 Non-query. Returns `affectedRows`, and the rows themselves when the statement uses `RETURNING`
-(PostgreSQL) or `RETURNING INTO` / `OUTPUT` — both engines report `returning: true`, so a write that
+(PostgreSQL) or `RETURNING INTO` / `OUTPUT` - both engines report `returning: true`, so a write that
 hands back what it wrote is not lost.
 
 ### `Call(ProcedureRequest)`
@@ -367,7 +367,7 @@ hands back what it wrote is not lost.
 ```
 
 Out parameters are declared by the caller because ADO.NET cannot infer them without a round trip
-the engines do not all support. `direction` is `Out`, `InOut` or — Oracle only — `RefCursor`.
+the engines do not all support. `direction` is `Out`, `InOut` or - Oracle only - `RefCursor`.
 
 **This is the one place the engines genuinely diverge.** An Oracle procedure returns rows through a
 declared REF CURSOR; declare it wrong and you get an `ORA-06550` about argument types that points
@@ -375,7 +375,7 @@ nowhere near the cause. PostgreSQL has no equivalent for `CALL`: a set-returning
 `select * from my_function(...)`, so configure it as a statement and use `Query`.
 
 Results come back as `rows` (the cursor's contents) plus `output` (every non-input parameter, read
-after the reader closes — before that, most drivers hand back null with no error to explain it).
+after the reader closes - before that, most drivers hand back null with no error to explain it).
 
 ### `Batch(BatchRequest)`
 
@@ -388,7 +388,7 @@ everything back and reports the original error, not the rollback.
 
 Set `Subscription.DataSourceId` and the subscription's adapters run through that connection.
 
-### 6.1 As Handler or Mapper — Bitween writes to the database
+### 6.1 As Handler or Mapper - Bitween writes to the database
 
 Two adapter properties on the subscription decide what a message means:
 
@@ -401,27 +401,27 @@ So a mapper produces `{"id": 4412, "customer": "acme", "amount": 99.5}` and the 
 `insertOrder` with those values. Nothing about the SQL depends on message content, and nothing in
 the template decides which statement runs.
 
-These travel with each **call**, not with the adapter process — which matters because the process
+These travel with each **call**, not with the adapter process - which matters because the process
 is shared. One data source is one connection pool serving every subscription bound to it, so a
 per-subscription setting could not live in the process's startup values; the data source can still
 set a default for both, and a subscription overrides it. (This rides on per-invocation properties,
 [SW-Serverless#132](https://github.com/simplify9/SW-Serverless/pull/132), in SDK 8.1.23; before it,
 per-subscription properties were silently dropped and every caller read the data source's own.)
 
-Without `Statement`, the body must be a full request envelope —
-`{"name": "...", "parameters": {...}}` — which is useful when one subscription drives several
+Without `Statement`, the body must be a full request envelope -
+`{"name": "...", "parameters": {...}}` - which is useful when one subscription drives several
 statements, and is still an allow-list lookup, not raw SQL.
 
 The response `XchangeFile` is the `QueryResult` as JSON, so a response subscription or a bus publish
 can carry the rows the database returned.
 
-### 6.2 As Receiver — the database feeds Bitween
+### 6.2 As Receiver - the database feeds Bitween
 
 Mapped onto the existing receiver session, so nothing about the pipeline changes:
 
 | Session call | What the adapter does |
 |---|---|
-| `Initialize` | Prunes stale batches. No transaction is held open — see below. |
+| `Initialize` | Prunes stale batches. No transaction is held open - see below. |
 | `ListFiles` | Runs the named receive statement, returns one opaque id per row |
 | `GetFile(id)` | That row, as JSON |
 | `DeleteFile(id)` | Runs the named mark-processed statement, then advances that subscription's cursor past the row |
@@ -430,16 +430,16 @@ Mapped onto the existing receiver session, so nothing about the pipeline changes
 ### 6.1 Where each receive setting lives
 
 A connection is shared by every subscription pointed at it, so nothing that varies per reader can
-sit on the data source — one connection could otherwise only ever feed one receiver. What is left
+sit on the data source - one connection could otherwise only ever feed one receiver. What is left
 divides on a single principle: **the SQL and the shape of its rows belong to the statement; the
 reading policy belongs to the subscription doing the reading.**
 
 | Setting | Configured on | Why there |
 |---|---|---|
-| the polling SQL | **statement** (named by the subscription's `ReceiveStatement`) | It is SQL, so it gets a statement's permission, audit trail and usage count — and a per-invocation property is never SQL text, because partner values are templated into those before the adapter sees them. |
+| the polling SQL | **statement** (named by the subscription's `ReceiveStatement`) | It is SQL, so it gets a statement's permission, audit trail and usage count - and a per-invocation property is never SQL text, because partner values are templated into those before the adapter sees them. |
 | `CursorColumn` | **statement** | Describes what the query returns. The same statement returns the same cursor column whoever reads it; two readers each nominating their own is two chances to be wrong with nothing to check them against. |
 | `KeyColumn` | **statement** | Same reason. |
-| `MarkProcessedStatement` | **subscription**, naming a statement | It is SQL, and it writes — so it is a statement like any other. Which one runs is the reader's business. |
+| `MarkProcessedStatement` | **subscription**, naming a statement | It is SQL, and it writes - so it is a statement like any other. Which one runs is the reader's business. |
 | `ReceiveMode` | **subscription** (data source default) | Reader policy: the same statement is legitimately read `bulk` once for a backfill and `incrementing` after. |
 | `ReceiveBatchSize` | **subscription** (data source default) | One subscription's appetite. |
 
@@ -464,8 +464,8 @@ the split keeps working untouched.
 
 ### 6.2 Statements are checked when they are saved
 
-`ValidateStatement { sql }` → `{ ok, error, note }`. The engine PREPARES the SQL — parsed and
-planned, never run, nothing stored — and the create/update handlers call it before a statement is
+`ValidateStatement { sql }` → `{ ok, error, note }`. The engine PREPARES the SQL - parsed and
+planned, never run, nothing stored - and the create/update handlers call it before a statement is
 written. A typo is refused where it was made, rather than surfacing later as a failed connection
 test or, if nobody ran one, as a failed message days afterwards.
 
@@ -474,15 +474,15 @@ source that is stopped or still starting cannot be asked, so the save proceeds u
 to let someone save a fix because the connection they are fixing it for is down would be backwards.
 
 **Oracle's check is not the shared one either**, and for a worse reason: ODP.NET's `Prepare` is a
-client-side no-op — Oracle compiles a statement when it is executed, not when it is prepared — so
+client-side no-op - Oracle compiles a statement when it is executed, not when it is prepared - so
 the shared check passed everything, including a select from a table that does not exist. It uses
 `DBMS_SQL.PARSE` instead, which compiles and resolves names while running nothing. The PL/SQL
 frames that raises are stripped, so the answer is the one ORA- line that is about the operator's
 SQL rather than the mechanism used to find it.
 
 Two answers are not plain pass/fail. A bare **procedure name** passes with a `note` saying its
-existence was not checked — it is resolved when called, and preparing it as text is a syntax error
-every time. And a **wrong placeholder prefix** — `:name` on PostgreSQL, `@name` on Oracle — is
+existence was not checked - it is resolved when called, and preparing it as text is a syntax error
+every time. And a **wrong placeholder prefix** - `:name` on PostgreSQL, `@name` on Oracle - is
 named in the error rather than left as the driver's "syntax error at position 76", because that is
 what a statement copied between two data sources looks like.
 
@@ -496,7 +496,7 @@ here, and in the form, rather than left to be discovered.
 Two things make this safe:
 
 * **The cursor is host-held**, through Bitween's `adapter_state` table. An adapter cannot keep its
-  own progress — the supervisor restarts it and the next instance may be on another node — and a
+  own progress - the supervisor restarts it and the next instance may be on another node - and a
   cursor that resets replays every row already processed.
 * **It advances in `DeleteFile`**, which the pipeline calls only after Bitween has durably accepted
   the row. Advancing on read would lose rows on a crash; advancing only at the end of a batch would
@@ -504,7 +504,7 @@ Two things make this safe:
 
 No transaction spans the session, deliberately: it would pin a pooled connection for as long as
 Bitween takes to persist every row, on an instance serving other subscriptions at the same time.
-Each mark-processed commits on its own, after acceptance — the same boundary either way.
+Each mark-processed commits on its own, after acceptance - the same boundary either way.
 
 ---
 
@@ -533,7 +533,7 @@ and runs. The response is the full query result, with `"affectedRows": 1`.
 ### 7.3 Enrich a message from a lookup table
 
 Same shape with `Operation=query` as the **mapper**: the mapper stage produces the lookup
-parameters, and the adapter's output — the rows — becomes the Xchange's output file for the handler
+parameters, and the adapter's output - the rows - becomes the Xchange's output file for the handler
 that follows.
 
 ### 7.4 Call a stored procedure that returns a result set
@@ -603,5 +603,5 @@ dropped, which is otherwise a silent one-row-per-page loss.
   provider and not built.
 * **Parameter values are never logged** unless `LogParameterValues` is switched on, and metrics
   carry only the engine, never the statement, the SQL or the values.
-* **Errors report the driver's message** — `ORA-…`, PostgreSQL's SQLSTATE — because that is the
+* **Errors report the driver's message** - `ORA-…`, PostgreSQL's SQLSTATE - because that is the
   string a DBA can search for.

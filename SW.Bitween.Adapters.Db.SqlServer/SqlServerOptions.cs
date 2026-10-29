@@ -4,7 +4,7 @@ namespace SW.Bitween.Adapters.Db.SqlServer;
 
 /// <summary>
 /// Every setting here arrives as a DataSource property, bound by name, and the form an operator
-/// fills in is generated from these attributes — so a field added here appears in Bitween with no
+/// fills in is generated from these attributes - so a field added here appears in Bitween with no
 /// front-end change.
 ///
 /// The hints spend their weight on encryption, because SQL Server is the engine where the default
@@ -20,7 +20,7 @@ namespace SW.Bitween.Adapters.Db.SqlServer;
 public class SqlServerOptions : DbOptionsBase
 {
     [AdapterSetting(Required = true, Hint =
-        "Host name, IP, or host\\instance for a named instance. No tcp: prefix — set Port instead.")]
+        "Host name, IP, or host\\instance for a named instance. No tcp: prefix - set Port instead.")]
     public string Host { get; set; } = "localhost";
 
     [AdapterSetting(Default = "1433", Hint =
@@ -40,7 +40,7 @@ public class SqlServerOptions : DbOptionsBase
 
     /// <summary>
     /// The default schema for unqualified names is a property of the LOGIN, not of the connection
-    /// string — there is no equivalent of PostgreSQL's search_path to set here. This runs a
+    /// string - there is no equivalent of PostgreSQL's search_path to set here. This runs a
     /// per-connection default instead, which is why it is worded as what it does rather than as a
     /// setting name.
     /// </summary>
@@ -53,12 +53,12 @@ public class SqlServerOptions : DbOptionsBase
 
     [AdapterSetting(Default = "true", AllowedValues = new[] { "true", "false" }, Hint =
         "Encrypt the connection. On by default in the modern driver, which is a change from the "
-        + "old one — and the reason an instance that worked for years starts failing on upgrade.")]
+        + "old one - and the reason an instance that worked for years starts failing on upgrade.")]
     public bool Encrypt { get; set; } = true;
 
     [AdapterSetting(Default = "false", AllowedValues = new[] { "true", "false" }, Hint =
         "Accept the server's certificate without validating it. Needed for the usual on-premises "
-        + "instance with a self-signed certificate — and it means an attacker between here and the "
+        + "instance with a self-signed certificate - and it means an attacker between here and the "
         + "server could present their own. Prefer installing the certificate; use this knowingly.")]
     public bool TrustServerCertificate { get; set; }
 

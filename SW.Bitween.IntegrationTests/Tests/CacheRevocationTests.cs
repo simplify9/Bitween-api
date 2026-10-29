@@ -19,7 +19,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// <remarks>
 /// Announcing means <c>BroadcastRevoke()</c>, which publishes rather than clearing directly: each
 /// instance owns a private queue bound to the shared node exchange, so every instance clears its
-/// own copy — including the one that handled the write. The fixture deliberately does not call
+/// own copy - including the one that handled the write. The fixture deliberately does not call
 /// <c>AddBusConsume</c>, so that round trip cannot complete here and the announcement is asserted
 /// at the handler instead, with a cache that records the call.
 /// </remarks>
@@ -115,6 +115,7 @@ public class CacheRevocationTests(BitweenFixture fixture)
         public Task<Subscription[]> ListSubscriptionsByDocumentAsync(int documentId) => throw new NotSupportedException();
         public Task<BusGatewayRoute[]> ListBusGatewayRoutesByDocumentAsync(int documentId) => throw new NotSupportedException();
         public Task<Notifier[]> ListNotifiersAsync() => throw new NotSupportedException();
+        public Task<NotificationChannel> NotificationChannelByIdAsync(int channelId) => throw new NotSupportedException();
         public Task<Subscription> SubscriptionByIdAsync(int subscriptionId) => throw new NotSupportedException();
         public Task<Document> DocumentByIdAsync(int documentId) => throw new NotSupportedException();
         public Task<Document> DocumentByNameAsync(string documentName) => throw new NotSupportedException();
@@ -123,5 +124,9 @@ public class CacheRevocationTests(BitweenFixture fixture)
         public Task<WorkGroup> WorkGroupBySubscriptionIdAsync(int subscriptionId) => throw new NotSupportedException();
         public Task<GlobalAdapterValuesSet> GlobalAdapterValuesSetById(string id) => throw new NotSupportedException();
         public Task<GlobalAdapterValuesSet[]> ListGlobalAdapterValuesSetsAsync() => throw new NotSupportedException();
+        public Task<Document[]> ListDocumentsAsync() => throw new NotSupportedException();
+        public Task<Partner> PartnerByIdAsync(int partnerId) => throw new NotSupportedException();
+        public Task<Partner[]> ListPartnersAsync() => throw new NotSupportedException();
+        public Task<Domain.Gateway.ApiGateway> ApiGatewayByUrlNameAsync(string urlName) => throw new NotSupportedException();
     }
 }

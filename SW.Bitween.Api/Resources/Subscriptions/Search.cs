@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using Newtonsoft.Json;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
+using SW.Bitween.Services.Mirror;
 using Document = SW.Bitween.Domain.Document;
 
 namespace SW.Bitween.Resources.Subscriptions
@@ -16,12 +17,16 @@ namespace SW.Bitween.Resources.Subscriptions
     {
         private readonly BitweenDbContext _dbContext;
         private readonly RequestContext _requestContext;
+        private readonly AdapterSecretProperties _secrets;
+        private readonly MirrorService _mirror;
         private readonly List<string> _edgeCaseProperties;
 
-        public Search(BitweenDbContext dbContext, RequestContext requestContext)
+        public Search(BitweenDbContext dbContext, RequestContext requestContext, AdapterSecretProperties secrets, MirrorService mirror)
         {
             _dbContext = dbContext;
             _requestContext = requestContext;
+            _secrets = secrets;
+            _mirror = mirror;
 
             _edgeCaseProperties = new List<string>
             {
@@ -38,6 +43,7 @@ namespace SW.Bitween.Resources.Subscriptions
             // the full list is the data, so that's what the view permission covers.
             if (!lookup)
                 await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Subscriptions.View);
+            await _mirror.FilterAsync(searchyRequest, "subscriptions", _requestContext, _dbContext);
 
             var query = from subscriber in _dbContext.Set<Subscription>()
                 join document in _dbContext.Set<Document>() on subscriber.DocumentId equals document.Id
@@ -54,17 +60,34 @@ namespace SW.Bitween.Resources.Subscriptions
                     MapperId = subscriber.MapperId,
                     ValidatorId = subscriber.ValidatorId,
                     ReceiverId = subscriber.ReceiverId,
+                    HandlerVersion = subscriber.HandlerVersion,
+                    MapperVersion = subscriber.MapperVersion,
+                    ReceiverVersion = subscriber.ReceiverVersion,
+                    ValidatorVersion = subscriber.ValidatorVersion,
                     AggregationForId = subscriber.AggregationForId,
                     Temporary = subscriber.Temporary,
                     ReceiveOn = subscriber.ReceiveOn,
                     // The next-fire time of the other scheduled type. Left out, an aggregation
-                    // row had no next run to show at all — ReceiveOn is only ever set for
+                    // row had no next run to show at all - ReceiveOn is only ever set for
                     // Receiving, and the list page reads one field for both.
                     AggregateOn = subscriber.AggregateOn,
                     AggregationTarget = subscriber.AggregationTarget,
                     PausedOn = subscriber.PausedOn,
+                    PausedAutomatically = subscriber.PausedAutomatically,
+                    AutoPauseAfterFailures = subscriber.AutoPauseAfterFailures,
+                    ExpectTraffic = subscriber.ExpectTraffic,
+                    QuietSince = subscriber.QuietSince,
                     IsRunning = subscriber.IsRunning,
-                    ConsecutiveFailures = subscriber.ConsecutiveFailures,
+                    // As SubscriptionFailures counts it: a delivery subscription set to auto-pause
+                    // counts its failures on its results, and a success no longer writes the row
+                    // back to 0, so the latest result says where the run stands.
+                    ConsecutiveFailures = subscriber.AutoPauseAfterFailures == null || subscriber.ConsecutiveFailures == 0
+                        ? subscriber.ConsecutiveFailures
+                        : _dbContext.Set<XchangeResult>()
+                              .Where(r => r.SubscriptionId == subscriber.Id)
+                              .OrderByDescending(r => r.FinishedOn)
+                              .Select(r => r.ConsecutiveFailures)
+                              .FirstOrDefault() ?? subscriber.ConsecutiveFailures,
                     LastException = subscriber.LastException,
                     RetryPolicyId = subscriber.RetryPolicyId,
                     MapperProperties = subscriber.MapperProperties.ToKeyAndValueCollection(),
@@ -115,9 +138,12 @@ namespace SW.Bitween.Resources.Subscriptions
             };
         }
 
-        /// <summary>Empties the adapter property collections on every returned row.</summary>
+        /// <summary>
+        /// Empties the adapter property collections on every returned row, keeping only the names
+        /// of the global values and partner properties they reference.
+        /// </summary>
         /// <remarks>
-        /// Adapter properties hold credentials — a storage key, an OAuth secret, the password for a
+        /// Adapter properties hold credentials - a storage key, an OAuth secret, the password for a
         /// partner system. <c>Subscriptions/Get</c> replaces those with a sentinel before answering;
         /// this list endpoint returned them verbatim, which put every integration's secrets one
         /// request away from anyone allowed to see the list at all.
@@ -125,19 +151,30 @@ namespace SW.Bitween.Resources.Subscriptions
         /// Emptied here rather than left out of the projection because the projection needs them:
         /// the <c>rawsubscriptionproperties</c> filter searches inside their values, in memory, over
         /// the rows this query produced. So they are loaded, used, and then dropped before the
-        /// response is shaped. Nothing reads them off this endpoint — both UIs configure a
+        /// response is shaped. Nothing reads them off this endpoint - both UIs configure a
         /// subscription from <c>Subscriptions/Get</c>, and the list has never shown them.
         /// </para>
         /// <para>
         /// Emptied rather than masked because masking can only hide what an adapter declares
-        /// <c>[Secure]</c>, and the external adapters declare nothing — masking here would have
+        /// <c>[Secure]</c>, and the external adapters declare nothing - masking here would have
         /// looked like a fix while leaving those integrations exactly as exposed.
+        /// </para>
+        /// <para>
+        /// The references are read here, from the same properties, because the admin UI answers
+        /// "used by" for value sets and partner properties from this list. When it scanned the
+        /// properties itself, emptying them left every value set looking unused and safe to delete.
         /// </para>
         /// </remarks>
         private static void StripAdapterProperties(List<SubscriptionSearch> rows)
         {
             foreach (var row in rows)
             {
+                row.References = StartupValuesFiller.ReferencesIn(
+                    new[] { row.HandlerProperties, row.MapperProperties, row.ReceiverProperties, row.ValidatorProperties }
+                        .Where(properties => properties != null)
+                        .SelectMany(properties => properties)
+                        .Select(property => property.Value));
+
                 row.HandlerProperties = [];
                 row.MapperProperties = [];
                 row.ReceiverProperties = [];
@@ -149,7 +186,7 @@ namespace SW.Bitween.Resources.Subscriptions
         /// <remarks>
         /// A second query rather than part of the projection above: <c>Schedule.On</c> is a
         /// <see cref="System.TimeSpan"/> stored as ticks, and reading <c>.Days</c>/<c>.Hours</c>/
-        /// <c>.Minutes</c> off it inside that joined query is what Postgres cannot translate — a
+        /// <c>.Minutes</c> off it inside that joined query is what Postgres cannot translate - a
         /// date_part type mismatch. Read flat for the ids actually being returned and shaped in
         /// memory, which asks nothing of the translator, so the list can finally say when a job
         /// runs instead of leaving its schedule column blank.
@@ -194,14 +231,18 @@ namespace SW.Bitween.Resources.Subscriptions
             {
                 var searchTerm = edgeCaseFilter.ValueString.ToLower();
 
+                if (edgeCaseFilter.Field.ToLower() == "rawsubscriptionproperties")
+                {
+                    var matched = new List<SubscriptionSearch>();
+                    foreach (var row in data)
+                        if (await AnyVisiblePropertyContains(row, searchTerm))
+                            matched.Add(row);
+                    data = matched;
+                    continue;
+                }
+
                 data = edgeCaseFilter.Field.ToLower() switch
                 {
-                    "rawsubscriptionproperties" => data.Where(i =>
-                            i.HandlerProperties.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
-                            i.ReceiverProperties.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
-                            i.MapperProperties.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
-                            i.ValidatorProperties.Any(p => p.Value.ToLower().Contains(searchTerm)))
-                        .ToList(),
                     "rawfiltersproperties" => data.Where(i =>
                             i.DocumentFilter.Any(p => p.Value.ToLower().Contains(searchTerm)) ||
                             (i.MatchExpression?.ToString()?.Contains(searchTerm) ?? false))
@@ -212,7 +253,7 @@ namespace SW.Bitween.Resources.Subscriptions
                 };
             }
 
-            // Only the page being returned, same as the normal path — the edge-case filters run
+            // Only the page being returned, same as the normal path - the edge-case filters run
             // over the whole set in memory, and shaping schedules for all of it would be waste.
             var page = data.Skip(searchyRequest.PageSize * searchyRequest.PageIndex)
                 .Take(searchyRequest.PageSize).ToList();
@@ -226,6 +267,39 @@ namespace SW.Bitween.Resources.Subscriptions
             };
         }
 
+
+        /// <summary>
+        /// Matches only what <c>Subscriptions/Get</c> would show. Matching the stored values let a
+        /// viewer recover a masked secret one character at a time: search "a", "ab", "abc" and
+        /// watch which subscriptions stay in the result.
+        /// </summary>
+        private async Task<bool> AnyVisiblePropertyContains(SubscriptionSearch row, string searchTerm)
+        {
+            var bags = new (string AdapterId, ICollection<KeyAndValue> Properties)[]
+            {
+                (row.HandlerId, row.HandlerProperties),
+                (row.ReceiverId, row.ReceiverProperties),
+                (row.MapperId, row.MapperProperties),
+                (row.ValidatorId, row.ValidatorProperties),
+            };
+
+            foreach (var (adapterId, properties) in bags)
+            {
+                if (properties is null || properties.Count == 0) continue;
+
+                var stored = properties
+                    .Where(p => p.Key is not null)
+                    .GroupBy(p => p.Key)
+                    .ToDictionary(g => g.Key, g => g.Last().Value);
+                var visible = await _secrets.Mask(adapterId, stored);
+
+                if (visible.Values.Any(v => v is not null && v != AdapterSecretProperties.Sentinel &&
+                                            v.ToLower().Contains(searchTerm)))
+                    return true;
+            }
+
+            return false;
+        }
 
         private ICollection<SearchyFilter> HandleSearchyEdgeCases(ICollection<SearchyCondition> filters)
         {

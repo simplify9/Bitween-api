@@ -17,6 +17,9 @@ namespace SW.Bitween
         BitweenOptions bitweenOptions)
     {
         public const string NativePrefix = "native";
+
+        public static bool IsNative(string adapterId) =>
+            adapterId != null && adapterId.StartsWith(NativePrefix, StringComparison.OrdinalIgnoreCase);
         public Dictionary<string, StartupValue> GetStartupValues(string adapterId)
         {
             var result = new Dictionary<string, StartupValue>();
@@ -69,7 +72,7 @@ namespace SW.Bitween
                 else
                 {
                     // A secret's default is withheld here as it is everywhere else an adapter is
-                    // described to a client — see AdapterStartupValues.WithoutSecretDefaults.
+                    // described to a client - see AdapterStartupValues.WithoutSecretDefaults.
                     var shown = prop.GetCustomAttribute<SecureAttribute>() != null ? null : defaultValue;
                     result[prop.Name] = $"{prop.Name} ({shown ?? "null"})";
                 }
@@ -105,7 +108,7 @@ namespace SW.Bitween
 
         /// <summary>
         /// Whether the mapper with this id takes its partner and global values as context instead of
-        /// out of the payload — see <see cref="IReceivesMappingContext"/>.
+        /// out of the payload - see <see cref="IReceivesMappingContext"/>.
         /// </summary>
         /// <remarks>
         /// Deliberately does not go through <see cref="GetNativeMapper"/>: that initializes the
@@ -120,6 +123,10 @@ namespace SW.Bitween
                 a.GetType().Name.Equals(adapterId, StringComparison.OrdinalIgnoreCase) &&
                 a is IReceivesMappingContext);
         }
+
+        /// <summary>The built-in receiver's type, without setting it up: for asking what it can do.</summary>
+        public Type? NativeReceiverType(string adapterId) =>
+            nativeReceivers.FirstOrDefault(a => a.GetType().Name.Equals(adapterId, StringComparison.OrdinalIgnoreCase))?.GetType();
 
         public INativeInfolinkReceiver GetNativeReceiver(string adapterId, IDictionary<string, string> settings)
         {
@@ -175,6 +182,10 @@ namespace SW.Bitween
             // being offered in a picker where they could only fail.
             if (string.IsNullOrWhiteSpace(bitweenOptions.RebexLicenseKey))
                 adapters = adapters.Where(a => a is not IRequiresRebexLicense).ToList();
+
+            // A channel type's adapter only knows how to send Bitween's own messages. A channel
+            // names it by picking the type, so no picker offers it.
+            adapters = adapters.Where(a => a is not IChannelMessageAdapter).ToList();
 
             return adapters.Select(a => a.GetType().Name).ToList();
         }

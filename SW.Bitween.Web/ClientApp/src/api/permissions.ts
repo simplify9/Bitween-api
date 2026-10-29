@@ -8,7 +8,7 @@ import { keys } from "./queryKeys";
  * and served by GET /permissions. It deliberately does not live here as well: a second copy would
  * silently drift, and the role matrix would start offering grants the API ignores.
  *
- * What stays here is presentation — how an action is worded and the order columns appear in.
+ * What stays here is presentation - how an action is worded and the order columns appear in.
  */
 export const ACTION_LABELS: Record<ActionId, string> = {
   view: "View",

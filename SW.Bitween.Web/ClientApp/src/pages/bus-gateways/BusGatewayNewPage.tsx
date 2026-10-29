@@ -6,6 +6,7 @@ import { Button, FormError } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { InfoTypePicker } from "../../components/config/pickers";
 import { BackLink } from "../../components/ui/BackLink";
+import { StillNeeds, useFormCheck } from "../../components/ui/formCheck";
 import { keys } from "../../api/queryKeys";
 
 /** Local draft state with the patch-and-clear shape the form body uses. */
@@ -42,9 +43,26 @@ export function BusGatewayNewPage() {
     },
   });
 
+  const check = useFormCheck([
+    {
+      field: "name",
+      failing: !draft.name.trim(),
+      needs: "a name",
+      message: "Give the gateway a name, e.g. ERP events.",
+      focus: "nbg-name",
+    },
+    {
+      field: "type",
+      failing: draft.informationTypeId === null,
+      needs: "an information type to listen for",
+      message: "Pick the information type it listens for.",
+      focus: "nbg-type",
+    },
+  ]);
+
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    create.mutate();
+    check.submit(() => create.mutate());
   };
 
   return (
@@ -56,8 +74,8 @@ export function BusGatewayNewPage() {
         Listens for one information type on the message bus. Add routes afterwards on its page.
       </p>
 
-      <form onSubmit={submit} className="mt-6 max-w-lg space-y-5 rounded-xl border border-ink-200 bg-white p-5">
-        <Field label="Name" htmlFor="nbg-name">
+      <form noValidate onSubmit={submit} className="mt-6 max-w-lg space-y-5 rounded-xl border border-ink-200 bg-white p-5">
+        <Field label="Name" htmlFor="nbg-name" error={check.errors.name}>
           <TextInput
             id="nbg-name"
             required
@@ -68,27 +86,25 @@ export function BusGatewayNewPage() {
           />
         </Field>
 
-        <section>
-          <h2 className="mb-1 text-[13px] font-medium text-ink-700">Listens for</h2>
-          <p className="mb-3 text-[13px] text-ink-500">
-            Only bus-enabled information types can be listened for. The choice is permanent.
-          </p>
+        <Field
+          label="Listens for"
+          htmlFor="nbg-type"
+          hint="Only bus-enabled information types can be listened for. The choice is permanent."
+          error={check.errors.type}
+        >
           <InfoTypePicker
+            id="nbg-type"
             value={draft.informationTypeId}
             onChange={(id) => update({ informationTypeId: id })}
             filter={busEnabled}
             busRequired
           />
-        </section>
+        </Field>
 
         <FormError>{create.error?.message}</FormError>
-        <div className="flex justify-end">
-          <Button
-            type="submit"
-            variant="primary"
-            busy={create.isPending}
-            disabled={!draft.name.trim() || draft.informationTypeId === null}
-          >
+        <div className="flex items-center justify-end gap-3">
+          <StillNeeds missing={check.missing} />
+          <Button type="submit" variant="primary" busy={create.isPending}>
             Create gateway
           </Button>
         </div>

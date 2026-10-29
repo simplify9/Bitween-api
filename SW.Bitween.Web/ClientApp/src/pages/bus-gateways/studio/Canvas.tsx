@@ -20,7 +20,7 @@ import {
 
 /**
  * One subscription in the response chain. Only `active` is expanded into editable
- * nodes; the rest are summaries — three hops fully expanded is fifteen nodes, and
+ * nodes; the rest are summaries - three hops fully expanded is fifteen nodes, and
  * nobody reads fifteen nodes.
  */
 export interface Hop {
@@ -37,7 +37,7 @@ export interface Hop {
 /**
  * The gateway's data path for one route, left to right.
  *
- * Pan and zoom live in `PanZoomCanvas`, shared with the flow map — the two diagrams
+ * Pan and zoom live in `PanZoomCanvas`, shared with the flow map - the two diagrams
  * have to behave identically to feel like one tool.
  */
 export function Canvas({
@@ -54,7 +54,7 @@ export function Canvas({
   routeChosen,
   /** Room reserved on the left for the floating route panel, in rem. */
   gutterRem,
-  /** Changes when the route changes — the view resets to the start of the path. */
+  /** Changes when the route changes - the view resets to the start of the path. */
   resetKey,
 }: {
   routeFace: Omit<StageFace, "id">;
@@ -67,7 +67,7 @@ export function Canvas({
   catalogs: AdapterCatalogs;
   subscriptionNames: { id: number; name: string }[];
   onOpenListener: (listener: BusListener) => void;
-  /** False while a new route still has no subscription — there is no chain to draw yet. */
+  /** False while a new route still has no subscription - there is no chain to draw yet. */
   routeChosen: boolean;
   gutterRem: number;
   resetKey: string;
@@ -99,7 +99,7 @@ export function Canvas({
             <Connector />
             <div className="flex w-64 shrink-0 items-center rounded-xl border border-dashed border-ink-300 bg-ink-50/60 px-4 py-3.5">
               <p className="text-[13px] text-ink-500">
-                Pick the subscription this route runs — it appears here, with its whole pipeline.
+                Pick the subscription this route runs - it appears here, with its whole pipeline.
               </p>
             </div>
           </>
@@ -119,10 +119,10 @@ export function Canvas({
         </div>
 
         <p
-          className="shrink-0 pr-6 pb-5 text-[12px] text-ink-400"
+          className="shrink-0 pr-6 pb-5 text-[12px] text-ink-500"
           style={{ paddingLeft: `${gutterRem + 1.5}rem` }}
         >
-          Every message of this type is offered to all of this gateway's routes —{" "}
+          Every message of this type is offered to all of this gateway's routes -{" "}
           <Link to={`/information-types/${informationTypeId}`} className="hover:text-ink-600 hover:underline">
             see the information type
           </Link>{" "}
@@ -138,7 +138,7 @@ export function Canvas({
  * Recursive, and forked rather than flattened into a single row: a Response can
  * both chain into another subscription *and* publish on the bus, and those two are
  * siblings. Drawn one after the other, the bus card read as if it fed the chained
- * subscription, which is a different — and wrong — story about the data path.
+ * subscription, which is a different - and wrong - story about the data path.
  */
 function HopChain({
   hops,
@@ -215,7 +215,7 @@ function HopChain({
                 className="flex w-52 shrink-0 flex-col justify-center rounded-xl border border-dashed border-ink-300 bg-ink-50/60 px-4 py-3.5 hover:border-ink-400"
               >
                 <span className="text-[13px] font-medium text-ink-700">The chain continues</span>
-                <span className="mt-1 inline-flex items-center gap-1 text-[12px] text-crimson-700">
+                <span className="mt-1 inline-flex items-center gap-1 text-[12px] link">
                   Open the next subscription <ArrowUpRight className="size-3" />
                 </span>
               </Link>
@@ -350,7 +350,7 @@ function CollapsedHop({ hop, label, onOpen }: { hop: Hop; label: string; onOpen:
         <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-ink-100 text-ink-500">
           <Workflow className="size-4" aria-hidden />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-wide text-ink-400 uppercase">
+        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-wide text-ink-500 uppercase">
           {label}
         </span>
         <span
@@ -372,7 +372,7 @@ function CollapsedHop({ hop, label, onOpen }: { hop: Hop; label: string; onOpen:
             className={`h-1 w-7 rounded-full ${s.set ? "bg-ink-500" : "bg-ink-200"}`}
           />
         ))}
-        <span className="ml-1 text-[11px] text-crimson-700">Configure</span>
+        <span className="ml-1 text-[11px] link">Configure</span>
       </span>
     </button>
   );
@@ -400,7 +400,7 @@ function BusDestinationCard({
         <span className="grid size-7 shrink-0 place-items-center rounded-lg bg-ink-100 text-ink-500">
           <Radio className="size-4" aria-hidden />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-wide text-ink-400 uppercase">
+        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-wide text-ink-500 uppercase">
           On the bus
         </span>
       </div>
@@ -433,7 +433,7 @@ function BusDestinationCard({
                   <span className="block truncate text-[12px] font-medium text-ink-800">
                     {l.subscriptionName}
                   </span>
-                  <span className="block truncate text-[11px] text-ink-400" title={l.condition}>
+                  <span className="block truncate text-[11px] text-ink-500" title={l.condition}>
                     {l.gatewayName} · {l.condition}
                   </span>
                 </button>

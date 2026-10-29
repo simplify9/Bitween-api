@@ -32,6 +32,8 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
                 return HttpMethod.Delete;
             case "put":
                 return HttpMethod.Put;
+            case "patch":
+                return HttpMethod.Patch;
             default:
                 return HttpMethod.Post;
         }
@@ -50,15 +52,20 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
     public async Task<IEnumerable<string>> ListFiles()
     {
       HttpClient client = httpProxy.GetClient(_options.Url);
+
+      // On the request, never on the client - see NativeHttpHandler: the client is shared by
+      // every subscription calling the same origin.
+      string? apiKey = null;
+      AuthenticationHeaderValue? authorization = null;
       if (_options.AuthType == "ApiKey")
-        client.DefaultRequestHeaders.Add("ApiKey", _options.ApiKey);
+        apiKey = _options.ApiKey;
       else if (_options.AuthType == "Basic")
       {
         string credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes(_options.LoginUsername + ":" + _options.LoginPassword));
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+        authorization = new AuthenticationHeaderValue("Basic", credentials);
       }
       else if (_options.AuthType == "Bearer")
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _options.LoginPassword);
+        authorization = new AuthenticationHeaderValue("Bearer", _options.LoginPassword);
       else if (_options.AuthType == "Login")
       {
         string token = await HttpLogin.GetToken(client, Require(_options.LoginUrl, "LoginUrl"), _options.LoginBody,
@@ -68,103 +75,124 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
             UserName = _options.LoginUsername,
             Password = _options.LoginPassword
           });
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        authorization = new AuthenticationHeaderValue("Bearer", token);
       }
       else if (_options.AuthType == "OAuth2")
       {
-        var oathRequest = new HttpRequestMessage(HttpMethod.Post, _options.LoginUrl);
-        var oauthContentDictionary = new List<KeyValuePair<string, string>>();
-        oauthContentDictionary.Add(new KeyValuePair<string, string>("client_id", Require(_options.ClientId, "ClientId")));
-        oauthContentDictionary.Add(new KeyValuePair<string, string>("client_secret", Require(_options.ClientSecret, "ClientSecret")));
-        oauthContentDictionary.Add(new KeyValuePair<string, string>("grant_type", "client_credentials"));
-        var oauthContent = new FormUrlEncodedContent(oauthContentDictionary);
-        oathRequest.Content = oauthContent;
-        var oauthResponse = await client.SendAsync(oathRequest);
-        var res = await oauthResponse.Content.ReadAsStringAsync();
-        var resDeserialized = JsonConvert.DeserializeObject<OAuth2Response>(res);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",
-          resDeserialized?.access_token ?? throw new SWException(
-            "The OAuth2 token endpoint did not return a JSON body carrying an 'access_token'."));
+        authorization = new AuthenticationHeaderValue("Bearer",
+          await OAuthTokens.GetAsync(client, _options.LoginUrl, _options.ClientId, _options.ClientSecret));
       }
       
-      HttpContent? content = null;
-      if (!string.IsNullOrEmpty(_options.DefaultRequest ?? string.Empty)) 
-      {
-        string requestBody = _options.DefaultRequest ?? string.Empty;
-        string str = Require(_options.ContentType, "ContentType").ToLower();
-        switch (str)
-        {
-          case "application/x-www-form-urlencoded":
-            content = new FormUrlEncodedContent(
-              JsonConvert.DeserializeObject<Dictionary<string, string>>(requestBody)
-              ?? throw new SWException("DefaultRequest is not a JSON object of form fields."));
-            break;
-          case "application/json":
-            content =  new StringContent(requestBody, Encoding.UTF8, "application/json");
-            break;
-          default:
-            content = new StringContent(requestBody, Encoding.UTF8, Require(_options.ContentType, "ContentType"));
-            break;
-        }
-      }
+      // Pages are followed only on the endpoint's own origin: a next link elsewhere would be handed
+      // the same credentials.
+      var first = new Uri(Require(_options.Url, "Url"));
+      var paging = !string.IsNullOrWhiteSpace(_options.NextLinkPath) || !string.IsNullOrWhiteSpace(_options.PageParameter);
+      var maxPages = paging ? Math.Max(1, _options.MaxPages) : 1;
+      var page = _options.PageStart;
+      var uri = string.IsNullOrWhiteSpace(_options.PageParameter) ? first : WithQuery(first, _options.PageParameter!, page);
 
-      Uri uri = new Uri(Require(_options.Url, "Url"));
-      HttpRequestMessage request = new HttpRequestMessage()
+      for (var pages = 1; pages <= maxPages; pages++)
       {
-        RequestUri = uri,
-        Method = HttpMethodFromString(Require(_options.Verb, "Verb")),
-        Content = content
-      };
-      string? headers1 = _options.Headers;
-      IEnumerable<KeyValuePair<string, string>>? headers = headers1?.Split(',').Select((Func<string, KeyValuePair<string, string>>) (h =>
-      {
-        string[] strArray = h.Split(':');
-        return new KeyValuePair<string, string>(strArray[0], strArray[1]);
-      }));
-      if (headers != null)
-      {
-        foreach (KeyValuePair<string, string> keyValuePair1 in headers)
+        var items = Items(await Fetch(client, uri, authorization, apiKey), out var reply);
+        foreach (var item in items)
+          elementDictionary.TryAdd(elementDictionary.Count.ToString(), item.ToString());
+
+        if (!string.IsNullOrWhiteSpace(_options.NextLinkPath))
         {
-          KeyValuePair<string, string> keyValuePair = keyValuePair1;
-          request.Headers.Add(keyValuePair.Key, keyValuePair.Value);
+          var next = reply.SelectToken(_options.NextLinkPath!)?.ToString();
+          if (string.IsNullOrWhiteSpace(next)) break;
+          uri = new Uri(uri, next);
+          if (uri.GetLeftPart(UriPartial.Authority) != first.GetLeftPart(UriPartial.Authority))
+            throw new SWException($"The next page is on {uri.GetLeftPart(UriPartial.Authority)}, not on {first.GetLeftPart(UriPartial.Authority)}; it isn't followed.");
         }
-      }
-      HttpResponseMessage response = await client.SendAsync(request);
-      
-      if (response.StatusCode < HttpStatusCode.OK || response.StatusCode >= HttpStatusCode.InternalServerError)
-        throw new Exception(response.StatusCode.ToString());
-      string resp = await response.Content.ReadAsStringAsync();
-      
-      if (response.StatusCode >= HttpStatusCode.BadRequest)
-        throw new Exception($"Request failed with status {response.StatusCode}: {resp}");
-      // XchangeFile file = response.StatusCode < HttpStatusCode.BadRequest ? new XchangeFile(resp) : new XchangeFile(resp, badData: true);
-      
-      var jsonResponse = JToken.Parse(resp);
-      
-      JArray items;
-      if (!string.IsNullOrEmpty(_options.ArrayPath))
-      {
-        var token = jsonResponse.SelectToken(_options.ArrayPath);
-        if (token is JArray arr)
-          items = arr;
-        else
-          throw new Exception($"The path '{_options.ArrayPath}' did not resolve to any token in the response.");
-      }
-      else
-      {
-        items = jsonResponse is JArray rootArray
-          ? rootArray
-          : new JArray(jsonResponse);
-      }
-      
-      for (int i = 0; i < items.Count; i++)
-      {
-        elementDictionary.TryAdd(i.ToString(), items[i].ToString());
+        else if (!string.IsNullOrWhiteSpace(_options.PageParameter))
+        {
+          if (items.Count == 0) break;
+          uri = WithQuery(first, _options.PageParameter!, ++page);
+        }
+        else break;
       }
 
       return elementDictionary.Keys;
     }
     
+    /// <summary>A request built from the settings, sent and answered as JSON.</summary>
+    private async Task<string> Fetch(HttpClient client, Uri uri, AuthenticationHeaderValue? authorization, string? apiKey)
+    {
+      HttpRequestMessage request = new HttpRequestMessage()
+      {
+        RequestUri = uri,
+        Method = HttpMethodFromString(Require(_options.Verb, "Verb")),
+        Content = Body()
+      };
+      foreach (var (name, value) in HeaderList.Parse(_options.Headers))
+        request.Headers.Add(name, value);
+      if (authorization is not null)
+        request.Headers.Authorization = authorization;
+      if (apiKey is not null)
+        request.Headers.Add("ApiKey", apiKey);
+
+      using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Max(1, _options.TimeoutSeconds)));
+      HttpResponseMessage response;
+      try
+      {
+        response = await client.SendAsync(request, timeout.Token);
+      }
+      catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+      {
+        throw new TimeoutException($"{uri.GetLeftPart(UriPartial.Authority)} did not answer within {_options.TimeoutSeconds} seconds.");
+      }
+
+      if (response.StatusCode < HttpStatusCode.OK || response.StatusCode >= HttpStatusCode.InternalServerError)
+        throw new Exception(response.StatusCode.ToString());
+      string resp = await response.Content.ReadAsStringAsync();
+
+      if (response.StatusCode >= HttpStatusCode.BadRequest)
+        throw new Exception($"Request failed with status {response.StatusCode}: {resp}");
+      return resp;
+    }
+
+    /// <summary>A new body for each request: content can't be sent twice.</summary>
+    private HttpContent? Body()
+    {
+      if (string.IsNullOrEmpty(_options.DefaultRequest ?? string.Empty)) return null;
+      string requestBody = _options.DefaultRequest ?? string.Empty;
+      string str = Require(_options.ContentType, "ContentType").ToLower();
+      switch (str)
+      {
+        case "application/x-www-form-urlencoded":
+          return new FormUrlEncodedContent(
+            JsonConvert.DeserializeObject<Dictionary<string, string>>(requestBody)
+            ?? throw new SWException("DefaultRequest is not a JSON object of form fields."));
+        case "application/json":
+          return new StringContent(requestBody, Encoding.UTF8, "application/json");
+        default:
+          return new StringContent(requestBody, Encoding.UTF8, Require(_options.ContentType, "ContentType"));
+      }
+    }
+
+    /// <summary>The items of one reply: the array at ArrayPath, a root array, or the reply as one item.</summary>
+    private JArray Items(string resp, out JToken reply)
+    {
+      reply = JToken.Parse(resp);
+      if (!string.IsNullOrEmpty(_options.ArrayPath))
+      {
+        var token = reply.SelectToken(_options.ArrayPath);
+        if (token is JArray arr)
+          return arr;
+        throw new Exception($"The path '{_options.ArrayPath}' did not resolve to any token in the response.");
+      }
+
+      return reply is JArray rootArray ? rootArray : new JArray(reply);
+    }
+
+    private static Uri WithQuery(Uri uri, string name, int value)
+    {
+      var query = System.Web.HttpUtility.ParseQueryString(uri.Query);
+      query[name] = value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+      return new UriBuilder(uri) { Query = query.ToString() }.Uri;
+    }
+
     public async Task<XchangeFile> GetFile(string fileId)
     {
       return new XchangeFile(elementDictionary[fileId]);

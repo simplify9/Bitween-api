@@ -1,6 +1,8 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Combobox, ComboboxButton, ComboboxInput, ComboboxOption, ComboboxOptions } from "@headlessui/react";
 import { Check, ChevronsUpDown } from "lucide-react";
+import { ProblemText } from "./basics";
+import { useFieldProps } from "./forms";
 
 export interface SearchSelectOption {
   value: string;
@@ -21,7 +23,7 @@ export interface SearchSelectOption {
 }
 
 /**
- * A searchable dropdown (Headless UI combobox) for entity pickers —
+ * A searchable dropdown (Headless UI combobox) for entity pickers -
  * anything whose option list grows with data. Typing filters in memory
  * across label + code; rows can carry hints or fully custom rendering.
  * Small fixed enums should keep using the native `Select`.
@@ -51,7 +53,7 @@ export function SearchSelect({
   "aria-label"?: string;
   /**
    * Accept a typed value the options don't carry, offered as the last row.
-   * For fields where the known list is a convenience rather than the rule —
+   * For fields where the known list is a convenience rather than the rule -
    * without it, typing a name nothing matches dead-ends on "Nothing matches",
    * and the way out is a link elsewhere on the page that reads as unrelated.
    *
@@ -61,6 +63,8 @@ export function SearchSelect({
   freeText?: (query: string) => SearchSelectOption | string;
 }) {
   const [query, setQuery] = useState("");
+  // Inside a Field, its error turns the border red and its note describes the input, as a TextInput's would.
+  const field = useFieldProps<{ id?: string; "aria-describedby"?: string; "aria-invalid"?: boolean }>({ id });
 
   const all = useMemo(
     () => (clearLabel ? [{ value: "", label: clearLabel }, ...options] : options),
@@ -96,14 +100,18 @@ export function SearchSelect({
     >
       <div className="relative">
         <ComboboxInput
-          id={id}
+          id={field.id}
           aria-label={ariaLabel}
+          aria-describedby={field["aria-describedby"]}
+          aria-invalid={field["aria-invalid"]}
           placeholder={selected && selected.value !== "" ? undefined : (clearLabel ?? placeholder)}
           displayValue={(v: string) => (v === "" ? "" : (all.find((o) => o.value === v)?.label ?? ""))}
           onChange={(e) => setQuery(e.target.value)}
-          className={`${size === "sm" ? "h-8 text-[13px]" : "h-9.5 text-sm"} w-full rounded-lg border border-ink-200 bg-white pr-8 pl-3 text-ink-900 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-500`}
+          className={`${size === "sm" ? "h-8 text-[13px]" : "h-9.5 text-sm"} w-full rounded-lg border border-ink-200 bg-white pr-8 pl-3 text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none aria-invalid:border-danger-600 disabled:bg-ink-50 disabled:text-ink-500`}
         />
-        <ComboboxButton className="absolute inset-y-0 right-0 flex w-8 cursor-pointer items-center justify-center text-ink-400 hover:text-ink-600">
+        <ComboboxButton
+          aria-label={ariaLabel ? `${ariaLabel}: show the choices` : "Show the choices"}
+          className="touch-target absolute inset-y-0 right-0 flex w-8 cursor-pointer items-center justify-center text-ink-500 hover:text-ink-600">
           <ChevronsUpDown className="size-3.5" aria-hidden />
         </ComboboxButton>
       </div>
@@ -130,7 +138,7 @@ export function SearchSelect({
                     {o.label}
                   </span>
                   {o.sublabel && (
-                    <span className="block truncate text-xs text-ink-400">{o.sublabel}</span>
+                    <span className="block truncate text-xs text-ink-500">{o.sublabel}</span>
                   )}
                 </span>
                 {o.code && (
@@ -141,7 +149,7 @@ export function SearchSelect({
                 {/* Shrinkable, unlike the label: whatever a hint adds, it is never the thing
                     worth reading if only one of the two can fit. */}
                 {o.hint && (
-                  <span className="max-w-[50%] min-w-0 truncate text-xs text-ink-400">{o.hint}</span>
+                  <span className="max-w-[50%] min-w-0 truncate text-xs text-ink-500">{o.hint}</span>
                 )}
                 <Check className="size-3.5 shrink-0 text-crimson-600 opacity-0 group-data-selected:opacity-100" aria-hidden />
               </>
@@ -159,14 +167,42 @@ export function SearchSelect({
           </ComboboxOption>
         )}
         {typeof offered === "string" && (
-          <div className="border-t border-ink-100 px-3 py-2 text-sm text-danger-700 first:border-t-0">
-            {offered}
+          <div className="border-t border-ink-100 px-3 py-2 first:border-t-0">
+            <ProblemText plain>{offered}</ProblemText>
           </div>
         )}
         {filtered.length === 0 && offered === null && (
-          <div className="px-3 py-2 text-sm text-ink-400">Nothing matches “{query}”.</div>
+          <div className="px-3 py-2 text-sm text-ink-500">Nothing matches “{query}”.</div>
         )}
       </ComboboxOptions>
     </Combobox>
+  );
+}
+
+/**
+ * A filter-bar choice from a short fixed list ("Any status", "Active", "Inactive"), drawn as the
+ * same combobox as the entity filters it sits beside: a native select next to a styled one read
+ * as two kinds of control doing the same job. The list's "" option becomes the clear choice.
+ */
+export function FilterSelect({
+  value,
+  onChange,
+  options,
+  "aria-label": ariaLabel,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+  "aria-label": string;
+}) {
+  return (
+    <SearchSelect
+      aria-label={ariaLabel}
+      size="sm"
+      clearLabel={options.find((o) => o.value === "")?.label}
+      value={value}
+      onChange={onChange}
+      options={options.filter((o) => o.value !== "")}
+    />
   );
 }

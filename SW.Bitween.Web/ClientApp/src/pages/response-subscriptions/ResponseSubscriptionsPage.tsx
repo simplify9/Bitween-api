@@ -1,23 +1,24 @@
 import { useMemo } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { CornerDownLeft, Plus, Search } from "lucide-react";
-import { api } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { CornerDownLeft, Plus } from "lucide-react";
+import { api, type MirrorListFilter, type SubscriptionRow } from "../../api";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
-import { Select } from "../../components/ui/forms";
+import { BringFromProd } from "../mirror/BringFromProd";
+import { PROD_FILTER_OPTIONS, ProdNotice, ProdStatus, TestFromProd, useProdListing } from "../mirror/ProdList";
+import { Button, EmptyState, LoadError, LoadingBlock, ProblemText } from "../../components/ui/basics";
+import { ExceptionLine } from "../../components/ui/Exception";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
-import {
-  HealthBadge,
-  LinkListCell,
-  SubscriptionStatusBadges,
-  useRetryPolicyNames,
-  useSubscriptionsCache,
-  useWorkGroupNames,
-} from "../../components/config/shared";
+import { HealthBadge, LinkListCell, SubscriptionStatusBadges } from "../../components/config/shared";
+import { useRetryPolicyNames, useSubscriptionsCache, useWorkGroupNames } from "../../components/config/lookups";
 import { keys } from "../../api/queryKeys";
+import { useListParams } from "../../lib/listParams";
+import { subscriptionPath } from "../../lib/subscriptionPaths";
+import { SearchBox } from "../../components/ui/SearchBox";
+import { FilterSelect } from "../../components/ui/SearchSelect";
 
 const STATUS_OPTIONS = [
   { value: "", label: "Any status" },
@@ -28,23 +29,25 @@ const STATUS_OPTIONS = [
 const PAGE_SIZE = 25;
 
 /**
- * Response subscriptions — pipelines that run on what another subscription's delivery
+ * Response subscriptions - pipelines that run on what another subscription's delivery
  * hands back. They also appear on the Subscriptions page; this page exists for the one
  * column only they have: which subscriptions feed them.
  */
 export function ResponseSubscriptionsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
   const inactiveParam = searchParams.get("inactive");
   const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
+  const prod = useProdListing("subscriptions");
+  const prodFilter = prod.ready ? (searchParams.get("prod") as MirrorListFilter | null) : null;
   const canSeeInfoTypes = useSessionCan("documents.view");
 
   const rows = useQuery({
-    queryKey: keys.subscriptions.rowsSearch({ type: "Response", q, inactive, offset }),
+    queryKey: keys.subscriptions.rowsSearch({ type: "Response", q, inactive, prodFilter, offset }),
     queryFn: () =>
-      api.searchSubscriptionRows({ search: q, type: "Response", inactive, offset, limit: PAGE_SIZE }),
+      api.searchSubscriptionRows({ search: q, type: "Response", inactive, mirror: prodFilter, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
   // The list rows don't carry work group, retry policy or who points at what; the
@@ -55,66 +58,87 @@ export function ResponseSubscriptionsPage() {
   const workGroupNames = useWorkGroupNames();
   const retryPolicyNames = useRetryPolicyNames();
 
-  const setParam = (key: string, value: string | null, resetOffset = true) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        if (resetOffset) next.delete("offset");
-        return next;
-      },
-      { replace: true },
-    );
 
   const filtered = rows.data?.result ?? [];
   const total = rows.data?.total ?? 0;
+
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="subscriptions.create">
+      <Button variant="primary" onClick={() => navigate("/response-subscriptions/new")}>
+        <Plus className="size-4" /> New response subscription
+      </Button>
+    </Can>
+  );
 
   return (
     <div>
       <PageHeader
         title="Response subscriptions"
-        description="Pipelines that run on what another subscription's delivery hands back — an order id, an acknowledgement, a label."
+        description="Pipelines that run on what another subscription's delivery hands back - an order id, an acknowledgement, a label."
         actions={
-          <Can permission="subscriptions.create">
-            <Button variant="primary" onClick={() => navigate("/response-subscriptions/new")}>
-              <Plus className="size-4" /> New response subscription
-            </Button>
-          </Can>
+          <>
+            <BringFromProd section="subscriptions" type="Response" label="response subscriptions" />
+            <TestFromProd listing={prod} section="subscriptions" type="Response" label="response subscriptions" />
+            {createAction}
+          </>
         }
+        help={{
+          title: "How response subscriptions work",
+          body: (
+            <>
+              <p>
+                A response subscription doesn't receive documents on its own. It runs when another
+                subscription, one that picks it in its <strong>Response</strong> step, delivers and gets
+                something back.
+              </p>
+              <p>
+                <strong>Fed by</strong> lists those subscriptions. One that nothing feeds never runs, which
+                is why it is flagged here. <strong>Carries</strong> is the information type of the responses
+                it runs on.
+              </p>
+              <p>
+                These also appear on the Subscriptions page; this list exists for the Fed by column.
+              </p>
+            </>
+          ),
+        }}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setParam("q", e.target.value || null)}
-            placeholder="Search response subscriptions"
-            aria-label="Search response subscriptions"
-            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-          />
-        </div>
+        <SearchBox value={searchText} onChange={setSearchText} label="Search response subscriptions" />
         <div className="w-40">
-          <Select
+          <FilterSelect
             aria-label="Filter by status"
-            className="!h-8 text-[13px]"
             value={inactiveParam ?? ""}
-            onChange={(e) => setParam("inactive", e.target.value || null)}
+            onChange={(v) => setParam("inactive", v || null)}
             options={STATUS_OPTIONS}
           />
         </div>
+        {prod.ready && (
+          <div className="w-44">
+            <FilterSelect
+              aria-label="Filter by how it stands against prod"
+              value={prodFilter ?? ""}
+              onChange={(v) => setParam("prod", v || null)}
+              options={PROD_FILTER_OPTIONS}
+            />
+          </div>
+        )}
       </div>
+
+      <ProdNotice listing={prod} />
 
       {rows.isPending ? (
         <LoadingBlock label="Loading response subscriptions…" />
+      ) : rows.isError ? (
+        <LoadError error={rows.error} what="response subscriptions" onRetry={() => void rows.refetch()} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<CornerDownLeft />}
-          title={q || inactive !== null ? "No response subscriptions match" : "No response subscriptions yet"}
+          title={q || inactive !== null || prodFilter ? "No response subscriptions match" : "No response subscriptions yet"} action={q || inactive !== null || prodFilter ? undefined : createAction}
         >
-          {q || inactive !== null
+          {q || inactive !== null || prodFilter
             ? "Try a different search or filter."
             : "Create one, then pick it in another subscription's Response step."}
         </EmptyState>
@@ -123,13 +147,13 @@ export function ResponseSubscriptionsPage() {
           rows={filtered}
           rowKey={(r) => r.id}
           minWidth="min-w-230"
-          onRowClick={(r) => navigate(`/subscriptions/${r.id}`)}
+          onRowClick={(r) => navigate(subscriptionPath(r.id, "Response"))}
           footer={
             <Pagination
               offset={offset}
               limit={PAGE_SIZE}
               total={total}
-              onOffsetChange={(o) => setParam("offset", String(o), false)}
+              onOffsetChange={(o) => setParam("offset", String(o))}
             />
           }
           columns={[
@@ -146,7 +170,7 @@ export function ResponseSubscriptionsPage() {
                   <Link
                     to={`/information-types/${r.informationTypeId}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+                    className="font-mono text-xs text-ink-600 hover:link"
                   >
                     {r.informationTypeCode}
                   </Link>
@@ -162,7 +186,7 @@ export function ResponseSubscriptionsPage() {
               wrap: true,
               cell: (r) => {
                 const feeders = setups.filter((s) => s.responseSubscriptionId === r.id);
-                if (feeders.length === 0) return <span className="text-[13px] text-danger-700">Nothing</span>;
+                if (feeders.length === 0) return <ProblemText plain>Nothing</ProblemText>;
                 return (
                   <LinkListCell
                     label="subscriptions"
@@ -177,17 +201,17 @@ export function ResponseSubscriptionsPage() {
               cell: (r) => {
                 const id = setupById.get(r.id)?.workGroupId ?? null;
                 const name = id === null ? null : (workGroupNames.get(id) ?? null);
-                if (id === null) return <span className="text-[13px] text-ink-400">Ungrouped</span>;
+                if (id === null) return <span className="text-[13px] text-ink-500">Ungrouped</span>;
                 return name ? (
                   <Link
                     to={`/work-groups/${id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:link"
                   >
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-400">—</span>
+                  <span className="text-[13px] text-ink-500">-</span>
                 );
               },
             },
@@ -197,17 +221,17 @@ export function ResponseSubscriptionsPage() {
               cell: (r) => {
                 const id = setupById.get(r.id)?.retryPolicyId ?? null;
                 const name = id === null ? null : (retryPolicyNames.get(id) ?? null);
-                if (id === null) return <span className="text-[13px] text-ink-400">None</span>;
+                if (id === null) return <span className="text-[13px] text-ink-500">None</span>;
                 return name ? (
                   <Link
                     to={`/retry-policies/${id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:link"
                   >
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-400">—</span>
+                  <span className="text-[13px] text-ink-500">-</span>
                 );
               },
             },
@@ -220,19 +244,21 @@ export function ResponseSubscriptionsPage() {
                 </span>
               ),
             },
+            ...(prod.ready
+              ? [{
+                  header: "Prod",
+                  headerTitle: "How its test with prod's traffic last went: Same, Check, Different or Not tested; - when prod has no subscription of its name.",
+                  cell: (r: SubscriptionRow) => <ProdStatus listing={prod} id={r.id} />,
+                }]
+              : []),
             {
               header: "Last error",
               truncate: true,
               cell: (r) =>
                 r.lastException ? (
-                  <span
-                    className="block truncate font-mono text-[11px] text-danger-700"
-                    title={r.lastException}
-                  >
-                    {r.lastException}
-                  </span>
+                  <ExceptionLine text={r.lastException} icon className="font-mono text-[11px] text-danger-700" />
                 ) : (
-                  <span className="text-ink-400">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
           ]}

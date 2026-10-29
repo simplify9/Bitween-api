@@ -1,26 +1,28 @@
 import { useMemo } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Cable, Network, Plus, Search } from "lucide-react";
-import { api, type BusGatewayRow, type SubscriptionRow } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { Cable, Network, Plus } from "lucide-react";
+import { api, type BusGatewayRow, type MirrorListFilter, type SubscriptionRow } from "../../api";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
-import { Select } from "../../components/ui/forms";
+import { BringFromProd } from "../mirror/BringFromProd";
+import { PROD_FILTER_OPTIONS, ProdNotice, ProdStatus, TestFromProd, useProdListing } from "../mirror/ProdList";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
-import { SearchSelect } from "../../components/ui/SearchSelect";
+import { FilterSelect, SearchSelect } from "../../components/ui/SearchSelect";
 import { Table } from "../../components/ui/Table";
-import {
-  LinkListCell,
-  WiredHealthBadge,
-  useSubscriptionRowsById,
-} from "../../components/config/shared";
+import { LinkListCell, WiredHealthBadge } from "../../components/config/shared";
+import { useSubscriptionRowsById } from "../../components/config/lookups";
 import { matchSummary } from "../../lib/match";
 import { keys } from "../../api/queryKeys";
 import { ConnectionBadge } from "../data-sources/ConnectionBadge";
+import { useListParams } from "../../lib/listParams";
+import { NONE } from "../../lib/none";
+import { SearchBox } from "../../components/ui/SearchBox";
 
 /**
- * Bus gateways — messages picked off the bus. A gateway listens for one
+ * Bus gateways - messages picked off the bus. A gateway listens for one
  * information type; its routes decide which subscription handles which message.
  */
 const PAGE_SIZE = 25;
@@ -32,7 +34,7 @@ const STATUS_OPTIONS = [
 ];
 
 export function BusGatewaysPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
   const informationTypeId = searchParams.get("informationTypeId")
@@ -41,11 +43,13 @@ export function BusGatewaysPage() {
   const inactiveParam = searchParams.get("inactive");
   const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
+  const prod = useProdListing("busGateways");
+  const prodFilter = prod.ready ? (searchParams.get("prod") as MirrorListFilter | null) : null;
   const canSeeInfoTypes = useSessionCan("documents.view");
 
   const gateways = useQuery({
-    queryKey: keys.busGateways.search({ q, informationTypeId, inactive, offset }),
-    queryFn: () => api.searchBusGateways({ search: q, informationTypeId, inactive, offset, limit: PAGE_SIZE }),
+    queryKey: keys.busGateways.search({ q, informationTypeId, inactive, prodFilter, offset }),
+    queryFn: () => api.searchBusGateways({ search: q, informationTypeId, inactive, mirror: prodFilter, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
   const subscriptionsById = useSubscriptionRowsById();
@@ -54,57 +58,67 @@ export function BusGatewaysPage() {
       queryKey: keys.informationTypes.list,
       queryFn: () => api.listInformationTypes(),
       enabled: canSeeInfoTypes,
-    }).data ?? [];
+    }).data ?? NONE;
   const infoTypeById = useMemo(() => new Map(infoTypes.map((t) => [t.id, t])), [infoTypes]);
 
-  const setParam = (key: string, value: string | null, resetOffset = true) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        if (resetOffset) next.delete("offset");
-        return next;
-      },
-      { replace: true },
-    );
 
   const rows = gateways.data?.result ?? [];
   const total = gateways.data?.total ?? 0;
+
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="bus-gateways.create">
+      <Button variant="primary" onClick={() => navigate("/bus-gateways/new")}>
+        <Plus className="size-4" /> New bus gateway
+      </Button>
+    </Can>
+  );
 
   return (
     <div>
       <PageHeader
         title="Bus gateways"
         description="Listeners that pick messages off the bus and route them to a subscription."
+        help={{
+          title: "How bus gateways work",
+          body: (
+            <>
+              <p>
+                A bus gateway listens for one <strong>information type</strong>, on Bitween's internal
+                bus or on an external one reached through a <strong>data source</strong> (the Source
+                column). Its <strong>routes</strong> decide which subscription handles each message; with
+                no routes, everything it receives is ignored.
+              </p>
+              <p>
+                Routes match on the information type's <strong>promoted properties</strong>, so{" "}
+                <strong>Matchable on</strong> lists the keys a route here can filter by.{" "}
+                <strong>Message type</strong> is the name on the wire, which the inbound queue is named
+                after: check it first when a publisher says it sent something and nothing arrived.
+              </p>
+              <p>
+                <strong>Type not on bus</strong> means the information type was taken off the internal
+                bus, so no queue exists for it and nothing reaches the gateway. Otherwise Health is the
+                worst case across the subscriptions its routes feed.
+              </p>
+            </>
+          ),
+        }}
         actions={
           <>
             {/* Offered here because this is where someone asking "what feeds what?"
-                is already standing — the map is one level above this table. */}
+                is already standing - the map is one level above this table. */}
             <Button variant="secondary" onClick={() => navigate("/flow")}>
               <Network className="size-4" /> Flow map
             </Button>
-            <Can permission="bus-gateways.create">
-              <Button variant="primary" onClick={() => navigate("/bus-gateways/new")}>
-                <Plus className="size-4" /> New bus gateway
-              </Button>
-            </Can>
+            <BringFromProd section="busGateways" label="bus gateways" />
+            <TestFromProd listing={prod} section="busGateways" label="bus gateways" />
+            {createAction}
           </>
         }
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setParam("q", e.target.value || null)}
-            placeholder="Search gateways"
-            aria-label="Search bus gateways"
-            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-          />
-        </div>
+        <SearchBox value={searchText} onChange={setSearchText} label="Search bus gateways" placeholder="Search gateways" />
         {canSeeInfoTypes && (
           <div className="w-56">
             <SearchSelect
@@ -118,24 +132,37 @@ export function BusGatewaysPage() {
           </div>
         )}
         <div className="w-40">
-          <Select
+          <FilterSelect
             aria-label="Filter by status"
-            className="!h-8 text-[13px]"
             value={inactiveParam ?? ""}
-            onChange={(e) => setParam("inactive", e.target.value || null)}
+            onChange={(v) => setParam("inactive", v || null)}
             options={STATUS_OPTIONS}
           />
         </div>
+        {prod.ready && (
+          <div className="w-44">
+            <FilterSelect
+              aria-label="Filter by how it stands against prod"
+              value={prodFilter ?? ""}
+              onChange={(v) => setParam("prod", v || null)}
+              options={PROD_FILTER_OPTIONS}
+            />
+          </div>
+        )}
       </div>
+
+      <ProdNotice listing={prod} />
 
       {gateways.isPending ? (
         <LoadingBlock label="Loading bus gateways…" />
+      ) : gateways.isError ? (
+        <LoadError error={gateways.error} what="bus gateways" onRetry={() => void gateways.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
           icon={<Cable />}
-          title={q || informationTypeId || inactive !== null ? "No gateways match" : "No bus gateways yet"}
+          title={q || informationTypeId || inactive !== null || prodFilter ? "No gateways match" : "No bus gateways yet"} action={q || informationTypeId || inactive !== null || prodFilter ? undefined : createAction}
         >
-          {q || informationTypeId || inactive !== null
+          {q || informationTypeId || inactive !== null || prodFilter
             ? "Try a different search or filter."
             : "Create a gateway to start handling messages from the bus."}
         </EmptyState>
@@ -150,7 +177,7 @@ export function BusGatewaysPage() {
               offset={offset}
               limit={PAGE_SIZE}
               total={total}
-              onOffsetChange={(o) => setParam("offset", String(o), false)}
+              onOffsetChange={(o) => setParam("offset", String(o))}
             />
           }
           columns={[
@@ -159,7 +186,7 @@ export function BusGatewaysPage() {
               wrap: true,
               cell: (g) => (
                 <span className="flex flex-wrap items-center gap-1.5">
-                  <span className={`font-medium ${g.inactive ? "text-ink-400" : "text-ink-900"}`}>
+                  <span className={`font-medium ${g.inactive ? "text-ink-500" : "text-ink-900"}`}>
                     {g.name}
                   </span>
                   {/* Beside the name, not in the Health column: health reports on what the
@@ -176,7 +203,7 @@ export function BusGatewaysPage() {
                   <Link
                     to={`/information-types/${g.informationTypeId}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+                    className="font-mono text-xs text-ink-600 hover:link"
                   >
                     {g.informationTypeCode}
                   </Link>
@@ -185,13 +212,13 @@ export function BusGatewaysPage() {
                 ),
             },
             // A bus gateway listens for exactly one information type, so unlike
-            // the API gateway list these CAN be columns — one row, one value, no
+            // the API gateway list these CAN be columns - one row, one value, no
             // pairing to lose.
             ...(canSeeInfoTypes
               ? [
                   {
                     // The name on the wire, which is what the inbound queue is
-                    // built from (`…busservice.<name>`) — the fact you need when
+                    // built from (`…busservice.<name>`) - the fact you need when
                     // a publisher says it sent something and nothing arrived.
                     header: "Message type",
                     wrap: true,
@@ -205,7 +232,7 @@ export function BusGatewaysPage() {
                           {t.busMessageTypeName}
                         </code>
                       ) : (
-                        <span className="text-ink-400">—</span>
+                        <span className="text-ink-500">-</span>
                       );
                     },
                   },
@@ -219,7 +246,7 @@ export function BusGatewaysPage() {
                         (p) => p.key,
                       );
                       return keys.length === 0 ? (
-                        <span className="text-[13px] text-ink-400">Nothing promoted</span>
+                        <span className="text-[13px] text-ink-500">Nothing promoted</span>
                       ) : (
                         <span
                           className="block truncate font-mono text-[11px] text-ink-600"
@@ -271,7 +298,7 @@ export function BusGatewaysPage() {
               header: "Health",
               cell: (g) => {
                 // Nothing can reach this gateway at all if its type was taken off
-                // the bus — no queue is declared for it. That outranks anything
+                // the bus - no queue is declared for it. That outranks anything
                 // the routes have to say.
                 //
                 // Only for a gateway on the INTERNAL bus, though: an external one is fed by its
@@ -290,6 +317,13 @@ export function BusGatewaysPage() {
                 );
               },
             },
+            ...(prod.ready
+              ? [{
+                  header: "Prod",
+                  headerTitle: "How the tests with prod's traffic of the subscriptions it leads to last went: Same, Check, Different or Not tested; - when prod has no gateway of its name.",
+                  cell: (g: BusGatewayRow) => <ProdStatus listing={prod} id={g.id} />,
+                }]
+              : []),
           ]}
         />
       )}

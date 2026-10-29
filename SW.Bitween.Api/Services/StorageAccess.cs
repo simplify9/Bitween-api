@@ -32,7 +32,7 @@ public class StorageAccess(IServiceProvider serviceProvider, BitweenOptions opti
 
     /// <summary>
     /// <c>true</c> when the file opened without credentials, <c>false</c> when the storage refused it, and
-    /// <c>null</c> when that can't be told — the storage address isn't reachable from here, say.
+    /// <c>null</c> when that can't be told - the storage address isn't reachable from here, say.
     /// </summary>
     public virtual async Task<bool?> IsOpenToAnyoneAsync(bool refresh = false, CancellationToken cancellationToken = default)
     {
@@ -107,8 +107,8 @@ public class StorageAccess(IServiceProvider serviceProvider, BitweenOptions opti
     }
 
     /// <summary>
-    /// Open means the file itself came back. Refused or not found means private; anything else — a server
-    /// error, some other page — can't be told either way.
+    /// Open means the file itself came back. Refused or not found means private; anything else - a server
+    /// error, some other page - can't be told either way.
     /// </summary>
     public static bool? Opens(HttpStatusCode status, string body) =>
         status == HttpStatusCode.OK && body == ProbeText ? true

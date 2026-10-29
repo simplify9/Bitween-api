@@ -10,8 +10,8 @@ using Microsoft.Extensions.Logging;
 namespace SW.Bitween;
 
 /// <summary>
-/// Keeps Bitween's container private on Azure. Azure has no private setting per file — the container
-/// decides for everything in it — and the storage library creates the container open to everyone, so at
+/// Keeps Bitween's container private on Azure. Azure has no private setting per file - the container
+/// decides for everything in it - and the storage library creates the container open to everyone, so at
 /// startup it's switched to private. Bitween reads and writes with its own credentials and hands out links
 /// it serves itself, so nothing of Bitween's needs anonymous access. When the switch isn't allowed, the
 /// reason goes to <see cref="StorageAccess"/> for the settings page.

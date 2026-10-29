@@ -13,9 +13,28 @@ An information type describes one kind of business document, such as a purchase 
 | Promoted properties | Named paths into the payload, such as `orderId` pointing at `order.id` in JSON or an XPath in XML. Their values are extracted from every exchange, shown in lists in the type's order and searchable. The first one names archived exchanges. Point them at short values, such as an order number: a value longer than 500 characters is stored cut. |
 | Available on the bus, bus message type name | When enabled, Bitween consumes RabbitMQ messages published under this name and treats each one as a document of this type. The name cannot contain spaces and must be unique ignoring case. |
 | Disregard unfiltered messages | When on, documents arriving on the bus are filtered straight away. Only matching subscriptions get exchanges, and no document-level exchange is recorded. |
-| Duplicate interval | Stored and shown, but not enforced by the current code. |
+| Duplicate window, drop duplicates | Minutes within which the same payload from the same partner again is a duplicate; 0 checks nothing. See [Duplicates](#duplicates). |
 
 The information type with id `10001` is reserved for aggregation output.
+
+### Duplicates
+
+With a duplicate window, a payload is compared, by its hash, with the exchanges of its type started
+within the window, where it first arrives: an API gateway, the older partner endpoint, a scheduled job,
+the bus or a customer's broker. Retries, aggregations and exchanges made from a response are never
+checked; they repeat a payload on purpose. The comparison is per partner, so the same document from two
+partners is two documents. A payload arriving with no partner, from the bus or a broker, matches its
+earlier copy whichever partner that was routed to.
+
+- **Drop duplicates off**, the default and how every type that had a window before this behaves: a
+  duplicate goes through like any message, with the reference `duplicate-of: <exchange id>`, and is
+  counted. The type's page says how many arrived in the last 7 days, which is what to look at before
+  turning dropping on.
+- **Drop duplicates on**: no exchange is made. An API gateway answers with the exchange the payload
+  repeats and the header `Bitween-Duplicate-Of`, as it answers a replayed `Idempotency-Key`; the older
+  endpoint answers the same way; a scheduled job's item is taken from the source as if received.
+
+Duplicates are kept for 30 days for the count, and pruned with receive attempts.
 
 ## Partner
 
@@ -81,7 +100,9 @@ A result also records which retry group matched, the attempt number and, when no
 
 ## Work group
 
-A work group is a processing lane. Each work group gets one RabbitMQ queue for exchanges and another for results, with its own prefetch and priority. Subscriptions without a work group share the *Ungrouped* lane. Use work groups to stop a slow or busy integration from delaying the others.
+A work group is a processing lane. Each work group gets one RabbitMQ queue for exchanges and another for results, with its own prefetch, priority and parallel exchanges. Subscriptions without a work group share the *Ungrouped* lane. Use work groups to stop a slow or busy integration from delaying the others.
+
+**Parallel exchanges** is how many of the lane's exchanges run at once on each node. Empty, it is the prefetch, which caps it in any case: a node never holds more than prefetch messages of a lane. At 1 the lane runs one exchange at a time, in the order they arrive, so a partner gets one call at a time per node; above 1 the order within the lane is not kept. Prefetch is the buffer, parallel exchanges the concurrency. The results lane always runs one at a time. The Ungrouped lane takes `Bitween:BusDefaultConcurrency`.
 
 The queue name is built from the work group's id and its bus message name. Changing the bus message name moves the lane to a new queue.
 
@@ -101,9 +122,11 @@ A global value set is a named dictionary shared by all adapters. Adapters refere
 | On-hold exchange | A message routed by content to a paused subscription. It becomes a real exchange when the subscription is resumed. |
 | Delayed retry | An automatic retry waiting for its time. Its id is the failed exchange's id. |
 | Receive attempt | One run of a scheduled job or aggregation and its outcome: received data, nothing new, or failed. |
-| Notifier | A handler adapter that runs after exchanges of chosen subscriptions succeed, return a bad response or fail. |
+| Notification channel | Where notifications and alerts are sent: Email, Microsoft Teams, Slack, or any other handler adapter with its properties. |
+| Notification | A subscription's rule to send through a channel when its exchanges fail, return a bad response or succeed, or when it goes quiet. |
+| Legacy notifier | A notifier made before channels. It still runs for the subscriptions it watches, but new ones are not offered in the UI. |
 | Retry policy | Rules that decide whether and when a failed exchange is retried. |
-| Category | A code and description used to group subscriptions. |
+| Category | A code and description used to group subscriptions. Picked on the subscription's page, beside its work group; **All subscriptions** filters by it and its **Categories** button adds, renames and deletes them (one in use can't be deleted). |
 | Data source | A connection to a customer's broker or database, held open by a resident adapter. See [Data sources](data-sources.md). |
 | Statement | A named piece of SQL a database data source is allowed to run. See [Databases](databases.md). |
 | Resident adapter | An adapter that runs as a long-lived process instead of one process per call. |

@@ -1,0 +1,47 @@
+{
+  "manifestVersion": 1,
+  "id": "nativemapper",
+  "displayName": "Mapping rules",
+  "summary": "Transforms the message with mapping rules built in Bitween\u0027s mapping editor.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "mapping",
+    "transform",
+    "json",
+    "xml",
+    "csv"
+  ],
+  "categories": [
+    "Transformation"
+  ],
+  "kinds": [
+    "mapper"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "MappingRules",
+      "type": "text",
+      "default": "",
+      "description": "The mapping rules, as JSON. Written by the mapping editor."
+    },
+    {
+      "name": "SourceSample",
+      "type": "text",
+      "default": "",
+      "description": "Sample source document, kept for the editor. Never read while mapping."
+    },
+    {
+      "name": "TargetSample",
+      "type": "text",
+      "default": "",
+      "description": "Sample target document, kept for the editor. Never read while mapping."
+    }
+  ]
+}

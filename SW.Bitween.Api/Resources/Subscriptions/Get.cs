@@ -27,9 +27,17 @@ namespace SW.Bitween.Resources.Subscriptions
         public async Task<object> Handle(int key)
         {
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.View);
+            return await Read(key);
+        }
 
+        /// <summary>The subscription as the API answers for it, secrets masked. Also what a revision records.</summary>
+        public async Task<SubscriptionGet> Read(int key)
+        {
+            // A missing one is a 404, which the page says as "no longer exists"; it used to be a
+            // NullReferenceException and a 500.
             var subscriber =
-                await dbContext.Set<Subscription>().AsNoTracking().Search("Id", key).SingleOrDefaultAsync();
+                await dbContext.Set<Subscription>().AsNoTracking().Search("Id", key).SingleOrDefaultAsync()
+                ?? throw new SWNotFoundException(key.ToString());
 
             var response =
                 new SubscriptionGet
@@ -41,6 +49,10 @@ namespace SW.Bitween.Resources.Subscriptions
                     Inactive = subscriber.Inactive,
                     MapperId = subscriber.MapperId,
                     ReceiverId = subscriber.ReceiverId,
+                    HandlerVersion = subscriber.HandlerVersion,
+                    MapperVersion = subscriber.MapperVersion,
+                    ReceiverVersion = subscriber.ReceiverVersion,
+                    ValidatorVersion = subscriber.ValidatorVersion,
 
                     // Which data source every stage of this subscription runs through. Dropped
                     // from this projection once, and the cost was quiet: the UI read every bound
@@ -60,11 +72,15 @@ namespace SW.Bitween.Resources.Subscriptions
                     RunOnBadResponses = subscriber.RunOnBadResponses,
                     ReceiveOn = subscriber.ReceiveOn,
                     AggregateOn = subscriber.AggregateOn,
-                    ConsecutiveFailures = subscriber.ConsecutiveFailures,
+                    ConsecutiveFailures = await SubscriptionFailures.CountAsync(dbContext, subscriber),
                     LastException = subscriber.LastException,
                     AggregationTarget = subscriber.AggregationTarget,
                     ValidatorId = subscriber.ValidatorId,
                     PausedOn = subscriber.PausedOn,
+                    PausedAutomatically = subscriber.PausedAutomatically,
+                    AutoPauseAfterFailures = subscriber.AutoPauseAfterFailures,
+                    ExpectTraffic = subscriber.ExpectTraffic,
+                    QuietSince = subscriber.QuietSince,
                     MatchExpression = subscriber.MatchExpression,
                     CategoryDescription = subscriber.Category?.Description,
                     CategoryCode = subscriber.Category?.Code,
@@ -72,6 +88,7 @@ namespace SW.Bitween.Resources.Subscriptions
                     WorkGroupId = subscriber.WorkGroupId,
                     RetryPolicyId = subscriber.RetryPolicyId,
                     CustomRetryPolicy = subscriber.CustomRetryPolicy,
+                    Notifications = subscriber.Notifications ?? [],
                     Schedules = subscriber.Schedules.Select(s => new ScheduleView
                     {
                         Backwards = s.Backwards,

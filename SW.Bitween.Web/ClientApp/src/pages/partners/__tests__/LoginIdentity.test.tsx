@@ -5,7 +5,7 @@ import { apiPath, renderApp } from "../../../__tests__/support/renderApp";
 
 /**
  * A partner's login server identity is how a gateway taking tokens knows it. The partner update
- * copies every field it is sent, so any write that forgets the identity clears it — and the
+ * copies every field it is sent, so any write that forgets the identity clears it - and the
  * partner is cut off from every such gateway with nothing on screen to say why.
  */
 const empty = { result: [], totalCount: 0 };

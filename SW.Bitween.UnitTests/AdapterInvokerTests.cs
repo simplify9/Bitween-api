@@ -11,7 +11,7 @@ namespace SW.Bitween.UnitTests;
 /// <summary>
 /// Which runtime runs an adapter.
 ///
-/// There are three — in-process, a spawned process, a pooled long-lived one — and they are not
+/// There are three - in-process, a spawned process, a pooled long-lived one - and they are not
 /// interchangeable: sending a resident adapter down the classic path does not fail cleanly, it
 /// waits out the command timeout for an answer that will never come. Choosing correctly is
 /// therefore not a detail, and it is made here rather than at every call site so there is one
@@ -59,7 +59,7 @@ public class AdapterInvokerTests
 
     /// <summary>
     /// The role travels with the call. A mapper and a handler are both invoked as Handle, and only
-    /// the role tells a native runtime which of the two registrations to resolve — so losing it
+    /// the role tells a native runtime which of the two registrations to resolve - so losing it
     /// here would silently run the wrong adapter.
     /// </summary>
     [TestMethod]
@@ -88,7 +88,7 @@ public class AdapterInvokerTests
 
     /// <summary>
     /// A one-call invoke has to release the session. For a resident adapter the session IS a
-    /// pooled lease, so leaking one takes a warm instance out of circulation for good — and the
+    /// pooled lease, so leaking one takes a warm instance out of circulation for good - and the
     /// pool runs dry with no error to say why.
     /// </summary>
     [TestMethod]

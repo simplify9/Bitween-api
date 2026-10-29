@@ -8,7 +8,7 @@ import tailwindcss from "@tailwindcss/vite";
  * Empties wwwroot/assets before a build writes the new ones.
  *
  * Every build names its chunks after their content, so nothing ever overwrites
- * anything and the folder only grows — 146 files and 365MB of superseded bundles
+ * anything and the folder only grows - 146 files and 365MB of superseded bundles
  * by the time this was added, all of them still servable.
  *
  * Only assets/: the rest of wwwroot is legacy content the SPA does not own, which

@@ -18,8 +18,10 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
             throw new SWValidationException("WORK_GROUP_NOT_FOUND", $"Category with id {key} was not found");
 
         // Update binds the same CreateWorkGroupModel type as Create, so Create's
-        // Validate (IValidator<CreateWorkGroupModel>) already runs for this request too —
+        // Validate (IValidator<CreateWorkGroupModel>) already runs for this request too -
         // CqApiController resolves validators by the request's concrete type.
+        if (!string.Equals(workGroup.Name?.Trim(), request.Name?.Trim(), System.StringComparison.OrdinalIgnoreCase))
+            await Create.EnsureNameIsFree(dbContext, request.Name, key);
         var oldBusMessageName = workGroup.GetBusMessageName();
         workGroup.Name = request.Name;
         workGroup.BusMessageName = request.BusMessageName;
@@ -28,7 +30,8 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
             RabbitMqOptions = new ConsumerSettings
             {
                 Prefetch = request.Options?.RabbitMqOptions?.Prefetch,
-                Priority = request.Options?.RabbitMqOptions?.Priority
+                Priority = request.Options?.RabbitMqOptions?.Priority,
+                Concurrency = request.Options?.RabbitMqOptions?.Concurrency
             }
         };
         

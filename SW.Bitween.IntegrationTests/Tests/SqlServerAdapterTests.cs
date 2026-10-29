@@ -17,8 +17,8 @@ namespace SW.Bitween.IntegrationTests.Tests;
 ///
 /// The same suite as the others, which is the point: four engines run on one core, so the parts
 /// that are shared should behave identically and the parts that differ should differ VISIBLY.
-/// SQL Server is the one where the shared statement CHECK could not be shared — its driver refuses
-/// to prepare a command whose parameters have no explicit type — so the check has its own tests
+/// SQL Server is the one where the shared statement CHECK could not be shared - its driver refuses
+/// to prepare a command whose parameters have no explicit type - so the check has its own tests
 /// here rather than relying on the core's.
 /// </summary>
 [Collection("Bitween")]
@@ -79,8 +79,8 @@ public class SqlServerAdapterTests : IClassFixture<SqlServerDbFixture>
     }
 
     /// <summary>
-    /// SQL Server is the most capable of the four on paper, and the list says so where it is true —
-    /// MERGE, OUTPUT and snapshot isolation are all real here — and stays false where the thing
+    /// SQL Server is the most capable of the four on paper, and the list says so where it is true -
+    /// MERGE, OUTPUT and snapshot isolation are all real here - and stays false where the thing
     /// exists but is not wired, which is Service Broker's query notifications.
     /// </summary>
     [SkippableFact]
@@ -136,7 +136,7 @@ public class SqlServerAdapterTests : IClassFixture<SqlServerDbFixture>
         // An extended property, which is where SQL Server keeps what other engines call a comment.
         Assert.Equal("Customer orders", table.Value<string>("comment"));
 
-        // The partition stats, not COUNT(*) — so this is an estimate, and asserting an exact
+        // The partition stats, not COUNT(*) - so this is an estimate, and asserting an exact
         // number would be asserting something the adapter deliberately does not promise. Other
         // tests in this class insert rows too, which is the second reason: 25 is the floor.
         Assert.True(table.Value<long>("rowCount") >= 25,
@@ -148,7 +148,7 @@ public class SqlServerAdapterTests : IClassFixture<SqlServerDbFixture>
         Assert.False(columns[0].Value<bool>("nullable"));
 
         // max_length is in BYTES and an nvarchar stores two per character, so the declared length
-        // is half of it — 50, not 100.
+        // is half of it - 50, not 100.
         var customer = columns.Single(c => c.Value<string>("name") == "customer");
         Assert.Equal("nvarchar(50)", customer.Value<string>("dbType"));
         Assert.Equal(50, customer.Value<int>("length"));
@@ -200,7 +200,7 @@ public class SqlServerAdapterTests : IClassFixture<SqlServerDbFixture>
         Assert.Equal("p_total", parameters[1].Value<string>("name"));
         Assert.Equal("Out", parameters[1].Value<string>("direction"));
 
-        // An inline table-valued function is a function, not a procedure — the shape a receive
+        // An inline table-valued function is a function, not a procedure - the shape a receive
         // statement would select from.
         var functions = await adapter.InvokeAsync<JObject>("Discover",
             new { objectType = "function", schema = "sales" }, timeoutSeconds: 60);
@@ -246,7 +246,7 @@ public class SqlServerAdapterTests : IClassFixture<SqlServerDbFixture>
     }
 
     /// <summary>
-    /// OUTPUT is SQL Server's RETURNING, and the capability list claims it — so a statement using
+    /// OUTPUT is SQL Server's RETURNING, and the capability list claims it - so a statement using
     /// it has to actually work, not merely be declared possible.
     /// </summary>
     [SkippableFact]
@@ -417,7 +417,7 @@ public class SqlServerAdapterTests : IClassFixture<SqlServerDbFixture>
 
     /// <summary>
     /// The check that could not be shared. SqlCommand.Prepare refuses unless every parameter has an
-    /// explicit type, which a caller checking someone else's SQL does not know — so this adapter
+    /// explicit type, which a caller checking someone else's SQL does not know - so this adapter
     /// asks sp_describe_undeclared_parameters instead, and these prove it answers the same
     /// questions the prepared form does everywhere else.
     /// </summary>
@@ -516,7 +516,7 @@ public class SqlServerAdapterTests : IClassFixture<SqlServerDbFixture>
         ["MaxPoolSize"] = "5",
 
         // The container presents a self-signed certificate, which is the case this setting exists
-        // for — and the reason the adapter offers it rather than pretending every server has a
+        // for - and the reason the adapter offers it rather than pretending every server has a
         // certificate chain that validates.
         ["Encrypt"] = "true",
         ["TrustServerCertificate"] = "true",
@@ -539,7 +539,7 @@ public class SqlServerAdapterTests : IClassFixture<SqlServerDbFixture>
 
         ["ReceiveMode"] = "incrementing",
 
-        // TOP rather than LIMIT, and it has to come before the column list — one of the small
+        // TOP rather than LIMIT, and it has to come before the column list - one of the small
         // dialect differences a statement writer meets immediately.
         ["ReceiveStatement"] =
             $"select top 5 * from sales.{SqlServerDbFixture.Table} where id > @cursor order by id",

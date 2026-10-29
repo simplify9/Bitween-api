@@ -79,4 +79,4 @@ Bitween never pauses or deactivates a subscription because of repeated failures.
 ## Caveats
 
 - Deleting a subscription does not remove its Quartz triggers. They keep firing, and the job exits because the subscription is gone.
-- The startup code states that Quartz clustering is not guaranteed with the pinned scheduler packages. With several replicas, only the running flag prevents duplicate receiving, and aggregations have no such flag.
+- Quartz runs clustered, so each fire runs on one replica. Two schedules of one subscription, or a schedule and **Receive now**, are separate jobs and can overlap; the running flag makes the second one skip.

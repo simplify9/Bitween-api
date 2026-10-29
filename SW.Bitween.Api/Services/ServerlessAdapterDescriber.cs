@@ -16,9 +16,10 @@ namespace SW.Bitween;
 /// <remarks>
 /// <para>
 /// Asking is expensive out of all proportion to the answer: the package is downloaded and unzipped,
-/// a <c>dotnet</c> child process is started, and the question goes over stdio — to be told a handful
-/// of key names. So the answer is cached, one ask is shared by everyone who wants it at that moment,
-/// and only so many adapters may be running at once.
+/// a <c>dotnet</c> child process is started, and the question goes over stdio - to be told a handful
+/// of key names. So the answer is remembered for as long as the build it came from is the one that
+/// runs, one ask is shared by everyone who wants it at that moment, and only so many adapters may be
+/// running at once.
 /// </para>
 /// <para>
 /// A singleton, and it has to be. All three of those only work between requests: a per-request copy
@@ -28,14 +29,14 @@ namespace SW.Bitween;
 public class ServerlessAdapterDescriber(
     IServiceScopeFactory scopeFactory,
     IMemoryCache memoryCache,
-    ServerlessOptions serverlessOptions)
+    SW.Serverless.AdapterInstaller adapterInstaller)
 {
     private const string CacheKeyPrefix = "bitween.adapters.startupvalues";
 
     /// <summary>
     /// How many adapters may be running at once, across the whole process.
     /// <para>
-    /// Each one is a child process, and the callers are not coordinated — a screen loading four
+    /// Each one is a child process, and the callers are not coordinated - a screen loading four
     /// kinds of adapter is four requests, and there can be a request per user on top of that. Six
     /// is what one browser was already allowed per host before any of this was batched, so the
     /// server holds no more open at a time than it used to.
@@ -53,14 +54,16 @@ public class ServerlessAdapterDescriber(
 
     public async Task<IDictionary<string, StartupValue>> Describe(string adapterId)
     {
-        if (memoryCache.TryGetValue(CacheKey(adapterId), out IDictionary<string, StartupValue> cached))
-            return cached;
+        var build = await BuildOf(adapterId);
+        if (memoryCache.TryGetValue(CacheKey(adapterId), out Answer cached) && cached.Build == build)
+            return cached.Values;
 
         // Everyone who wants this adapter while it is being asked waits on the one ask, rather than
         // starting an identical child process of their own. Without this the cache does not help
-        // the case it most needs to — a cold start, when every request arrives at once.
-        var asking = _asking.GetOrAdd(adapterId, id =>
-            new Lazy<Task<IDictionary<string, StartupValue>>>(() => Ask(id),
+        // the case it most needs to - a cold start, when every request arrives at once.
+        var key = $"{adapterId}@{build}";
+        var asking = _asking.GetOrAdd(key, _ =>
+            new Lazy<Task<IDictionary<string, StartupValue>>>(() => Ask(adapterId, build),
                 LazyThreadSafetyMode.ExecutionAndPublication));
 
         try
@@ -74,18 +77,34 @@ public class ServerlessAdapterDescriber(
             // needed this entry anyway. Matched on the instance so that a newer ask, started by
             // someone else after this one finished, is not the one taken away.
             _asking.TryRemove(new KeyValuePair<string, Lazy<Task<IDictionary<string, StartupValue>>>>(
-                adapterId, asking));
+                key, asking));
         }
     }
 
-    private async Task<IDictionary<string, StartupValue>> Ask(string adapterId)
+    /// <summary>
+    /// Which build of the adapter a start would run: its package's hash, as the installer has it.
+    /// A storage read at most, where asking is a child process.
+    /// </summary>
+    private async Task<string> BuildOf(string adapterId)
+    {
+        try
+        {
+            return (await adapterInstaller.GetMetadataAsync(adapterId)).Hash;
+        }
+        catch (KeyNotFoundException ex)
+        {
+            throw Incomplete(adapterId, ex);
+        }
+    }
+
+    private async Task<IDictionary<string, StartupValue>> Ask(string adapterId, string build)
     {
         await _starts.WaitAsync();
         try
         {
             // The queue may have been long enough for someone else to have answered this already.
-            if (memoryCache.TryGetValue(CacheKey(adapterId), out IDictionary<string, StartupValue> cached))
-                return cached;
+            if (memoryCache.TryGetValue(CacheKey(adapterId), out Answer cached) && cached.Build == build)
+                return cached.Values;
 
             // Its own scope, disposed the moment this returns, because disposing the serverless
             // service is what quits the child process. On the request's scope instead, a caller
@@ -100,9 +119,7 @@ public class ServerlessAdapterDescriber(
             }
             catch (KeyNotFoundException ex)
             {
-                throw new BitweenException(
-                    $"Adapter '{adapterId}' metadata is incomplete or the adapter package is not installed. " +
-                    $"Missing metadata key: {ex.Message}", ex);
+                throw Incomplete(adapterId, ex);
             }
 
             var startupValues = await serverless.GetExpectedStartupValues()
@@ -114,20 +131,30 @@ public class ServerlessAdapterDescriber(
             IDictionary<string, StartupValue> shared =
                 new ReadOnlyDictionary<string, StartupValue>(startupValues);
 
-            // Only a successful answer is cached — a boot that failed because, say, the adapter's
+            // Only a successful answer is cached - a boot that failed because, say, the adapter's
             // runtime is missing locally must not stick around as "this adapter has no properties".
             //
-            // Held for as long as ServerlessService already serves a stale Hash from its own
-            // metadata cache. Within that window it boots the previous build of a re-uploaded
-            // adapter regardless, so this adds no staleness that re-uploading did not already have.
-            return memoryCache.Set(CacheKey(adapterId), shared,
-                TimeSpan.FromMinutes(serverlessOptions.AdapterMetadataCacheDuration));
+            // Held for as long as this build is the one that runs, rather than the five minutes it
+            // was, after which every adapter was started again for an answer that had not changed:
+            // the first read of a subscription after that took a second per adapter. A re-uploaded
+            // adapter has a new hash, which the installer has once its metadata cache runs out -
+            // when ServerlessService starts booting the new build too - and is asked again then. A
+            // day without anyone asking lets the answer go.
+            return memoryCache.Set(CacheKey(adapterId), new Answer(build, shared),
+                new MemoryCacheEntryOptions { SlidingExpiration = TimeSpan.FromDays(1) }).Values;
         }
         finally
         {
             _starts.Release();
         }
     }
+
+    private static BitweenException Incomplete(string adapterId, KeyNotFoundException ex) => new(
+        $"Adapter '{adapterId}' metadata is incomplete or the adapter package is not installed. " +
+        $"Missing metadata key: {ex.Message}", ex);
+
+    /// <summary>What one build of an adapter said it expects.</summary>
+    private sealed record Answer(string Build, IDictionary<string, StartupValue> Values);
 
     private static string CacheKey(string adapterId) =>
         $"{CacheKeyPrefix}.{adapterId.ToLowerInvariant()}";

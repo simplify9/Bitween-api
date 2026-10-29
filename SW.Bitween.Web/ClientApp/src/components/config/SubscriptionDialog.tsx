@@ -6,7 +6,8 @@ import { Button, FormError } from "../ui/basics";
 import { Field, TextInput } from "../ui/forms";
 import { Dialog } from "../ui/overlays";
 import { CodeBadge } from "../ui/Panel";
-import { AdapterConfig, useAdapterCatalog } from "./AdapterConfig";
+import { AdapterConfig } from "./AdapterConfig";
+import { useAdapterCatalog } from "./adapterCatalog";
 import { InfoTypePicker } from "./pickers";
 import { adapterIncomplete } from "../../pages/subscriptions/studio/faces";
 import { keys } from "../../api/queryKeys";
@@ -55,7 +56,7 @@ export function SubscriptionDialog({
         informationTypeId: pickedTypeId!,
         handlerId,
         handlerProperties,
-        // Safe to enable: neither type ever runs on its own — a GatewayApiCall waits
+        // Safe to enable: neither type ever runs on its own - a GatewayApiCall waits
         // for an attachment, a BusGateway for a route, and that is what you are in
         // the middle of making.
         enabled: true,

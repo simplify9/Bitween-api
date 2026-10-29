@@ -29,7 +29,8 @@ namespace SW.Bitween.Resources.Xchanges
                 throw new SWValidationException("AUTO_RETRY_SCHEDULED",
                     "An auto-retry is already scheduled for this exchange. Use \"Run Now\" to execute it immediately instead of retrying manually.");
 
-            var xchange = await dbContext.FindAsync<Xchange>(key);
+            var xchange = await dbContext.FindAsync<Xchange>(key)
+                         ?? throw new SWNotFoundException(key.ToString());
             var inputFileData = await xchangeService.GetFile(xchange, XchangeFileType.Input);
             var xchangeFile = new XchangeFile(inputFileData, xchange.InputName);
             var subscription = await dbContext.Subscriptions().FirstOrDefaultAsync(s => s.Id == xchange.SubscriptionId);
@@ -46,10 +47,21 @@ namespace SW.Bitween.Resources.Xchanges
                 await xchangeService.CreateXchange(xchange, xchangeFile, subscription?.WorkGroup,
                     manualRetry: true);
             }
-            
-            
-            await dbContext.SaveChangesAsync();
-            
+            dbContext.Record(requestContext, OperatorAction.Retry, key,
+                xchangeRetry.Reset ? "with the subscription's current settings" : null);
+            try
+            {
+                await dbContext.SaveChangesAsync();
+            }
+            catch (DbUpdateException)
+            {
+                // Another retry of the same exchange was saved a moment before this one.
+                if (await dbContext.Set<XchangeRetryClaim>().AsNoTracking().AnyAsync(c => c.Id == key))
+                    throw new SWValidationException("ALREADY_RETRIED",
+                        "This exchange was retried a moment ago by someone or something else. Retry that attempt instead.");
+                throw;
+            }
+
             return null;
         }
     }

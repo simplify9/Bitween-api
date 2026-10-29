@@ -1,5 +1,8 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
-import { Loader2, TriangleAlert } from "lucide-react";
+import { CloudOff, Loader2, Lock, SearchX, TriangleAlert } from "lucide-react";
+import { ApiRequestError } from "../../api/types";
+import { summarizeException } from "../../lib/exceptionSummary";
+import { isNotFound } from "./isNotFound";
 
 type ButtonVariant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -43,7 +46,7 @@ export function Button({
 
 /**
  * `crimson` is brand emphasis ("You", "Unsaved") and follows the theme color.
- * `danger` means something is wrong and stays red — see the danger ramp in index.css.
+ * `danger` means something is wrong and stays red - see the danger ramp in index.css.
  */
 type BadgeTone = "neutral" | "crimson" | "danger" | "ok" | "warn" | "ink";
 
@@ -64,7 +67,7 @@ export function Badge({
 }: {
   tone?: BadgeTone;
   className?: string;
-  /** Hover explanation — for badges whose one word can't carry the whole meaning. */
+  /** Hover explanation - for badges whose one word can't carry the whole meaning. */
   title?: string;
   children: ReactNode;
 }) {
@@ -108,6 +111,47 @@ export function EmptyState({
   );
 }
 
+/**
+ * What a failed load says in place of the content. A list that couldn't be read used to show its
+ * empty state ("No partners yet"), and a record that couldn't be read said it no longer existed,
+ * so an outage or a missing permission read as data that was gone.
+ */
+export function LoadError({
+  error,
+  what,
+  onRetry,
+}: {
+  error: unknown;
+  /** What was being loaded, as a phrase: "partners", "this partner". */
+  what: string;
+  onRetry?: () => void;
+}) {
+  const status = error instanceof ApiRequestError ? error.status : undefined;
+  const [icon, title, detail] =
+    status === 403
+      ? [<Lock key="i" />, `You can't see ${what}`, "Your role doesn't include the permission this needs. An administrator can grant it."]
+      : isNotFound(error)
+        ? [<SearchX key="i" />, `Couldn't find ${what}`, "It may have been deleted, or the link is wrong."]
+        : error instanceof ApiRequestError
+          ? [<TriangleAlert key="i" />, `Couldn't load ${what}`, summarizeException(error.message).summary || error.message]
+          : [<CloudOff key="i" />, `Couldn't load ${what}`, "Bitween didn't answer. Check your connection, then try again."];
+  return (
+    <div
+      role="alert"
+      className="flex flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-danger-200 bg-white px-6 py-14 text-center"
+    >
+      <div className="mb-1 text-danger-300 [&>svg]:size-8">{icon}</div>
+      <h3 className="text-sm font-semibold text-ink-800">{title}</h3>
+      <p className="max-w-md text-sm break-words text-ink-600">{detail}</p>
+      {onRetry && status !== 403 && !isNotFound(error) && (
+        <div className="mt-3">
+          <Button onClick={onRetry}>Try again</Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /** Slim inline banner for a known, expected degraded state (e.g. an optional integration not configured). */
 export function InlineNotice({ children }: { children: ReactNode }) {
   return (
@@ -115,6 +159,22 @@ export function InlineNotice({ children }: { children: ReactNode }) {
       <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
       <span>{children}</span>
     </p>
+  );
+}
+
+/**
+ * Something on the page that is wrong, said in red with an icon and a tint. Bare red text read
+ * the same as a link or a brand accent, so a problem never looked different from an action.
+ * `plain` drops the tint where a row of them would be too loud (inside a table cell).
+ */
+export function ProblemText({ children, plain = false, className = "" }: { children: ReactNode; plain?: boolean; className?: string }) {
+  return (
+    <span
+      className={`inline-flex items-start gap-1 text-[13px] text-danger-800 ${plain ? "" : "rounded-md bg-danger-50 px-1.5 py-0.5"} ${className}`}
+    >
+      <TriangleAlert className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      <span>{children}</span>
+    </span>
   );
 }
 

@@ -4,7 +4,7 @@ namespace SW.Bitween.Adapters.Db.PostgreSql;
 
 /// <summary>
 /// Every setting here arrives as a DataSource property, bound by name, and the form an operator
-/// fills in is generated from these attributes — so a field added here appears in Bitween with no
+/// fills in is generated from these attributes - so a field added here appears in Bitween with no
 /// front-end change.
 ///
 /// PostgreSQL is the easy one to configure, and the hints spend their weight where it is actually
@@ -53,7 +53,7 @@ public class PostgreSqlOptions : DbOptionsBase
 
     [AdapterSetting(Default = "false", AllowedValues = new[] { "true", "false" }, Hint =
         "Use the extended protocol's automatic statement preparation. Faster for statements run "
-        + "over and over, which is what a subscription does — but it holds a prepared plan per "
+        + "over and over, which is what a subscription does - but it holds a prepared plan per "
         + "connection, and a plan cached against skewed data can be worse than replanning.")]
     public bool AutoPrepare { get; set; }
 

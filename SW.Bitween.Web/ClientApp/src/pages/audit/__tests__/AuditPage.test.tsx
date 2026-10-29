@@ -1,4 +1,4 @@
-import { act, screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { apiPath, renderApp } from "../../../__tests__/support/renderApp";
@@ -10,7 +10,7 @@ import { auditRow, auditTrail } from "./trail";
  */
 const members = http.get(apiPath("/accounts"), () => HttpResponse.json({ result: [], totalCount: 0 }));
 
-/** One save that touched two rows — a partner and its key — beside an unrelated one. */
+/** One save that touched two rows - a partner and its key - beside an unrelated one. */
 const ROWS = [
   auditRow({ entityName: "Partner", entityKey: "42", correlationId: "save-a", sequence: 0 }),
   auditRow({ entityName: "ApiCredential", entityKey: "42:primary", correlationId: "save-a", sequence: 1 }),
@@ -23,18 +23,18 @@ describe("the audit trail page", () => {
     const { user, router } = renderApp("/audit", { handlers: [trail.handler, members] });
 
     expect(await screen.findByRole("heading", { name: "Audit trail" })).toBeVisible();
-    expect(await screen.findByText("WorkGroup")).toBeVisible();
+    expect(await screen.findByText("Work group")).toBeVisible();
 
     // Narrowing to this one row proves the entity filters reach the query, not just the URL.
     await act(() => router.navigate("/audit?entityName=Partner&entityKey=42"));
-    await waitFor(() => expect(screen.queryByText("WorkGroup", { selector: "td *" })).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText("Work group", { selector: "td *" })).not.toBeInTheDocument());
     expect(trail.asked.at(-1)?.get("entityName")).toBe("Partner");
     expect(trail.asked.at(-1)?.get("entityKey")).toBe("42");
     expect(screen.getByRole("row", { name: /Partner/ })).toBeVisible();
     expect(screen.getByRole("link", { name: "42" })).toHaveAttribute("href", "/partners/42");
 
-    // "Same save" pivots to the correlation id — every row one SaveChanges wrote.
-    await user.click(screen.getAllByRole("button", { name: "Same save" })[0]);
+    // "Saved together" pivots to the correlation id - every row one SaveChanges wrote.
+    await user.click(screen.getAllByRole("button", { name: "Saved together" })[0]);
     expect(router.state.location.search).toMatch(/correlationId=save-a/);
     expect(await screen.findByText("Showing one save only")).toBeVisible();
     expect(trail.asked.at(-1)?.get("correlationId")).toBe("save-a");
@@ -44,13 +44,37 @@ describe("the audit trail page", () => {
     expect(router.state.location.search).toBe("");
   });
 
+  it("says what happened in people's words, and folds the scheduler's repeats", async () => {
+    const nextRun = (i: number) =>
+      auditRow({
+        entityName: "Subscription",
+        entityKey: "16",
+        correlationId: `tick-${i}`,
+        state: "Modified",
+        userId: "scheduled-job",
+        userDisplayName: null,
+        changes: { ReceiveOn: { old: null, new: `2026-09-20T1${i}:00:00Z` } },
+      });
+    const trail = auditTrail([nextRun(3), nextRun(2), nextRun(1), ...ROWS]);
+    const { user } = renderApp("/audit", { handlers: [trail.handler, members] });
+
+    const run = await screen.findByRole("row", { name: /Scheduler, 3 times/ });
+    expect(run).toHaveTextContent("Changed");
+    expect(run).toHaveTextContent("Next run");
+    expect(screen.getAllByRole("row", { name: /Created/ })).toHaveLength(ROWS.length);
+    expect(screen.queryByText("Added")).not.toBeInTheDocument();
+
+    await user.click(within(run).getByRole("button", { name: "Show each" }));
+    expect(screen.getAllByRole("row", { name: /Next run/ })).toHaveLength(4);
+  });
+
   // Number("bad") is NaN, which used to go out on the wire as offset=NaN.
   it.each(["bad", "-5"])("doesn't break on a junk offset of %s in the URL", async (offset) => {
     const trail = auditTrail(ROWS);
     renderApp(`/audit?offset=${offset}`, { handlers: [trail.handler, members] });
 
     expect(await screen.findByRole("heading", { name: "Audit trail" })).toBeVisible();
-    expect(await screen.findByText(/Showing 1[–-]/)).toBeVisible();
+    expect(await screen.findByText(/Showing 1[--]/)).toBeVisible();
     expect(trail.asked.map((q) => q.get("offset"))).toEqual(["0"]);
   });
 });

@@ -21,7 +21,7 @@ namespace SW.Bitween.Resources.DelayedRetries
                         join xchange in dbContext.Set<Xchange>() on delayedRetry.Id equals xchange.Id
                         join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id into xr
                         from result in xr.DefaultIfEmpty()
-                        // Same left-join Xchanges/Search.cs uses — the UI lists a pending retry by
+                        // Same left-join Xchanges/Search.cs uses - the UI lists a pending retry by
                         // what it carries, not by its id, so the properties have to come along.
                         join promoted in dbContext.Set<XchangePromotedProperties>() on xchange.Id equals promoted.Id into xp
                         from promoted in xp.DefaultIfEmpty()
@@ -32,6 +32,7 @@ namespace SW.Bitween.Resources.DelayedRetries
                         {
                             Id = delayedRetry.Id,
                             On = delayedRetry.On,
+                            Held = delayedRetry.On >= DelayedRetry.HeldOn,
                             SubscriptionId = xchange.SubscriptionId,
                             SubscriptionName = subscriber.Name,
                             DocumentId = xchange.DocumentId,

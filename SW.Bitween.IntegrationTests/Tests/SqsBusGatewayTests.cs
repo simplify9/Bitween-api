@@ -31,7 +31,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 ///     receive -> persist the Xchange -> ONLY THEN DeleteMessage
 ///
 /// So the tests here are about deletion and visibility rather than ack and nack, and about the
-/// Selling Partner API envelope — because SP-API delivers notifications by publishing to an SQS
+/// Selling Partner API envelope - because SP-API delivers notifications by publishing to an SQS
 /// queue you own, which is the reason this provider exists at all.
 /// </summary>
 [Collection("Bitween")]
@@ -101,7 +101,7 @@ public class SqsBusGatewayTests(BitweenFixture fixture)
 
         var stats = await adapter.Instance.InvokeAsync<JObject>("GetStats");
 
-        // Unclaimed is accepted-and-discarded on purpose — rejecting would loop for ever — so the
+        // Unclaimed is accepted-and-discarded on purpose - rejecting would loop for ever - so the
         // message is deleted. What must NOT happen is a silent failure that leaves it invisible.
         Assert.Equal(0, stats.Value<long>("failed"));
         Assert.True(stats.Value<long>("deleted") > 0 || stats.Value<long>("returned") > 0,
@@ -159,7 +159,7 @@ public class SqsBusGatewayTests(BitweenFixture fixture)
 
     /// <summary>
     /// The dedupe key reaches the Xchange as a reference, and for an SP-API notification it is the
-    /// notification id — which is stable across a redelivery where the SQS MessageId is not.
+    /// notification id - which is stable across a redelivery where the SQS MessageId is not.
     ///
     /// NOTE THE GAP THIS DOES NOT COVER. Nothing in Bitween currently ENFORCES uniqueness on that
     /// reference, so a redelivered message produces a second Xchange. The key is carried, which is
@@ -279,7 +279,7 @@ public class SqsBusGatewayTests(BitweenFixture fixture)
 
     /// <summary>
     /// The multi-node case. A broker data source is exclusive, but a delivery runs on whichever
-    /// node picked the message up — so when the owned instance is not here the runtime opens a
+    /// node picked the message up - so when the owned instance is not here the runtime opens a
     /// send-only connection of its own rather than failing. See the RabbitMQ twin of this test
     /// for the reasoning in full.
     /// </summary>
@@ -359,7 +359,7 @@ public class SqsBusGatewayTests(BitweenFixture fixture)
         });
         await db.SaveChangesAsync();
 
-        // Ten-minute singleton snapshot — without this the document is invisible to the pipeline.
+        // Ten-minute singleton snapshot - without this the document is invisible to the pipeline.
         scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
 
         return new Setup(document.Id, dataSourceId);

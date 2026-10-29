@@ -11,7 +11,7 @@ public class RunMapperEnrichmentTests
         JToken.Parse(data) as JObject;
 
     [TestMethod]
-    [Description("Receiver returns a plain JSON string — should not throw and should skip enrichment")]
+    [Description("Receiver returns a plain JSON string - should not throw and should skip enrichment")]
     public void WhenDataIsJsonString_ShouldNotThrow_AndReturnNull()
     {
         var data = "\"this is a plain string response from the receiver\"";
@@ -22,7 +22,7 @@ public class RunMapperEnrichmentTests
     }
 
     [TestMethod]
-    [Description("Receiver returns a JSON object — enrichment should proceed normally")]
+    [Description("Receiver returns a JSON object - enrichment should proceed normally")]
     public void WhenDataIsJsonObject_ShouldReturnJObject()
     {
         var data = "{\"orderId\":\"123\",\"status\":\"pending\"}";
@@ -34,7 +34,7 @@ public class RunMapperEnrichmentTests
     }
 
     [TestMethod]
-    [Description("Receiver returns a JSON array — should not throw and should skip enrichment")]
+    [Description("Receiver returns a JSON array - should not throw and should skip enrichment")]
     public void WhenDataIsJsonArray_ShouldNotThrow_AndReturnNull()
     {
         var data = "[\"item1\",\"item2\"]";
@@ -45,7 +45,7 @@ public class RunMapperEnrichmentTests
     }
 
     [TestMethod]
-    [Description("Large JSON string payload (like the one that triggered the original error) — should not throw")]
+    [Description("Large JSON string payload (like the one that triggered the original error) - should not throw")]
     public void WhenDataIsLargeJsonString_ShouldNotThrow_AndReturnNull()
     {
         // Simulate the case from the error: a JSON-encoded string with ~200k chars

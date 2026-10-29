@@ -20,16 +20,16 @@ namespace SW.Bitween.Services.DataSources;
 ///
 /// Desired state is the set of active <see cref="DataSource"/> rows; actual state is what the
 /// resident host is running. The loop starts what is missing, stops what is no longer wanted, and
-/// restarts what has changed — the same shape as the Quartz schedule reconciliation that already
+/// restarts what has changed - the same shape as the Quartz schedule reconciliation that already
 /// exists for subscriptions.
 ///
-/// PLACEMENT. A broker connection is exclusive — two nodes consuming the same queue is duplicate
+/// PLACEMENT. A broker connection is exclusive - two nodes consuming the same queue is duplicate
 /// processing, which is the failure this whole design exists to prevent. So every data source is
 /// owned through a lease, granted per data source rather than globally: whichever node wins each
 /// race owns that source, so load spreads without anyone scheduling it.
 ///
 /// A lease is checked, not assumed. Before every reconcile the supervisor revalidates what it
-/// believes it owns, because holding the lock is not the same as still being the current owner —
+/// believes it owns, because holding the lock is not the same as still being the current owner -
 /// a node paused long enough for its queue to be released and reclaimed would otherwise carry on
 /// consuming. Losing a lease stops its adapter immediately.
 /// </summary>
@@ -43,6 +43,22 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
 
     // What this node currently owns. Nothing runs without an entry here.
     private readonly Dictionary<int, IResourceLease> _leases = new();
+
+    /// <summary>
+    /// Consecutive failed starts per data source on this node, and when this node may next try to
+    /// lease one it gave up. A node that cannot reach a broker kept the lease and retried forever,
+    /// so the replica that could reach it never got the chance.
+    /// </summary>
+    private readonly Dictionary<int, int> _startFailures = new();
+    private readonly Dictionary<int, DateTime> _yieldedUntil = new();
+    private const int StartFailuresBeforeYielding = 3;
+    private static readonly TimeSpan YieldFor = TimeSpan.FromMinutes(5);
+
+    /// <summary>
+    /// Since when each running data source has looked unhealthy: disconnected, quarantined, or gone
+    /// from the host. Restarted once that has lasted <see cref="BitweenOptions.BusProviderUnhealthyRestartSeconds"/>.
+    /// </summary>
+    private readonly Dictionary<int, DateTime> _unhealthySince = new();
 
     private static string ResourceOf(DataSource dataSource) => $"datasource.{dataSource.Id}";
 
@@ -80,8 +96,8 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
     }
 
     /// <summary>
-    /// One reconciliation pass. Public because "reconcile now" is a real operation — the same
-    /// shape as the receivenow endpoint for subscriptions — and because a supervisor whose only
+    /// One reconciliation pass. Public because "reconcile now" is a real operation - the same
+    /// shape as the receivenow endpoint for subscriptions - and because a supervisor whose only
     /// entry point is a thirty-second timer cannot be tested at all.
     /// </summary>
     public async Task ReconcileAsync(CancellationToken cancellationToken = default)
@@ -102,7 +118,7 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
             .ToListAsync(cancellationToken);
 
         // Composed into the Statements value the adapter has always received. The adapter contract
-        // did not change when these moved out of a JSON field on the data source and into rows —
+        // did not change when these moved out of a JSON field on the data source and into rows -
         // it still resolves a name and knows nothing about where the SQL is kept.
         var statements = await dbContext.Set<DataSourceStatement>()
             .Where(s => !s.Inactive)
@@ -115,6 +131,10 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
 
         foreach (var dataSource in desired)
         {
+            if (!_leases.ContainsKey(dataSource.Id) &&
+                _yieldedUntil.TryGetValue(dataSource.Id, out var yieldedUntil) && yieldedUntil > DateTime.UtcNow)
+                continue;
+
             if (!await EnsureOwnedAsync(dataSource, cancellationToken))
             {
                 // Owned by another node. If we were running it, we are not any more.
@@ -127,12 +147,18 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
 
             if (_running.TryGetValue(dataSource.Id, out var current))
             {
-                if (current == fingerprint) continue;
+                if (current == fingerprint)
+                {
+                    if (!RestartUnhealthy(dataSource)) continue;
+                }
+                else logger.LogInformation("Data source {Name} changed; restarting its adapter.", dataSource.Name);
 
-                logger.LogInformation("Data source {Name} changed; restarting its adapter.", dataSource.Name);
+                // Not drained when unhealthy: on a dead connection nothing in flight can be
+                // acknowledged, and the broker redelivers it to the new one.
                 await adapters.StopAsync(dataSource.AdapterId, dataSource.Id.ToString(),
-                    drain: true, cancellationToken);
+                    drain: current != fingerprint, cancellationToken);
                 _running.Remove(dataSource.Id);
+                _unhealthySince.Remove(dataSource.Id);
             }
 
             try
@@ -154,6 +180,8 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
                 }, cancellationToken);
 
                 _running[dataSource.Id] = fingerprint;
+                _startFailures.Remove(dataSource.Id);
+                _yieldedUntil.Remove(dataSource.Id);
                 logger.LogInformation("Data source {Name} running on adapter {AdapterId}.",
                     dataSource.Name, dataSource.AdapterId);
             }
@@ -167,10 +195,24 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
                 // log. A start that throws leaves no instance to describe, so nothing else in this
                 // class would ever record it.
                 await RecordStartFailureAsync(dbContext, dataSource, ex, cancellationToken);
+
+                // An exclusive source is held by one node at a time. If this node keeps failing to
+                // start it - it can't reach the broker, say - let it go for a while so another
+                // replica can try; a single-node deployment just retries after the pause.
+                var failures = _startFailures[dataSource.Id] = _startFailures.GetValueOrDefault(dataSource.Id) + 1;
+                if (failures >= StartFailuresBeforeYielding && _leases.ContainsKey(dataSource.Id))
+                {
+                    logger.LogWarning(
+                        "Data source {Name} failed to start {Failures} times on this node; releasing its lease for {Minutes} minutes so another node can take it.",
+                        dataSource.Name, failures, YieldFor.TotalMinutes);
+                    await ReleaseAsync(dataSource.Id);
+                    _startFailures.Remove(dataSource.Id);
+                    _yieldedUntil[dataSource.Id] = DateTime.UtcNow + YieldFor;
+                }
             }
         }
 
-        // Anything running that is no longer desired. Its lease goes too — holding a lock on a
+        // Anything running that is no longer desired. Its lease goes too - holding a lock on a
         // data source nobody wants would block a node that later does.
         var wanted = desired.Select(d => d.Id).ToHashSet();
         foreach (var id in _running.Keys.Where(k => !wanted.Contains(k)).ToList())
@@ -180,6 +222,47 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
         }
 
         await WriteBackHealthAsync(dbContext, cancellationToken);
+    }
+
+    /// <summary>
+    /// True when a running exclusive source has been unhealthy long enough to restart. A restart
+    /// that fails goes the way every failed start does: retried each pass, and handed to another
+    /// node after three.
+    /// </summary>
+    private bool RestartUnhealthy(DataSource dataSource)
+    {
+        var restartAfter = TimeSpan.FromSeconds(
+            serviceProvider.GetService<BitweenOptions>()?.BusProviderUnhealthyRestartSeconds ?? 120);
+        var reason = dataSource.Resolve() == DataSourcePlacement.PerNode ? null : UnhealthyReason(dataSource);
+        if (reason == null || restartAfter <= TimeSpan.Zero)
+        {
+            _unhealthySince.Remove(dataSource.Id);
+            return false;
+        }
+
+        if (!_unhealthySince.TryGetValue(dataSource.Id, out var since))
+            since = _unhealthySince[dataSource.Id] = DateTime.UtcNow;
+        if (DateTime.UtcNow - since < restartAfter) return false;
+
+        logger.LogWarning("Data source {Name} has been {Reason} since {Since:u}; restarting its adapter.",
+            dataSource.Name, reason, since);
+        return true;
+    }
+
+    // The states AdapterStatus documents for a connection that is down. Connected alone isn't
+    // enough: an adapter with no status of its own reports false with "Unknown", and isn't broken.
+    private static readonly HashSet<string> UnhealthyStates = new(StringComparer.OrdinalIgnoreCase) { "Disconnected", "Failed" };
+
+    private string UnhealthyReason(DataSource dataSource)
+    {
+        var health = adapters.Describe().FirstOrDefault(h =>
+            h.InstanceKey == dataSource.Id.ToString() &&
+            string.Equals(h.AdapterId, dataSource.AdapterId, StringComparison.OrdinalIgnoreCase));
+        if (health == null) return "gone from the adapter host";
+        if (health.Quarantined) return "quarantined";
+        if (!health.Connected && UnhealthyStates.Contains(health.ReportedState ?? ""))
+            return $"disconnected ({health.ReportedState})";
+        return null;
     }
 
     /// <summary>
@@ -248,6 +331,7 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
             await adapters.StopAsync(adapterId, dataSourceId.ToString(), drain, cancellationToken);
 
         _running.Remove(dataSourceId);
+        _unhealthySince.Remove(dataSourceId);
     }
 
     private async Task ReleaseAsync(int dataSourceId)
@@ -258,7 +342,7 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
 
     /// <summary>
     /// Connection settings from the data source, plus the endpoints its gateways want consumed.
-    /// The adapter decides what to do with them — Bitween does not model any broker's topology.
+    /// The adapter decides what to do with them - Bitween does not model any broker's topology.
     /// </summary>
     private static Dictionary<string, string> BuildStartupValues(DataSource dataSource,
         IEnumerable<BusGateway> gateways, IEnumerable<DataSourceStatement> statements)
@@ -277,7 +361,7 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
 
         // Per-gateway overrides, namespaced so they cannot collide with connection settings.
         // See BusGateway.EndpointProperties: no bundled adapter reads these yet. Skipping the
-        // catch-all gateway is deliberate — an override with no endpoint to attach to would land
+        // catch-all gateway is deliberate - an override with no endpoint to attach to would land
         // under the meaningless key "Endpoint::something".
         foreach (var gateway in mine.Where(g => !string.IsNullOrWhiteSpace(g.Endpoint)))
             foreach (var kv in gateway.EndpointProperties ?? new())
@@ -298,7 +382,7 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
     /// <summary>
     /// What the adapter was started WITH. The memory ceilings belong in here as much as the
     /// connection settings do: they are applied to the process at launch, so raising one has no
-    /// effect until the adapter restarts — and the fingerprint is what decides that it should.
+    /// effect until the adapter restarts - and the fingerprint is what decides that it should.
     /// </summary>
     private static string Fingerprint(DataSource dataSource, Dictionary<string, string> startupValues) =>
         dataSource.AdapterId + "|" +
@@ -310,7 +394,7 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
     /// Writes why a start failed onto the data source itself.
     ///
     /// A throw from StartExclusiveAsync leaves nothing running to describe, so the health
-    /// write-back below never sees it — which is how a data source ends up showing no connection
+    /// write-back below never sees it - which is how a data source ends up showing no connection
     /// and no reason at the same time. The message is the one the operator would otherwise have
     /// had to find in this node's log.
     /// </summary>
@@ -344,7 +428,7 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
     private async Task WriteBackHealthAsync(BitweenDbContext dbContext, CancellationToken cancellationToken)
     {
         // Only the instances that ARE a data source. Describe() answers for everything this host
-        // holds, and a POOLED instance is keyed by its pool slot rather than by a data source —
+        // holds, and a POOLED instance is keyed by its pool slot rather than by a data source -
         // several can share one key, which made a plain ToDictionary throw "an item with the same
         // key has already been added" and take the whole reconcile pass down with it.
         //
@@ -375,14 +459,14 @@ public class BusProviderSupervisor(IServiceProvider serviceProvider, IResidentAd
             // LastError is what a LIVE adapter says about itself, so it is null for exactly the
             // failure an operator most needs explained: one that died on startup and never got as
             // far as reporting anything. The process printed why before it exited, so fall back to
-            // that — otherwise the screen shows "Quarantined" with no reason anywhere near it.
+            // that - otherwise the screen shows "Quarantined" with no reason anywhere near it.
             row.LastException = instance.LastError
                                 ?? AdapterFailureReader.Summarise(
                                     adapters.Get(row.AdapterId, row.Id.ToString())?.Diagnostics);
             row.ConsecutiveFailures = instance.RestartCount;
 
             // A per-node source has no owner and saying "null" would read as nobody running it.
-            // Its row is written by every node, last one wins — which is honest enough for a
+            // Its row is written by every node, last one wins - which is honest enough for a
             // summary, and the Telemetry endpoint answers per node for anything more precise.
             row.OwnedByNode = row.Resolve() == DataSourcePlacement.PerNode
                 ? "every node"

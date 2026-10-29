@@ -60,7 +60,7 @@ describe("a stored mapping", { timeout: 20000 }, () => {
 
   it("still shows a date format the dropdown never offered, and saves it back", async () => {
     // The engine formats with any .NET pattern, so a saved mapping can hold one this closed list
-    // does not offer — set through the API, or offered here under a label that has since changed.
+    // does not offer - set through the API, or offered here under a label that has since changed.
     // A select with no matching option shows nothing selected, which reads as "no format chosen".
     const backend = mapperBackend({
       mapperProperties: {
@@ -82,7 +82,7 @@ describe("a stored mapping", { timeout: 20000 }, () => {
     const { user } = await openEditor(backend);
     await openDetail(user, "shipped");
 
-    expect(screen.getByRole("combobox", { name: "Format a date — Format" })).toHaveValue("d MMMM");
+    expect(screen.getByRole("combobox", { name: "Format a date - Format" })).toHaveValue("d MMMM");
 
     // And saving the mapping for some unrelated reason must not quietly replace it.
     await addFixedRule(user, "channel", "web");
@@ -95,12 +95,12 @@ describe("a stored mapping", { timeout: 20000 }, () => {
 
     const reopened = await reopen(backend);
     await openDetail(reopened.user, "shipped");
-    expect(screen.getByRole("combobox", { name: "Format a date — Format" })).toHaveValue("d MMMM");
+    expect(screen.getByRole("combobox", { name: "Format a date - Format" })).toHaveValue("d MMMM");
   });
 
   it("makes a date that could be read two ways say which", async () => {
-    // What the server answers, standing in for the engine. The engine's side of this —
-    // refused at year-first, read either way round otherwise — is
+    // What the server answers, standing in for the engine. The engine's side of this -
+    // refused at year-first, read either way round otherwise - is
     // DocumentMapperTests.SourceDateOrder_DecidesHowTheTransformsReadADate and the
     // TransformsTests.FormatDate_* cases, whose refusal message this is.
     const backend = mapperBackend({
@@ -133,7 +133,7 @@ describe("a stored mapping", { timeout: 20000 }, () => {
 
     // One control on the row, and it is a closed list: what the date should look like on the way
     // out, shown as the date itself rather than as yyyy-MM-dd letters.
-    const format = screen.getByRole("combobox", { name: "Format a date — Format" });
+    const format = screen.getByRole("combobox", { name: "Format a date - Format" });
     const offered = within(format).getAllByRole("option").map((o) => o.textContent);
     expect(offered.slice(0, 3)).toEqual(["Format…", "2026-09-04", "04/09/2026"]);
     await user.selectOptions(format, "yyyy-MM-dd");
@@ -147,13 +147,13 @@ describe("a stored mapping", { timeout: 20000 }, () => {
     expect(backend.lastPreview().rules.sourceDateOrder).toBeUndefined();
     expect((await screen.findAllByText(/could not read '04\.09\.2026'/))[0]).toBeVisible();
 
-    // Answered once for the document, under the sample it describes — a partner writes dates one
+    // Answered once for the document, under the sample it describes - a partner writes dates one
     // way throughout, so this is not a per-rule question.
     const dates = screen.getByRole("combobox", { name: "Dates in the incoming document" });
     expect(within(dates).getAllByRole("option").map((o) => o.textContent)).toEqual([
-      "Year first — 2026-09-04",
-      "Day first — 04.09.2026",
-      "Month first — 09.04.2026",
+      "Year first - 2026-09-04",
+      "Day first - 04.09.2026",
+      "Month first - 09.04.2026",
     ]);
 
     await user.selectOptions(dates, "dayFirst");

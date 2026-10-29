@@ -2,15 +2,8 @@ import React, { useMemo } from "react";
 import { useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, RefreshCw, Trash2, Undo2, Redo2 } from "lucide-react";
-import {
-  useMappingEditorState,
-  useMappingEditorDispatch,
-  autoMatch,
-  clearAll,
-  redo,
-  undo,
-  setSelectedPartner,
-} from "../../lib/mapping/MappingEditorContext";
+import { useMappingEditorState, useMappingEditorDispatch } from "../../lib/mapping/mappingEditorHooks";
+import { autoMatch, clearAll, redo, undo, setSelectedPartner } from "../../lib/mapping/mappingEditorActions";
 import { api } from "../../api";
 import { keys } from "../../api/queryKeys";
 
@@ -61,7 +54,7 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
 
   // Sync local dropdown state when selectedPartnerId changes (including reset to null)
   const { data: partners } = useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners() });
-  // listPartners() is a light row (no adapterProperties) — fetch the selected partner's
+  // listPartners() is a light row (no adapterProperties) - fetch the selected partner's
   // properties separately so the "Partner" mode datalist actually has options to suggest.
   const { data: adapterProperties, isFetching: isPartnerFetching } = useQuery({
     queryKey: keys.partners.adapterProperties(selectedPartnerId),
@@ -83,7 +76,7 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
     if (selectedPartnerId == null) return;
     if (isPartnerFetching) return;
     dispatch(setSelectedPartner(selectedPartnerId, adapterProperties ?? {}));
-  }, [adapterProperties, selectedPartnerId, isPartnerFetching]);
+  }, [adapterProperties, selectedPartnerId, isPartnerFetching, dispatch]);
 
   const assignedFieldCount = useMemo(
     () => fieldMappings.filter((m) => m.target && (Boolean(m.source) || m.fixedValue !== undefined)).length,
@@ -109,7 +102,7 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
       <span className="font-bold text-ink-800 text-sm tracking-tight">
         Mapping Editor
       </span>
-      <span className="text-xs text-ink-400">
+      <span className="text-xs text-ink-500">
         {assignedFieldCount} mappings ·{' '}
         {arrayMappings.length} array loops
       </span>
@@ -139,6 +132,7 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
         onClick={() => dispatch(undo())}
         disabled={past.length === 0}
         className="p-1.5 rounded hover:bg-ink-100 disabled:opacity-30 transition text-ink-600"
+        aria-label="Undo"
         title="Undo (Ctrl+Z)"
       >
         <Undo2 size={16} />
@@ -147,6 +141,7 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
         onClick={() => dispatch(redo())}
         disabled={future.length === 0}
         className="p-1.5 rounded hover:bg-ink-100 disabled:opacity-30 transition text-ink-600"
+        aria-label="Redo"
         title="Redo (Ctrl+Y)"
       >
         <Redo2 size={16} />
@@ -183,16 +178,16 @@ const MappingEditorToolbar: React.FC<MappingEditorToolbarProps> = ({
         Validate
       </button>
 
-      {/* Partner selector — visual mode only — for testing partner-scoped mappings */}
+      {/* Partner selector - visual mode only - for testing partner-scoped mappings */}
       {isVisualMode && (
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-ink-400 font-medium uppercase tracking-wide flex-shrink-0">Test partner</span>
+          <span className="text-[10px] text-ink-500 font-medium uppercase tracking-wide flex-shrink-0">Test partner</span>
           <select
-            className="text-xs border border-ink-200 rounded px-2 py-1 focus:outline-none focus:border-crimson-400 bg-white text-ink-700 max-w-[160px]"
+            className="text-xs border border-ink-200 rounded px-2 py-1 focus:outline-none focus:border-focus-400 bg-white text-ink-700 max-w-[160px]"
             value={selectedPartnerId ?? ''}
             onChange={(e) => handlePartnerChange(e.target.value)}
           >
-            <option value="">— none —</option>
+            <option value="">- none -</option>
             {(partners ?? []).map((p) => (
               <option key={p.id} value={p.id}>{p.name}</option>
             ))}

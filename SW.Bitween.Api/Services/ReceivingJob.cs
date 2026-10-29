@@ -20,7 +20,9 @@ public class ReceivingJob(
     RunFlagUpdater runFlagUpdater,
     IAdapterInvoker adapterInvoker,
     XchangeService xchangeService,
-    ILogger<ReceivingJob> logger) : IScheduledJob<ReceivingJobParams>
+    ILogger<ReceivingJob> logger,
+    Services.ReceiverBookmarks bookmarks = null,
+    BitweenOptions options = null) : IScheduledJob<ReceivingJobParams>
 {
     public async Task Execute(ReceivingJobParams jobParams)
     {
@@ -28,6 +30,13 @@ public class ReceivingJob(
             .FirstOrDefaultAsync(s => s.Id == jobParams.SubscriptionId && !s.Inactive);
 
         if (rec == null) return;
+        if (Services.Mirror.MirrorTraffic.HoldsScheduledRun(options, rec, jobParams.CronExpression))
+        {
+            // Held, but its next run still moves on, so its page doesn't show one in the past.
+            try { rec.SetSchedules(); await dbContext.SaveChangesAsync(); }
+            catch (BitweenException) { }
+            return;
+        }
 
         // Atomic DB-level guard: returns false if another execution is already running.
         var isIdle = await runFlagUpdater.MarkAsRunning(rec.Id);
@@ -40,7 +49,7 @@ public class ReceivingJob(
 
         // Advances regardless of outcome: the Quartz trigger fires on its own cron no
         // matter what happens below, so "next run" has to track that, not the receive
-        // step's success — otherwise a receiver that keeps failing freezes ReceiveOn
+        // step's success - otherwise a receiver that keeps failing freezes ReceiveOn
         // in the past forever while the job keeps firing on schedule underneath it.
         // Isolated in its own try: a schedule problem is unrelated to receiving and
         // must not stop the step below from running.
@@ -61,7 +70,18 @@ public class ReceivingJob(
                 // The receiver's cursor is namespaced by this. Without it, two subscriptions
                 // polling one data source share a cursor and split the rows between them.
                 .WithSubscription(rec.Id);
-            await RunReceiver(rec.ReceiverId, startupParameters, rec.Id, createdExchangeIds);
+
+            // A receiver that keeps a bookmark is handed the one its last good run left.
+            string bookmark = null;
+            var keepsBookmark = bookmarks != null && await bookmarks.KeptByAsync(rec.ReceiverRef);
+            if (keepsBookmark)
+            {
+                bookmark = (await bookmarks.GetAsync(rec.Id, rec.ReceiverRef))?.Value;
+                if (bookmark != null) startupParameters[Services.ReceiverBookmarks.StartupKey] = bookmark;
+            }
+
+            await RunReceiver(rec.ReceiverRef, startupParameters, rec.Id, createdExchangeIds,
+                keepsBookmark ? next => bookmarks.SetAsync(rec.Id, rec.ReceiverRef, next) : null, bookmark);
             rec.SetHealth();
             RecordAttempt(rec.Id, startedOn,
                 createdExchangeIds.Count > 0 ? ReceiveOutcome.Received : ReceiveOutcome.NoNewData,
@@ -98,7 +118,7 @@ public class ReceivingJob(
 
     private async Task RunReceiver(
         string serverlessId, IDictionary<string, string> startupParameters, int subId,
-        List<string> createdExchangeIds)
+        List<string> createdExchangeIds, Func<string, Task> keepBookmark = null, string bookmark = null)
     {
         // One session for the whole run: Initialize, the listing, every GetFile and DeleteFile, and
         // Finalize all have to reach the SAME instance, or Initialize runs somewhere the listing
@@ -108,18 +128,62 @@ public class ReceivingJob(
             serverlessId, AdapterRole.Receiver, startupParameters);
 
         await session.InvokeAsync(nameof(IInfolinkReceiver.Initialize));
-        var fileList = (await session.InvokeAsync<IEnumerable<string>>(nameof(IInfolinkReceiver.ListFiles))).ToList();
 
-        logger.LogInformation("Subscription '{SubId}' found {Count} items for retrieval.", subId, fileList.Count);
-
-        foreach (var file in fileList)
+        // Finalize runs whatever happens in between: it is what closes the connection, and for POP3
+        // what commits the deletes of the messages that were taken.
+        var failed = new List<string>();
+        try
         {
-            var xchangeFile = await session.InvokeAsync<XchangeFile>(nameof(IInfolinkReceiver.GetFile), file);
-            logger.LogInformation("Submitting received file for subscriber: '{SubId}'.", subId);
-            createdExchangeIds.Add(await xchangeService.SubmitSubscriptionXchange(subId, xchangeFile));
-            await session.InvokeAsync(nameof(IInfolinkReceiver.DeleteFile), file);
+            var fileList = (await session.InvokeAsync<IEnumerable<string>>(nameof(IInfolinkReceiver.ListFiles))).ToList();
+
+            logger.LogInformation("Subscription '{SubId}' found {Count} items for retrieval.", subId, fileList.Count);
+
+            // One file at a time, each on its own. A file that could not be read or submitted used to
+            // end the run, and since it stays at the source it ended every run after: one corrupt
+            // file at the top of the listing and nothing behind it was ever received. Now it is left
+            // where it is, reported, and the rest go through.
+            foreach (var file in fileList)
+            {
+                string exchangeId;
+                try
+                {
+                    var xchangeFile = await session.InvokeAsync<XchangeFile>(nameof(IInfolinkReceiver.GetFile), file);
+                    logger.LogInformation("Submitting received file for subscriber: '{SubId}'.", subId);
+                    exchangeId = await xchangeService.SubmitSubscriptionXchange(subId, xchangeFile);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError(ex, "Subscription {SubId} could not receive {File}; it is left at the source.", subId, file);
+                    failed.Add($"{file}: {ex.Message}");
+                    continue;
+                }
+
+                createdExchangeIds.Add(exchangeId);
+                await session.InvokeAsync(nameof(IInfolinkReceiver.DeleteFile), file);
+            }
+
+            // Only once every item was taken in: a bookmark moved past one that failed would leave
+            // it behind for good. Asked before Finalize, while the receiver still has the run.
+            if (keepBookmark != null && failed.Count == 0)
+            {
+                var next = await session.InvokeAsync<string>(Services.ReceiverBookmarks.Method);
+                if (!string.IsNullOrEmpty(next) && next != bookmark) await keepBookmark(next);
+            }
+        }
+        finally
+        {
+            await session.InvokeAsync(nameof(IInfolinkReceiver.Finalize));
         }
 
-        await session.InvokeAsync(nameof(IInfolinkReceiver.Finalize));
+        if (failed.Count > 0)
+            throw new ReceiverPartlyFailedException(failed);
     }
 }
+
+/// <summary>
+/// Some items of a run could not be received. Thrown once the rest have been, so the run is
+/// recorded as failed with each item's reason while the exchanges it did create are kept.
+/// </summary>
+public class ReceiverPartlyFailedException(IReadOnlyCollection<string> failures)
+    : Exception($"{failures.Count} item(s) could not be received and were left at the source:\n" +
+                string.Join("\n", failures));

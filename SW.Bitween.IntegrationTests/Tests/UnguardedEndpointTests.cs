@@ -13,7 +13,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 ///
 /// Injecting the thing that checks permissions and then not calling it looks exactly like a
 /// handler that does check: the dependency is declared, the reader's eye stops there. The
-/// compiler could not see it either, because an assigned-but-unread field is not a warning — it
+/// compiler could not see it either, because an assigned-but-unread field is not a warning - it
 /// only surfaced once these became primary constructor parameters and the unused ones got named.
 ///
 /// So a viewer could rename the subscription categories everyone else files by, delete them, and
@@ -94,6 +94,27 @@ public class UnguardedEndpointTests(BitweenFixture fixture)
             {
                 InputJson = "{}",
                 ScribanTemplate = "{}"
+            }));
+    }
+
+    /// <summary>
+    /// The rules-based preview maps against any partner the caller names, with every global value
+    /// set besides, and took no RequestContext at all.
+    /// </summary>
+    [Fact]
+    public async Task A_viewer_cannot_run_the_mapping_rules_preview()
+    {
+        await using var scope = fixture.CreateScope();
+        await scope.AsNewViewer(Unique("rules-preview"));
+
+        var preview = ActivatorUtilities.CreateInstance<Resources.MappingPreviews.Preview>(
+            scope.ServiceProvider);
+
+        await Assert.ThrowsAsync<SWUnauthorizedException>(() =>
+            preview.Handle(new Resources.MappingPreviews.MappingPreviewRequest
+            {
+                MappingRules = "{}",
+                SourceDocument = "{}"
             }));
     }
 

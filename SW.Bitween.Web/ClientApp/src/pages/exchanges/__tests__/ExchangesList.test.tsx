@@ -66,17 +66,22 @@ function exchanges({
   return { handler, asked };
 }
 
-/** The pickers above the list. Nothing in them matters here. */
-const filterOptions = ["/partners", "/subscriptions", "/documents"].map((p) =>
-  http.get(apiPath(p), () => HttpResponse.json({ result: [], totalCount: 0 })),
-);
+/** The pickers above the list, and the counts and chart beside it. Nothing in them matters here. */
+const filterOptions = [
+  ...["/partners", "/subscriptions", "/documents"].map((p) =>
+    http.get(apiPath(p), () => HttpResponse.json({ result: [], totalCount: 0 })),
+  ),
+  http.get(apiPath("/xchanges/summary"), () =>
+    HttpResponse.json({ counts: { processing: 0, success: 0, badResponse: 0, failed: 0 }, buckets: [], bucketMinutes: 0 }),
+  ),
+];
 
 const rowCheckboxes = () => screen.getAllByRole("checkbox", { name: /^Select (?!all\b)/ });
 
 describe("the exchanges list", () => {
   /**
    * A selection has to be able to mean "everything this filter matches", or a 200-exchange
-   * recovery is 8 pages of ticking boxes. Stops at the confirm — what it says is the point, and
+   * recovery is 8 pages of ticking boxes. Stops at the confirm - what it says is the point, and
    * running it would retry the whole filter.
    */
   describe("select all matching", () => {
@@ -123,7 +128,7 @@ describe("the exchanges list", () => {
       const dialog = await screen.findByRole("dialog");
       expect(within(dialog).getByText("Retry 59 exchanges?")).toBeVisible();
       expect(await within(dialog).findByText(/^59 exchanges will run again/)).toBeVisible();
-      // What it asked about is the filter itself, minus the row unticked — not 24 ids off one page.
+      // What it asked about is the filter itself, minus the row unticked - not 24 ids off one page.
       expect(previews).toEqual([
         { filter: "filter=StatusFilter%3A1%3A3", excludeIds: [exchange(0).id], reason: "Bulk retry", reset: false },
       ]);
@@ -135,13 +140,13 @@ describe("the exchanges list", () => {
 
     it.each([
       {
-        answer: "past the cap, it refuses",
-        plan: { selected: 60, willRetry: 0, limit: 50, overLimit: true },
-        says: /more than the 50 a single retry will carry out/,
+        answer: "past what rounds can take, it refuses",
+        plan: { selected: 6000, willRetry: 0, limit: 500, maxSelection: 5000, overLimit: true },
+        says: /more than the 5,000 one retry can work through/,
       },
       {
         answer: "with nothing retryable, it says so",
-        plan: { selected: 60, willRetry: 0, limit: 500, overLimit: false },
+        plan: { selected: 60, willRetry: 0, limit: 500, maxSelection: 5000, overLimit: false },
         says: /^Nothing here can be retried\.$/,
       },
     ])("$answer, and offers only Close", async ({ plan, says }) => {
@@ -165,11 +170,116 @@ describe("the exchanges list", () => {
       await user.click(within(dialog).getByText("Close", { selector: "button" }));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
+
+    /**
+     * Past what one retry carries out, the confirm doesn't send the selection: it sends the attempts
+     * the preview listed, a round at a time. Here the limit is 2, so 5 attempts are 3 rounds.
+     */
+    describe("past one retry, in rounds", () => {
+      const targets = [11, 12, 13, 14, 15].map((n) => exchange(n).id);
+      const preview = http.post(apiPath("/xchanges/bulkretrypreview"), () =>
+        HttpResponse.json({
+          selected: 59,
+          willRetry: 5,
+          limit: 2,
+          maxSelection: 5000,
+          overLimit: false,
+          targets,
+          substituted: [],
+          skipped: [{ id: exchange(16).id, reason: "It succeeded, so there is nothing to retry." }],
+          properties: {},
+        }),
+      );
+      /**
+       * The retry endpoint, keeping every round it was sent; `fails` answers that round with a 500,
+       * and `holds` keeps that round waiting until `release` is called.
+       */
+      function rounds({ fails, holds }: { fails?: number; holds?: number } = {}) {
+        const sent: { ids: string[] }[] = [];
+        let release = () => {};
+        const held = new Promise<void>((resolve) => (release = resolve));
+        const handler = http.post(apiPath("/xchanges/bulkretry"), async ({ request }) => {
+          const body = (await request.json()) as { ids: string[] };
+          sent.push(body);
+          if (sent.length === holds) await held;
+          if (sent.length === fails) return HttpResponse.json({ message: "Broker unreachable" }, { status: 500 });
+          const n = body.ids.length;
+          return HttpResponse.json({ selected: n, willRetry: n, limit: 2, maxSelection: 5000, overLimit: false, targets: body.ids });
+        });
+        return { handler, sent, release: () => release() };
+      }
+
+      it("sends the planned attempts a round at a time, then says what ran", async () => {
+        const retry = rounds({ holds: 2 });
+        const { user } = renderApp("/exchanges?status=failed", {
+          handlers: [exchanges({ total: 60 }).handler, ...filterOptions, preview, retry.handler],
+        });
+
+        await selectAllMatching(user);
+        await user.click(screen.getByRole("button", { name: "Retry selected…" }));
+        const dialog = await screen.findByRole("dialog");
+        expect(await within(dialog).findByText(/they go in 3 rounds of up to 2/)).toBeVisible();
+
+        await user.click(within(dialog).getByRole("button", { name: "Retry" }));
+        // While the second round is out, the first one's attempts are counted.
+        expect(await within(dialog).findByText("Retried 2 of 5…")).toBeVisible();
+        expect(within(dialog).getByRole("progressbar", { name: "Retried so far" })).toHaveAttribute("aria-valuenow", "2");
+        retry.release();
+
+        expect(await screen.findByText("5 retries started, 1 skipped.")).toBeVisible();
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+        expect(retry.sent.map((r) => r.ids)).toEqual([targets.slice(0, 2), targets.slice(2, 4), targets.slice(4)]);
+      });
+
+      it("closed mid-way, stops after the round under way and leaves a confirm opened since alone", async () => {
+        const retry = rounds({ holds: 1 });
+        const { user } = renderApp("/exchanges?status=failed", {
+          handlers: [exchanges({ total: 60 }).handler, ...filterOptions, preview, retry.handler],
+        });
+
+        await selectAllMatching(user);
+        await user.click(screen.getByRole("button", { name: "Retry selected…" }));
+        const dialog = await screen.findByRole("dialog");
+        await within(dialog).findByText(/they go in 3 rounds/);
+        await user.click(within(dialog).getByRole("button", { name: "Retry" }));
+        await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+
+        await user.click(screen.getByRole("button", { name: "Retry selected…" }));
+        await screen.findByRole("dialog");
+        retry.release();
+
+        expect(
+          await screen.findByText("2 retries started, 1 skipped. Stopped after 2 of 5; the rest were not retried."),
+        ).toBeVisible();
+        expect(retry.sent).toHaveLength(1);
+        expect(screen.getByRole("dialog")).toBeVisible();
+        expect(screen.getByRole("button", { name: "Retry selected…" })).toBeVisible();
+      });
+
+      it("stops at a round that fails, says how far it got, and doesn't offer to go again", async () => {
+        const retry = rounds({ fails: 2 });
+        const { user } = renderApp("/exchanges?status=failed", {
+          handlers: [exchanges({ total: 60 }).handler, ...filterOptions, preview, retry.handler],
+        });
+
+        await selectAllMatching(user);
+        await user.click(screen.getByRole("button", { name: "Retry selected…" }));
+        const dialog = await screen.findByRole("dialog");
+        await within(dialog).findByText(/they go in 3 rounds/);
+        await user.click(within(dialog).getByRole("button", { name: "Retry" }));
+
+        expect(await within(dialog).findByRole("alert")).toHaveTextContent(
+          /^2 of 5 were retried, then a round failed .*The rest were not retried\.$/,
+        );
+        expect(retry.sent).toHaveLength(2);
+        expect(within(dialog).queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
+      });
+    });
   });
 
   /**
    * A chain is one piece of work however many attempts it took, so the list needs to be able to
-   * show the newest attempt of each — otherwise a chain retried nine times fills nine rows, none
+   * show the newest attempt of each - otherwise a chain retried nine times fills nine rows, none
    * of which is the current state of anything.
    *
    * Which rows that leaves is the server's: Exchange_search_can_return_only_the_newest_attempt_of_each_chain
@@ -180,7 +290,7 @@ describe("the exchanges list", () => {
     const list = exchanges({ total: (q) => (latest(q) ? 30 : 40) });
     const { user, router } = renderApp("/exchanges?status=failed", { handlers: [list.handler, ...filterOptions] });
 
-    expect(await screen.findByText(/Showing 1–25 of 40/)).toBeVisible();
+    expect(await screen.findByText(/Showing 1-25 of 40/)).toBeVisible();
     const pill = screen.getByRole("button", { name: "Latest attempt only" });
     expect(pill).toHaveAttribute("aria-pressed", "false");
     expect(latest(list.asked.at(-1)!)).toBe(false);
@@ -188,7 +298,7 @@ describe("the exchanges list", () => {
     await user.click(pill);
     expect(router.state.location.search).toMatch(/latest=1/);
     expect(pill).toHaveAttribute("aria-pressed", "true");
-    expect(await screen.findByText(/Showing 1–25 of 30/)).toBeVisible();
+    expect(await screen.findByText(/Showing 1-25 of 30/)).toBeVisible();
     // Narrowing whatever the status picked, not replacing it.
     expect(list.asked.at(-1)!.getAll("filter")).toEqual(["StatusFilter:1:3", "LatestOnly:1:true"]);
 
@@ -198,12 +308,12 @@ describe("the exchanges list", () => {
     list.asked.length = 0;
     renderApp(pathname + search, { handlers: [list.handler, ...filterOptions] });
     expect(await screen.findByRole("button", { name: "Latest attempt only" })).toHaveAttribute("aria-pressed", "true");
-    expect(await screen.findByText(/Showing 1–25 of 30/)).toBeVisible();
+    expect(await screen.findByText(/Showing 1-25 of 30/)).toBeVisible();
     expect(latest(list.asked[0])).toBe(true);
   });
 
   it("opens promoted properties in a panel, not just a tooltip", async () => {
-    // Ten properties, one value too long for a chip, and a null — the value shape that used to
+    // Ten properties, one value too long for a chip, and a null - the value shape that used to
     // take the page down on paging.
     const properties = {
       "Trace Code": "SHOR020",
@@ -223,7 +333,7 @@ describe("the exchanges list", () => {
 
     await user.click((await screen.findAllByRole("button", { name: "Show all 10 promoted properties" }))[0]);
 
-    // Every property, in full — including the one too long to have fitted a chip.
+    // Every property, in full - including the one too long to have fitted a chip.
     expect(screen.getByText("10 promoted properties")).toBeVisible();
     expect(screen.getByText("SO-2026-0088341-RETURN-LINE-2")).toBeVisible();
 
@@ -242,10 +352,10 @@ describe("the exchanges list", () => {
     const list = exchanges({ total: 40, properties: { "Agent Code": null, "Trace Code": null, "First Time": "True" } });
     const { user } = renderApp("/exchanges", { handlers: [list.handler, ...filterOptions] });
 
-    expect(await screen.findByText(/Showing 1–25 of 40/)).toBeVisible();
+    expect(await screen.findByText(/Showing 1-25 of 40/)).toBeVisible();
     await user.click(screen.getAllByRole("button", { name: "Next" })[0]);
 
-    expect(await screen.findByText(/Showing 26–40 of 40/)).toBeVisible();
+    expect(await screen.findByText(/Showing 26-40 of 40/)).toBeVisible();
     expect(list.asked.at(-1)?.get("page")).toBe("1");
     expect(screen.getAllByText("True").length).toBeGreaterThan(0);
     expect(screen.queryByText("Unexpected Application Error")).not.toBeInTheDocument();

@@ -24,7 +24,7 @@ namespace SW.Bitween.Resources.Subscriptions
     /// </summary>
     public class Create(BitweenDbContext dbContext, RequestContext requestContext,
         IInfolinkCache BitweenCache, SubscriptionSchedulerService subScheduler,
-        AdapterRequirements adapterRequirements) : ICommandHandler<SubscriptionCreate, object>
+        AdapterRequirements adapterRequirements, SubscriptionRevisions revisions) : ICommandHandler<SubscriptionCreate, object>
     {
         private readonly BitweenDbContext _dbContext = dbContext;
 
@@ -74,15 +74,16 @@ namespace SW.Bitween.Resources.Subscriptions
             await BitweenCache.BroadcastRevoke();
             await subScheduler.Sync(entity, Array.Empty<Schedule>());
 
+            await revisions.RecordAsync(entity.Id);
             return entity.Id;
         }
 
         private class Validate : AbstractValidator<SubscriptionCreate>
         {
-            public Validate(BitweenDbContext dbContext, AdapterRequirements adapterRequirements)
+            public Validate(BitweenDbContext dbContext, AdapterRequirements adapterRequirements, Services.Mirror.MirrorCopyGate mirrorCopy)
             {
                 // Same rule Documents enforces on BusMessageTypeName. Publishing to a name no
-                // information type carries is legitimate — the consumer may be another product —
+                // information type carries is legitimate - the consumer may be another product -
                 // but it still becomes a RabbitMQ routing key, and a name with a space in it
                 // could never be answered by an information type anyway.
                 RuleFor(i => i.ResponseMessageTypeName)
@@ -92,7 +93,8 @@ namespace SW.Bitween.Resources.Subscriptions
 
                 RuleFor(i => i.ResponseSubscriptionId).CustomAsync(async (responseSubId, context, _) =>
                 {
-                    var failure = await ResponseRoutingValidation.CheckDestination(dbContext, responseSubId);
+                    var failure = await ResponseRoutingValidation.CheckDestination(dbContext, responseSubId,
+                        recreatingProd: mirrorCopy.RecreatingProd);
                     if (failure != null)
                         context.AddFailure(nameof(SubscriptionCreate.ResponseSubscriptionId), failure);
                 });
@@ -118,31 +120,39 @@ namespace SW.Bitween.Resources.Subscriptions
                 When(i => i.Type == SubscriptionType.Aggregation,
                     () => { RuleFor(i => i.AggregationForId).NotEmpty(); });
 
-                // An adapter that is named has to be usable. Nothing is required to be named —
-                // create without a pipeline is still legitimate — but a half-configured adapter
+                // An adapter that is named has to be usable. Nothing is required to be named -
+                // create without a pipeline is still legitimate - but a half-configured adapter
                 // is the failure this endpoint exists to stop committing.
                 RuleFor(i => i.ReceiverProperties).CustomAsync(async (provided, context, _) =>
                     await AddMissing(context, adapterRequirements,
-                        ((SubscriptionCreate)context.InstanceToValidate).ReceiverId, provided));
+                        SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(
+                            ((SubscriptionCreate)context.InstanceToValidate).ReceiverId,
+                            ((SubscriptionCreate)context.InstanceToValidate).ReceiverVersion), provided));
 
                 RuleFor(i => i.ValidatorProperties).CustomAsync(async (provided, context, _) =>
                     await AddMissing(context, adapterRequirements,
-                        ((SubscriptionCreate)context.InstanceToValidate).ValidatorId, provided));
+                        SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(
+                            ((SubscriptionCreate)context.InstanceToValidate).ValidatorId,
+                            ((SubscriptionCreate)context.InstanceToValidate).ValidatorVersion), provided));
 
                 RuleFor(i => i.MapperProperties).CustomAsync(async (provided, context, _) =>
                     await AddMissing(context, adapterRequirements,
-                        ((SubscriptionCreate)context.InstanceToValidate).MapperId, provided));
+                        SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(
+                            ((SubscriptionCreate)context.InstanceToValidate).MapperId,
+                            ((SubscriptionCreate)context.InstanceToValidate).MapperVersion), provided));
 
                 RuleFor(i => i.HandlerProperties).CustomAsync(async (provided, context, _) =>
                     await AddMissing(context, adapterRequirements,
-                        ((SubscriptionCreate)context.InstanceToValidate).HandlerId, provided));
+                        SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(
+                            ((SubscriptionCreate)context.InstanceToValidate).HandlerId,
+                            ((SubscriptionCreate)context.InstanceToValidate).HandlerVersion), provided));
 
                 // Schedules only mean anything on the two scheduled types, and an empty set is
                 // what Subscription.SetSchedules rejects outright.
                 //
                 // The type is the whole condition. Guarding on `Schedules != null` as well let the
-                // rule be skipped by the one case it most needed to catch — omitting the field
-                // entirely — so a scheduled job or aggregation saved with no trigger at all and
+                // rule be skipped by the one case it most needed to catch - omitting the field
+                // entirely - so a scheduled job or aggregation saved with no trigger at all and
                 // then simply never ran.
                 RuleFor(i => i.Schedules)
                     .NotEmpty()

@@ -1,13 +1,20 @@
 import { type Page } from "@playwright/test";
+import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./env";
 
 /** Checkbox labels carry their description in the accessible name, so anchor at the start. */
 export const startsWith = (text: string) =>
   new RegExp("^" + text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
 
-export const ADMIN_EMAIL = "admin@Bitween.systems";
-export const ADMIN_PASSWORD = "Mtm@dmin!2";
+/** Who the suite signs in as and where - read from the environment, see env.ts. */
+export { ADMIN_EMAIL, ADMIN_PASSWORD, API } from "./env";
 
 /** Passwords the members these tests create are given. Both clear the 8-character minimum. */
+/**
+ * A subscription's own page. Scheduled jobs, aggregations and response subscriptions open in their
+ * own section (/scheduled-jobs/:id …), everything else at /subscriptions/:id.
+ */
+export const SUBSCRIPTION_PAGE = /\/(subscriptions|scheduled-jobs|aggregations|response-subscriptions)\/\d+$/;
+
 export const FIRST_PASSWORD = "Pl4ywright!1";
 export const ROTATED_PASSWORD = "R0tated!Pass2";
 
@@ -15,14 +22,14 @@ export const ROTATED_PASSWORD = "R0tated!Pass2";
  * Choose an option from a SearchSelect, and leave the page interactive.
  *
  * SearchSelect is a Headless UI `Combobox` with `immediate`, so it opens its
- * listbox whenever the input takes focus — and Headless UI restores focus to
+ * listbox whenever the input takes focus - and Headless UI restores focus to
  * that input a few milliseconds after the list unmounts. So every close
  * schedules a reopen, and a test that moves on inside that window gets its
  * focus stolen and then wedged: an open listbox marks the rest of the page
  * `inert`, and an inert page can never be clicked to dismiss the listbox. The
  * failure reads as "<section> intercepts pointer events" and never recovers.
  *
- * A person never sees this — their next action is far slower than the restore,
+ * A person never sees this - their next action is far slower than the restore,
  * which is why the app behaves correctly by hand. This is the test catching up
  * with the UI, so it dismisses the list until it stays shut rather than
  * assuming one Escape is enough.
@@ -119,10 +126,34 @@ export async function removeMember(page: Page, email: string) {
   await page.getByRole("dialog", { name: "Member details" }).waitFor({ state: "detached" });
 }
 
+/** Picks an item from a detail page's "More actions" menu, where Delete and the rarer actions live. */
+export async function moreAction(page: Page, name: string) {
+  await page.getByRole("button", { name: "More actions" }).click();
+  await page.getByRole("menuitem", { name, exact: true }).click();
+}
+
 export async function deleteRole(page: Page, name: string) {
   await page.goto("team/roles");
   await page.getByRole("link", { name: new RegExp(name) }).click();
+  await moreAction(page, "Delete");
   await page.getByRole("button", { name: "Delete role" }).click();
-  await page.getByRole("button", { name: "Delete role" }).last().click();
   await page.waitForURL(/\/team\/roles$/, { timeout: 15000 });
+}
+
+/**
+ * A Jwt for the signed-in page's own session, for specs that call the API directly. The app keeps
+ * its Jwt in memory where a spec cannot reach it, so this asks the server for one with the refresh
+ * cookie the page holds - the same thing a reload does.
+ */
+export async function sessionToken(page: Page): Promise<string> {
+  return page.evaluate(async () => {
+    const res = await fetch("/api/accounts/login", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: "{}",
+    });
+    const data = (await res.json()) as { jwt?: string; Jwt?: string };
+    return data.jwt ?? data.Jwt ?? "";
+  });
 }

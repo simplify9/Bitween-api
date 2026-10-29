@@ -3,26 +3,30 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, Trash2 } from "lucide-react";
 import { api } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
-import { ConfirmDialog } from "../../components/ui/overlays";
+import { EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import {
   BusRenameConfirm,
   QueuedMessagesWarning,
-  renamesQueues,
   WorkGroupFields,
-  workGroupDraftOf,
   type WorkGroupDraft,
 } from "../../components/config/WorkGroupDialog";
+import { renamesQueues, workGroupDraftOf } from "../../components/config/workGroupDraft";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { SetupList } from "../../components/config/shared";
 import { LiveQueueStats } from "./LiveQueueStats";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
+import { usePageTitle } from "../../lib/pageTitle";
 
 /**
- * This group's slice of the live RabbitMQ picture — the same numbers the
+ * This group's slice of the live RabbitMQ picture - the same numbers the
  * Queue health page shows, brought to where the group is configured.
  */
 function LiveQueuePanel({ groupId }: { groupId: number }) {
@@ -33,7 +37,7 @@ function LiveQueuePanel({ groupId }: { groupId: number }) {
       action={
         <Link
           to="/queue-health"
-          className="inline-flex items-center gap-1 text-[13px] font-medium text-crimson-700 hover:underline"
+          className="inline-flex items-center gap-1 text-[13px] font-medium link"
         >
           Queue health <ArrowUpRight className="size-3.5" aria-hidden />
         </Link>
@@ -50,12 +54,14 @@ export function WorkGroupPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("workgroups.edit");
+  const canDelete = useSessionCan("workgroups.delete");
 
   const group = useQuery({
     queryKey: keys.workGroups.detail(groupId),
     queryFn: () => api.getWorkGroup(groupId),
     retry: false,
   });
+  usePageTitle(group.data?.name);
 
   const [draft, setDraft] = useState<WorkGroupDraft | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -83,11 +89,15 @@ export function WorkGroupPage() {
     },
   });
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+
   if (group.isPending) return <LoadingBlock label="Loading work group…" />;
+  if (group.isError && !isNotFound(group.error))
+    return <LoadError error={group.error} what="this work group" onRetry={() => void group.refetch()} />;
   if (group.isError)
     return (
       <EmptyState title="This work group no longer exists">
-        <Link to="/work-groups" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/work-groups" className="font-medium link">
           Back to work groups
         </Link>
       </EmptyState>
@@ -97,6 +107,7 @@ export function WorkGroupPage() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/work-groups" label="Work groups" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -105,11 +116,17 @@ export function WorkGroupPage() {
             <EditableTitle value={draft?.name ?? g.name} onChange={(name) => setDraft((d) => (d ? { ...d, name } : d))} disabled={!canEdit} placeholder="Work group name" />
           </h1>
         </div>
-        <Can permission="workgroups.delete">
-          <Button variant="danger" onClick={() => setDeleting(true)}>
-            <Trash2 className="size-4" /> Delete
-          </Button>
-        </Can>
+        <MoreActionsMenu
+          actions={[
+            {
+              label: "Delete",
+              icon: <Trash2 className="size-4" />,
+              danger: true,
+              onSelect: () => setDeleting(true),
+              hidden: !canDelete,
+            },
+          ]}
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -143,8 +160,10 @@ export function WorkGroupPage() {
       )}
 
       {deleting && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this work group?"
+          name={g.name}
+          blockers={[counted(g.subscriptions.length, "subscription assigned to it", "subscriptions assigned to it")]}
           body={
             <div className="space-y-2">
               <p>
@@ -158,7 +177,7 @@ export function WorkGroupPage() {
           onConfirm={async () => {
             await api.deleteWorkGroup(groupId);
             void queryClient.invalidateQueries({ queryKey: keys.workGroups.all });
-            navigate("/work-groups", { replace: true });
+            leave(() => navigate("/work-groups", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
         />

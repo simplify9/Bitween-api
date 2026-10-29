@@ -6,7 +6,7 @@ namespace SW.Bitween.Resources.BitweenDocs;
 
 /// <summary>
 /// An exchange file's content, for the exchange drawer. Signed-in members with the exchanges view
-/// only, and only keys that are exactly one of an exchange's files — it used to read any key in the
+/// only, and only keys that are exactly one of an exchange's files - it used to read any key in the
 /// bucket for anyone.
 /// </summary>
 public class Get(BitweenDbContext dbContext, RequestContext requestContext, XchangeService xchangeService)

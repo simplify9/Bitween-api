@@ -5,10 +5,11 @@ using System.Linq;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain.Gateway;
 using SW.Bitween.Model;
+using SW.Bitween.Services.Mirror;
 
 namespace SW.Bitween.Resources.ApiGateways
 {
-    public class Search(BitweenDbContext dbContext, RequestContext requestContext) : ISearchyHandler
+    public class Search(BitweenDbContext dbContext, RequestContext requestContext, MirrorService mirror) : ISearchyHandler
     {
         public async Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
@@ -16,6 +17,7 @@ namespace SW.Bitween.Resources.ApiGateways
             // the full list is the data, so that's what the view permission covers.
             if (!lookup)
                 await requestContext.EnsurePermission(dbContext, Model.Permissions.ApiGateways.View);
+            await mirror.FilterAsync(searchyRequest, "apiGateways", requestContext, dbContext);
 
             var query = from gateway in dbContext.Set<ApiGateway>()
                         select new ApiGatewayRow
@@ -24,6 +26,7 @@ namespace SW.Bitween.Resources.ApiGateways
                             Name = gateway.Name,
                             UrlName = gateway.UrlName,
                             Inactive = gateway.Inactive,
+                            FailureAnswer = gateway.FailureAnswer,
                             PartnersCount = gateway.Partners.Count
                         };
 

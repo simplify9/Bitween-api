@@ -15,25 +15,25 @@ const MODE_CONFIG: { mode: MappingMode; label: string; activeCls: string; inacti
     mode: 'source',
     label: 'Source',
     activeCls: 'bg-crimson-500 text-white',
-    inactiveCls: 'text-ink-400 hover:bg-ink-50',
+    inactiveCls: 'text-ink-500 hover:bg-ink-50',
   },
   {
     mode: 'fixed',
     label: 'Fixed',
     activeCls: 'bg-warn-700 text-white border-l border-warn-100',
-    inactiveCls: 'text-ink-400 border-l border-ink-200 hover:bg-ink-50',
+    inactiveCls: 'text-ink-500 border-l border-ink-200 hover:bg-ink-50',
   },
   {
     mode: 'partner',
     label: 'Partner',
     activeCls: 'bg-ok-600 text-white border-l border-ok-100',
-    inactiveCls: 'text-ink-400 border-l border-ink-200 hover:bg-ink-50',
+    inactiveCls: 'text-ink-500 border-l border-ink-200 hover:bg-ink-50',
   },
   {
     mode: 'global',
     label: 'Global',
     activeCls: 'bg-ok-600 text-white border-l border-ok-100',
-    inactiveCls: 'text-ink-400 border-l border-ink-200 hover:bg-ink-50',
+    inactiveCls: 'text-ink-500 border-l border-ink-200 hover:bg-ink-50',
   },
 ];
 

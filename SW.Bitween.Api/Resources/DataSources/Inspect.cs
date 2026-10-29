@@ -11,13 +11,13 @@ using SW.Serverless.Resident;
 namespace SW.Bitween.Resources.DataSources;
 
 /// <summary>
-/// Asks the RUNNING adapter what it can see right now — the broker's topology, or the
+/// Asks the RUNNING adapter what it can see right now - the broker's topology, or the
 /// database's catalog.
 ///
 /// Deliberately not the same shape as <see cref="Test"/>. A test starts a throwaway instance,
 /// because its whole job is to answer "would these settings work" before anything depends on them.
 /// Discover and GetStats are questions about the connection that is actually serving traffic, so
-/// they go to that instance — starting a second one would answer about a connection nobody is
+/// they go to that instance - starting a second one would answer about a connection nobody is
 /// using, and on a broker that authorises per-connection it might not even answer the same way.
 ///
 /// Both are read-only: neither consumes, acknowledges or publishes anything.
@@ -33,7 +33,7 @@ public class Inspect(BitweenDbContext dbContext, RequestContext requestContext,
     /// </summary>
     /// A database adapter widens this: Describe says what the engine and this login can do, and
     /// Discover walks the catalog. Both are read-only. Query, Execute, Call, Batch and BulkLoad are
-    /// deliberately absent and must stay absent — a View-level read must not become a way to run
+    /// deliberately absent and must stay absent - a View-level read must not become a way to run
     /// SQL against a customer's database by naming it in a request body.
     private static readonly string[] Allowed = ["Discover", "GetStats", "Describe"];
 
@@ -65,10 +65,10 @@ public class Inspect(BitweenDbContext dbContext, RequestContext requestContext,
                 // opposite reactions. An exclusive broker connection is held by one node, so this
                 // is the normal answer everywhere else and nothing is wrong. A pooled database
                 // connection is held by every node that runs work, so "not here" means it is not
-                // running at all — which is a fault worth chasing.
+                // running at all - which is a fault worth chasing.
                 Error = kind == DataSourceKind.Relational
                     ? "This node is not running the adapter for this data source. A connection "
-                    + "pool is held by every node, so this means it has not started — check the "
+                    + "pool is held by every node, so this means it has not started - check the "
                     + "live connection panel for why."
                     : "This node is not running the adapter for this data source, so it has "
                     + "nothing to ask. A broker connection is exclusive: only the node holding "

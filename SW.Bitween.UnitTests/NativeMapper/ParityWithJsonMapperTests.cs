@@ -23,20 +23,20 @@ namespace SW.Bitween.UnitTests.NativeMapper;
 /// </para>
 /// <list type="bullet">
 /// <item><description>
-/// <c>TrailingCommas_AreRemovedFromRenderedJson</c> and <c>InvalidScribanTemplate</c> — there is no
+/// <c>TrailingCommas_AreRemovedFromRenderedJson</c> and <c>InvalidScribanTemplate</c> - there is no
 /// template, so neither situation exists.
 /// </description></item>
 /// <item><description>
-/// <c>SmartArray_AllowsFirstItemMemberAccessWithoutIndex</c> — a list no longer pretends to be its
+/// <c>SmartArray_AllowsFirstItemMemberAccessWithoutIndex</c> - a list no longer pretends to be its
 /// own first element. That was ambiguous: <c>order.line.sku</c> silently meant the first line's sku,
 /// with no way to ask for anything else. A path into a list belongs to a loop.
 /// </description></item>
 /// <item><description>
-/// <c>SourceMapping_ResolvesLowercaseAliasForPascalCaseKey</c> — every key no longer gets a
+/// <c>SourceMapping_ResolvesLowercaseAliasForPascalCaseKey</c> - every key no longer gets a
 /// camelCase twin. A path matches the document exactly.
 /// </description></item>
 /// <item><description>
-/// The TypeScript round-trip tests — they test parsing a template back into rules, which is the
+/// The TypeScript round-trip tests - they test parsing a template back into rules, which is the
 /// thing this design removes.
 /// </description></item>
 /// </list>
@@ -200,7 +200,7 @@ public class ParityWithJsonMapperTests
     }
 
     /// <summary>
-    /// Old: <c>PartnerAndGlobalTypedTargets_AreRepresentedAsNullTemplateLiteral</c> — the old
+    /// Old: <c>PartnerAndGlobalTypedTargets_AreRepresentedAsNullTemplateLiteral</c> - the old
     /// generator gave up and emitted a literal null for a partner value on a number target, because
     /// it could not know at generation time whether the text would parse. Here the value exists when
     /// the conversion runs, so a numeric partner value converts and a non-numeric one is reported.
@@ -313,7 +313,7 @@ public class ParityWithJsonMapperTests
 
     /// <summary>
     /// Old: <c>TypeRules_StringToBool_IsNull</c> and <c>StringToNumber_InvalidIsNull</c>. The old
-    /// mapper produced null; this one fails and names the rule. Deliberate — a partner receiving a
+    /// mapper produced null; this one fails and names the rule. Deliberate - a partner receiving a
     /// document with a silent hole in it is worse than being told the mapping is wrong.
     /// </summary>
     [TestMethod]
@@ -334,7 +334,7 @@ public class ParityWithJsonMapperTests
 
     // ── transforms ──────────────────────────────────────────────────────────────
 
-    /// <summary>Old: <c>TransformMapping_AppliesMathExpression</c> — a Scriban expression then.</summary>
+    /// <summary>Old: <c>TransformMapping_AppliesMathExpression</c> - a Scriban expression then.</summary>
     [TestMethod]
     public void AppliesArithmetic() =>
         Assert.AreEqual(116m,
@@ -585,7 +585,7 @@ public class ParityWithJsonMapperTests
         Assert.AreEqual("B7", output[1]["code"]?.ToString());
     }
 
-    /// <summary>Old: <c>RootArrayInput_AccessFirstItemField_ViaItemsIndex</c> — reading a root array
+    /// <summary>Old: <c>RootArrayInput_AccessFirstItemField_ViaItemsIndex</c> - reading a root array
     /// into an object output, which the old mapper did by hoisting the first element's fields.</summary>
     [TestMethod]
     public void RootArrayInputToObjectOutput()

@@ -4,7 +4,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.NativeAdapters.RebexPop3Receiver;
 
-public class NativeRebexPop3Receiver(string? licenseKey = null) : INativeInfolinkReceiver, IRequiresRebexLicense
+public class NativeRebexPop3Receiver(string? licenseKey = null) : INativeInfolinkReceiver, IRequiresRebexLicense, IDisposable
 {
     private RebexPop3ReceiverInput _options = new();
     private Pop3 _pop3 = new();
@@ -46,8 +46,10 @@ public class NativeRebexPop3Receiver(string? licenseKey = null) : INativeInfolin
         if (message.Attachments.Count < 1)
             return new XchangeFile(message.BodyText, message.Subject);
 
+        // The attachment is already in hand with the message. This used to also save the raw message
+        // to a local file named after the attachment - a name the sender chooses, so any mail to the
+        // mailbox could write wherever that name pointed - and nothing ever read the file.
         var attachment = message.Attachments[0];
-        await _pop3.GetMessageAsync(sequenceNumber, attachment.FileName);
 
         await using var stream = attachment.GetContentStream();
         using var memoryStream = new MemoryStream();
@@ -76,4 +78,13 @@ public class NativeRebexPop3Receiver(string? licenseKey = null) : INativeInfolin
     }
 
     public Type StartupValuesType => typeof(RebexPop3ReceiverInput);
+
+    /// <summary>
+    /// Closes a connection a run left open - one that failed before Finalize. Without the QUIT that
+    /// Finalize sends, the server keeps the messages this run marked for deletion.
+    /// </summary>
+    public void Dispose()
+    {
+        try { _pop3.Dispose(); } catch { /* closing only */ }
+    }
 }

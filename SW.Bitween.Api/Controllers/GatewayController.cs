@@ -21,11 +21,21 @@ public class GatewayController(
     RequestContext requestContext,
     IInfolinkCache cache,
     XchangeService xchangeService,
-    GatewayCallers callers) : ControllerBase
+    GatewayCallers callers,
+    GatewayActivity activity,
+    BitweenOptions options,
+    Services.Metrics.MetricsRecorder metrics,
+    ResultSignals signals) : ControllerBase
 {
+    /// <summary>A sync call's wait for its own exchange's result, from before it is published to the answer.</summary>
+    private ResultSignals.Wait signal;
+
+    /// <summary>Answers a call whose payload the type dropped as a duplicate, naming the exchange it repeats.</summary>
+    public const string DuplicateOfHeader = "Bitween-Duplicate-Of";
+
     /// <summary>
     /// <c>{gateway's url name}/sync</c> or <c>/async</c>. The url name can be several segments,
-    /// so it is everything before the last one — a route can't put a literal after a catch-all.
+    /// so it is everything before the last one - a route can't put a literal after a catch-all.
     /// </summary>
     /// <remarks>
     /// The literal "gateway" is what keeps this clear of CqApi, which owns the rest of /api/ with
@@ -49,46 +59,96 @@ public class GatewayController(
 
     private async Task<IActionResult> ProcessAsync(string gatewayApiName, bool resultSync)
     {
-        var globalAdapterValuesSet = await cache.ListGlobalAdapterValuesSetsAsync();
-        // Lowered on the column too: rows saved before names had to be lowercase may not be.
-        var apiGateway = await dbContext.Set<ApiGateway>()
-            .Include(ag => ag.Partners)
-            .ThenInclude(agp => agp.Partner)
-            .FirstOrDefaultAsync(ag => ag.UrlName.ToLower() == gatewayApiName);
+        // Creation and the sync wait, counted together; see DbCommandTally.
+        var commands = Services.Metrics.DbCommandTally.Open("gateway");
+        try
+        {
+            return await ProcessCallAsync(gatewayApiName, resultSync);
+        }
+        finally
+        {
+            signal?.Dispose();
+            commands.Record(metrics);
+        }
+    }
 
+    private async Task<IActionResult> ProcessCallAsync(string gatewayApiName, bool resultSync)
+    {
+        // The creation in a method of its own, so that once it returns nothing reaches what it read:
+        // the request body and its parsed trees, which a sync call would otherwise hold through the
+        // whole wait (up to Bitween:MaxResponseWaitSeconds), are garbage before the wait starts.
+        var call = await CreateAsync(gatewayApiName, resultSync);
+        if (call.Answer != null) return call.Answer;
+        if (!resultSync) return Accepted(call.XchangeId);
+        return await WaitAsync(call);
+    }
+
+    /// <summary>
+    /// What a call's creation leaves for the rest of it: an answer when it is done already, else the
+    /// exchange it waits for, how long, and how the gateway answers a failure. Nothing of the payload.
+    /// </summary>
+    private sealed record CreatedCall(IActionResult Answer, string XchangeId = null, int WaitSeconds = 0,
+        GatewayFailureAnswer FailureAnswer = default);
+
+    private async Task<CreatedCall> CreateAsync(string gatewayApiName, bool resultSync)
+    {
+        using var created = BitweenTelemetry.Stage("gateway.create");
+        var globalAdapterValuesSet = await cache.ListGlobalAdapterValuesSetsAsync();
+        // From the cache, with its attachments and partners, as the subscriptions are: these were two
+        // queries on every call. A save to a gateway, an attachment, a partner or a key revokes it.
+        var apiGateway = await cache.ApiGatewayByUrlNameAsync(gatewayApiName);
+
+        var address = HttpContext.Connection.RemoteIpAddress?.ToString();
         if (apiGateway == null)
-            return NotFound();
+        {
+            activity.Refused(gatewayApiName, "unknown-gateway", 404, address);
+            return new CreatedCall(NotFound());
+        }
 
         // Resolve the partner the way this gateway asks callers to prove who they are
-        var (authorized, partner, callerReference) = await callers.Identify(apiGateway, requestContext);
+        var (authorized, partner, callerReference, keyName) = await callers.Identify(apiGateway, requestContext);
 
         if (!authorized)
-            return Unauthorized();
+        {
+            activity.Refused(gatewayApiName, "not-authenticated", 401, address);
+            return new CreatedCall(Unauthorized());
+        }
 
         // Verify partner is part of the API Gateway
         var apiGatewayPartner = apiGateway.Partners.FirstOrDefault(agp => agp.PartnerId == partner.Id);
         if (apiGatewayPartner == null)
-            return Unauthorized();
+        {
+            activity.Refused(gatewayApiName, "not-attached", 401, address);
+            return new CreatedCall(Unauthorized());
+        }
+        await activity.KeyUsedAsync(partner.Id, keyName);
+        Services.Metrics.DbCommandTally.Current?.AttributeTo(DateTime.UtcNow, apiGatewayPartner.SubscriptionId, partner.Id);
 
         // After authorisation on purpose: whether a gateway exists and is switched off is
-        // something only an attached partner should learn — checking it earlier would
+        // something only an attached partner should learn - checking it earlier would
         // answer that for anyone who guessed the url.
         //
         // 503 rather than 404 because the url is right and the partner should keep it: a
         // 404 reads as "wrong address" and sends someone hunting for a new one, where this
         // is a gateway somebody switched off and will switch back on.
         if (apiGateway.Inactive)
-            return StatusCode(StatusCodes.Status503ServiceUnavailable,
-                $"The '{apiGateway.Name}' gateway is currently deactivated.");
+        {
+            activity.Refused(gatewayApiName, "gateway-off", 503, address);
+            return new CreatedCall(StatusCode(StatusCodes.Status503ServiceUnavailable,
+                $"The '{apiGateway.Name}' gateway is currently deactivated."));
+        }
 
         var subscription = await cache.SubscriptionByIdAsync(apiGatewayPartner.SubscriptionId);
 
         if (subscription == null)
-            return NotFound();
+        {
+            activity.Refused(gatewayApiName, "no-subscription", 404, address);
+            return new CreatedCall(NotFound());
+        }
 
         var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
 
-        // The file name travels with the exchange into handlers, some of which write it to disk —
+        // The file name travels with the exchange into handlers, some of which write it to disk -
         // a slash there is a directory nobody asked for. JSON and XML types keep the ".json"
         // they have always had, since whatever picks those files up may expect it.
         var document = await cache.DocumentByIdAsync(subscription.DocumentId);
@@ -98,63 +158,164 @@ public class GatewayController(
             DocumentFormat.Other => "",
             _ => ".json",
         };
-        var xchangeFile = new XchangeFile(json, $"{gatewayApiName.Replace('/', '-')}{extension}");
+        // Carrying its parsed trees, so the schema check below and the promoted-property read at
+        // creation share one parse, unless Bitween:SharedPayloadParse is off (finding 6c).
+        var fileName = $"{gatewayApiName.Replace('/', '-')}{extension}";
+        var xchangeFile = options.SharedPayloadParse
+            ? new NativeAdapters.ParsedXchangeFile(json, fileName)
+            : new XchangeFile(json, fileName);
+
+        // Told now, while the partner is still on the line, rather than as a failed exchange later.
+        var schemaErrors = document is null
+            ? []
+            : await DocumentSchema.Check(document.DocumentFormat, document.ValidationSchema, xchangeFile);
+        if (schemaErrors.Count > 0)
+            return new CreatedCall(BadRequest(new { error = "SCHEMA_MISMATCH", errors = schemaErrors }));
 
         var validatorProperties = subscription.ValidatorProperties.ToDictionary()
             .Fill(partner, globalAdapterValuesSet);
-        await xchangeService.RunValidator(subscription.ValidatorId, validatorProperties,
+        await xchangeService.RunValidator(subscription.ValidatorRef, validatorProperties,
             xchangeFile);
 
         var xchangeReferences = new List<string> { callerReference };
-        var globalAdapterValuesSets = await dbContext.Set<GlobalAdapterValuesSet>().ToArrayAsync();
-        var xchangeId = await xchangeService.SubmitSubscriptionXchange(subscription.Id, xchangeFile,
-            xchangeReferences.ToArray(), partner, globalAdapterValuesSets);
-        if (!resultSync)
+
+        // The caller may ask for its own wait in Wait-Period; it is capped, see ResultWait.
+        var waitResponse = ResultWait.Clamp(
+            int.TryParse(Request.Headers["Wait-Period"].FirstOrDefault(), out var asked) ? asked : null,
+            options.MaxResponseWaitSeconds);
+
+        // A repeat of a call the partner couldn't be sure arrived - same Idempotency-Key - gets the
+        // exchange the first one made, not a second. Scoped to this gateway and this partner.
+        var idempotencyKey = Request.Headers[IdempotencyGuard.Header].FirstOrDefault()?.Trim();
+        if (idempotencyKey?.Length > IdempotencyGuard.MaxKeyLength)
+            return new CreatedCall(BadRequest($"{IdempotencyGuard.Header} is longer than {IdempotencyGuard.MaxKeyLength} characters."));
+        var idempotencyScope = $"gateway:{apiGateway.Id}:partner:{partner.Id}";
+
+        var xchangeId = string.IsNullOrEmpty(idempotencyKey)
+            ? null
+            : await IdempotencyGuard.FindAsync(dbContext, idempotencyScope, idempotencyKey);
+        // A mirror's rehearsal calls as prod's partner did, under a correlation of its own, and sends
+        // what the rehearsal before it sent.
+        var rehearsal = Services.Mirror.MirrorTraffic.CorrelationFor(options, Request.Headers);
+        // Not for a replayed call: its payload is a repeat by definition, and it is answered already.
+        var duplicate = xchangeId is null && rehearsal is null
+            ? await new DuplicateArrivals(dbContext).CheckAsync(document, partner.Id, xchangeFile)
+            : null;
+
+        if (xchangeId is not null)
         {
-            return Accepted(xchangeId);
+            Response.Headers["Idempotent-Replay"] = "true";
         }
-
-        var waitResponse = 120;
-        //  check headers for wait response value
-        var waitResponseHeader = Request.Headers["Wait-Period"].FirstOrDefault();
-        if (int.TryParse(waitResponseHeader, out var waitResponseValue))
+        else if (duplicate?.Drop == true)
         {
-            waitResponse = waitResponseValue <= 0 ? 120 : waitResponseValue;
+            // The same payload from this partner within the type's duplicate window, which the type
+            // drops: answered with the exchange it repeats, as a replayed call would be.
+            await dbContext.SaveChangesAsync();
+            xchangeId = duplicate.OriginalXchangeId;
+            Response.Headers[DuplicateOfHeader] = xchangeId;
         }
-
-        var currentFibTerm = 1;
-        var previousTerm = 1;
-        while (currentFibTerm <= waitResponse)
+        else
         {
-            await Task.Delay(TimeSpan.FromSeconds(currentFibTerm));
-            var nextTerm = Math.Min(currentFibTerm + previousTerm, 8);
-            previousTerm = currentFibTerm;
-            currentFibTerm = nextTerm;
-            if (!await dbContext.Set<XchangeResult>()
-                    .AsNoTracking()
-                    .AnyAsync(i => i.Id == xchangeId)) continue;
+            if (duplicate != null && duplicate.FitsWith(xchangeReferences)) xchangeReferences.Add(duplicate.Reference);
 
-            var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
-
-
-            switch (xchangeResult!.Success)
+            // The sets already read at the top of the request, from the cache.
+            var xchange = await xchangeService.CreateXchange(subscription, xchangeFile, xchangeReferences.ToArray(),
+                rehearsal ?? Guid.NewGuid().ToString("N"), partner, globalAdapterValuesSet);
+            if (resultSync)
             {
-                case true when xchangeResult.ResponseSize == 0:
+                // Before the save publishes the exchange, so its result can't arrive unannounced. The
+                // created message names this node, and the worker rings the bell here once the result
+                // is saved.
+                signal = signals.Register(xchange.Id, TimeSpan.FromSeconds(waitResponse + 5));
+                dbContext.Handoff.AwaitedOn(xchange.Id, signals.Node);
+            }
+
+            if (string.IsNullOrEmpty(idempotencyKey))
+            {
+                await dbContext.SaveChangesAsync();
+                xchangeId = xchange.Id;
+            }
+            else
+            {
+                await IdempotencyGuard.StageAsync(dbContext, idempotencyScope, idempotencyKey, xchange.Id);
+                (xchangeId, var replayed) =
+                    await IdempotencyGuard.SaveAsync(dbContext, idempotencyScope, idempotencyKey, xchange.Id);
+                if (replayed) Response.Headers["Idempotent-Replay"] = "true";
+            }
+
+            // Answered with an earlier call's exchange instead: this one was never published.
+            if (xchangeId != xchange.Id)
+            {
+                signal?.Dispose();
+                signal = null;
+            }
+        }
+
+        return new CreatedCall(null, xchangeId, waitResponse, apiGateway.FailureAnswer);
+    }
+
+    private async Task<IActionResult> WaitAsync(CreatedCall call)
+    {
+        var xchangeId = call.XchangeId;
+        var waitResponse = call.WaitSeconds;
+        using var waited = BitweenTelemetry.Stage("gateway.wait");
+
+        // Each check reads the result itself rather than asking whether there is one and then reading
+        // it: one query once it is there, where it was two.
+        async Task<XchangeResultReady> ReadResultAsync() => XchangeResultReady.From(
+            await dbContext.Set<XchangeResult>().AsNoTracking().FirstOrDefaultAsync(i => i.Id == xchangeId));
+
+        XchangeResultReady ready;
+        if (signal != null)
+        {
+            // The worker's signal, with the database asked only as a backstop: a signal lost to a
+            // restart, or a worker on a version that sends none.
+            ready = await ResultWait.UntilAsync(signal.Result, ReadResultAsync, waitResponse, HttpContext.RequestAborted);
+        }
+        else
+        {
+            // A replayed or dropped call, answered with an exchange this call didn't create: usually
+            // finished already, so asked at once, then polled.
+            ready = await ReadResultAsync();
+            if (ready == null)
+                await ResultWait.UntilAsync(async () => (ready = await ReadResultAsync()) != null,
+                    waitResponse, HttpContext.RequestAborted);
+        }
+
+        if (ready != null)
+        {
+            switch (ready.Success)
+            {
+                // A delivered response whose file couldn't be stored has no size, but the signal still
+                // brings it when it is small enough to travel; without it there is nothing to read.
+                case true when ready.ResponseSize == 0 && ready.Response == null:
                     {
                         return Ok(xchangeId);
                     }
-                case true when xchangeResult.ResponseSize != 0:
+                case true:
                     {
-                        var response = await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
+                        // From the signal when it brought the response; from storage when it was too
+                        // large to travel, or the backstop found the result.
+                        var response = ready.Response ?? await xchangeService.GetFile(xchangeId, XchangeFileType.Response);
                         return new ContentResult
                         {
-                            StatusCode = xchangeResult.ResponseBad ? 400 : 200,
+                            StatusCode = ready.ResponseBad ? 400 : 200,
                             Content = response,
-                            ContentType = xchangeResult.ResponseContentType ?? MediaTypeNames.Application.Json,
+                            ContentType = ready.ResponseContentType ?? MediaTypeNames.Application.Json,
                         };
                     }
                 case false:
-                    return BadRequest();
+                {
+                    if (call.FailureAnswer == GatewayFailureAnswer.Legacy) return BadRequest();
+                    // The retry, if any, is scheduled in the same save as the result, so it is there now.
+                    var retryOn = await dbContext.Set<DelayedRetry>().AsNoTracking()
+                        .Where(r => r.Id == xchangeId).Select(r => (DateTime?)r.On).FirstOrDefaultAsync();
+                    var hasMapper = await dbContext.Set<Xchange>().AsNoTracking()
+                        .Where(x => x.Id == xchangeId).Select(x => x.MapperId != null).FirstOrDefaultAsync();
+                    var answer = GatewayFailureAnswers.For(call.FailureAnswer, xchangeId, hasMapper,
+                        mapped: ready.OutputSize > 0 || ready.OutputName != null, retryOn);
+                    return new ObjectResult(answer.Body) { StatusCode = answer.Status };
+                }
             }
         }
 

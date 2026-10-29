@@ -1,0 +1,991 @@
+import { lazy, Suspense, useMemo, useState } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
+import { useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  ChevronDown,
+  ChevronRight,
+  FileCode,
+  Package,
+  Pencil,
+  Plus,
+  Puzzle,
+  Store,
+  Upload,
+} from "lucide-react";
+import { api, type AdapterKind, type AdapterUploadResult } from "../../api";
+import { keys } from "../../api/queryKeys";
+import { PageHeader } from "../../components/layout/PageHeader";
+import { Badge, Button, FormError, LoadingBlock, ProblemText } from "../../components/ui/basics";
+import { Field, Select, TextInput } from "../../components/ui/forms";
+import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
+import { useSubscriptionsCache } from "../../components/config/lookups";
+import { SearchBox } from "../../components/ui/SearchBox";
+import { formatDate, timeAgo } from "../../lib/dates";
+import { useRegistryChecks } from "../../components/config/registryChecks";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
+import {
+  ADAPTER_KINDS,
+  matchesSearch,
+  mergeCatalogs,
+  usageByAdapter,
+  type AdapterUsage,
+  type InventoryAdapter,
+  runtimeLabel,
+  runtimeOf,
+} from "../../lib/adapterInventory";
+import { AdapterCallsContext, CALL_DAYS, type AdapterCallsByAdapter } from "./adapterCalls";
+import { AdapterCallsDetail, AdapterCallsLine } from "./AdapterCallsSummary";
+import { MarketplaceTab } from "./MarketplaceTab";
+
+// CodeMirror, its diff view and the language packs load only when someone opens source.
+const AdapterSourceViewer = lazy(() => import("./AdapterSourceViewer"));
+
+
+type Tab = "built-in" | "installed" | "marketplace";
+type KindFilter = "all" | AdapterKind;
+
+const KIND_LABEL: Record<AdapterKind, string> = {
+  receiver: "Receiver",
+  validator: "Validator",
+  mapper: "Mapper",
+  handler: "Handler",
+};
+
+/**
+ * Every adapter this Bitween can run, in three tabs: the ones built in, the ones installed on this
+ * instance (published packages, and drafts being written), and the marketplace of connectors the
+ * registry set under Settings offers. Each has its own search and filters; the tabs show counts.
+ */
+export function AdaptersPage() {
+  const [params, setParams] = useSearchParams();
+  const asked = params.get("tab");
+  const tab: Tab = asked === "installed" || asked === "marketplace" ? asked : "built-in";
+  const selectTab = (next: Tab) =>
+    setParams(
+      (prev) => {
+        const p = new URLSearchParams(prev);
+        if (next === "built-in") p.delete("tab");
+        else p.set("tab", next);
+        return p;
+      },
+      { replace: true },
+    );
+
+  // One request per kind, folded into one entry per adapter in `combine`, which only re-runs when
+  // one of the four results actually changes. Read here so each tab can say how many it holds.
+  const catalogs = useQueries({
+    queries: ADAPTER_KINDS.map((k) => ({ queryKey: keys.adapters(k), queryFn: () => api.listAdapters(k) })),
+    combine: (results) => ({
+      loading: results.some((r) => r.isPending),
+      error: results.find((r) => r.isError)?.error ?? null,
+      adapters: mergeCatalogs(Object.fromEntries(ADAPTER_KINDS.map((k, i) => [k, results[i].data ?? []]))),
+    }),
+  });
+  const subscriptions = useSubscriptionsCache();
+  const usage = useMemo(() => usageByAdapter(subscriptions.data ?? []), [subscriptions.data]);
+  const callsQuery = useQuery({
+    queryKey: keys.metrics.adapters(CALL_DAYS),
+    queryFn: () => api.getAdapterUsage(CALL_DAYS),
+  });
+  const calls = useMemo<AdapterCallsByAdapter>(() => {
+    const list = callsQuery.data;
+    const lastCalled = new Map<string, string>();
+    for (const a of list?.adapters ?? []) if (a.lastCalledOn) lastCalled.set(a.id, a.lastCalledOn);
+    for (const q of list?.quiet ?? []) lastCalled.set(q.id, q.lastCalledOn);
+    return {
+      calls: new Map((list?.adapters ?? []).map((a) => [a.id, a])),
+      lastCalled,
+      since: list?.since ?? null,
+      loaded: list !== undefined,
+    };
+  }, [callsQuery.data]);
+  const builtIn = catalogs.adapters.filter((a) => a.native);
+  const installed = catalogs.adapters.filter((a) => !a.native);
+
+  const tabs = [
+    ["built-in", "Built-in", Puzzle, catalogs.loading ? null : builtIn.length],
+    ["installed", "Installed", Package, catalogs.loading ? null : installed.length],
+    ["marketplace", "Marketplace", Store, null],
+  ] as const;
+
+  return (
+    <div>
+      <PageHeader
+        title="Adapters"
+        description="What Bitween can receive with, check, transform and deliver with - built in, or installed on this instance."
+        help={{
+          title: "How adapters work",
+          body: (
+            <>
+              <p>
+                Adapters are the steps a subscription is built from, in four kinds:{" "}
+                <strong>receivers</strong> pull documents in, <strong>validators</strong> check them,{" "}
+                <strong>mappers</strong> transform them and <strong>handlers</strong> deliver them.
+              </p>
+              <p>
+                <strong>Built-in</strong> adapters ship with Bitween and run in-process.{" "}
+                <strong>Installed</strong> ones are packages published to this instance, each running in its
+                own process, and a subscription can pin one of their versions. The{" "}
+                <strong>Marketplace</strong> lists connectors from the registry set under Settings.
+              </p>
+              <p>
+                Each row says how many subscriptions use the adapter and how often it was called in the
+                last 7 days; open it for the detail.
+              </p>
+            </>
+          ),
+        }}
+        actions={
+          <div className="flex gap-2">
+            <Can permission="adapter-source.operate">
+              <UploadPackageButton onPublished={() => selectTab("installed")} />
+            </Can>
+            <Can permission="adapter-source.edit">
+              <NewAdapterButton />
+            </Can>
+          </div>
+        }
+      />
+
+      <div role="tablist" aria-label="Adapters" className="mb-5 flex gap-1 border-b border-ink-200">
+        {tabs.map(([value, label, Icon, count]) => (
+          <button
+            key={value}
+            type="button"
+            role="tab"
+            id={`adapters-tab-${value}`}
+            aria-selected={tab === value}
+            aria-controls={`adapters-panel-${value}`}
+            onClick={() => selectTab(value)}
+            className={`-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-2 text-[13.5px] font-medium ${
+              tab === value
+                ? "border-crimson-600 text-ink-900"
+                : "border-transparent text-ink-500 hover:text-ink-800"
+            }`}
+          >
+            <Icon className="size-4" aria-hidden />
+            {label}
+            {/* A space for a screen reader ("Installed 3"); the flex gap already spaces it on screen. */}
+            {count !== null && " "}
+            {count !== null && (
+              <span className="rounded-full bg-ink-100 px-1.5 py-px text-[11.5px] font-medium text-ink-600 tabular-nums">
+                {count}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <AdapterCallsContext.Provider value={calls}>
+        <div role="tabpanel" id={`adapters-panel-${tab}`} aria-labelledby={`adapters-tab-${tab}`}>
+        {tab === "marketplace" ? (
+          <MarketplaceTab />
+        ) : catalogs.loading ? (
+          <LoadingBlock label="Reading the adapters…" />
+        ) : catalogs.error ? (
+          <ProblemText>{catalogs.error.message}</ProblemText>
+        ) : tab === "built-in" ? (
+          <AdapterCatalog
+            key="built-in"
+            adapters={builtIn}
+            usage={usage}
+            description="Shipped with Bitween and run in-process. They are updated with Bitween itself, so they have no versions of their own."
+            empty="No built-in adapters."
+          />
+        ) : (
+          <div className="space-y-6">
+            <Can permission="adapter-source.edit">
+              <Drafts />
+            </Can>
+            <RegistryCheckLine onMarketplace={() => selectTab("marketplace")} />
+            <AdapterCatalog
+              key="installed"
+              title="Published"
+              adapters={installed}
+              usage={usage}
+              description="Packages published to this instance, in .NET, Python or JavaScript and TypeScript. Each runs in its own process, and published versions can be pinned per subscription."
+              empty="None published yet. Write one here with New adapter, upload a package, or build and publish one with the bitween CLI."
+            />
+          </div>
+        )}
+        </div>
+      </AdapterCallsContext.Provider>
+    </div>
+  );
+}
+
+/** One tab's adapters, with its own search and filters. */
+function AdapterCatalog({
+  title,
+  adapters,
+  usage,
+  description,
+  empty,
+}: {
+  title?: string;
+  adapters: InventoryAdapter[];
+  usage: Map<string, AdapterUsage>;
+  description: string;
+  empty: string;
+}) {
+  const [query, setQuery] = useState("");
+  const [kind, setKind] = useState<KindFilter>("all");
+  const [runtime, setRuntime] = useState("all");
+
+  // Offered once installed adapters run on more than one runtime; a built-in adapter has none.
+  const runtimes = [...new Set(adapters.map(runtimeOf).filter((r): r is string => r !== null))].sort();
+  const filtered = query !== "" || kind !== "all" || runtime !== "all";
+  const shown = adapters.filter(
+    (a) =>
+      (kind === "all" || a.kinds.includes(kind)) &&
+      (runtime === "all" || runtimeOf(a) === runtime) &&
+      matchesSearch(a, query),
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <SearchBox
+          value={query}
+          onChange={setQuery}
+          label="Search adapters"
+          placeholder="Search by name, id, publisher or tag"
+        />
+        <SegmentedControl<KindFilter>
+          label="Kind"
+          size="sm"
+          value={kind}
+          onChange={setKind}
+          options={[
+            { value: "all", label: "All" },
+            ...ADAPTER_KINDS.map((k) => ({ value: k, label: `${KIND_LABEL[k]}s` })),
+          ]}
+        />
+        {runtimes.length > 1 && (
+          <SegmentedControl<string>
+            label="Runtime"
+            size="sm"
+            value={runtime}
+            onChange={setRuntime}
+            options={[{ value: "all", label: "Any runtime" }, ...runtimes.map((r) => ({ value: r, label: runtimeLabel(r) ?? r }))]}
+          />
+        )}
+      </div>
+      <AdapterSection
+        title={title}
+        description={description}
+        adapters={shown}
+        usage={usage}
+        empty={filtered ? "No adapter matches." : empty}
+      />
+    </div>
+  );
+}
+
+/**
+ * When Bitween last asked the registry about what was installed from it, what it found, and a way
+ * to ask now. Shown only once a registry is set.
+ */
+function RegistryCheckLine({ onMarketplace }: { onMarketplace: () => void }) {
+  const { summary } = useRegistryChecks();
+  const queryClient = useQueryClient();
+  const check = useMutation({
+    mutationFn: () => api.checkMarketplace(),
+    onSuccess: (data) => queryClient.setQueryData(keys.marketplaceUpdates, data),
+  });
+  if (!summary?.configured) return null;
+
+  const updates = summary.adapters.filter((a) => a.updateAvailable).length;
+  const revoked = summary.adapters.filter((a) => a.revoked.length > 0).length;
+  return (
+    <div className="space-y-1.5">
+      <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-ink-500">
+        <span>
+          {summary.checkedOn
+            ? `Checked with the registry ${timeAgo(summary.checkedOn)}.`
+            : "Not checked with the registry yet; it is checked once a day."}
+          {summary.checkedOn && updates > 0 && ` ${updates} with a newer version.`}
+          {summary.checkedOn && revoked > 0 && (
+            <>
+              {" "}
+              <ProblemText plain className="font-medium">
+                {revoked} with a revoked version.
+              </ProblemText>
+            </>
+          )}
+        </span>
+        <Can permission="adapter-source.operate">
+          <button
+            type="button"
+            onClick={() => check.mutate()}
+            disabled={check.isPending}
+            className="font-medium link disabled:text-ink-400"
+          >
+            {check.isPending ? "Checking…" : "Check now"}
+          </button>
+        </Can>
+        <button type="button" onClick={onMarketplace} className="font-medium link">
+          Browse the marketplace
+        </button>
+      </p>
+      {summary.error && (
+        <ProblemText>The last check didn't finish: {summary.error}</ProblemText>
+      )}
+      <FormError>{check.error?.message}</FormError>
+    </div>
+  );
+}
+
+function AdapterSection({
+  title,
+  description,
+  adapters,
+  usage,
+  empty,
+}: {
+  /** A heading, when the tab holds more than this list. */
+  title?: string;
+  description: string;
+  adapters: InventoryAdapter[];
+  usage: Map<string, AdapterUsage>;
+  empty: string;
+}) {
+  return (
+    <section aria-labelledby={title ? `section-${title}` : undefined} aria-label={title ? undefined : "Adapters"}>
+      <div className="mb-2.5">
+        {title && (
+          <h2 id={`section-${title}`} className="flex items-center gap-2 text-[15px] font-semibold text-ink-900">
+            {title}
+            <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11.5px] font-medium text-ink-600">{adapters.length}</span>
+          </h2>
+        )}
+        <p className="mt-0.5 text-[12.5px] text-ink-500">{description}</p>
+      </div>
+      {adapters.length === 0 ? (
+        <p className="rounded-xl border border-dashed border-ink-200 px-4 py-6 text-center text-[13px] text-ink-500">{empty}</p>
+      ) : (
+        <ul className="divide-y divide-ink-100 overflow-hidden rounded-xl border border-ink-200 bg-white">
+          {adapters.map((a) => (
+            <AdapterRow key={a.id} adapter={a} usage={usage.get(a.id.toLowerCase())} />
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+function AdapterRow({ adapter: a, usage }: { adapter: InventoryAdapter; usage?: AdapterUsage }) {
+  const [open, setOpen] = useState(false);
+  const check = useRegistryChecks().byAdapter.get(a.id.toLowerCase());
+  const currentRevoked = check?.revoked.find((r) => r.version === a.currentVersion);
+  const used = usage?.subscriptions.length ?? 0;
+  const pinnable = a.versions.filter((v) => !v.withdrawn).length;
+
+  return (
+    <li>
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-ink-50/60"
+      >
+        {open ? (
+          <ChevronDown className="mt-2 size-4 shrink-0 text-ink-500" aria-hidden />
+        ) : (
+          <ChevronRight className="mt-2 size-4 shrink-0 text-ink-500" aria-hidden />
+        )}
+        <AdapterIcon adapter={a} />
+        <span className="min-w-0 flex-1">
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-[14px] font-medium text-ink-900">{a.label}</span>
+            {a.kinds.map((k) => (
+              <Badge key={k} tone="neutral">
+                {KIND_LABEL[k]}
+              </Badge>
+            ))}
+            {a.currentVersion && <Badge tone="ink">v{a.currentVersion}</Badge>}
+            {currentRevoked && (
+              <Badge tone="danger" title={currentRevoked.reason ?? "Revoked by the registry"}>
+                Revoked
+              </Badge>
+            )}
+            {check?.updateAvailable && check.latest && (
+              <Badge tone="warn" title="A newer version is in the registry">
+                v{check.latest} available
+              </Badge>
+            )}
+            {runtimeLabel(runtimeOf(a)) && <Badge tone="neutral">{runtimeLabel(runtimeOf(a))}</Badge>}
+          </span>
+          <code className="block truncate font-mono text-[11.5px] text-ink-500">{a.id}</code>
+          {(a.summary || a.publisher) && (
+            <span className="mt-0.5 block text-[12.5px] text-ink-600">
+              {a.summary}
+              {a.publisher && <span className="text-ink-500">{a.summary ? " · " : ""}by {a.publisher}</span>}
+            </span>
+          )}
+        </span>
+        <span className="shrink-0 text-right text-[12px] text-ink-500">
+          <span className="block">{used === 0 ? "Not used" : `Used by ${used} subscription${used === 1 ? "" : "s"}`}</span>
+          <AdapterCallsLine adapterId={a.id} />
+          {!a.native && (
+            <span className="block text-ink-500">
+              {pinnable === 0 ? "No versions" : `${pinnable} version${pinnable === 1 ? "" : "s"}`}
+            </span>
+          )}
+        </span>
+      </button>
+
+      {open && <AdapterDetails adapter={a} usage={usage} />}
+    </li>
+  );
+}
+
+function AdapterIcon({ adapter: a }: { adapter: InventoryAdapter }) {
+  if (a.icon) return <img src={a.icon} alt="" className="size-9 shrink-0 rounded-lg object-contain" />;
+  return (
+    <span
+      aria-hidden
+      className={`flex size-9 shrink-0 items-center justify-center rounded-lg ${
+        a.native ? "bg-ink-100 text-ink-500" : "bg-crimson-50 text-crimson-600"
+      }`}
+    >
+      <Puzzle className="size-4.5" />
+    </span>
+  );
+}
+
+function AdapterDetails({ adapter: a, usage }: { adapter: InventoryAdapter; usage?: AdapterUsage }) {
+  return (
+    <div className="space-y-5 border-t border-ink-100 bg-ink-50/40 px-4 py-4 pl-[4.25rem]">
+      {a.description && <p className="max-w-3xl text-[13px] whitespace-pre-line text-ink-700">{a.description}</p>}
+      {a.tags.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {a.tags.map((t) => (
+            <span key={t} className="rounded-full bg-white px-2 py-0.5 text-[11.5px] text-ink-600 ring-1 ring-ink-200">
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <AdapterCallsDetail adapterId={a.id} />
+
+      {!a.native && <VersionHistory adapter={a} usage={usage} />}
+
+      <div>
+        <h3 className="mb-1.5 text-[12px] font-semibold tracking-wide text-ink-500 uppercase">Settings</h3>
+        {a.props.length === 0 ? (
+          <p className="text-[13px] text-ink-500">None.</p>
+        ) : (
+          <table className="w-full max-w-3xl text-left text-[12.5px]">
+            <thead className="text-ink-500">
+              <tr>
+                <th className="py-1 pr-3 font-medium">Name</th>
+                <th className="py-1 pr-3 font-medium">Required</th>
+                <th className="py-1 pr-3 font-medium">Default</th>
+                <th className="py-1 font-medium">Description</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-100">
+              {a.props.map((p) => (
+                <tr key={p.key}>
+                  <td className="py-1.5 pr-3 font-mono text-ink-800">
+                    {p.key}
+                    {p.secret && (
+                      <Badge tone="warn" className="ml-1.5">
+                        Secret
+                      </Badge>
+                    )}
+                  </td>
+                  <td className="py-1.5 pr-3 text-ink-600">{p.optional ? "No" : "Yes"}</td>
+                  <td className="py-1.5 pr-3 font-mono text-ink-600">{p.default ?? "-"}</td>
+                  <td className="py-1.5 text-ink-600">{p.description ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {usage && usage.subscriptions.length > 0 && (
+        <div>
+          <h3 className="mb-1.5 text-[12px] font-semibold tracking-wide text-ink-500 uppercase">Used by</h3>
+          <ul className="flex flex-wrap gap-x-4 gap-y-1 text-[13px]">
+            {usage.subscriptions.map((s) => (
+              <li key={s.id}>
+                <Link to={`/subscriptions/${s.id}`} className="font-medium link">
+                  {s.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Every published version, newest first: which is current, which are withdrawn, what changed, and
+ * how many subscriptions are pinned to each. An adapter published without a manifest has only its
+ * version files, so it shows just their numbers.
+ */
+function VersionHistory({ adapter: a, usage }: { adapter: InventoryAdapter; usage?: AdapterUsage }) {
+  const canReadSource = useSessionCan("adapter-source.view");
+  const canEdit = useSessionCan("adapter-source.edit");
+  const canPromote = useSessionCan("adapter-source.operate");
+  const [sourceOf, setSourceOf] = useState<string | null>(null);
+  const [promoting, setPromoting] = useState<string | null>(null);
+  const [withdrawing, setWithdrawing] = useState<string | null>(null);
+  const [editError, setEditError] = useState("");
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const withSource = a.versions.filter((v) => v.hasSource).map((v) => v.version);
+  const sourceColumn = canReadSource && withSource.length > 0;
+  const editable = (v: (typeof a.versions)[number]) =>
+    canEdit && v.hasSource && (v.runtime === "python" || v.runtime === "node");
+  const promotable = (v: (typeof a.versions)[number]) => canPromote && !v.withdrawn && v.version !== a.currentVersion;
+  // Not the current one: the server refuses, since everything following current would have nothing to run.
+  const withdrawable = promotable;
+  const actionColumn = a.hasCatalog && a.versions.some((v) => editable(v) || promotable(v));
+  const check = useRegistryChecks().byAdapter.get(a.id.toLowerCase());
+  const edit = async (version: string) => {
+    setEditError("");
+    try {
+      const id = await api.draftFromVersion(a.id, version);
+      await queryClient.invalidateQueries({ queryKey: keys.adapterDrafts });
+      navigate(`/adapters/drafts/${id}`);
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : "A draft couldn't be started from it.");
+    }
+  };
+
+  return (
+    <div>
+      <h3 className="mb-1.5 text-[12px] font-semibold tracking-wide text-ink-500 uppercase">Versions</h3>
+      {a.versions.length === 0 ? (
+        <p className="text-[13px] text-ink-500">
+          Published without versions: every subscription runs the package that was uploaded last.
+        </p>
+      ) : (
+        <>
+          <table className="w-full max-w-3xl text-left text-[12.5px]">
+            <thead className="text-ink-500">
+              <tr>
+                <th className="py-1 pr-3 font-medium">Version</th>
+                <th className="py-1 pr-3 font-medium">Runtime</th>
+                <th className="py-1 pr-3 font-medium">Published</th>
+                <th className="py-1 pr-3 font-medium">Pinned by</th>
+                <th className="py-1 font-medium">Release notes</th>
+                {sourceColumn && <th className="py-1 pl-3 font-medium">Source</th>}
+                {actionColumn && <th className="py-1 pl-3 font-medium"><span className="sr-only">Actions</span></th>}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink-100">
+              {a.versions.map((v) => {
+                const pinned = usage?.pinned[v.version] ?? 0;
+                return (
+                  <tr key={v.version} className={v.withdrawn ? "text-ink-500" : "text-ink-700"}>
+                    <td className="py-1.5 pr-3 whitespace-nowrap">
+                      <span className="font-mono">v{v.version}</span>
+                      {v.version === a.currentVersion && (
+                        <Badge tone="ok" className="ml-1.5">
+                          Current
+                        </Badge>
+                      )}
+                      {v.withdrawn && (
+                        <Badge tone="neutral" className="ml-1.5">
+                          Withdrawn
+                        </Badge>
+                      )}
+                      {check?.revoked.some((r) => r.version === v.version) && (
+                        <Badge
+                          tone="danger"
+                          className="ml-1.5"
+                          title={check.revoked.find((r) => r.version === v.version)?.reason ?? "Revoked by the registry"}
+                        >
+                          Revoked
+                        </Badge>
+                      )}
+                    </td>
+                    <td className="py-1.5 pr-3 whitespace-nowrap">{runtimeLabel(v.runtime) ?? "-"}</td>
+                    <td className="py-1.5 pr-3 whitespace-nowrap">
+                      {v.publishedOn ? formatDate(v.publishedOn) : "-"}
+                      {v.publishedBy && <span className="block text-[11.5px] text-ink-500">{v.publishedBy}</span>}
+                    </td>
+                    <td className="py-1.5 pr-3">{pinned === 0 ? "-" : pinned}</td>
+                    <td className="py-1.5 whitespace-pre-line">{v.releaseNotes ?? ""}</td>
+                    {sourceColumn && (
+                      <td className="py-1.5 pl-3 whitespace-nowrap">
+                        {v.hasSource ? (
+                          <button
+                            type="button"
+                            onClick={() => setSourceOf(v.version)}
+                            aria-label={`View source of v${v.version}`}
+                            className="inline-flex items-center gap-1 font-medium link"
+                          >
+                            <FileCode className="size-3.5" aria-hidden />
+                            View
+                          </button>
+                        ) : (
+                          <span className="text-ink-500" title="Published without its source">
+                            -
+                          </span>
+                        )}
+                      </td>
+                    )}
+                    {actionColumn && (
+                      <td className="py-1.5 pl-3 whitespace-nowrap">
+                        <span className="flex gap-3">
+                          {editable(v) && (
+                            <button
+                              type="button"
+                              onClick={() => void edit(v.version)}
+                              aria-label={`Edit v${v.version}`}
+                              className="inline-flex items-center gap-1 font-medium link"
+                            >
+                              <Pencil className="size-3.5" aria-hidden />
+                              Edit
+                            </button>
+                          )}
+                          {promotable(v) && (
+                            <button
+                              type="button"
+                              onClick={() => setPromoting(v.version)}
+                              aria-label={`Make v${v.version} current`}
+                              className="font-medium link"
+                            >
+                              Make current
+                            </button>
+                          )}
+                          {withdrawable(v) && (
+                            <button
+                              type="button"
+                              onClick={() => setWithdrawing(v.version)}
+                              aria-label={`Withdraw v${v.version}`}
+                              className="font-medium text-ink-600 hover:text-danger-700 hover:underline"
+                            >
+                              Withdraw
+                            </button>
+                          )}
+                        </span>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {usage && usage.followingCurrent > 0 && (
+            <p className="mt-1.5 text-[12px] text-ink-500">
+              {usage.followingCurrent === 1
+                ? "1 use follows the current version."
+                : `${usage.followingCurrent} uses follow the current version.`}
+            </p>
+          )}
+          {check && check.newer.length > 0 && (
+            <div className="mt-3 max-w-3xl">
+              <h4 className="mb-1 text-[12px] font-semibold text-ink-600">Newer in the registry</h4>
+              <ul className="space-y-1 text-[12.5px] text-ink-700">
+                {check.newer.map((n) => (
+                  <li key={n.version}>
+                    <span className="font-mono">v{n.version}</span>
+                    {n.releaseNotes && <span className="whitespace-pre-line text-ink-600">: {n.releaseNotes}</span>}
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-1 text-[12px] text-ink-500">
+                Install one from the{" "}
+                <Link to="/adapters?tab=marketplace" className="font-medium link">
+                  Marketplace tab
+                </Link>
+                ; it is added beside these, and made current only when you say.
+              </p>
+            </div>
+          )}
+          <FormError>{editError}</FormError>
+          {promoting && (
+            <ConfirmDialog
+              title={`Make v${promoting} current?`}
+              body={`Every subscription using ${a.label} that doesn't pin a version will run v${promoting} from its next exchange.${
+                a.currentVersion ? ` To go back, make v${a.currentVersion} current again.` : ""
+              }`}
+              confirmLabel={`Make v${promoting} current`}
+              confirmVariant="primary"
+              onConfirm={async () => {
+                await api.promoteAdapter(a.id, promoting);
+                await queryClient.invalidateQueries({ queryKey: ["adapters"] });
+              }}
+              onClose={() => setPromoting(null)}
+            />
+          )}
+          {withdrawing && (
+            <ConfirmDialog
+              title={`Withdraw v${withdrawing}?`}
+              body={`It stays listed, but can't be pinned or made current again.${
+                (usage?.pinned[withdrawing] ?? 0) > 0
+                  ? ` The ${usage!.pinned[withdrawing] === 1 ? "subscription" : `${usage!.pinned[withdrawing]} subscriptions`} pinned to it keep running it until they are moved.`
+                  : ""
+              } Nothing is deleted.`}
+              confirmLabel={`Withdraw v${withdrawing}`}
+              onConfirm={async () => {
+                await api.withdrawAdapterVersion(a.id, withdrawing);
+                await queryClient.invalidateQueries({ queryKey: ["adapters"] });
+              }}
+              onClose={() => setWithdrawing(null)}
+            />
+          )}
+          {sourceColumn && sourceOf && (
+            <div className="mt-3">
+              <Suspense fallback={<LoadingBlock label="Opening the source…" />}>
+                <AdapterSourceViewer
+                  key={sourceOf}
+                  adapterId={a.id}
+                  label={a.label}
+                  versions={withSource}
+                  initialVersion={sourceOf}
+                  onClose={() => setSourceOf(null)}
+                />
+              </Suspense>
+            </div>
+          )}
+          {!a.hasCatalog && (
+            <p className="mt-1.5 text-[12px] text-ink-500">
+              Published by an older installer: version numbers only, with no notes or publish dates.
+            </p>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+const LANGUAGES = [
+  { value: "python", label: "Python" },
+  { value: "typescript", label: "TypeScript" },
+  { value: "node", label: "JavaScript" },
+];
+
+/** Starts a new Python or JavaScript adapter in the editor, from the template serverless init writes. */
+/**
+ * Publishes a package built elsewhere, by the bitween CLI, in any language .NET included: what
+ * bitween adapter publish does, from the browser.
+ */
+function UploadPackageButton({ onPublished }: { onPublished: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
+  const [version, setVersion] = useState("");
+  const [current, setCurrent] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [done, setDone] = useState<AdapterUploadResult | null>(null);
+  const queryClient = useQueryClient();
+
+  const close = () => {
+    setOpen(false);
+    setFile(null);
+    setVersion("");
+    setCurrent(false);
+    setNotes("");
+    setError("");
+    setDone(null);
+  };
+
+  const upload = async () => {
+    if (!file) return;
+    setBusy(true);
+    setError("");
+    try {
+      setDone(await api.uploadAdapterPackage(file, { version, current, releaseNotes: notes }));
+      // Where it now is.
+      onPublished();
+      await queryClient.invalidateQueries({ queryKey: ["adapters"] });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The package couldn't be published.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <Button onClick={() => setOpen(true)}>
+        <Upload className="size-4" aria-hidden />
+        Upload package
+      </Button>
+      {open && (
+        <Dialog title="Upload an adapter package" onClose={close}>
+          {done ? (
+            <div className="space-y-4">
+              <p className="text-sm text-ink-700">
+                Published <code className="font-mono">{done.adapterId}</code> v{done.version}
+                {done.current ? ", and made it current." : ". It isn't current: make it current on its row when it should run."}
+              </p>
+              <div className="flex justify-end">
+                <Button variant="primary" onClick={close}>
+                  Done
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <form
+              className="space-y-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                void upload();
+              }}
+            >
+              <Field
+                label="Package"
+                hint="The .zip bitween adapter build made. Its manifest says which adapter it is; nothing in it runs while it is published."
+                htmlFor="upload-package"
+              >
+                <input
+                  id="upload-package"
+                  type="file"
+                  accept=".zip,application/zip"
+                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  className="block w-full text-sm text-ink-700 file:mr-3 file:rounded-md file:border file:border-ink-200 file:bg-white file:px-3 file:py-1.5 file:text-sm"
+                />
+              </Field>
+              <Field label="Version" htmlFor="upload-version">
+                <Select
+                  id="upload-version"
+                  value={version}
+                  onChange={(e) => setVersion(e.target.value)}
+                  options={[
+                    { value: "", label: "The package's own" },
+                    { value: "patch", label: "Next patch" },
+                    { value: "minor", label: "Next minor" },
+                    { value: "major", label: "Next major" },
+                  ]}
+                />
+              </Field>
+              <Field label="Release notes" hint="Replaces the package's own, if it has any." htmlFor="upload-notes">
+                <TextInput id="upload-notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
+              </Field>
+              <label className="flex items-center gap-2 text-sm text-ink-700">
+                <input type="checkbox" checked={current} onChange={(e) => setCurrent(e.target.checked)} />
+                Make it current: subscriptions that don't pin a version run it from their next exchange
+              </label>
+              <FormError>{error}</FormError>
+              <div className="flex justify-end gap-2">
+                <Button onClick={close}>Cancel</Button>
+                <Button variant="primary" type="submit" busy={busy} disabled={!file}>
+                  Publish
+                </Button>
+              </div>
+            </form>
+          )}
+        </Dialog>
+      )}
+    </>
+  );
+}
+
+function NewAdapterButton() {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("");
+  const [language, setLanguage] = useState("python");
+  const [kind, setKind] = useState<AdapterKind>("handler");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const create = async () => {
+    setBusy(true);
+    setError("");
+    try {
+      const id = await api.createAdapterDraft({ name: name.trim(), language: language as "python", kind });
+      await queryClient.invalidateQueries({ queryKey: keys.adapterDrafts });
+      navigate(`/adapters/drafts/${id}`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "The adapter couldn't be started.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <Button variant="primary" onClick={() => setOpen(true)}>
+        <Plus className="size-4" aria-hidden />
+        New adapter
+      </Button>
+      {open && (
+        <Dialog title="New adapter" onClose={() => setOpen(false)}>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void create();
+            }}
+          >
+            <Field label="Name" hint="Letters and digits, like AcmeOrders. Its id comes from it: acme.orders." htmlFor="new-adapter-name">
+              <TextInput id="new-adapter-name" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+            </Field>
+            <Field label="Language" htmlFor="new-adapter-language">
+              <Select id="new-adapter-language" value={language} onChange={(e) => setLanguage(e.target.value)} options={LANGUAGES} />
+            </Field>
+            <Field label="Kind" htmlFor="new-adapter-kind">
+              <Select
+                id="new-adapter-kind"
+                value={kind}
+                onChange={(e) => setKind(e.target.value as AdapterKind)}
+                options={ADAPTER_KINDS.map((k) => ({ value: k, label: KIND_LABEL[k] }))}
+              />
+            </Field>
+            <p className="text-[12.5px] text-ink-500">
+              It starts as a draft only you and other editors see, and runs nowhere until a version is published and made
+              current. Adapters that need packages beyond the SDK are built with the bitween CLI, unless this Bitween's
+              editor fetches dependencies (see Settings › About this instance).
+            </p>
+            <FormError>{error}</FormError>
+            <div className="flex justify-end gap-2">
+              <Button onClick={() => setOpen(false)}>Cancel</Button>
+              <Button variant="primary" type="submit" busy={busy} disabled={!name.trim()}>
+                Start writing
+              </Button>
+            </div>
+          </form>
+        </Dialog>
+      )}
+    </>
+  );
+}
+
+const DRAFT_LANGUAGE = { python: "Python", node: "JavaScript", typescript: "TypeScript" } as const;
+
+/** Adapters being written in the editor, so they can be picked up again. */
+function Drafts() {
+  const drafts = useQuery({ queryKey: keys.adapterDrafts, queryFn: () => api.listAdapterDrafts() });
+  if (!drafts.data || drafts.data.length === 0) return null;
+  return (
+    <section aria-labelledby="section-drafts">
+      <h2 id="section-drafts" className="mb-2.5 flex items-center gap-2 text-[15px] font-semibold text-ink-900">
+        Drafts
+        <span className="rounded-full bg-ink-100 px-2 py-0.5 text-[11.5px] font-medium text-ink-600">{drafts.data.length}</span>
+      </h2>
+      <ul className="divide-y divide-ink-100 overflow-hidden rounded-xl border border-ink-200 bg-white">
+        {drafts.data.map((d) => (
+          <li key={d.id}>
+            <Link to={`/adapters/drafts/${d.id}`} className="flex items-center gap-3 px-4 py-2.5 hover:bg-ink-50/60">
+              <Pencil className="size-4 text-ink-500" aria-hidden />
+              <code className="font-mono text-[13px] text-ink-900">{d.adapterId}</code>
+              <Badge tone="neutral">{DRAFT_LANGUAGE[d.language]}</Badge>
+              <span className="text-[12.5px] text-ink-500">{d.baseVersion ? `from v${d.baseVersion}` : "not yet published"}</span>
+              <span className="ml-auto text-[12px] text-ink-500">
+                {formatDate(d.modifiedOn ?? d.createdOn)}
+                {(d.modifiedBy ?? d.createdBy) && ` · ${d.modifiedBy ?? d.createdBy}`}
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

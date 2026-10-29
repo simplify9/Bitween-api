@@ -54,7 +54,7 @@ public abstract class Matcher
 
     /// <summary>
     /// Returns <c>true</c> when <paramref name="content"/> satisfies this matcher's condition.
-    /// Implementations must never throw — malformed input should return <c>false</c>.
+    /// Implementations must never throw - malformed input should return <c>false</c>.
     /// </summary>
     public abstract bool IsMatch(string content);
 }
@@ -62,7 +62,7 @@ public abstract class Matcher
 // ── Text matchers (Error and BadResult) ───────────────────────────────────────
 
 /// <summary>
-/// Matches when the failure text contains a literal substring — the exception text for
+/// Matches when the failure text contains a literal substring - the exception text for
 /// <see cref="XchangeResultType.Error"/>, the response body for <see cref="XchangeResultType.BadResult"/>.
 /// </summary>
 public class ContainsMatcher : Matcher
@@ -84,7 +84,7 @@ public class ContainsMatcher : Matcher
 }
 
 /// <summary>
-/// Matches when the failure text satisfies a regular expression — the exception text for
+/// Matches when the failure text satisfies a regular expression - the exception text for
 /// <see cref="XchangeResultType.Error"/>, the response body for <see cref="XchangeResultType.BadResult"/>.
 /// </summary>
 public class RegexMatcher : Matcher
@@ -138,7 +138,7 @@ public class ExceptionTypeMatcher : Matcher
     public required string Value { get; init; }
 
     /// <summary>
-    /// When <c>true</c> (default) the full stack trace — including inner exceptions — is
+    /// When <c>true</c> (default) the full stack trace - including inner exceptions - is
     /// scanned. When <c>false</c> only the first type name in the text is checked.
     /// </summary>
     public bool IncludeInner { get; init; } = true;

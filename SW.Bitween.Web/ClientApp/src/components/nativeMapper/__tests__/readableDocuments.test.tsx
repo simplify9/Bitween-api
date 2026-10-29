@@ -30,7 +30,7 @@ import {
  * A button rather than the exchange drawer's Raw/Formatted toggle: that shows a document nobody
  * can edit, whereas these boxes hold text belonging to whoever typed it, so reflowing it is an
  * action they take. The button is absent when there is nothing to gain, which is
- * `formatDocument`'s own answer and the thing most worth pinning — it is what stops it offering
+ * `formatDocument`'s own answer and the thing most worth pinning - it is what stops it offering
  * to mangle a half-typed document.
  */
 
@@ -88,7 +88,7 @@ describe("laying out a sample", () => {
     await fill(user, sampleBox(), MINIFIED_JSON);
     expect(formatButton()).toBeVisible();
 
-    // Gone again once the document is already laid out — there is no second press.
+    // Gone again once the document is already laid out - there is no second press.
     await user.click(formatButton()!);
     expect(textOf(sampleBox())).toMatch(/\n {2}"order": \{/);
     expect(formatButton()).not.toBeInTheDocument();

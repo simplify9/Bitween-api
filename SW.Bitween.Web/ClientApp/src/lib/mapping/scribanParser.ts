@@ -7,9 +7,9 @@ export type ParsedArrayMapping = {
   alias: string;
   filter?: ArrayMapping['filter'];
   mappings: ParsedFieldMapping[];
-  /** When true, this AM owns the root `[...]` output — no wrapping object. */
+  /** When true, this AM owns the root `[...]` output - no wrapping object. */
   isRootOutput?: boolean;
-  /** Target of the parent AM — used to resolve parentArrayId after IDs are assigned. */
+  /** Target of the parent AM - used to resolve parentArrayId after IDs are assigned. */
   parentTarget?: string;
 };
 
@@ -47,37 +47,37 @@ function parseExpr(
 ): Pick<ParsedFieldMapping, 'source' | 'transform' | 'valuesSetId' | 'isRootSource' | 'lookupDictionary' | 'partnerPropKey' | 'globalSetId' | 'globalKey'> {
   const expr = stripJsonPipe(raw.trim());
 
-  // Partner adapter property — {{ (__partner__ ?? {})["propkey"] | json }}. Prop keys are
+  // Partner adapter property - {{ (__partner__ ?? {})["propkey"] | json }}. Prop keys are
   // free-form user text (spaces, hyphens, ...), so they're indexed by string, not by a bare
   // identifier after the dot (see scribanGenerator.ts's partnerRef for why).
   const partnerMatchNew = expr.match(/^\(__partner__ \?\? \{\}\)\["([^"]*)"\]$/);
   if (partnerMatchNew) {
     return { source: '', partnerPropKey: partnerMatchNew[1] };
   }
-  // Old shape, kept so already-saved templates still round-trip — {{ __partner__.propkey | json }}
+  // Old shape, kept so already-saved templates still round-trip - {{ __partner__.propkey | json }}
   // or {{ __partner__?.propkey | json }} (only valid for identifier-shaped keys).
   const partnerMatch = expr.match(/^__partner__\??\.(\w+)$/);
   if (partnerMatch) {
     return { source: '', partnerPropKey: partnerMatch[1] };
   }
 
-  // Global adapter values set — {{ ((__globals__ ?? {})["SETID"] ?? {})["KEY"] | json }}.
+  // Global adapter values set - {{ ((__globals__ ?? {})["SETID"] ?? {})["KEY"] | json }}.
   // Same string-indexing rationale as partnerRef, plus a `?? {}` at each hop.
   const globalMatchNew = expr.match(/^\(\(__globals__ \?\? \{\}\)\["([^"]*)"\] \?\? \{\}\)\["([^"]*)"\]$/);
   if (globalMatchNew) {
     return { source: '', globalSetId: globalMatchNew[1], globalKey: globalMatchNew[2] };
   }
-  // Old shape, kept so already-saved templates still round-trip — {{ __globals__?.SETID["KEY"] | json }}
+  // Old shape, kept so already-saved templates still round-trip - {{ __globals__?.SETID["KEY"] | json }}
   // or {{ __globals__?.SETID?["KEY"] | json }} (only valid for identifier-shaped set ids).
   const globalMatch = expr.match(/^__globals__\??\.([\w]+)\??(?:\.(\w+)|\["([^"]+)"\])$/);
   if (globalMatch) {
     return { source: '', globalSetId: globalMatch[1], globalKey: globalMatch[2] ?? globalMatch[3] };
   }
 
-  // Dictionary lookup — $__e = { ... }; ...
+  // Dictionary lookup - $__e = { ... }; ...
   if (valuesSetId || expr.startsWith('$__e')) {
     if (!valuesSetId) {
-      // New inline dictionary — parse entries and fallback from the expression
+      // New inline dictionary - parse entries and fallback from the expression
       const entriesBlockMatch = expr.match(/\$__e\s*=\s*\{([^}]*)\}/);
       const pathMatch = expr.match(/\$__e\[([\w.]+)\]/);
       if (entriesBlockMatch && pathMatch) {
@@ -111,7 +111,7 @@ function parseExpr(
         return { source, lookupDictionary, ...(isRoot ? { isRootSource: true } : {}) };
       }
     }
-    // Old valuesSetId path — backward compat
+    // Old valuesSetId path - backward compat
     const fallback = expr.match(/\?\?\s*([\w.]+)\s*\)/);
     const src = fallback ? fallback[1] : expr;
     const isRoot = Boolean(alias && !src.startsWith(`${alias}.`));
@@ -126,7 +126,7 @@ function parseExpr(
     return { source: src };
   };
 
-  // castExpr patterns — strip back to plain source so round-trip doesn't produce transforms
+  // castExpr patterns - strip back to plain source so round-trip doesn't produce transforms
   const stringCast = expr.match(/^\(""\s*\+\s*([\w.]+)\)$/);
   if (stringCast) return stripAlias(stringCast[1]);
 
@@ -261,8 +261,8 @@ export function parseScriban(template: string): ParsedMappings {
         return { fieldMappings, arrayMappings, warnings };
       }
     }
-    // If no for loop found, return empty (fixed-only root array — not yet supported in visual editor)
-    warnings.push('Root-array template has no for-loop — cannot parse back to visual mappings');
+    // If no for loop found, return empty (fixed-only root array - not yet supported in visual editor)
+    warnings.push('Root-array template has no for-loop - cannot parse back to visual mappings');
     return { fieldMappings, arrayMappings, warnings };
   }
 

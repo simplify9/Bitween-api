@@ -5,27 +5,18 @@ import { ArrowUpRight, Braces, ChevronDown, ChevronRight, Search } from "lucide-
 import { api, SECRET_SENTINEL, type AdapterInfo, type AdapterKind, type PartnerRow } from "../../api";
 import { Button } from "../ui/basics";
 import { Field } from "../ui/forms";
-import { AdapterPicker, useAdapterCatalog } from "./AdapterPicker";
+import { AdapterPicker } from "./AdapterPicker";
+import { useAdapterCatalog } from "./adapterCatalog";
 import { keys } from "../../api/queryKeys";
-import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
+import { runtimeLabel } from "../../lib/adapterInventory";
 import { lackingPath, lackingPathWarning, type SourceDocument } from "./sourceValues";
+import { usesVisualMappingEditor } from "./mapperEditors";
+import { groupSettings, propertyLabel, sectionSummary } from "./propertyLabels";
+import { SettingHint, SettingsSection } from "./SettingsSections";
 
 // Lives with the picker, re-exported here because this is where every screen
 // already imports it from.
-export { useAdapterCatalog };
 
-/**
- * Mappers whose mapping is built in the visual editor rather than typed into
- * adapter properties. Both are listed while the old mapper is still in use by
- * running subscriptions; its entry goes when they have been moved over.
- *
- * The old id is spelled out because its module sits outside the app's tsconfig.
- */
-const VISUAL_EDITOR_MAPPERS: readonly string[] = ["NativeJSONMapper", NATIVE_MAPPER_ID];
-
-export function usesVisualMappingEditor(adapterId: string | null | undefined): boolean {
-  return adapterId != null && VISUAL_EDITOR_MAPPERS.includes(adapterId);
-}
 
 /** What the picker is choosing, named for the band above the fields. */
 const KIND_LABELS: Record<AdapterKind, string> = {
@@ -51,7 +42,7 @@ function useReferenceTokens() {
       label: `${s.id}.${key}`,
       token: `{{globals.${s.id}.${key}}}`,
       // A locked value arrives as the sentinel. It is still perfectly usable as a
-      // reference — the substitution happens on the server — so the token stays in
+      // reference - the substitution happens on the server - so the token stays in
       // the list and only its preview is withheld.
       value: value === SECRET_SENTINEL ? undefined : value,
     })),
@@ -82,13 +73,13 @@ function PartnerPropValue({ partnerId, propKey }: { partnerId: number; propKey: 
   const value = props.data?.[propKey];
   if (value === SECRET_SENTINEL)
     return (
-      <span className="text-ink-400" title="Locked on the partner — resolved on the server at run time">
+      <span className="text-ink-500" title="Locked on the partner - resolved on the server at run time">
         secret
       </span>
     );
   return (
     <code className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] break-all text-ink-700">
-      {value === undefined || value === "" ? "—" : value}
+      {value === undefined || value === "" ? "-" : value}
     </code>
   );
 }
@@ -151,30 +142,30 @@ function ReferenceMenu({
         onClick={() => setOpen((o) => !o)}
         title="Insert a reference"
         aria-label={label}
-        className="mt-1 rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+        className="mt-1 rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
       >
         <Braces className="size-4" />
       </button>
       {open && (
         <div className="absolute top-full right-0 z-40 mt-1.5 w-72 rounded-xl border border-ink-100 bg-white p-2 shadow-lg">
           <div className="relative mb-1.5">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-400" />
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-500" />
             <input
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search references"
               aria-label="Search references"
-              className="h-8 w-full rounded-md border border-ink-200 bg-white pr-2 pl-8 text-[13px] placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+              className="h-8 w-full rounded-md border border-ink-200 bg-white pr-2 pl-8 text-[13px] placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
             />
           </div>
           <div className="max-h-64 space-y-1 overflow-y-auto">
-            {noMatches && <p className="px-2 py-2 text-[13px] text-ink-400">No matches.</p>}
+            {noMatches && <p className="px-2 py-2 text-[13px] text-ink-500">No matches.</p>}
             {/* First: only a subscription fed by a delivery is offered these, and there they are
                 what the field is most likely reaching for. Last, they sat below the scroll. */}
             {filteredSourceKeys.length > 0 && (
               <div>
-                <p className="px-2 pt-1 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+                <p className="px-2 pt-1 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                   Original document
                 </p>
                 <p className="px-2 pb-1 text-[11px] leading-snug text-ink-500">
@@ -189,7 +180,7 @@ function ReferenceMenu({
                     className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-ink-50"
                   >
                     <span className="min-w-0 truncate font-mono text-xs text-ink-800">{t.label}</span>
-                    <span className="max-w-[45%] shrink-0 truncate text-xs text-ink-400" title={`Example: ${t.value}`}>
+                    <span className="max-w-[45%] shrink-0 truncate text-xs text-ink-500" title={`Example: ${t.value}`}>
                       e.g. {t.value}
                     </span>
                   </button>
@@ -198,7 +189,7 @@ function ReferenceMenu({
             )}
             {filteredGlobals.length > 0 && (
               <div>
-                <p className="px-2 py-1 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+                <p className="px-2 py-1 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                   Global values
                 </p>
                 {filteredGlobals.map((t) => (
@@ -210,8 +201,8 @@ function ReferenceMenu({
                   >
                     <span className="min-w-0 truncate font-mono text-xs text-ink-800">{t.label}</span>
                     <span
-                      className="max-w-24 shrink-0 truncate text-xs text-ink-400"
-                      title={t.value ?? "Locked — the value is never sent to this page"}
+                      className="max-w-24 shrink-0 truncate text-xs text-ink-500"
+                      title={t.value ?? "Locked - the value is never sent to this page"}
                     >
                       {t.value ?? "secret"}
                     </span>
@@ -221,7 +212,7 @@ function ReferenceMenu({
             )}
             {filteredPartnerKeys.length > 0 && (
               <div>
-                <p className="px-2 py-1 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+                <p className="px-2 py-1 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                   Partner properties
                 </p>
                 {filteredPartnerKeys.map((t) => (
@@ -232,7 +223,7 @@ function ReferenceMenu({
                     className="flex w-full items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-left hover:bg-ink-50"
                   >
                     <span className="min-w-0 truncate font-mono text-xs text-ink-800">{t.label}</span>
-                    <span className="shrink-0 text-xs text-ink-400">resolved per partner</span>
+                    <span className="shrink-0 text-xs text-ink-500">resolved per partner</span>
                   </button>
                 ))}
               </div>
@@ -259,17 +250,19 @@ function ReferenceHints({
   value: string;
   globals: ReferenceToken[];
   partners: PartnerRow[];
-  /** Null unless this is a response or bus gateway subscription — nothing else fills `{{source.…}}`. */
+  /** Null unless this is a response or bus gateway subscription - nothing else fills `{{source.…}}`. */
   source: SourceDocument | null;
 }) {
   const [openKeys, setOpenKeys] = useState<Set<string>>(new Set());
 
 
-  // Set ids and keys are free-form (spaces included) on the backend — match on the
+  // Set ids and keys are free-form (spaces included) on the backend - match on the
   // `{{…}}` delimiters themselves, not a restrictive charset, or refs with a space
   // in the id/key (e.g. "schedule source url") silently fail to match here.
-  const globalRefs = [...new Set([...value.matchAll(/\{\{globals\.[^}]+\}\}/g)].map((m) => m[0]))];
-  const partnerRefs = [...new Set([...value.matchAll(/\{\{partner\.([^}]+)\}\}/g)].map((m) => m[1]))];
+  // Case-insensitive throughout, as the server resolves them: `{{GLOBALS.Set.KEY}}` runs fine, so
+  // calling it "not found" here would send someone hunting for a problem that isn't there.
+  const globalRefs = [...new Set([...value.matchAll(/\{\{globals\.[^}]+\}\}/gi)].map((m) => m[0]))];
+  const partnerRefs = [...new Set([...value.matchAll(/\{\{partner\.([^}]+)\}\}/gi)].map((m) => m[1]))];
   const sourceRefs = source
     ? [...new Set([...value.matchAll(/\{\{source\.([^}]+)\}\}/gi)].map((m) => m[1]))]
     : [];
@@ -287,13 +280,14 @@ function ReferenceHints({
   return (
     <div className="mt-1.5 space-y-1">
       {globalRefs.map((token) => {
-        const ref = globals.find((g) => g.token === token);
-        const setId = token.match(/\{\{globals\.([^.]+)\./)?.[1];
+        const ref = globals.find((g) => sameName(g.token, token));
+        // The set's own id when it is found, since that is the address its page is at.
+        const setId = (ref?.token ?? token).match(/\{\{globals\.([^.]+)\./i)?.[1];
         return (
           <div key={token} className="flex flex-wrap items-center gap-1.5 text-xs">
             <Link
               to={`/global-values/${setId}`}
-              className="font-mono text-ink-500 hover:text-crimson-700 hover:underline"
+              className="font-mono text-ink-500 hover:link"
             >
               {token}
             </Link>
@@ -303,14 +297,15 @@ function ReferenceHints({
                 {ref.value}
               </code>
             ) : (
-              <span className="font-medium text-danger-700">not found — check the set and key</span>
+              <span className="font-medium text-danger-700">not found - check the set and key</span>
             )}
           </div>
         );
       })}
 
       {partnerRefs.map((key) => {
-        const withValue = realPartners.filter((p) => p.propertyKeys.includes(key));
+        const keyOf = (p: PartnerRow) => p.propertyKeys.find((k) => sameName(k, key));
+        const withValue = realPartners.filter((p) => keyOf(p) !== undefined);
         const without = realPartners.length - withValue.length;
         const open = openKeys.has(key);
         return (
@@ -336,17 +331,17 @@ function ReferenceHints({
                   <li key={p.id} className="flex flex-wrap items-center gap-1.5">
                     <Link
                       to={`/partners/${p.id}`}
-                      className="font-medium text-ink-700 hover:text-crimson-700 hover:underline"
+                      className="font-medium text-ink-700 hover:link"
                     >
                       {p.name}
                     </Link>
                     <span className="text-ink-300">→</span>
-                    <PartnerPropValue partnerId={p.id} propKey={key} />
+                    <PartnerPropValue partnerId={p.id} propKey={keyOf(p)!} />
                   </li>
                 ))}
                 {without > 0 && (
-                  <li className="text-ink-400">
-                    {without} partner{without === 1 ? " doesn't" : "s don't"} set it — their exchanges resolve it
+                  <li className="text-ink-500">
+                    {without} partner{without === 1 ? " doesn't" : "s don't"} set it - their exchanges resolve it
                     empty.
                   </li>
                 )}
@@ -369,7 +364,7 @@ function ReferenceHints({
                   className="font-medium text-warn-700"
                   title="Saved anyway: documents vary, and the next one may have it. An exchange whose original document has no value there fails, naming the path."
                 >
-                  ⚠ {lackingPathWarning(lacking)} — an exchange without it fails
+                  ⚠ {lackingPathWarning(lacking)} - an exchange without it fails
                 </span>
               ) : example !== undefined ? (
                 <span
@@ -393,28 +388,38 @@ function ReferenceHints({
   );
 }
 
+/** Set ids, keys and whole tokens compare ignoring case, as the server's resolver does. */
+const sameName = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
 /**
  * Whether a value is a reference and nothing else. Substitution happens on the
- * server, so what sits in the field is the pointer — worth showing even on a field
+ * server, so what sits in the field is the pointer - worth showing even on a field
  * the adapter marked secure, because an operator who cannot see which partner
  * property a password comes from cannot tell a correct wiring from a typo.
  */
 const isPureReference = (value: string): boolean =>
   /^\s*\{\{(globals\.[^.{}]+\.[^{}]+|partner\.[^{}]+|source\.[^{}]+)\}\}\s*$/i.test(value);
 
-/** One adapter property: grows with content, can insert reference tokens. */
-function PropField({
+/**
+ * One adapter property: grows with content, can insert reference tokens. Exported for forms that
+ * lay out a known adapter's fields themselves - a notification channel's - and want the same
+ * masking and `{ }` menu as everywhere else.
+ */
+export function PropField({
   prop,
   value,
   disabled,
   source,
   onChange,
+  label,
 }: {
   prop: AdapterInfo["props"][number];
   value: string;
   disabled: boolean;
   source: SourceDocument | null;
   onChange: (value: string) => void;
+  /** Shown instead of the property's key, for a form that knows a friendlier name for it. */
+  label?: string;
 }) {
   const { globals, partnerKeys, partners } = useReferenceTokens();
   const sourceKeys: ReferenceToken[] = (source?.paths ?? []).map((p) => ({
@@ -443,7 +448,7 @@ function PropField({
     onChange(next);
   };
 
-  // A value that is nothing but a reference token is a pointer, not a secret — masking
+  // A value that is nothing but a reference token is a pointer, not a secret - masking
   // it would make the field uneditable and hide a config mistake behind dots.
   const masked = prop.secret && !!value && !entering && !isPureReference(value);
 
@@ -461,15 +466,23 @@ function PropField({
     });
   };
 
+  // The stored key is untouched; only what the label reads changes. A form's own name wins, then
+  // the manifest's, then the key humanised.
+  const shown = label ?? propertyLabel(prop.key, prop.displayName);
+
   return (
     <Field
-      label={prop.optional ? prop.key : `${prop.key} *`}
+      label={prop.optional ? shown : `${shown} *`}
       htmlFor={`prop-${prop.key}`}
-      hint={prop.description}
+      hint={
+        shown !== prop.key || prop.description ? (
+          <SettingHint rawKey={prop.key} label={shown} help={prop.description} />
+        ) : undefined
+      }
     >
       {masked ? (
         <div className="flex h-9.5 items-center justify-between rounded-lg border border-ink-200 bg-ink-50 px-3">
-          <span className="font-mono text-sm tracking-widest text-ink-400">••••••••</span>
+          <span className="font-mono text-sm tracking-widest text-ink-500">••••••••</span>
           {!disabled && (
             <Button size="sm" variant="ghost" onClick={() => emit("")}>
               Replace
@@ -487,7 +500,7 @@ function PropField({
               disabled={disabled}
               placeholder={prop.default}
               onChange={(e) => emit(e.target.value)}
-              className="[grid-area:1/1] w-full resize-none overflow-hidden rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm leading-5 break-words whitespace-pre-wrap text-ink-900 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-500"
+              className="[grid-area:1/1] w-full resize-none overflow-hidden rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm leading-5 break-words whitespace-pre-wrap text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-500"
             />
             <span aria-hidden className="[grid-area:1/1] invisible border px-3 py-2 text-sm leading-5 break-words whitespace-pre-wrap">
               {value || prop.default || " "}{" "}
@@ -524,6 +537,8 @@ export function AdapterConfig({
   mapperEditorHref,
   onOpenMapperEditor,
   sourceValues = null,
+  version,
+  onVersionChange,
 }: {
   kind: AdapterKind;
   adapterId: string | null;
@@ -531,14 +546,14 @@ export function AdapterConfig({
   onChange: (adapterId: string | null, properties: Record<string, string>) => void;
   disabled: boolean;
   required?: boolean;
-  /** What "no adapter" means here, e.g. "None — payload passes through unchanged". */
+  /** What "no adapter" means here, e.g. "None - payload passes through unchanged". */
   noneLabel?: string;
   /** When a mapper with a visual editor is selected, where that editor lives. */
-  /** Null while the subscription is still a draft — there is no page to open yet. */
+  /** Null while the subscription is still a draft - there is no page to open yet. */
   mapperEditorHref?: string | null;
   /**
    * Opens the editor in place instead of navigating to it. The create pages hold their
-   * subscription in memory, so there is no page to link to — but the editor no longer
+   * subscription in memory, so there is no page to link to - but the editor no longer
    * needs one, and leaving the page would throw the draft away.
    */
   onOpenMapperEditor?: (() => void) | null;
@@ -547,15 +562,24 @@ export function AdapterConfig({
    * `{{source.PATH}}`. Null everywhere else, which is never handed one.
    */
   sourceValues?: SourceDocument | null;
+  /**
+   * The pinned version, null to follow the current one. Only screens that pass
+   * `onVersionChange` offer the choice - the create pages don't, so a new subscription follows
+   * whatever is current.
+   */
+  version?: string | null;
+  onVersionChange?: (version: string | null) => void;
 }) {
   const catalog = useAdapterCatalog(kind);
   const adapter = catalog.data?.find((a) => a.id === adapterId);
 
-  // Every field is on screen, required first. The busiest adapters (the HTTP
-  // handler has ~20 optional props) do become a wall — that's the accepted
-  // trade for never hiding configuration behind a chevron.
+  // Required settings first and always on screen. The optional ones used to follow in one flat
+  // grid, and on the busiest adapters (the HTTP handler has fifteen) a first-time user had to read
+  // every one to learn that none of them matter for a plain POST. They now sit in sections that
+  // name what is set while closed and open by themselves when anything in them has a value.
   const requiredProps = adapter?.props.filter((p) => !p.optional) ?? [];
   const optionalProps = adapter?.props.filter((p) => p.optional) ?? [];
+  const sections = groupSettings(optionalProps);
 
   const renderProp = (prop: AdapterInfo["props"][number]) => (
     <PropField
@@ -592,12 +616,12 @@ export function AdapterConfig({
       {/*
         The adapter is what this step *is*; the fields below are its settings.
         Left as a bare select at the top of the same stack it read as just another
-        property — the first one, unlabelled — so it gets its own tinted band,
+        property - the first one, unlabelled - so it gets its own tinted band,
         outside the field grid, everywhere AdapterConfig is used.
       */}
       <div className="rounded-xl border border-ink-200 bg-ink-50/70 px-3.5 py-3">
         <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-          <span className="text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+          <span className="text-[11px] font-medium tracking-wide text-ink-500 uppercase">
             {KIND_LABELS[kind]}
           </span>
           <div className="w-full max-w-sm">
@@ -612,24 +636,53 @@ export function AdapterConfig({
             />
           </div>
           {adapter && (
-            <span className="text-[12px] text-ink-400">
+            <span className="text-[12px] text-ink-500">
               {adapter.native
                 ? "Runs in-process"
-                : adapter.versions.length > 0
-                  ? `Custom · v${adapter.versions.at(-1)}`
-                  : "Custom package"}
+                : [
+                    "Custom",
+                    pinnedRuntime(adapter, version ?? null),
+                    (version ?? adapter.currentVersion ?? adapter.versions.at(-1))
+                      ? `v${version ?? adapter.currentVersion ?? adapter.versions.at(-1)}`
+                      : "package",
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
               {adapter.props.length > 0 &&
                 ` · ${adapter.props.length} setting${adapter.props.length === 1 ? "" : "s"}`}
             </span>
           )}
+          {adapter && !adapter.native && onVersionChange && (
+            <VersionSelect
+              adapter={adapter}
+              version={version ?? null}
+              disabled={disabled}
+              onChange={onVersionChange}
+            />
+          )}
         </div>
+        {adapter && (adapter.summary || adapter.icon || adapter.publisher) && (
+          <div className="mt-2 flex items-start gap-2.5">
+            {adapter.icon && (
+              <img src={adapter.icon} alt="" className="mt-0.5 size-7 shrink-0 rounded-md object-contain" />
+            )}
+            <p className="text-[12.5px] leading-relaxed text-ink-600">
+              {adapter.summary}
+              {adapter.publisher && (
+                <span className="text-ink-500">
+                  {adapter.summary ? " · " : ""}by {adapter.publisher}
+                </span>
+              )}
+            </p>
+          </div>
+        )}
       </div>
       {adapter && usesVisualMappingEditor(adapter.id) && (
         onOpenMapperEditor ? (
           <button
             type="button"
             onClick={onOpenMapperEditor}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[13px] font-medium text-crimson-700 hover:border-ink-300 hover:bg-ink-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[13px] font-medium text-ink-800 hover:border-ink-300 hover:bg-ink-50"
           >
             Open the visual mapping editor
             <ArrowUpRight className="size-3.5" aria-hidden />
@@ -639,9 +692,9 @@ export function AdapterConfig({
             // Which mapper is *picked*, which is not yet which mapper is saved. Without
             // it the editor asks the server and gets the one being replaced, so choosing
             // a mapper and opening its editor gave you the other one until you saved
-            // first — in both directions, and with nothing on screen to explain it.
+            // first - in both directions, and with nothing on screen to explain it.
             to={`${mapperEditorHref}?mapper=${encodeURIComponent(adapter.id)}`}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[13px] font-medium text-crimson-700 hover:border-ink-300 hover:bg-ink-50"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-ink-200 bg-white px-3 py-2 text-[13px] font-medium text-ink-800 hover:border-ink-300 hover:bg-ink-50"
           >
             Open the visual mapping editor
             <ArrowUpRight className="size-3.5" aria-hidden />
@@ -663,16 +716,99 @@ export function AdapterConfig({
           {requiredProps.length > 0 && (
             <div className="grid gap-4 @lg:grid-cols-2">{requiredProps.map(renderProp)}</div>
           )}
-          {optionalProps.length > 0 && (
+          {sections.length > 0 && (
             <div className="border-t border-ink-100 pt-4">
-              <p className="mb-2.5 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+              <p className="mb-2.5 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                 Optional · {optionalProps.length} field{optionalProps.length === 1 ? "" : "s"}
               </p>
-              <div className="grid gap-4 @lg:grid-cols-2">{optionalProps.map(renderProp)}</div>
+              <div className="space-y-2">
+                {sections.map((section) => (
+                  <SettingsSection
+                    // Keyed by adapter too, so picking another adapter starts its sections afresh.
+                    key={`${adapter.id}-${section.name}`}
+                    title={section.name}
+                    count={section.items.length}
+                    hasValue={section.items.some((p) => !!properties[p.key])}
+                    summary={sectionSummary(
+                      section.items.map((p) => ({
+                        label: propertyLabel(p.key, p.displayName),
+                        value: properties[p.key] ?? "",
+                        secret: p.secret,
+                      })),
+                    )}
+                  >
+                    <div className="grid gap-4 @lg:grid-cols-2">{section.items.map(renderProp)}</div>
+                  </SettingsSection>
+                ))}
+              </div>
             </div>
           )}
         </div>
       )}
     </div>
+  );
+}
+
+/** What the pinned version, or the one followed, runs on: shown beside the adapter. */
+function pinnedRuntime(adapter: AdapterInfo, version: string | null): string | null {
+  const runs = version ?? adapter.currentVersion ?? adapter.versions.at(-1);
+  return runtimeLabel(adapter.versionHistory.find((v) => v.version === runs)?.runtime);
+}
+
+/**
+ * Which published version a slot runs: the current one, or a version pinned so that publishing a
+ * newer one doesn't change this subscription. A pinned version that has since been withdrawn stays
+ * shown - it is what runs - but can't be picked again.
+ */
+function VersionSelect({
+  adapter,
+  version,
+  disabled,
+  onChange,
+}: {
+  adapter: AdapterInfo;
+  version: string | null;
+  disabled: boolean;
+  onChange: (version: string | null) => void;
+}) {
+  const history = adapter.versionHistory.length > 0
+    ? adapter.versionHistory
+    : adapter.versions.map((v) => ({ version: v, publishedOn: null, publishedBy: null, releaseNotes: null, withdrawn: false }));
+  if (history.length === 0 && version === null) return null;
+
+  const pinned = version ? history.find((v) => v.version === version) : undefined;
+  const current = adapter.currentVersion ?? adapter.versions.at(-1) ?? null;
+  // Named on each option only when versions differ in what they run on: pinning a version can then
+  // move a step to another runtime, and that should be visible before it is picked.
+  const runtimes = new Set(history.map((v) => ("runtime" in v ? v.runtime : null) ?? null));
+  const label = (v: (typeof history)[number]) =>
+    runtimes.size > 1 && "runtime" in v && runtimeLabel(v.runtime) ? ` · ${runtimeLabel(v.runtime)}` : "";
+
+  return (
+    <label className="flex items-center gap-1.5 text-[12px] text-ink-500">
+      <span>Version</span>
+      <select
+        aria-label="Adapter version"
+        value={version ?? ""}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.value === "" ? null : e.target.value)}
+        className="rounded-md border border-ink-200 bg-white px-2 py-1 text-[12.5px] text-ink-800 disabled:bg-ink-50"
+      >
+        <option value="">{current ? `Follow current (v${current})` : "Follow current"}</option>
+        {[...history].reverse().map((v) => (
+          <option
+            key={v.version}
+            value={v.version}
+            disabled={v.withdrawn && v.version !== version}
+            title={v.releaseNotes ?? undefined}
+          >
+            v{v.version}
+            {label(v)}
+            {v.withdrawn ? " (withdrawn)" : ""}
+          </option>
+        ))}
+        {version && !pinned && <option value={version}>v{version} (not in catalog)</option>}
+      </select>
+    </label>
   );
 }

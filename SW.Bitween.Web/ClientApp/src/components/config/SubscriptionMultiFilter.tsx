@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
 import type { SubscriptionInfo } from "../../api";
-import { SUBSCRIPTION_TYPE_LABELS } from "./shared";
+import { SUBSCRIPTION_TYPE_LABELS } from "./subscriptionLabels";
 
 /**
  * Pick any number of subscriptions, to filter a table down to the rows connected to at
- * least one of them — "which partners does this subscription use", read the other way.
+ * least one of them - "which partners does this subscription use", read the other way.
  *
  * Modelled on `ReferenceMenu`'s local popover rather than the portalled `Popover`: a
  * filter row sits above the table, not inside its `overflow-x-auto` wrapper, so nothing
@@ -70,33 +70,33 @@ export function SubscriptionMultiFilter({
         }`}
       >
         <span className="min-w-0 flex-1 truncate text-left">{buttonLabel}</span>
-        <ChevronDown className="size-3.5 shrink-0 text-ink-400" />
+        <ChevronDown className="size-3.5 shrink-0 text-ink-500" />
       </button>
       {open && (
         <div className="absolute top-full left-0 z-40 mt-1.5 w-72 rounded-xl border border-ink-100 bg-white p-2 shadow-lg">
           <div className="relative mb-1.5">
-            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-400" />
+            <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-500" />
             <input
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search subscriptions"
               aria-label="Search subscriptions"
-              className="h-8 w-full rounded-md border border-ink-200 bg-white pr-2 pl-8 text-[13px] placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+              className="h-8 w-full rounded-md border border-ink-200 bg-white pr-2 pl-8 text-[13px] placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
             />
           </div>
           {selectedNames.length > 0 && (
             <button
               type="button"
               onClick={() => onChange([])}
-              className="mb-1 block w-full rounded-md px-2 py-1 text-left text-[12.5px] font-medium text-crimson-700 hover:bg-crimson-50"
+              className="mb-1 block w-full rounded-md px-2 py-1 text-left text-[12.5px] font-medium text-ink-700 hover:bg-ink-100"
             >
               Clear {selectedNames.length} selected
             </button>
           )}
           <div className="max-h-60 overflow-y-auto">
             {matches.length === 0 ? (
-              <p className="px-2 py-2 text-[13px] text-ink-400">No subscriptions match.</p>
+              <p className="px-2 py-2 text-[13px] text-ink-500">No subscriptions match.</p>
             ) : (
               matches.map((i) => (
                 <label
@@ -110,7 +110,7 @@ export function SubscriptionMultiFilter({
                     className="size-3.5 shrink-0 cursor-pointer rounded accent-crimson-600"
                   />
                   <span className="min-w-0 flex-1 truncate text-ink-800">{i.name}</span>
-                  <span className="shrink-0 text-[11px] text-ink-400">{SUBSCRIPTION_TYPE_LABELS[i.type]}</span>
+                  <span className="shrink-0 text-[11px] text-ink-500">{SUBSCRIPTION_TYPE_LABELS[i.type]}</span>
                 </label>
               ))
             )}

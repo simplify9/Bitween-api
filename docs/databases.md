@@ -183,7 +183,8 @@ Each run does the following.
 - **Order the statement by the cursor column.** The cursor moves to each accepted row's value in turn, so unordered rows can be skipped or read again.
 - The cursor is kept per subscription, so several scheduled jobs can poll the same database independently.
 - If a row fails before its exchange is stored, the run fails and the row is read again next time.
-- If a row's exchange is stored but marking it or saving the cursor fails, the next poll creates the exchange again. Database receiving has no deduplication.
+- If a row's exchange is stored but marking it or saving the cursor fails, the row's key is remembered for its subscription (the last 1,000). The next poll that reads it runs the marking again instead of creating a second exchange, and skips it if the marking still fails.
+- If Bitween stops between storing a row's exchange and marking it, nothing was remembered, and the next poll creates the exchange again. Receiving is at least once.
 
 ## Writing with a handler
 

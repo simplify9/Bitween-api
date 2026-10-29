@@ -3,24 +3,25 @@ import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { api, type InformationTypeRow } from "../../api";
-import { useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { SearchSelect } from "../ui/SearchSelect";
 import { InformationTypeDialog } from "./InformationTypeDialog";
 import { SubscriptionDialog } from "./SubscriptionDialog";
 import { PartnerDialog } from "./PartnerDialog";
-import { useSubscriptionsCache } from "./shared";
+import { useNotificationChannelNames } from "../../lib/notificationChannels";
+import { useSubscriptionsCache } from "./lookups";
 import { keys } from "../../api/queryKeys";
 import { formatLabel } from "../../lib/informationTypeFormat";
 
 /*
  * Pick-one controls used inside flows. Creating or amending the thing you are
- * picking happens in a dialog, right here — no page change, so nothing has to be
+ * picking happens in a dialog, right here - no page change, so nothing has to be
  * remembered across a trip and no draft has to survive one. That replaced a routed
  * detour (`?return=` + sessionStorage + `?picked=`), which is why none of these
  * take a return context any more.
  *
  * They were lists of one card per candidate. That is fine with six partners and
- * unusable with six hundred, so they are typeaheads — the same `SearchSelect` the
+ * unusable with six hundred, so they are typeaheads - the same `SearchSelect` the
  * rest of the app uses, which shows a code and a hint per row and searches both.
  */
 
@@ -40,7 +41,7 @@ function PickerLinks({
   return (
     <div className="mt-1 flex flex-wrap items-center gap-3">
       {view && (
-        <Link to={view} className="text-[13px] font-medium text-crimson-700 hover:underline">
+        <Link to={view} className="text-[13px] font-medium link">
           View
         </Link>
       )}
@@ -49,14 +50,14 @@ function PickerLinks({
           key={a.label}
           type="button"
           onClick={a.onAct}
-          className="inline-flex items-center gap-1 text-[13px] font-medium text-crimson-700 hover:underline"
+          className="inline-flex items-center gap-1 text-[13px] font-medium link"
         >
           {a.icon && <Plus className="size-3" />}
           {a.label}
         </button>
       ))}
       {create && (
-        <Link to={create} className="text-[13px] font-medium text-crimson-700 hover:underline">
+        <Link to={create} className="text-[13px] font-medium link">
           + {createLabel}
         </Link>
       )}
@@ -141,7 +142,7 @@ export function SubscriptionPicker({
   id,
   /**
    * Given, "New subscription" defines one where the caller stands instead of opening a
-   * dialog — the caller renders its fields and saves it with whatever points at it.
+   * dialog - the caller renders its fields and saves it with whatever points at it.
    */
   onDefineHere,
 }: {
@@ -207,7 +208,7 @@ export function SubscriptionPicker({
 }
 
 /**
- * Pick a partner — and create or amend one without leaving.
+ * Pick a partner - and create or amend one without leaving.
  *
  * `detourCtx` is gone: a partner is edited in a dialog now, so there is no page to
  * come back from and no draft to persist across the trip.
@@ -274,6 +275,64 @@ export function PartnerPicker({
           partnerId={dialog}
           onClose={() => setDialog(undefined)}
           onSaved={(partnerId) => onChange(partnerId)}
+        />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Pick-one notification channel. Channels have pages of their own: making or changing one from
+ * here goes to that page and comes back, so the page this sits on hands over the callbacks -
+ * it is the one holding the draft that has to survive the trip (see `lib/detour.ts`). Without
+ * them only existing channels can be picked.
+ */
+export function NotificationChannelPicker({
+  value,
+  onChange,
+  clearLabel,
+  disabled = false,
+  id,
+  size,
+  onNew,
+  onEdit,
+}: {
+  value: number | null;
+  onChange: (id: number | null) => void;
+  /** When set, an empty choice with this label is offered - e.g. "No alert". */
+  clearLabel?: string;
+  disabled?: boolean;
+  id?: string;
+  size?: "sm" | "md";
+  /** Goes to make a new channel; the page comes back with it picked. */
+  onNew?: () => void;
+  /** Goes to the picked channel's page. */
+  onEdit?: (channelId: number) => void;
+}) {
+  const channels = useNotificationChannelNames();
+  const canCreate = useSessionCan("notifiers.create");
+  const canView = useSessionCan("notifiers.view");
+
+  return (
+    <div>
+      <SearchSelect
+        id={id}
+        size={size}
+        aria-label="Notification channel"
+        value={value === null ? "" : String(value)}
+        disabled={disabled || channels.isPending}
+        onChange={(v) => onChange(v === "" ? null : Number(v))}
+        placeholder="Pick a channel…"
+        clearLabel={clearLabel}
+        options={(channels.data ?? []).map((c) => ({ value: String(c.id), label: c.name }))}
+      />
+      {!disabled && (
+        <PickerLinks
+          createLabel="New channel"
+          actions={[
+            ...(onEdit && canView && value !== null ? [{ label: "Open it", onAct: () => onEdit(value) }] : []),
+            ...(onNew && canCreate ? [{ label: "New channel", icon: true, onAct: onNew }] : []),
+          ]}
         />
       )}
     </div>

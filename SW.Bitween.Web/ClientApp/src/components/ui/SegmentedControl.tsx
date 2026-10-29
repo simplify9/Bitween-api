@@ -12,7 +12,7 @@ export interface SegmentedOption<T extends string> {
  *
  * For a handful of options that has to stay readable inside a dense row. A
  * `Select` hides what is on offer behind a click, which is the wrong trade when
- * the point is seeing at a glance where a value comes from — and it costs two
+ * the point is seeing at a glance where a value comes from - and it costs two
  * clicks instead of one to change.
  *
  * A radiogroup rather than a tablist: choosing does not reveal a panel.
@@ -37,7 +37,7 @@ export function SegmentedControl<T extends string>({
 }) {
   const group = useRef<HTMLDivElement>(null);
 
-  // Arrow keys walk the group, which is what a radiogroup is expected to do — and
+  // Arrow keys walk the group, which is what a radiogroup is expected to do - and
   // the reason each button is only in the tab order when it is the chosen one.
   const onKeyDown = (e: React.KeyboardEvent) => {
     const step = e.key === "ArrowRight" || e.key === "ArrowDown" ? 1 : e.key === "ArrowLeft" || e.key === "ArrowUp" ? -1 : 0;

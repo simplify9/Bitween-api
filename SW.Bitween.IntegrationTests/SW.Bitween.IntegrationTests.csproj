@@ -8,21 +8,28 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <None Update="NodeAdapters/**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="PythonAdapters/**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="xunit.runner.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="BouncyCastle.Cryptography" Version="2.7.0" Aliases="BouncyCastle2" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
-    <PackageReference Include="SimplyWorks.CloudFiles.LocalTests.Extensions" Version="10.0.1" />
+    <PackageReference Include="SimplyWorks.CloudFiles.LocalTests.Extensions" Version="10.0.2" />
     <PackageReference Include="xunit" Version="2.9.2" />
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
 
-    <!-- Testcontainers — Docker-based infrastructure -->
+    <!-- Testcontainers - Docker-based infrastructure -->
     <PackageReference Include="Testcontainers.PostgreSql" Version="3.10.0" />
     <PackageReference Include="Testcontainers.RabbitMq" Version="3.10.0" />
     <PackageReference Include="Testcontainers.Oracle" Version="3.10.0" />
@@ -40,13 +47,16 @@
     <!-- Talks the SQS API without LocalStack's weight; the fixture already starts a plain
          container for MailHog, so this follows the same pattern. -->
     <PackageReference Include="AWSSDK.SQS" Version="3.7.400.87" />
-    <PackageReference Include="RabbitMQ.Client" Version="6.8.1" />
+    <PackageReference Include="RabbitMQ.Client" Version="7.2.2" />
 
     <!-- Serverless runtime -->
-    <PackageReference Include="SimplyWorks.Serverless" Version="10.0.0" />
+    <PackageReference Include="SimplyWorks.Serverless" Version="10.2.4" />
+    <!-- serverless build and publish as a library: the Python adapters here are built and published
+         the way the CLI does it. -->
+    <PackageReference Include="SimplyWorks.Serverless.Tooling" Version="10.2.4" />
 
     <!-- Bus (for IPublish + AddBus registration) -->
-    <PackageReference Include="SimplyWorks.Bus" Version="10.0.3" />
+    <PackageReference Include="SimplyWorks.Bus" Version="10.1.0" />
 
     <!-- EF Core naming conventions (used by PgSql context) -->
     <PackageReference Include="EFCore.NamingConventions" Version="9.0.0" />
@@ -59,6 +69,7 @@
 
   <Target Name="PublishTestAdapters" AfterTargets="Build">
     <Exec Command="dotnet publish $(MSBuildThisFileDirectory)../SW.Bitween.SampleHandler -c $(Configuration) -o $(OutputPath)test-adapters/SW.Bitween.SampleHandler --no-self-contained" />
+    <Exec Command="dotnet publish $(MSBuildThisFileDirectory)../SW.Bitween.SampleValidator -c $(Configuration) -o $(OutputPath)test-adapters/SW.Bitween.SampleValidator --no-self-contained" />
     <Exec Command="dotnet publish $(MSBuildThisFileDirectory)../SW.Bitween.SampleConfigurableAdapter -c $(Configuration) -o $(OutputPath)test-adapters/SW.Bitween.SampleConfigurableAdapter --no-self-contained" />
     <Exec Command="dotnet publish $(MSBuildThisFileDirectory)../SW.Bitween.Adapters.Bus.RabbitMq -c $(Configuration) -o $(OutputPath)test-adapters/SW.Bitween.Adapters.Bus.RabbitMq --no-self-contained" />
     <Exec Command="dotnet publish $(MSBuildThisFileDirectory)../SW.Bitween.Adapters.Bus.Sqs -c $(Configuration) -o $(OutputPath)test-adapters/SW.Bitween.Adapters.Bus.Sqs --no-self-contained" />

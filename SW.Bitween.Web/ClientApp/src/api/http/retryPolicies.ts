@@ -16,6 +16,7 @@ import {
   type Paged,
 } from "../types";
 import { get, post, request } from "./request";
+import type { RetrySuggestion } from "../types";
 import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
 interface SearchyResponse<T> {
@@ -26,14 +27,13 @@ interface RawRetryPolicyRow {
   id: number;
   name: string;
   groupCount: number;
-  /** Counted by the backend — see RetryPolicyRow.UsedByCount. */
+  /** Counted by the backend - see RetryPolicyRow.UsedByCount. */
   usedByCount: number;
 }
 interface RawRetryPolicy {
   name: string;
   groups: RawRetryGroup[] | null;
-  alertHandlerId: string | null;
-  alertHandlerProperties: Record<string, string> | null;
+  alertChannelId: number | null;
 }
 interface RawSubscriptionRef {
   id: number;
@@ -82,8 +82,10 @@ interface RawRetryBudget {
   maxAttemptsTotal: number | null;
   delayStrategy: RawDelayStrategy;
 }
-interface RawRetryGroup extends Omit<RetryGroup, "budget" | "alertHandlerProperties"> {
+interface RawRetryGroup extends Omit<RetryGroup, "budget"> {
   budget?: RawRetryBudget | null;
+  /** Retired on the server: alerts go through a channel. Read only so it can be dropped. */
+  alertHandlerId?: string | null;
   alertHandlerProperties?: Record<string, string> | null;
 }
 interface RawTestAttempt {
@@ -130,7 +132,7 @@ const toRawDelay = (d: RetryDelay): RawDelayStrategy => {
   }
 };
 
-const toGroup = (g: RawRetryGroup): RetryGroup => ({
+const toGroup = ({ alertHandlerId: _retired, alertHandlerProperties: _retiredProps, ...g }: RawRetryGroup): RetryGroup => ({
   ...g,
   budget: g.budget
     ? {
@@ -143,8 +145,7 @@ const toGroup = (g: RawRetryGroup): RetryGroup => ({
   // alert fields at all, and an undefined mode would compare unequal to "Inherit" and
   // leave the Save bar up on a page nobody had edited.
   alertMode: g.alertMode ?? "Inherit",
-  alertHandlerId: g.alertHandlerId ?? null,
-  alertHandlerProperties: g.alertHandlerProperties ?? {},
+  alertChannelId: g.alertChannelId ?? null,
 });
 
 const toRawGroup = (g: RetryGroup): RawRetryGroup => ({
@@ -169,8 +170,7 @@ async function fetchDetail(id: number): Promise<RetryPolicyDetail> {
     name: r.name,
     groups: (r.groups ?? []).map(toGroup),
     createdOn: "",
-    alertHandlerId: r.alertHandlerId ?? null,
-    alertHandlerProperties: r.alertHandlerProperties ?? {},
+    alertChannelId: r.alertChannelId ?? null,
     subscriptions: subs.map((s) => ({ id: s.id, name: s.name, type: toSubscriptionType(s.type) })),
   };
 }
@@ -188,10 +188,8 @@ interface RawUsageRow {
   alertDelivered: boolean | null;
   alertError: string | null;
   alertMode: RetryAlertConfig["alertMode"];
-  overrideHandlerId: string | null;
-  overrideHandlerProperties: Record<string, string> | null;
-  resolvedHandlerId: string | null;
-  resolvedHandlerProperties: Record<string, string> | null;
+  overrideChannelId: number | null;
+  resolvedChannelId: number | null;
   resolvedFrom: RetryAlertLevel | null;
   silencedAt: RetryAlertLevel | null;
 }
@@ -205,14 +203,12 @@ const toUsageRow = (r: RawUsageRow): RetryUsageRow => ({
   total: r.maxAttemptsTotal,
   exhausted: r.exhausted,
   lastAttemptOn: r.lastAttemptOn,
-  resolvedHandlerId: r.resolvedHandlerId,
-  resolvedHandlerProperties: r.resolvedHandlerProperties ?? {},
+  resolvedChannelId: r.resolvedChannelId,
   resolvedFrom: r.resolvedFrom,
   silencedAt: r.silencedAt,
   override: {
     alertMode: r.alertMode ?? "Inherit",
-    alertHandlerId: r.overrideHandlerId,
-    alertHandlerProperties: r.overrideHandlerProperties ?? {},
+    alertChannelId: r.overrideChannelId,
   },
   // Only an alert that was actually raised has an outcome. Delivery is reported apart from
   // the claim because the two can disagree, and the disagreement is the whole point.
@@ -269,7 +265,16 @@ export const retryPolicyMethods = {
 
   async createRetryPolicy({ name }: { name: string }): Promise<RetryPolicy> {
     const id = await post<number>("/retrypolicies", { name, groups: [] });
-    return { id, name, groups: [], createdOn: "", alertHandlerId: null, alertHandlerProperties: {} };
+    return { id, name, groups: [], createdOn: "", alertChannelId: null };
+  },
+
+  async suggestRetryPolicy(subscriptionId: number, signal?: AbortSignal): Promise<RetrySuggestion> {
+    return request<RetrySuggestion>("/retrysuggestions", { method: "POST", body: { subscriptionId }, signal });
+  },
+
+  /** Saves a suggestion's groups exactly as the server wrote them, so no field is lost on the way. */
+  async saveSuggestedRetryPolicy(name: string, groups: RetrySuggestion["groups"]): Promise<number> {
+    return post<number>("/retrypolicies", { name, groups });
   },
 
   async updateRetryPolicy(
@@ -277,18 +282,16 @@ export const retryPolicyMethods = {
     changes: {
       name: string;
       groups: RetryGroup[];
-      alertHandlerId: string | null;
-      alertHandlerProperties: Record<string, string>;
+      alertChannelId: number | null;
     },
   ): Promise<RetryPolicy> {
     // Update replaces the whole policy, so every field it accepts has to be sent back. Omitting
-    // the alert cleared it on the server on every save — the settings were still on screen, and
+    // the alert cleared it on the server on every save - the settings were still on screen, and
     // gone from the database.
     await post(`/retrypolicies/${id}`, {
       name: changes.name,
       groups: changes.groups.map(toRawGroup),
-      alertHandlerId: changes.alertHandlerId,
-      alertHandlerProperties: changes.alertHandlerProperties,
+      alertChannelId: changes.alertChannelId,
     });
     return { id, ...changes, createdOn: "" };
   },
@@ -343,8 +346,7 @@ export const retryPolicyMethods = {
       subscriptionId: input.subscriptionId,
       groupId: input.groupId,
       alertMode: input.alertMode,
-      alertHandlerId: input.alertHandlerId,
-      alertHandlerProperties: input.alertHandlerProperties,
+      alertChannelId: input.alertChannelId,
     });
   },
 

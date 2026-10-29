@@ -29,7 +29,7 @@ public class SchedulerSeedService(IServiceProvider sp, ILogger<SchedulerSeedServ
         // the second call grabs a connection still left in an aborted-transaction state from
         // the first, failing with "25P02: current transaction is aborted" while obtaining its
         // row lock. A fixed delay between the two calls was tried and proved unreliable (still
-        // reproduced on a fresh DB with the delay in place) — retrying the specific lock failure
+        // reproduced on a fresh DB with the delay in place) - retrying the specific lock failure
         // is correct instead, since it naturally waits however long is actually needed rather
         // than guessing, and still fails loudly if the lock truly can't be obtained after 3 tries.
         await ScheduleWithRetry(() => scheduleRepo.Schedule<RetryJob>(options.RetryJobCron), nameof(RetryJob), stoppingToken);
@@ -40,6 +40,13 @@ public class SchedulerSeedService(IServiceProvider sp, ILogger<SchedulerSeedServ
             () => scheduleRepo.Schedule<InboundMessagePruneJob>(options.InboundMessagePruneCron),
             nameof(InboundMessagePruneJob), stoppingToken);
         await ScheduleWithRetry(() => scheduleRepo.Schedule<ReceiveAttemptCleanupJob>(options.ReceiveAttemptCleanupCron), nameof(ReceiveAttemptCleanupJob), stoppingToken);
+        await ScheduleWithRetry(() => scheduleRepo.Schedule<Services.Metrics.MetricsPruneJob>(options.MetricsPruneCron),
+            nameof(Services.Metrics.MetricsPruneJob), stoppingToken);
+        await ScheduleWithRetry(() => scheduleRepo.Schedule<Services.Metrics.QueueSnapshotJob>(options.QueueSnapshotCron),
+            nameof(Services.Metrics.QueueSnapshotJob), stoppingToken);
+        // Always scheduled; it reads nothing beyond the subscriptions while none expects traffic.
+        await ScheduleWithRetry(() => scheduleRepo.Schedule<QuietSubscriptionsJob>(options.QuietSubscriptionsCron),
+            nameof(QuietSubscriptionsJob), stoppingToken);
         // Always scheduled; it does nothing while exchange retention is 0, so turning retention on in
         // Settings needs no re-scheduling.
         await ScheduleWithRetry(() => scheduleRepo.Schedule<ExchangeRetentionJob>(options.ExchangeRetentionCron),
@@ -81,7 +88,7 @@ public class SchedulerSeedService(IServiceProvider sp, ILogger<SchedulerSeedServ
             catch (Quartz.Impl.AdoJobStore.LockException) when (attempt < maxAttempts)
             {
                 logger.LogWarning(
-                    "Transient lock error seeding {Job} (attempt {Attempt}/{Max}) — retrying",
+                    "Transient lock error seeding {Job} (attempt {Attempt}/{Max}) - retrying",
                     jobName, attempt, maxAttempts);
                 await Task.Delay(200 * attempt, ct);
             }

@@ -12,7 +12,7 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// Notifiers — the alerts sent when an exchange succeeds or fails.
+/// Notifiers - the alerts sent when an exchange succeeds or fails.
 /// </summary>
 /// <remarks>
 /// A notifier points at the integrations it watches rather than the other way round, so nothing
@@ -72,7 +72,7 @@ public class NotifierTests(BitweenFixture fixture)
         Assert.Single((await Stored(id)).HandlerProperties);
 
         // An absent list means none, as it does for a document's promoted properties. Left
-        // implicit this threw ArgumentNullException — a 500 for a well-formed request.
+        // implicit this threw ArgumentNullException - a 500 for a well-formed request.
         await Update(id, new NotifierUpdate { Name = Unique("No settings"), HandlerId = "native:smtp" });
 
         Assert.Empty((await Stored(id)).HandlerProperties);
@@ -126,7 +126,7 @@ public class NotifierTests(BitweenFixture fixture)
             RunOnSubscriptions = [new NotifierSubscription { Id = second }],
         });
 
-        // The list is a replacement, not an addition — otherwise an integration can never be
+        // The list is a replacement, not an addition - otherwise an integration can never be
         // taken off a notifier once added.
         Assert.Equal([second], (await Stored(id)).RunOnSubscriptions);
     }
@@ -167,9 +167,84 @@ public class NotifierTests(BitweenFixture fixture)
         var checkDb = check.ServiceProvider.GetRequiredService<BitweenDbContext>();
         Assert.False(await checkDb.Set<Notifier>().AnyAsync(n => n.Id == id));
 
-        // The watch list is the notifier's own column, so it goes with it — but the integration
+        // The watch list is the notifier's own column, so it goes with it - but the integration
         // it named is configuration in its own right and must survive.
         Assert.True(await checkDb.Set<Subscription>().AnyAsync(s => s.Id == subscriptionId));
+    }
+
+    /// <summary>
+    /// The SMTP password is [Secure] on the handler, so a notifier returns it masked like a
+    /// subscription does, and sending the mask back keeps it.
+    /// </summary>
+    [Fact]
+    public async Task A_handler_secret_is_masked_and_kept_when_sent_back()
+    {
+        var id = await Create(Unique("Secret notifier"));
+        await Update(id, new NotifierUpdate
+        {
+            Name = Unique("Secret notifier"),
+            HandlerId = nameof(SW.Bitween.NativeAdapters.SmtpHandler.NativeSmtpHandler),
+            HandlerProperties =
+            [
+                new KeyAndValue { Key = "Host", Value = "smtp.example.com" },
+                new KeyAndValue { Key = "Password", Value = "smtp-secret-value" },
+            ],
+        });
+
+        Newtonsoft.Json.Linq.JObject read;
+        await using (var scope = fixture.CreateScope())
+        {
+            scope.Superuser();
+            var get = ActivatorUtilities.CreateInstance<Resources.Notifiers.Get>(scope.ServiceProvider);
+            read = Newtonsoft.Json.Linq.JObject.FromObject(await get.Handle(id));
+        }
+
+        var returned = read["HandlerProperties"]!.ToDictionary(p => (string)p["Key"]!, p => (string)p["Value"]!);
+        Assert.Equal("smtp.example.com", returned["Host"]);
+        Assert.Equal(AdapterSecretProperties.Sentinel, returned["Password"]);
+
+        // The form sends back what it was given.
+        await Update(id, new NotifierUpdate
+        {
+            Name = Unique("Secret notifier"),
+            HandlerId = nameof(SW.Bitween.NativeAdapters.SmtpHandler.NativeSmtpHandler),
+            HandlerProperties = returned.Select(kv => new KeyAndValue { Key = kv.Key, Value = kv.Value }).ToList(),
+        });
+        Assert.Equal("smtp-secret-value", (await Stored(id)).HandlerProperties["Password"]);
+    }
+
+    /// <summary>
+    /// Pointing the notifier at another mail server means entering the password again: kept, it
+    /// would be sent to whoever runs that server, by someone who never saw it.
+    /// </summary>
+    [Fact]
+    public async Task Changing_the_server_drops_the_kept_secret()
+    {
+        var handler = nameof(SW.Bitween.NativeAdapters.SmtpHandler.NativeSmtpHandler);
+        var id = await Create(Unique("Moved notifier"));
+        await Update(id, new NotifierUpdate
+        {
+            Name = Unique("Moved notifier"),
+            HandlerId = handler,
+            HandlerProperties =
+            [
+                new KeyAndValue { Key = "Host", Value = "smtp.example.com" },
+                new KeyAndValue { Key = "Password", Value = "smtp-secret-value" },
+            ],
+        });
+
+        await Update(id, new NotifierUpdate
+        {
+            Name = Unique("Moved notifier"),
+            HandlerId = handler,
+            HandlerProperties =
+            [
+                new KeyAndValue { Key = "Host", Value = "smtp.attacker.example" },
+                new KeyAndValue { Key = "Password", Value = AdapterSecretProperties.Sentinel },
+            ],
+        });
+
+        Assert.False((await Stored(id)).HandlerProperties.ContainsKey("Password"));
     }
 
     [Fact]

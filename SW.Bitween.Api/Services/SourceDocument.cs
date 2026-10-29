@@ -12,7 +12,7 @@ namespace SW.Bitween;
 
 /// <summary>
 /// Reading source values: the values a response or bus gateway subscription takes from the
-/// original document — the input of the exchange whose delivery got the response it runs on.
+/// original document - the input of the exchange whose delivery got the response it runs on.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -22,10 +22,10 @@ namespace SW.Bitween;
 /// properties are read from.
 /// </para>
 /// <para>
-/// A path is read the way a mapping reads one — dot-separated, keys matched exactly, never into a
-/// list — with the mapper's own JSON and XML readers, so a path the mapping editor shows is a path
+/// A path is read the way a mapping reads one - dot-separated, keys matched exactly, never into a
+/// list - with the mapper's own JSON and XML readers, so a path the mapping editor shows is a path
 /// that works here. The document is read as JSON, or as XML when it starts with <c>&lt;</c>.
-/// Anything else — a CSV file, which is a list, or plain text — has no paths, so every value reads
+/// Anything else - a CSV file, which is a list, or plain text - has no paths, so every value reads
 /// as missing.
 /// </para>
 /// </remarks>

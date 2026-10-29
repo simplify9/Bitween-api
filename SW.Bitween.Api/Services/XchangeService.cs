@@ -12,6 +12,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using SW.Bitween.Services;
 using SW.Bitween.Services.Adapters;
 using SW.Bus.RabbitMqExtensions;
 
@@ -22,7 +23,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     ICloudFilesService cloudFiles, IServiceProvider serviceProvider,
     IPublishWithValues publish, ILogger<XchangeService> logger, IInfolinkCache BitweenCache,
     IAdapterInvoker adapterInvoker, NativeAdapterDiscoveryService nativeAdapterDiscovery,
-    FileLinks fileLinks, StorageRetention storageRetention) :
+    FileLinks fileLinks, StorageRetention storageRetention, NotificationChannelSender channelSender,
+    LegacyEventQueues legacyEventQueues) :
     // IConsume<ApiXchangeCreatedEvent>,
     // IConsume<InternalXchangeCreatedEvent>,
     // IConsume<AggregateXchangeCreatedEvent>,
@@ -40,8 +42,16 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     {
         var subscription = await BitweenCache.SubscriptionByIdAsync(subscriptionId);
 
-        var xchange = await CreateXchange(subscription, file, references, Guid.NewGuid().ToString("N"), gatewayPartner,
-            globalAdapterValuesSets);
+        var duplicate = await new DuplicateArrivals(dbContext).CheckAsync(
+            await BitweenCache.DocumentByIdAsync(subscription.DocumentId), gatewayPartner?.Id ?? subscription.PartnerId, file);
+        if (duplicate?.Drop == true)
+        {
+            await dbContext.SaveChangesAsync();
+            return duplicate.OriginalXchangeId;
+        }
+
+        var xchange = await CreateXchange(subscription, file, WithDuplicateReference(references, duplicate),
+            Guid.NewGuid().ToString("N"), gatewayPartner, globalAdapterValuesSets);
         await dbContext.SaveChangesAsync();
         return xchange.Id;
     }
@@ -52,11 +62,23 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         var document = await BitweenCache.DocumentByIdAsync(documentId);
         Xchange xchange;
 
+        // A mirror's rehearsal sends the documents the one before it sent: never a duplicate of those.
+        var duplicate = Services.Mirror.MirrorTraffic.IsRehearsal(BitweenSettings, correlationId)
+            ? null
+            : await new DuplicateArrivals(dbContext).CheckAsync(document, null, file);
+        if (duplicate?.Drop == true)
+        {
+            await dbContext.SaveChangesAsync();
+            return;
+        }
+        references = WithDuplicateReference(references, duplicate);
+
         if (document?.DisregardsUnfilteredMessages ?? false)
         {
             xchange = new Xchange(documentId, null, file, references, SubscriptionType.Internal, correlationId,
                 source);
-            var result = await filterService.Filter(xchange.DocumentId, file);
+            var result = await filterService.Filter(xchange.DocumentId, file,
+                Services.Mirror.MirrorTraffic.IsRehearsal(BitweenSettings, correlationId));
             await CreateXchangesForHits(xchange, result, file);
         }
         else
@@ -67,14 +89,20 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         await dbContext.SaveChangesAsync();
     }
 
+    /// <summary>A duplicate let through carries a reference to the exchange it repeats.</summary>
+    public static string[] WithDuplicateReference(string[] references, DuplicateVerdict duplicate) =>
+        duplicate == null || !duplicate.FitsWith(references) ? references : [.. references ?? [], duplicate.Reference];
+
     public async Task CreateXchange(Xchange xchange, XchangeFile file, WorkGroup workGroup,
         bool manualRetry = false)
     {
         await EnsureNotAlreadyRetried(xchange.Id);
         if (xchange.DocumentId == Document.AggregationDocumentId) file = WithServedLinks(file);
         var newXchange = new Xchange(xchange, file, workGroup, manualRetry);
-        await AddInputFile(newXchange, file);
+        AddInputFile(newXchange, file);
         dbContext.Add(newXchange);
+        await AddPromotedProperties(newXchange, file);
+        dbContext.Add(new XchangeRetryClaim(xchange.Id, newXchange.Id));
     }
 
     public async Task CreateXchange(Subscription subscription, Xchange xchange, XchangeFile file,
@@ -83,19 +111,21 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         await EnsureNotAlreadyRetried(xchange.Id);
         if (xchange.DocumentId == Document.AggregationDocumentId) file = WithServedLinks(file);
         var partnerId = xchange.PartnerId ?? subscription.PartnerId;
-        var partner = partnerId.HasValue ? await dbContext.FindAsync<Partner>(partnerId.Value) : null;
+        var partner = partnerId.HasValue ? await BitweenCache.PartnerByIdAsync(partnerId.Value) : null;
         var globalAdapterValuesSets = await BitweenCache.ListGlobalAdapterValuesSetsAsync();
         var newXchange = new Xchange(subscription, xchange, file, partner, globalAdapterValuesSets,
             groupAttemptCounts, manualRetry);
-        await AddInputFile(newXchange, file);
+        AddInputFile(newXchange, file);
         dbContext.Add(newXchange);
+        await AddPromotedProperties(newXchange, file);
+        dbContext.Add(new XchangeRetryClaim(xchange.Id, newXchange.Id));
     }
 
     private static readonly Regex ExchangeFileKey = new("/[0-9a-f]{32}/(input|output|response)$");
 
     /// <summary>
     /// A roll-up made before Bitween served its own file links lists storage URLs, which stop opening once
-    /// the bucket is private. Retrying one — with its old properties or reset ones — swaps each URL of an
+    /// the bucket is private. Retrying one - with its old properties or reset ones - swaps each URL of an
     /// exchange file in Bitween's bucket for a link Bitween serves, so the handler reading it still gets
     /// every file. Anything else is left as it was.
     /// </summary>
@@ -136,8 +166,10 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     {
         var xchange = new Xchange(document.Id, workGroup, file, references, SubscriptionType.Internal, correlationId,
             source);
-        await AddInputFile(xchange, file);
+        AddInputFile(xchange, file);
         dbContext.Add(xchange);
+        await AddPromotedProperties(xchange, file);
+        BitweenTelemetry.ExchangesCreated.Add(1, new KeyValuePair<string, object>("kind", "routing"));
         return xchange;
     }
 
@@ -147,25 +179,27 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     {
         // Callers that have no partner/globals context of their own (scheduled receivers,
         // aggregation, manual "create exchange", plain internal subscription fan-out) leave
-        // this null — resolve it here so {{globals.…}} always gets a chance to translate,
+        // this null - resolve it here so {{globals.…}} always gets a chance to translate,
         // instead of silently no-op'ing for whichever caller forgot to load it.
         globalAdapterValuesSets ??= await BitweenCache.ListGlobalAdapterValuesSetsAsync();
 
         // And the same for the partner, for the same reason. Only a caller that learned the
-        // partner from somewhere other than the subscription — a bus gateway route, a partner
-        // calling an API gateway — has one to hand in; everyone else left it null and the
+        // partner from somewhere other than the subscription - a bus gateway route, a partner
+        // calling an API gateway - has one to hand in; everyone else left it null and the
         // subscription's own partner went unused, so every {{partner.…}} in its adapters was
         // written out literally and the handler ran against the template. This is the value
         // the Xchange is attributed to either way (see PartnerId below), so filling from it
         // adds a resolution that was missing rather than changing whose exchange it is.
         gatewayPartner ??= subscription.PartnerId.HasValue
-            ? await dbContext.FindAsync<Partner>(subscription.PartnerId.Value)
+            ? await BitweenCache.PartnerByIdAsync(subscription.PartnerId.Value)
             : null;
 
         var xchange = new Xchange(subscription, file, references, correlationId, gatewayPartner,
             globalAdapterValuesSets, source);
-        await AddInputFile(xchange, file);
+        AddInputFile(xchange, file);
         dbContext.Add(xchange);
+        await AddPromotedProperties(xchange, file);
+        BitweenTelemetry.ExchangesCreated.Add(1, new KeyValuePair<string, object>("kind", "subscription"));
         return xchange;
     }
 
@@ -203,7 +237,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         var alreadyRetried = await FindRetryOf(xchange.Id);
         if (alreadyRetried != null)
         {
-            // Reached only if a manual retry got in first — the endpoint refuses that while a
+            // Reached only if a manual retry got in first - the endpoint refuses that while a
             // retry is scheduled, so it takes a race to arrive here. Dropped like the cases below
             // rather than left to throw: an exception here would leave the schedule in place and
             // the job would pick the same impossible retry up again on every pass, forever.
@@ -219,7 +253,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         if (inputFile == null)
         {
             // The input is what a retry re-sends, so without it there is nothing to retry with. Handled
-            // like a missing subscription — drop the schedule and move on — but recorded on the result
+            // like a missing subscription - drop the schedule and move on - but recorded on the result
             // as well, because unlike a deleted subscription this needs someone to look into it.
             dbContext.Remove(delayedRetry);
 
@@ -234,7 +268,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     }
 
     /// <summary>
-    /// The original input, or <c>null</c> when it cannot be read — deleted from storage, expired by a
+    /// The original input, or <c>null</c> when it cannot be read - deleted from storage, expired by a
     /// lifecycle rule, or storage itself unavailable.
     /// </summary>
     public async Task<XchangeFile> ReadInputFile(Xchange xchange)
@@ -294,13 +328,13 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             ? new XchangeSource(xchange.Id, SourceDocument.Read(inputFile.Data, SourceDocument.PathsUsedBy(target)))
             : null;
 
-        if (target.PausedOn != null)
+        if (target.PausedOn != null && !Services.Mirror.MirrorTraffic.IsRehearsal(BitweenSettings, xchange.CorrelationId))
         {
             await CreateOnHoldXchange(target, responseFile, null, partnerId, xchange.CorrelationId, source);
             return null;
         }
 
-        var partner = partnerId.HasValue ? await dbContext.FindAsync<Partner>(partnerId.Value) : null;
+        var partner = partnerId.HasValue ? await BitweenCache.PartnerByIdAsync(partnerId.Value) : null;
         return await CreateXchange(target, responseFile, null, xchange.CorrelationId, partner, source: source);
     }
 
@@ -313,9 +347,20 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// Beside the body, not in it: any other reader of the message gets exactly the body it always
     /// did. Only the id, so what travels stays the same size however much a route reads.
     /// </remarks>
-    private Task PublishResponse(Xchange xchange, XchangeFile responseFile) =>
-        publish.Publish(xchange.ResponseMessageTypeName, responseFile.Data,
-            new Dictionary<string, string> { [StartupValuesFiller.SourceXchangeBusValue] = xchange.Id });
+    /// <summary>
+    /// Queues the response in the outbox, saved with the result. It used to be published before the
+    /// result was saved, so a save that then failed had already sent it - and the redelivery that
+    /// followed sent it again.
+    /// </summary>
+    private Task PublishResponse(Xchange xchange, XchangeFile responseFile)
+    {
+        var values = new Dictionary<string, string> { [StartupValuesFiller.SourceXchangeBusValue] = xchange.Id };
+        // The bus starts a correlation of its own; a mirror's rehearsal follows its traffic across it.
+        if (Services.Mirror.MirrorTraffic.IsRehearsal(BitweenSettings, xchange.CorrelationId))
+            values[Services.Mirror.MirrorTraffic.BusValue] = xchange.CorrelationId;
+        dbContext.Add(new OutboxMessage(xchange.ResponseMessageTypeName, responseFile.Data, values));
+        return Task.CompletedTask;
+    }
 
     /// <summary>
     /// Fails a response or bus gateway subscription's exchange whose handler still has a
@@ -324,7 +369,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// <remarks>
     /// The tokens are filled when the exchange is created, so one left over means the value wasn't
     /// there, and running on would hand the partner the token's text instead. Other types are never
-    /// given source values and are left alone — a template there may be reading a document field
+    /// given source values and are left alone - a template there may be reading a document field
     /// that happens to be called "source".
     /// </remarks>
     private async Task EnsureSourceValuesFilled(Xchange xchange)
@@ -381,11 +426,9 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         if (xchange.MapperId == null) return xchangeFile;
 
         // A mapper that takes its context separately gets the payload exactly as it arrived. Anything
-        // else keeps the enrichment below, unchanged — every template already written reads
+        // else keeps the enrichment below, unchanged - every template already written reads
         // __partner__ out of the payload, so this is load-bearing behaviour, not an implementation
-        // detail. Note the JToken.Parse: it runs before anything knows which mapper is configured,
-        // and it throws on a payload that is not JSON, which is why a mapper that wants to handle
-        // XML or CSV has to be able to opt out of this entire block.
+        // detail. A payload that is not JSON goes to the mapper as it arrived.
         string mappingContextJson = null;
 
         if (nativeAdapterDiscovery.MapperReceivesOwnContext(xchange.MapperId))
@@ -396,37 +439,24 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         {
             // Inject __partner__ adapter properties into the input JSON so Scriban templates
             // can reference them as {{ __partner__?.propkey }}
-            // Only applies when the data is a JSON object; skip enrichment for non-object payloads
-            // (e.g. a receiver returning a JSON-encoded string).
-            var jObjEnriched = JToken.Parse(xchangeFile.Data) as JObject;
-            var enriched = false;
+            // Only applies when the data is a JSON object; skip enrichment for anything else
+            // (e.g. a receiver returning a JSON-encoded string, or XML).
+            var jObjEnriched = MapperEnrichment.Read(xchangeFile, out var shared);
 
             if (jObjEnriched != null)
             {
-                if (xchange.PartnerId.HasValue)
-                {
-                    var partner = await dbContext.FindAsync<Partner>(xchange.PartnerId.Value);
-                    if (partner?.AdapterProperties?.Count > 0)
-                    {
-                        jObjEnriched["__partner__"] = JObject.FromObject(partner.AdapterProperties);
-                        enriched = true;
-                    }
-                }
+                var partner = xchange.PartnerId.HasValue
+                    ? await BitweenCache.PartnerByIdAsync(xchange.PartnerId.Value)
+                    : null;
 
-                // Inject __globals__ — all global adapter values sets
+                // Inject __globals__ - all global adapter values sets
                 // so templates can use {{ __globals__?.setId?.key }}
-                var globalSets = await dbContext.Set<GlobalAdapterValuesSet>().ToListAsync();
-                if (globalSets.Any(s => s.Values?.Count > 0))
-                {
-                    var globalsObj = new JObject();
-                    foreach (var set in globalSets.Where(s => s.Values?.Count > 0))
-                        globalsObj[set.Id] = JObject.FromObject(set.Values);
-                    jObjEnriched["__globals__"] = globalsObj;
-                    enriched = true;
-                }
+                // From the cache, which every change to a set revokes: this ran a query per exchange.
+                var globalSets = await BitweenCache.ListGlobalAdapterValuesSetsAsync();
 
-                if (enriched)
-                    xchangeFile = new XchangeFile(jObjEnriched.ToString(Formatting.None), xchangeFile.Filename);
+                var enriched = MapperEnrichment.Enrich(jObjEnriched, shared, partner?.AdapterProperties, globalSets);
+                if (enriched != null)
+                    xchangeFile = new XchangeFile(enriched, xchangeFile.Filename);
             }
         }
 
@@ -438,17 +468,18 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         // Check if it's a native adapter
         // No branching on the adapter's kind: the invoker decides which of the three runtimes
-        // owns this id — in-process, spawned, or a rented resident instance — and the pipeline
+        // owns this id - in-process, spawned, or a rented resident instance - and the pipeline
         // only says what it wants run.
-        xchangeFile = await adapterInvoker.InvokeAsync<XchangeFile>(
-            xchange.MapperId, AdapterRole.Mapper, nameof(IInfolinkHandler.Handle), xchangeFile,
-            mapperProperties, xchange.CorrelationId ?? xchange.Id);
+        using (BitweenTelemetry.Stage("mapper"))
+            xchangeFile = await adapterInvoker.InvokeAsync<XchangeFile>(
+                xchange.MapperId, AdapterRole.Mapper, nameof(IInfolinkHandler.Handle), xchangeFile,
+                mapperProperties, xchange.CorrelationId ?? xchange.Id);
 
         if (xchangeFile is null)
             throw new BitweenException(
                 $"Unexpected null return value after running mapping for exchange id: {xchange.Id}, adapter id: {xchange.MapperId}");
-        else
-            await AddFile(xchange, XchangeFileType.Output, xchangeFile);
+        // Written while the handler runs; the result's save waits for it.
+        WriteBeforeSave(xchange, XchangeFileType.Output, xchangeFile);
         return xchangeFile;
     }
 
@@ -472,12 +503,14 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         var handlerProperties = xchange.HandlerProperties.ToDictionary();
         handlerProperties["xchangeid"] = xchange.Id;
 
-        xchangeFile = await adapterInvoker.InvokeAsync<XchangeFile>(
-            xchange.HandlerId, AdapterRole.Handler, nameof(IInfolinkHandler.Handle), xchangeFile,
-            handlerProperties, xchange.CorrelationId ?? xchange.Id);
+        using (BitweenTelemetry.Stage("handler"))
+            xchangeFile = await adapterInvoker.InvokeAsync<XchangeFile>(
+                xchange.HandlerId, AdapterRole.Handler, nameof(IInfolinkHandler.Handle), xchangeFile,
+                handlerProperties, xchange.CorrelationId ?? xchange.Id);
 
+        // Written while the result is prepared; its save waits for it.
         if (xchangeFile != null)
-            await AddFile(xchange, XchangeFileType.Response, xchangeFile);
+            WriteBeforeSave(xchange, XchangeFileType.Response, xchangeFile);
         return xchangeFile;
     }
 
@@ -537,15 +570,71 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// Writes a new exchange's input under the document prefix in force now, and records that prefix on
     /// the exchange so its later files go next to it and a change of prefix never loses track of them.
     /// </summary>
-    private Task AddInputFile(Xchange xchange, XchangeFile file)
+    /// <remarks>
+    /// The write runs beside the rest of the creation - promoted properties, the caller's own checks -
+    /// and the save waits for it (see <see cref="XchangeHandoff"/>), so no caller can save the exchange
+    /// without its input.
+    /// </remarks>
+    private void AddInputFile(Xchange xchange, XchangeFile file)
     {
         xchange.StoreFilesUnder(BitweenSettings.DocumentPrefix);
-        return AddFile(xchange, XchangeFileType.Input, file);
+        WriteBeforeSave(xchange, XchangeFileType.Input, file);
+        // A small input also travels with the created message, so the worker needn't read it back.
+        if (FitsInMessage(file.Data)) dbContext.Handoff.Carry(xchange.Id, file.Data);
+    }
+
+    /// <summary>Whether a payload is small enough to travel in a bus message: <c>Bitween:MessagePayloadMaxBytes</c>.</summary>
+    private bool FitsInMessage(string data) =>
+        data != null && BitweenSettings.MessagePayloadMaxBytes > 0 && data.Length <= BitweenSettings.MessagePayloadMaxBytes &&
+        System.Text.Encoding.UTF8.GetByteCount(data) <= BitweenSettings.MessagePayloadMaxBytes;
+
+    /// <summary>Starts writing an exchange file, for the next save to wait for.</summary>
+    private void WriteBeforeSave(Xchange xchange, XchangeFileType type, XchangeFile file) =>
+        dbContext.Handoff.Writing(xchange.Id, type, AddFile(xchange, type, file));
+
+    /// <summary>
+    /// Reads a new exchange's promoted properties out of its input while it is still in hand, and
+    /// adds them to go in the same insert batch as the exchange.
+    /// </summary>
+    /// <remarks>
+    /// They used to be read by the worker, which then made an insert of its own for them, and read
+    /// the payload once more to do it. A few paths out of a document already parsed for the mapper
+    /// cost about a millisecond here. A payload they can't be read from stores nothing, and the
+    /// worker reads it as it always did, so it fails there the way it always has.
+    /// </remarks>
+    private async Task AddPromotedProperties(Xchange xchange, XchangeFile file)
+    {
+        FilterResult result;
+        try
+        {
+            using (BitweenTelemetry.Stage("filter"))
+                result = await filterService.Filter(xchange.DocumentId, file);
+        }
+        catch (Exception ex)
+        {
+            logger.LogDebug(ex, "Promoted properties of xchange {XchangeId} couldn't be read at creation.", xchange.Id);
+            return;
+        }
+
+        AddPromotedProperties(xchange, result);
+    }
+
+    private void AddPromotedProperties(Xchange xchange, FilterResult result)
+    {
+        // Stored cut, so worth a line saying so: whoever set up the path most likely meant a
+        // short value and picked up a notes field or a whole object instead.
+        foreach (var (key, value) in result.Properties)
+            if (value?.Length > XchangePromotedProperties.MaxValueLength)
+                logger.LogWarning(
+                    "Promoted property {Key} of xchange {XchangeId} is {Length} characters long; it is stored cut to {MaxLength}.",
+                    key, xchange.Id, value.Length, XchangePromotedProperties.MaxValueLength);
+        dbContext.Add(new XchangePromotedProperties(xchange.Id, result));
     }
 
     private async Task AddFile(Xchange xchange, XchangeFileType type, XchangeFile file)
     {
         var key = FileKey(xchange, type);
+        using var stage = BitweenTelemetry.Stage("storage.write");
         try
         {
             // Always private. Readers without a Bitween login get a sealed link from FileLinks instead
@@ -602,7 +691,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         ?? throw new BitweenException("Bitween has no address to build links to exchange files on.");
 
     /// <summary>
-    /// The exchange a storage key belongs to, and which of its files it is — <c>null</c> when the key
+    /// The exchange a storage key belongs to, and which of its files it is - <c>null</c> when the key
     /// isn't exactly where one of an exchange's files lives. How a request naming a raw key is held to
     /// exchange files and nothing else in the bucket.
     /// </summary>
@@ -630,9 +719,9 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     }
 
     /// <summary>
-    /// Opens one of an exchange's files to read. A file that isn't there any more is reported as such —
+    /// Opens one of an exchange's files to read. A file that isn't there any more is reported as such -
     /// deleted by the bucket's retention rule when one covers it and the exchange is old enough, or else
-    /// missing — rather than as the storage provider's own error.
+    /// missing - rather than as the storage provider's own error.
     /// </summary>
     public async Task<Stream> OpenFile(Xchange xchange, XchangeFileType type)
     {
@@ -672,36 +761,87 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         Xchange responseXchange = null;
         XchangeFile outputFile = null;
         XchangeFile responseFile = null;
+        // Files of a delivery that could not be stored, so a save that then fails doesn't name them.
+        IReadOnlyCollection<XchangeFileType> notStored = [];
         WorkGroup workGroup = null;
-        var xchange = await dbContext.FindAsync<Xchange>(message.Id);
+        var commands = Services.Metrics.DbCommandTally.Open("process");
+        // The exchange and whether it has a result, in one query: they were two.
+        var loaded = await dbContext.Set<Xchange>()
+            .Where(x => x.Id == message.Id)
+            .Select(x => new
+            {
+                Xchange = x,
+                HasResult = dbContext.Set<XchangeResult>().Any(r => r.Id == x.Id),
+                HasPromoted = dbContext.Set<XchangePromotedProperties>().Any(p => p.Id == x.Id),
+            })
+            .FirstOrDefaultAsync();
+        var xchange = loaded?.Xchange;
 
         if (xchange == null) throw new BitweenException($"Xchange '{message.Id}' not found.");
 
+        // A message is delivered at least once - after a crash between commit and ack, or when the
+        // outbox publishes one whose first publish did go through. An exchange that already has a
+        // result has been processed; running it again would deliver it to the partner twice.
+        if (loaded.HasResult)
+        {
+            logger.LogInformation("Xchange {XchangeId} already has a result; ignoring a repeat delivery of it.", xchange.Id);
+            return;
+        }
+
+        using var activity = BitweenTelemetry.ActivitySource.StartActivity("exchange.process");
+        activity?.SetTag("bitween.exchange.id", xchange.Id);
+        activity?.SetTag("bitween.document.id", xchange.DocumentId);
+        activity?.SetTag("bitween.subscription.id", xchange.SubscriptionId);
+        commands.AttributeTo(xchange.StartedOn, xchange.SubscriptionId, xchange.PartnerId);
+        // From creation to being picked up here: the queue, and the commit and publish before it.
+        BitweenTelemetry.StageDuration.Record(Math.Max(0, (DateTime.UtcNow - xchange.StartedOn).TotalSeconds),
+            new KeyValuePair<string, object>("stage", "pickup"));
+        var clock = System.Diagnostics.Stopwatch.StartNew();
+        var outcome = "error";
+        // For the metrics: which adapter a failure came from, and the failure itself.
+        var failedAt = SW.Bitween.Services.Metrics.FailedAt.Elsewhere;
+        Exception failure = null;
+
         try
         {
-            var inputFile = new XchangeFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
-            var result = await filterService.Filter(xchange.DocumentId, inputFile);
+            var inputFile = InputFrom(message, xchange);
+            if (inputFile == null)
+                using (BitweenTelemetry.Stage("storage.read"))
+                    inputFile = InputFile(await GetFile(xchange, XchangeFileType.Input), xchange.InputName);
+            // Whatever way it arrived - bus, receiver, response - input that doesn't match its
+            // type's schema fails here, with what is wrong, before anything acts on it.
+            // Promoted properties are read when the exchange is created now. Filtered here only for
+            // what still needs it: a routing exchange's hits, and the promoted properties of an
+            // exchange created by a version that didn't read them, or from a payload they couldn't
+            // be read out of then - which fails here, as it always did.
+            FilterResult result = null;
+            using (BitweenTelemetry.Stage("filter"))
+            {
+                await DocumentSchema.Enforce(await BitweenCache.DocumentByIdAsync(xchange.DocumentId), inputFile);
+                if (!loaded.HasPromoted || xchange.SubscriptionId == null)
+                    result = await filterService.Filter(xchange.DocumentId, inputFile,
+                        Services.Mirror.MirrorTraffic.IsRehearsal(BitweenSettings, xchange.CorrelationId));
+            }
 
-            // Stored cut, so worth a line saying so: whoever set up the path most likely meant a
-            // short value and picked up a notes field or a whole object instead.
-            foreach (var (key, value) in result.Properties)
-                if (value?.Length > XchangePromotedProperties.MaxValueLength)
-                    logger.LogWarning(
-                        "Promoted property {Key} of xchange {XchangeId} is {Length} characters long; it is stored cut to {MaxLength}.",
-                        key, xchange.Id, value.Length, XchangePromotedProperties.MaxValueLength);
-            dbContext.Add(new XchangePromotedProperties(xchange.Id, result));
+            if (!loaded.HasPromoted) AddPromotedProperties(xchange, result);
 
             if (xchange.SubscriptionId != null)
             {
                 workGroup = await BitweenCache.WorkGroupBySubscriptionIdAsync(xchange.SubscriptionId.Value);
                 await EnsureSourceValuesFilled(xchange);
                 if (xchange.MapperId == null)
+                {
+                    failedAt = SW.Bitween.Services.Metrics.FailedAt.Handler;
                     responseFile = await RunHandler(xchange, inputFile);
+                }
                 else
                 {
+                    failedAt = SW.Bitween.Services.Metrics.FailedAt.Mapper;
                     outputFile = await RunMapper(xchange, inputFile);
+                    failedAt = SW.Bitween.Services.Metrics.FailedAt.Handler;
                     responseFile = await RunHandler(xchange, outputFile);
                 }
+                failedAt = SW.Bitween.Services.Metrics.FailedAt.Elsewhere;
 
                 if (xchange.ResponseSubscriptionId != null && responseFile != null)
                     responseXchange = await HandOnResponse(xchange, responseFile, inputFile);
@@ -719,21 +859,355 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
             var xchangeResult = new XchangeResult(xchange.Id, workGroup, outputFile, responseFile,
                 responseXchange?.Id);
+            await StampAsync(xchangeResult, xchange);
+            xchangeResult.SetSubscription(xchange.SubscriptionId);
+            // A bad response still means the target answered: the run of failures is over. Written on
+            // the result, which is being inserted anyway, rather than on the subscription row.
+            if (xchange.SubscriptionId != null) xchangeResult.SetConsecutiveFailures(0);
             dbContext.Add(xchangeResult);
             if (responseFile?.BadData == true)
                 await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.BadResult, responseFile.Data,
                     xchangeResult);
             else
                 await TryClearingRetryBudgetAfterSuccess(xchange);
-            await dbContext.SaveChangesAsync();
+            await KeepResultEventOnlyIfHeard(xchange, xchangeResult);
+            // Waited for last, so the writes overlap everything above.
+            if (xchange.HandlerId != null) notStored = await RecordFilesNotStored(xchange, xchangeResult);
+            using (BitweenTelemetry.Stage("save"))
+                await dbContext.SaveChangesAsync();
+            await AnnounceResult(message, xchangeResult, responseFile);
+            outcome = responseFile?.BadData == true ? "bad_response" : "success";
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(System.Diagnostics.ActivityStatusCode.Error, ex.GetType().Name);
+            // The files still being written are waited for here, so the failure names only those that
+            // made it. A write that failed leaves its exchange out of this save, as a failed save does.
+            var unwritten = await dbContext.Handoff.SettleAsync();
+            if (unwritten.Contains((xchange.Id, XchangeFileType.Output)) || notStored.Contains(XchangeFileType.Output)) outputFile = null;
+            if (unwritten.Contains((xchange.Id, XchangeFileType.Response)) || notStored.Contains(XchangeFileType.Response)) responseFile = null;
+            DiscardUnsavedOutcome(xchange.Id, saveFailed: ex is DbUpdateException || unwritten.Count > 0);
+            failure = ex;
             var xchangeResult = new XchangeResult(xchange.Id, workGroup, outputFile, responseFile,
                 responseXchange?.Id, ex.ToString());
+            await StampAsync(xchangeResult, xchange);
+            xchangeResult.SetSubscription(xchange.SubscriptionId);
+            await CountFailure(xchange, xchangeResult);
             dbContext.Add(xchangeResult);
             await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.Error, ex.ToString(), xchangeResult);
+            // One line per failed exchange: a handler failure left nothing in the log, so a delivery that
+            // never arrived could only be traced in the database.
+            logger.LogWarning("Exchange {XchangeId} of subscription {SubscriptionId} failed: {Error}{RetryNote}",
+                xchange.Id, xchange.SubscriptionId, ex.GetBaseException().Message,
+                xchangeResult.RetryBlockedReason is { } blocked ? $" Not retried: {blocked}" : "");
+            await KeepResultEventOnlyIfHeard(xchange, xchangeResult);
             await dbContext.SaveChangesAsync();
+            await AnnounceResult(message, xchangeResult, responseFile);
+            await TrackDeliveryHealth(xchange, xchangeResult, ex.ToString());
+        }
+        finally
+        {
+            var outcomeTag = new KeyValuePair<string, object>("outcome", outcome);
+            BitweenTelemetry.ExchangesProcessed.Add(1, outcomeTag);
+            BitweenTelemetry.ProcessingDuration.Record(clock.Elapsed.TotalSeconds, outcomeTag);
+            activity?.SetTag("bitween.outcome", outcome);
+            serviceProvider.GetService<SW.Bitween.Services.Metrics.MetricsRecorder>()?.Exchange(
+                xchange.StartedOn, xchange.SubscriptionId, xchange.PartnerId,
+                outcome switch
+                {
+                    "success" => SW.Bitween.Services.Metrics.ExchangeOutcome.Succeeded,
+                    "bad_response" => SW.Bitween.Services.Metrics.ExchangeOutcome.BadResponse,
+                    _ => SW.Bitween.Services.Metrics.ExchangeOutcome.Failed,
+                },
+                failedAt, xchange.RetryFor != null, xchange.ManualRetry,
+                (long)(DateTime.UtcNow - xchange.StartedOn).TotalMilliseconds,
+                xchange.InputSize, (outputFile?.Data.Length ?? 0) + (responseFile?.Data.Length ?? 0),
+                failure?.Message);
+            commands.Record(serviceProvider.GetService<SW.Bitween.Services.Metrics.MetricsRecorder>());
+        }
+    }
+
+    /// <summary>
+    /// Waits for the output and response writes of an exchange whose handler has delivered, and
+    /// records each that failed as a missing file with a warning on the result, which stays a success.
+    /// Returns the files that failed.
+    /// </summary>
+    /// <remarks>
+    /// The delivery is the fact that matters: the partner has the document. Failing the result for a
+    /// file Bitween couldn't keep would have its retry deliver the same document a second time. The
+    /// other writes of this unit of work, such as the input of an exchange the response starts, are
+    /// still waited for by the save, which they fail as before.
+    /// </remarks>
+    private async Task<IReadOnlyCollection<XchangeFileType>> RecordFilesNotStored(Xchange xchange, XchangeResult result)
+    {
+        var failed = await dbContext.Handoff.SettleAsync(xchange.Id, XchangeFileType.Output, XchangeFileType.Response);
+        foreach (var (type, ex) in failed.OrderBy(f => f.Key))
+        {
+            var reason = ex.GetBaseException().Message;
+            result.FileNotStored(type, reason);
+            logger.LogWarning(
+                "Xchange {XchangeId} was delivered, but its {FileType} file could not be stored at {Key}: {Reason} " +
+                "The result is saved as successful without the file, and nothing is retried.",
+                xchange.Id, type, FileKey(xchange, type), reason);
+        }
+
+        return failed.Keys.ToList();
+    }
+
+    /// <summary>
+    /// Tells the synchronous call waiting for this result, if one is, that it is saved: by ringing the
+    /// bell when the call is on this node, by a broadcast to every node otherwise. Never throws: the
+    /// result is saved, and a call that isn't told finds it by its backstop poll. The response goes
+    /// with it, so the answer reads nothing: on this node always, in a broadcast under the size cap.
+    /// </summary>
+    private async Task AnnounceResult(XchangeMessage message, XchangeResult result, XchangeFile responseFile)
+    {
+        if (message.AwaitedOn == null) return;
+        try
+        {
+            var ready = XchangeResultReady.From(result, message.AwaitedOn);
+            // The handler's response, stored or not: a failed exchange's response whose write failed
+            // is dropped before it gets here, and a delivered one whose file couldn't be stored is
+            // still the partner's answer. An empty one is no response.
+            var response = responseFile?.Data is { Length: > 0 } data ? data : null;
+            var signals = serviceProvider.GetService<ResultSignals>();
+            if (signals?.Node == message.AwaitedOn)
+            {
+                ready.Response = response;
+                signals.Complete(ready);
+                return;
+            }
+
+            if (FitsInMessage(response)) ready.Response = response;
+            if (serviceProvider.GetService<IBroadcast>() is { } broadcast)
+                await broadcast.Broadcast(ready);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Couldn't tell the call waiting on {Node} that xchange {XchangeId} has a result; it finds it by its backstop poll.",
+                message.AwaitedOn, message.Id);
+        }
+    }
+
+    /// <summary>
+    /// The input the created message carried, or null when it carried none and storage is read: a
+    /// message published again by the outbox dispatcher, an input over the size cap, or a message
+    /// from a version that didn't send it.
+    /// </summary>
+    /// <remarks>
+    /// Taken only when it hashes to what the exchange recorded at creation, so the copy on the bus can
+    /// never be used where it differs from the file in storage.
+    /// </remarks>
+    private XchangeFile InputFrom(XchangeMessage message, Xchange xchange)
+    {
+        if (message.Input == null) return null;
+        var carried = InputFile(message.Input, xchange.InputName);
+        if (xchange.InputHash == null || carried.Hash == xchange.InputHash) return carried;
+
+        logger.LogWarning("The input carried by the message of xchange {XchangeId} doesn't match its hash; reading storage.", xchange.Id);
+        return null;
+    }
+
+    /// <summary>
+    /// The input as the worker hands it from step to step: carrying its parsed trees, so the schema
+    /// check, the filter, the enrichment and the built-in mappers parse it once per parse profile
+    /// rather than once each, unless <c>Bitween:SharedPayloadParse</c> is off.
+    /// </summary>
+    private XchangeFile InputFile(string data, string name) =>
+        BitweenSettings.SharedPayloadParse ? new NativeAdapters.ParsedXchangeFile(data, name) : new XchangeFile(data, name);
+
+    /// <summary>
+    /// Writes on the result which node ran it, which adapter versions ran, and how long it took from
+    /// arriving. Never fails the exchange: a version that can't be read is left out.
+    /// </summary>
+    async Task StampAsync(XchangeResult result, Xchange xchange)
+    {
+        string mapperVersion = null, handlerVersion = null;
+        try
+        {
+            var catalog = serviceProvider.GetService<Services.Adapters.AdapterCatalog>();
+            if (catalog != null)
+            {
+                mapperVersion = await RunVersionAsync(catalog, xchange.MapperId);
+                handlerVersion = await RunVersionAsync(catalog, xchange.HandlerId);
+            }
+        }
+        catch
+        {
+            // The versions are a convenience on the result, not part of it.
+        }
+        result.Stamp(SW.Bitween.Services.Metrics.MetricsRecorder.Node, mapperVersion, handlerVersion,
+            (long)(DateTime.UtcNow - xchange.StartedOn).TotalMilliseconds);
+    }
+
+    static async Task<string> RunVersionAsync(Services.Adapters.AdapterCatalog catalog, string adapterRef)
+    {
+        if (string.IsNullOrWhiteSpace(adapterRef) || NativeAdapterDiscoveryService.IsNative(adapterRef)) return null;
+        var (id, version) = SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Split(adapterRef);
+        return version ?? (await catalog.GetAsync(id))?.Current;
+    }
+
+    /// <summary>
+    /// Records on a failed result how many failures in a row it makes, for a subscription set to
+    /// pause after some number of them: the subscription's latest result's count, plus one. Nothing
+    /// for one that isn't. Runs before the result is saved, so the latest result is the one before.
+    /// </summary>
+    /// <remarks>
+    /// The count used to be a counter on the subscription row, updated by every exchange, success or
+    /// failure: a write per exchange on one hot row. Now a success writes 0 on its own result and
+    /// reads nothing, and only a failure reads (one indexed row). Two failures finishing together can
+    /// read the same latest result and both count one more than it; the pause then comes a failure
+    /// late, which is the price of no shared counter. Never throws: the failure is what matters.
+    /// </remarks>
+    private async Task CountFailure(Xchange xchange, XchangeResult result)
+    {
+        if (xchange.SubscriptionId is not { } subscriptionId) return;
+        try
+        {
+            var subscription = await BitweenCache.SubscriptionByIdAsync(subscriptionId);
+            if (subscription?.AutoPauseAfterFailures == null) return;
+
+            // The row's own count is written on failures and set back to 0 when someone resumes the
+            // subscription, so 0 there means the run starts again whatever the latest result says.
+            // Read in the same query as that result, from the database: the cached row lags.
+            var counts = await dbContext.Set<Subscription>().AsNoTracking()
+                .Where(s => s.Id == subscriptionId)
+                .Select(s => new
+                {
+                    s.ConsecutiveFailures,
+                    Latest = dbContext.Set<XchangeResult>()
+                        .Where(r => r.SubscriptionId == subscriptionId)
+                        .OrderByDescending(r => r.FinishedOn)
+                        .Select(r => r.ConsecutiveFailures)
+                        .FirstOrDefault()
+                })
+                .FirstOrDefaultAsync();
+            var previous = counts == null || counts.ConsecutiveFailures == 0 ? 0 : counts.Latest ?? 0;
+            result.SetConsecutiveFailures(previous + 1);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not count the failures in a row of subscription {SubscriptionId}.", subscriptionId);
+        }
+    }
+
+    /// <summary>
+    /// After a failure is saved: keeps the count and the error on the subscription for its page and
+    /// the alert, and pauses it when the count reaches its limit. Failures only, so a subscription
+    /// that works costs nothing here.
+    /// </summary>
+    /// <remarks>
+    /// The pause is one conditional update, so of several exchanges crossing the line at once only
+    /// one pauses it and alerts. Never throws - the exchange's own result is already saved and is
+    /// what matters.
+    /// </remarks>
+    private async Task TrackDeliveryHealth(Xchange xchange, XchangeResult result, string exception)
+    {
+        if (xchange.SubscriptionId is not { } subscriptionId || result.ConsecutiveFailures is not { } failures) return;
+        try
+        {
+            var subscription = await BitweenCache.SubscriptionByIdAsync(subscriptionId);
+            if (subscription?.AutoPauseAfterFailures is not { } threshold) return;
+
+            var subscriptions = dbContext.Set<Subscription>().Where(s => s.Id == subscriptionId);
+            await subscriptions.ExecuteUpdateAsync(u => u
+                .SetProperty(s => s.ConsecutiveFailures, failures)
+                .SetProperty(s => s.LastException, exception));
+            if (failures < threshold) return;
+
+            // Only the one exchange whose failure crosses the line pauses it, and alerts.
+            var paused = await subscriptions
+                .Where(s => s.PausedOn == null)
+                .ExecuteUpdateAsync(u => u
+                    .SetProperty(s => s.PausedOn, DateTime.UtcNow)
+                    .SetProperty(s => s.PausedAutomatically, true));
+            if (paused == 0) return;
+
+            logger.LogWarning(
+                "Subscription {SubscriptionId} paused after {Threshold} failed deliveries in a row; the last was xchange {XchangeId}.",
+                subscriptionId, threshold, xchange.Id);
+            BitweenTelemetry.SubscriptionsAutoPaused.Add(1);
+
+            dbContext.Add(new OutboxMessage(nameof(SubscriptionAutoPausedEvent),
+                JsonConvert.SerializeObject(new SubscriptionAutoPausedEvent
+                {
+                    SubscriptionId = subscriptionId,
+                    XchangeId = xchange.Id,
+                    Failures = threshold,
+                    OccurredOn = DateTime.UtcNow
+                })));
+            await dbContext.SaveChangesAsync();
+            // What arrives next must see the pause, on every instance, not after the cache expires.
+            await BitweenCache.BroadcastRevoke();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Could not track delivery health for subscription {SubscriptionId}.", subscriptionId);
+        }
+    }
+
+    /// <summary>
+    /// Leaves the result event on the result only when something will hear it: a notification of
+    /// the subscription's, or an active legacy notifier watching it, that covers this outcome.
+    /// </summary>
+    /// <remarks>
+    /// The event exists for the result lane, which loaded the result and the exchange again just to
+    /// find, for most subscriptions, that nothing notifies. Decided from the cache as the result is
+    /// saved, so a notification added while this exchange ran is not sent for it. A subscription the
+    /// cache doesn't hold, switched off since this started, keeps the event: the result lane reads it
+    /// from the database. Never throws; when in doubt the event goes, as it always did.
+    /// </remarks>
+    private async Task KeepResultEventOnlyIfHeard(Xchange xchange, XchangeResult result)
+    {
+        try
+        {
+            if (!await SomethingHears(xchange, result)) result.NothingToNotify();
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Could not tell whether anything notifies on xchange {XchangeId}; its result event goes.",
+                xchange.Id);
+        }
+    }
+
+    private async Task<bool> SomethingHears(Xchange xchange, XchangeResult result)
+    {
+        if (xchange.SubscriptionId is not { } subscriptionId) return false;
+        var subscription = await BitweenCache.SubscriptionByIdAsync(subscriptionId);
+        if (subscription == null) return true;
+
+        // The same outcomes NotifyThroughChannels and NotifyResult go by.
+        bool Covers(bool onSuccess, bool onBadResult, bool onFailure) =>
+            result.Success ? result.ResponseBad ? onBadResult : onSuccess : onFailure;
+
+        if ((subscription.Notifications ?? []).Any(n => Covers(n.OnSuccess, n.OnBadResult, n.OnFailure)))
+            return true;
+
+        return (await BitweenCache.ListNotifiersAsync()).Any(n =>
+            !n.Inactive && n.HandlerId != null && n.RunOnSubscriptions?.Contains(subscriptionId) == true &&
+            Covers(n.RunOnSuccessfulResult, n.RunOnBadResult, n.RunOnFailedResult));
+    }
+
+    /// <summary>
+    /// Clears what the failed attempt left tracked before its error result is added. A success
+    /// result already added has the same key as the error one, so leaving it made the error save
+    /// throw too - the message went back on the queue and the handler ran again, delivering twice.
+    /// A response queued for a delivery that failed must not go out either. When it was the save
+    /// itself that failed, nothing else it tried to write can be trusted to save the second time.
+    /// </summary>
+    private void DiscardUnsavedOutcome(string xchangeId, bool saveFailed)
+    {
+        foreach (var entry in dbContext.ChangeTracker.Entries().ToList())
+        {
+            if (entry.Entity is Xchange tracked && tracked.Id == xchangeId) continue;
+
+            var discard = entry.Entity switch
+            {
+                XchangeResult result => result.Id == xchangeId,
+                OutboxMessage => entry.State == EntityState.Added,
+                _ => saveFailed && entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted,
+            };
+            if (discard) entry.State = EntityState.Detached;
         }
     }
 
@@ -774,12 +1248,23 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     {
         if (xchange.SubscriptionId == null) return;
 
+        // Only a policy with a total budget has anything to give back, and most have none: asked of
+        // the cached subscription, so their successes skip the query. One the cache doesn't hold, a
+        // subscription switched off since this started, is asked the database as before.
+        var subscription = await BitweenCache.SubscriptionByIdAsync(xchange.SubscriptionId.Value);
+        if (subscription != null && !HasTotalBudget(subscription.CustomRetryPolicy ?? (IRetryPolicy)subscription.RetryPolicy))
+            return;
+
         try
         {
             // The exchange's own start time is the watermark: anything charged after this run began
             // belongs to a failure this success knows nothing about, and is left where it is.
-            await new RetryGroupBudget(dbContext, serviceProvider, xchange.SubscriptionId.Value)
-                .ReleaseExhaustedBudgets(xchange.StartedOn);
+            var budget = new RetryGroupBudget(dbContext, serviceProvider, xchange.SubscriptionId.Value);
+            var lifted = await budget.ReleaseExhaustedBudgets(xchange.StartedOn);
+            if (lifted > 0)
+                logger.LogInformation(
+                    "Subscription {SubscriptionId} succeeded again: its spent retry budget is lifted, and {Held} held retries released.",
+                    xchange.SubscriptionId.Value, budget.HeldReleased);
         }
         catch (Exception ex)
         {
@@ -789,13 +1274,16 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         }
     }
 
-    private async Task TryScheduleAutoRetry(Xchange xchange, XchangeResultType resultType, string content,
+    static bool HasTotalBudget(IRetryPolicy policy) =>
+        policy?.Groups?.Any(g => g.Budget is { MaxAttemptsTotal: > 0 }) == true;
+
+    internal async Task TryScheduleAutoRetry(Xchange xchange, XchangeResultType resultType, string content,
         XchangeResult xchangeResult)
     {
         if (xchange.SubscriptionId == null) return;
 
         // A person asked for this attempt, so the policy stays out of it. Otherwise pressing Retry
-        // spends a slot of the group's shared total — the budget meant for unattended retries — and
+        // spends a slot of the group's shared total - the budget meant for unattended retries - and
         // can be what finally exhausts it and raises the alert. Recorded rather than skipped
         // silently, so the absence of a follow-up attempt has a visible reason.
         if (xchange.ManualRetry)
@@ -823,6 +1311,16 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             new RetryGroupBudget(dbContext, serviceProvider, xchange.SubscriptionId.Value));
 
         var attemptIndex = await CountRetryChainDepth(xchange);
+
+        // A ceiling no policy can lift, checked before the policy so it spends no budget.
+        if (attemptIndex >= BitweenSettings.MaxRetryChainDepth)
+        {
+            xchangeResult.SetRetryBlocked(
+                $"This exchange has been retried {attemptIndex} times, the most Bitween allows " +
+                $"(Bitween:MaxRetryChainDepth).");
+            return;
+        }
+
         var decision = await evaluator.Evaluate(resultType, content, attemptIndex);
 
         // Which group owned this failure, so the group's retries can later be listed without
@@ -834,8 +1332,16 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             dbContext.Add(new DelayedRetry
             {
                 Id = xchange.Id,
-                On = DateTime.UtcNow + decision.Delay
+                On = DateTime.UtcNow + RetryDelay(decision.Delay, resultType == XchangeResultType.Error ? content : null,
+                    BitweenSettings.MaxRetryAfterSeconds)
             });
+        else if (decision.Held)
+        {
+            // Kept, not dropped: released when the subscription next succeeds. See RetryExhaustedAction.Hold.
+            dbContext.Add(new DelayedRetry { Id = xchange.Id, On = DelayedRetry.HeldOn });
+            logger.LogInformation("Exchange {XchangeId} of subscription {SubscriptionId} is held: {Reason}",
+                xchange.Id, xchange.SubscriptionId, decision.Reason);
+        }
         else
             // A policy applied but refused. Recorded so an exhausted budget is distinguishable
             // from an error no group was ever configured to catch.
@@ -845,12 +1351,42 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         // this failure is committed. Its own event type means its own queue and its own consumer,
         // keeping a slow alert handler away from the ordinary notifier path.
         if (decision.BudgetJustExhausted)
+            logger.LogWarning(
+                "Retry group {Group} of subscription {SubscriptionId} has spent its total of {Total} retries; until it next succeeds, failures are {Then}.",
+                decision.MatchedGroup!.Name, xchange.SubscriptionId, decision.MatchedGroup.Budget!.MaxAttemptsTotal,
+                decision.Held ? "held" : "final");
+        if (decision.BudgetJustExhausted)
             xchangeResult.RaiseBudgetExhausted(
                 xchange.SubscriptionId.Value,
                 decision.MatchedGroup!.Id,
                 decision.MatchedGroup.Name,
                 decision.MatchedGroup.Budget!.MaxAttemptsTotal!.Value);
     }
+
+    /// <summary>
+    /// When the retry the policy allowed runs: the policy's delay, jittered, unless the adapter said
+    /// to wait longer - then that long, and up to a tenth more so a crowd told the same thing doesn't
+    /// return at the same instant. The wait asked for is cut to <paramref name="maxRetryAfterSeconds"/>.
+    /// </summary>
+    internal static TimeSpan RetryDelay(TimeSpan policyDelay, string error, int maxRetryAfterSeconds)
+    {
+        var delay = Jittered(policyDelay);
+        if (maxRetryAfterSeconds <= 0 || Model.AutoRetry.RetryAfterHint.Read(error) is not { } asked) return delay;
+
+        var cap = TimeSpan.FromSeconds(maxRetryAfterSeconds);
+        var wait = asked > cap ? cap : asked;
+        wait = TimeSpan.FromMilliseconds(wait.TotalMilliseconds * (1 + Random.Shared.NextDouble() * 0.1));
+        return wait > delay ? wait : delay;
+    }
+
+    /// <summary>
+    /// The policy's delay, give or take a tenth. Everything that failed in the same outage used to
+    /// come back at the same instant, and fail together again against a partner still recovering.
+    /// </summary>
+    internal static TimeSpan Jittered(TimeSpan delay) =>
+        delay <= TimeSpan.Zero
+            ? delay
+            : TimeSpan.FromMilliseconds(delay.TotalMilliseconds * (0.9 + Random.Shared.NextDouble() * 0.2));
 
     /// <summary>
     /// The retry, if any, already made from <paramref name="xchangeId"/>.
@@ -868,12 +1404,12 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// anything, and no way to say which one "the retry" of the original was.
     /// </summary>
     /// <remarks>
-    /// Enforced here rather than at each endpoint so that every way of asking for a retry — by
-    /// hand, in bulk, or by a retry policy coming due — is held to it. Not enforced by a unique
-    /// index as well: exchanges retried before this rule existed can already have forked, and an
-    /// index that will not create over the data it inherits is worse than no index. Two retries of
-    /// the same exchange committed at the very same moment can therefore still both pass this
-    /// check; the loser is a duplicate attempt, which the tree then shows as a fork.
+    /// Enforced here rather than at each endpoint so that every way of asking for a retry - by
+    /// hand, in bulk, or by a retry policy coming due - is held to it. Two retries of the same
+    /// exchange at the very same moment can both pass this check; the <see cref="XchangeRetryClaim"/>
+    /// each adds then makes the second save fail, so only one is kept. Not a unique index on
+    /// RetryFor: exchanges retried before this rule existed can already have forked, and an index
+    /// can't be created over the data it inherits.
     /// </remarks>
     private async Task EnsureNotAlreadyRetried(string xchangeId)
     {
@@ -881,7 +1417,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         if (existing != null)
             throw new SWValidationException("ALREADY_RETRIED",
                 $"This exchange has already been retried, as exchange {existing}. Retry that attempt " +
-                "instead — an exchange is only retried once, so that its attempts stay a single chain.");
+                "instead - an exchange is only retried once, so that its attempts stay a single chain.");
     }
 
     private async Task<int> CountRetryChainDepth(Xchange xchange)
@@ -906,10 +1442,12 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         string original = null;
         var originalRead = false;
 
+        // A mirror's subscriptions stay paused, so only its rehearsal's traffic runs through them.
+        var rehearsing = Services.Mirror.MirrorTraffic.IsRehearsal(BitweenSettings, xchange.CorrelationId);
         foreach (var subscriptionId in result.Hits)
         {
             var subscription = await BitweenCache.SubscriptionByIdAsync(subscriptionId);
-            if (subscription.PausedOn != null)
+            if (subscription.PausedOn != null && !rehearsing)
             {
                 await CreateOnHoldXchange(subscription, inputFile);
             }
@@ -924,7 +1462,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         // Bus-gateway routes: run the assigned subscription with the route's optional partner values,
         // reusing the same xchange path the API gateway uses (partner + globals injection).
-        var globalAdapterValuesSets = await dbContext.Set<GlobalAdapterValuesSet>().ToArrayAsync();
+        var globalAdapterValuesSets = await BitweenCache.ListGlobalAdapterValuesSetsAsync();
         foreach (var hit in result.GatewayHits)
         {
             var subscription = await BitweenCache.SubscriptionByIdAsync(hit.SubscriptionId);
@@ -937,13 +1475,13 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             }
 
             var partner = hit.PartnerId.HasValue
-                ? await dbContext.FindAsync<Partner>(hit.PartnerId.Value)
+                ? await BitweenCache.PartnerByIdAsync(hit.PartnerId.Value)
                 : null;
 
             // A route reads what it uses from the input of the exchange whose delivery got the
             // response its message carries, if it was one. Auto-matched Internal subscriptions above never do.
             var source = await SourceFor(subscription);
-            if (subscription.PausedOn != null)
+            if (subscription.PausedOn != null && !rehearsing)
             {
                 await CreateOnHoldXchange(subscription, inputFile, source: source);
             }
@@ -975,7 +1513,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
     /// <summary>
     /// An exchange's input, for its source values, or null when it can't be read: the exchange isn't
-    /// in this Bitween — another instance on the same bus published the message — or its file is gone.
+    /// in this Bitween - another instance on the same bus published the message - or its file is gone.
     /// </summary>
     private async Task<string> ReadSourceDocument(string xchangeId)
     {
@@ -1000,6 +1538,19 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
     private async Task ProcessResult(XchangeMessage message)
     {
+        var commands = Services.Metrics.DbCommandTally.Open("result");
+        try
+        {
+            await NotifyResult(message);
+        }
+        finally
+        {
+            commands.Record(serviceProvider.GetService<SW.Bitween.Services.Metrics.MetricsRecorder>());
+        }
+    }
+
+    private async Task NotifyResult(XchangeMessage message)
+    {
         var notifiers = await BitweenCache.ListNotifiersAsync();
 
         var xchangeResult = await dbContext.FindAsync<XchangeResult>(message.Id);
@@ -1008,6 +1559,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         var xchange = await dbContext.FindAsync<Xchange>(message.Id);
         if (xchange == null)
             throw new BitweenException($"Xchange '{message.Id}' not found.");
+        Services.Metrics.DbCommandTally.Current?.AttributeTo(xchange.StartedOn, xchange.SubscriptionId, xchange.PartnerId);
 
         foreach (var notifier in notifiers)
         {
@@ -1028,6 +1580,89 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
                     break;
             }
         }
+
+        await NotifyThroughChannels(xchange, xchangeResult);
+    }
+
+    /// <summary>
+    /// Sends the subscription's own notifications: each row names a channel and the outcomes it is
+    /// told about. Runs after the legacy notifiers, which still fire.
+    /// </summary>
+    private async Task NotifyThroughChannels(Xchange xchange, XchangeResult xchangeResult)
+    {
+        var subscription = await SubscriptionOf(xchange);
+
+        var channelIds = (subscription?.Notifications ?? [])
+            .Where(n => xchangeResult.Success
+                ? xchangeResult.ResponseBad ? n.OnBadResult : n.OnSuccess
+                : n.OnFailure)
+            .Select(n => n.ChannelId)
+            .Distinct()
+            .ToList();
+        if (channelIds.Count == 0) return;
+
+        var partner = xchange.PartnerId is { } partnerId ? await BitweenCache.PartnerByIdAsync(partnerId) : null;
+        foreach (var channelId in channelIds)
+            await NotifyChannel(channelId, subscription, xchange, xchangeResult, partner);
+    }
+
+    /// <summary>
+    /// The subscription an exchange ran for. The cache holds active subscriptions only, and an
+    /// exchange can finish just after its subscription was switched off; what it was set to notify
+    /// still applies to that exchange.
+    /// </summary>
+    private async Task<Subscription> SubscriptionOf(Xchange xchange) =>
+        xchange?.SubscriptionId is not { } id
+            ? null
+            : await BitweenCache.SubscriptionByIdAsync(id)
+              ?? await dbContext.Set<Subscription>().AsNoTracking().FirstOrDefaultAsync(s => s.Id == id);
+
+    private async Task NotifyChannel(int channelId, Subscription subscription, Xchange xchange,
+        XchangeResult xchangeResult, Partner partner)
+    {
+        // A retry or auto-pause alert about this exchange can go through the same channel; it is
+        // not this notification, so neither the redelivery check nor the quiet window may count it.
+        var sends = dbContext.Set<XchangeNotification>().Where(n => n.ChannelId == channelId &&
+            n.NotifierName != XchangeNotification.RetryBudgetAlertName &&
+            n.NotifierName != XchangeNotification.AutoPauseAlertName);
+
+        // Sent already: the result event was delivered again.
+        if (await sends.AsNoTracking()
+                .AnyAsync(n => n.XchangeId == xchangeResult.Id && (n.Success || n.Suppressed)))
+            return;
+
+        var channel = await BitweenCache.NotificationChannelByIdAsync(channelId);
+
+        // A channel in use can't be deleted, so this is a delete racing the send. Recorded as a
+        // failure rather than skipped, so the gap shows in the history.
+        if (channel == null)
+        {
+            dbContext.Add(XchangeNotification.ForChannel(xchangeResult.Id, channelId, $"Channel {channelId}",
+                $"Notification channel {channelId} no longer exists."));
+            await dbContext.SaveChangesAsync();
+            return;
+        }
+
+        // One message for an outage, as a notifier sends: see NotifyResult.
+        var (lastSent, suppressedSince) = await QuietWindow(
+            sends, subscription.Id, xchangeResult);
+        if (InQuietWindow(lastSent))
+        {
+            var held = XchangeNotification.ForChannel(xchangeResult.Id, channelId, channel.Name);
+            held.Suppressed = true;
+            held.Success = false;
+            dbContext.Add(held);
+            await dbContext.SaveChangesAsync();
+            return;
+        }
+
+        var document = await BitweenCache.DocumentByIdAsync(xchange.DocumentId);
+        var notification = ResultNotification(xchange, xchangeResult, subscription, document, suppressedSince);
+        var error = await channelSender.Send(channel, notification, xchangeResult.Id,
+            xchange.CorrelationId ?? xchange.Id, partner);
+
+        dbContext.Add(XchangeNotification.ForChannel(xchangeResult.Id, channelId, channel.Name, error?.ToString()));
+        await dbContext.SaveChangesAsync();
     }
 
     private async Task NotifyResult(Notifier notifier, XchangeResult xchangeResult, string correlationId)
@@ -1036,44 +1671,92 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         if (notifier?.HandlerId == null) return;
 
+        // Sent already: the result event was delivered again. Notifying twice was the symptom.
+        if (await dbContext.Set<XchangeNotification>().AsNoTracking()
+                .AnyAsync(n => n.XchangeId == xchangeResult.Id && n.NotifierId == notifier.Id && (n.Success || n.Suppressed)))
+            return;
+
         var xchange = await dbContext.FindAsync<Xchange>(xchangeResult.Id);
-        var subscription = await BitweenCache.SubscriptionByIdAsync(xchange!.SubscriptionId!.Value);
-        var document = await BitweenCache.DocumentByIdAsync(xchange.DocumentId);
+        var subscription = await SubscriptionOf(xchange);
+        var document = await BitweenCache.DocumentByIdAsync(xchange!.DocumentId);
 
-        var notificationData = new XchangeResultNotification
+        // One message for an outage, not one per failure: within the quiet window after a send for
+        // the same subscription and outcome, this one is recorded but not sent.
+        var (lastSent, suppressedSince) = await QuietWindow(
+            dbContext.Set<XchangeNotification>().Where(n => n.NotifierId == notifier.Id), subscription.Id, xchangeResult);
+        if (InQuietWindow(lastSent))
         {
-            Id = xchangeResult.Id,
-            Exception = xchangeResult.Exception,
-            Success = xchangeResult.Success,
-            FinishedOn = xchangeResult.FinishedOn,
-            OutputBad = xchangeResult.OutputBad,
-            ResponseBad = xchangeResult.ResponseBad,
-            StartedOn = xchange.StartedOn,
-            SubscriptionName = subscription.Name,
-            SubscriptionId = subscription.Id,
-            DocumentName = document.Name,
-            DocumentId = document.Id,
-            CorrelationId = xchange.CorrelationId
-        };
-
-        var handlerProperties = notifier.HandlerProperties.ToDictionary();
-        handlerProperties["xchangeid"] = xchangeResult.Id;
-
-        try
-        {
-            await adapterInvoker.InvokeAsync<XchangeFile>(
-                notifier.HandlerId, AdapterRole.Handler, nameof(IInfolinkHandler.Handle),
-                new XchangeFile(JsonConvert.SerializeObject(notificationData), xchangeResult.Id),
-                handlerProperties, correlationId);
-
-            dbContext.Add(new XchangeNotification(xchangeResult.Id, notifier.Id, notifier.Name));
-        }
-        catch (Exception ex)
-        {
-            dbContext.Add(new XchangeNotification(xchangeResult.Id, notifier.Id, notifier.Name, ex.ToString()));
+            dbContext.Add(new XchangeNotification(xchangeResult.Id, notifier.Id, notifier.Name) { Suppressed = true, Success = false });
+            await dbContext.SaveChangesAsync();
+            return;
         }
 
+        var notificationData = ResultNotification(xchange, xchangeResult, subscription, document, suppressedSince);
+
+        var lastError = await NotifierDelivery.SendAsync(adapterInvoker, notifier, notificationData,
+            xchangeResult.Id, correlationId);
+
+        dbContext.Add(new XchangeNotification(xchangeResult.Id, notifier.Id, notifier.Name, lastError?.ToString()));
         await dbContext.SaveChangesAsync();
+    }
+
+    private static XchangeResultNotification ResultNotification(Xchange xchange, XchangeResult xchangeResult,
+        Subscription subscription, Document document, int suppressedSince) => new()
+    {
+        Id = xchangeResult.Id,
+        Exception = xchangeResult.Exception,
+        Success = xchangeResult.Success,
+        FinishedOn = xchangeResult.FinishedOn,
+        OutputBad = xchangeResult.OutputBad,
+        ResponseBad = xchangeResult.ResponseBad,
+        StartedOn = xchange.StartedOn,
+        SubscriptionName = subscription.Name,
+        SubscriptionId = subscription.Id,
+        DocumentName = document.Name,
+        DocumentId = document.Id,
+        CorrelationId = xchange.CorrelationId,
+        SuppressedSinceLast = suppressedSince
+    };
+
+    private bool InQuietWindow(DateTime? lastSent) =>
+        lastSent is not null && BitweenSettings.NotifierQuietMinutes > 0 &&
+        lastSent > DateTime.UtcNow.AddMinutes(-BitweenSettings.NotifierQuietMinutes);
+
+    /// <summary>
+    /// When one notifier or channel, given as its <paramref name="sends"/>, last sent for the
+    /// subscription and this outcome, and how many it has held back since.
+    /// </summary>
+    /// <remarks>
+    /// Only the last hour beyond the window is looked at. Unbounded, a channel shared by many
+    /// subscriptions was walked back through its whole history to find that one of them had never
+    /// sent: 3 seconds per finished exchange at 600,000 sends. A send older than that can't hold
+    /// this one back, and what it held back is too old to be news in the next message.
+    /// </remarks>
+    private async Task<(DateTime? LastSent, int SuppressedSince)> QuietWindow(IQueryable<XchangeNotification> sends,
+        int subscriptionId, XchangeResult result)
+    {
+        var minutes = BitweenSettings.NotifierQuietMinutes;
+        if (minutes <= 0) return (null, 0);
+        var since = DateTime.UtcNow.AddMinutes(-(minutes + 60));
+
+        var sameOutcome =
+            from n in sends.AsNoTracking().Where(n => n.FinishedOn > since)
+            join x in dbContext.Set<Xchange>() on n.XchangeId equals x.Id
+            join r in dbContext.Set<XchangeResult>() on n.XchangeId equals r.Id
+            where x.SubscriptionId == subscriptionId &&
+                  r.Success == result.Success && r.ResponseBad == result.ResponseBad
+            select n;
+
+        var lastSent = await sameOutcome.Where(n => n.Success)
+            .OrderByDescending(n => n.FinishedOn)
+            .Select(n => (DateTime?)n.FinishedOn)
+            .FirstOrDefaultAsync();
+
+        var suppressed = lastSent is null
+            ? 0
+            : await sameOutcome.CountAsync(n => n.Suppressed && n.FinishedOn > lastSent);
+
+        return (lastSent, suppressed);
     }
 
     public async Task Process(SubscriptionUnpausedEvent message)
@@ -1082,21 +1765,34 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
 
         if (subscription == null || subscription.Inactive || subscription.PausedOn != null) return;
 
-        var xchangesDetails = await dbContext.Set<OnHoldXchange>().Where(x => x.SubscriptionId == subscription.Id)
-            .ToListAsync();
-
-        foreach (var xchangeDetails in xchangesDetails)
+        // In batches, each committed on its own. Loading the whole backlog - payloads and all - and
+        // committing it in one go could run a pod out of memory on a long pause, and a failure
+        // part-way redid all of it on redelivery. Each batch removes what it released, so a
+        // redelivery carries on from where this stopped.
+        const int batchSize = 50;
+        while (true)
         {
-            var file = new XchangeFile(xchangeDetails.Data, xchangeDetails.FileName, xchangeDetails.BadData);
-            var partner = xchangeDetails.PartnerId.HasValue
-                ? await dbContext.FindAsync<Partner>(xchangeDetails.PartnerId.Value)
-                : null;
-            await CreateXchange(subscription, file, xchangeDetails.References, xchangeDetails.CorrelationId, partner,
-                source: xchangeDetails.Source);
-            dbContext.Remove(xchangeDetails);
-        }
+            var batch = await dbContext.Set<OnHoldXchange>()
+                .Where(x => x.SubscriptionId == subscription.Id)
+                .OrderBy(x => x.Id)
+                .Take(batchSize)
+                .ToListAsync();
+            if (batch.Count == 0) break;
 
-        await dbContext.SaveChangesAsync();
+            foreach (var xchangeDetails in batch)
+            {
+                var file = new XchangeFile(xchangeDetails.Data, xchangeDetails.FileName, xchangeDetails.BadData);
+                var partner = xchangeDetails.PartnerId.HasValue
+                    ? await BitweenCache.PartnerByIdAsync(xchangeDetails.PartnerId.Value)
+                    : null;
+                await CreateXchange(subscription, file, xchangeDetails.References, xchangeDetails.CorrelationId, partner,
+                    source: xchangeDetails.Source);
+                dbContext.Remove(xchangeDetails);
+            }
+
+            await dbContext.SaveChangesAsync();
+            dbContext.ChangeTracker.Clear();
+        }
     }
 
     public async Task<IEnumerable<string>> GetMessageTypeNames()
@@ -1118,29 +1814,34 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         var workgroups = await dbContext.Set<WorkGroup>().ToListAsync();
         workgroups.Add(WorkGroup.None);
         var messageTypeNamesWithOptions = new Dictionary<string, ConsumerOptions>();
+        var defaultPrefetch = BitweenSettings.BusDefaultQueuePrefetch ?? 12;
         foreach (var workGroup in workgroups)
         {
             var messageTypeName = workGroup.GetBusMessageName();
             messageTypeNamesWithOptions[messageTypeName] = new ConsumerOptions()
             {
                 Prefetch = workGroup.Options?.RabbitMqOptions?.Prefetch,
-                Priority = workGroup.Options?.RabbitMqOptions?.Priority
+                Priority = workGroup.Options?.RabbitMqOptions?.Priority,
+                Concurrency = workGroup.Id == WorkGroup.None.Id
+                    ? BitweenSettings.ResolvedBusDefaultConcurrency
+                    : workGroup.WorkLaneConcurrency(defaultPrefetch)
             };
+            // Notifications run one at a time: they are quick, and a notifier's partner sees the
+            // results of a group in the order they finished.
             var messageTypeNameForResponse = $"{messageTypeName}{ResultQueueSuffix}";
             messageTypeNamesWithOptions[messageTypeNameForResponse] = new ConsumerOptions()
             {
                 Prefetch = workGroup.Options?.RabbitMqOptions?.Prefetch,
-                Priority = workGroup.Options?.RabbitMqOptions?.Priority
+                Priority = workGroup.Options?.RabbitMqOptions?.Priority,
+                Concurrency = 1
             };
         }
 
-        if (!BitweenSettings.ConsumeLegacyEventMessages) return messageTypeNamesWithOptions;
-
-        messageTypeNamesWithOptions.Add(nameof(ApiXchangeCreatedEvent), new ConsumerOptions() { Priority = 10 });
-        messageTypeNamesWithOptions.Add(nameof(InternalXchangeCreatedEvent), new ConsumerOptions());
-        messageTypeNamesWithOptions.Add(nameof(ReceivingXchangeCreatedEvent), new ConsumerOptions());
-        messageTypeNamesWithOptions.Add(nameof(AggregateXchangeCreatedEvent), new ConsumerOptions());
-        messageTypeNamesWithOptions.Add(nameof(XchangeResultCreatedEvent), new ConsumerOptions());
+        foreach (var name in legacyEventQueues.ToDrain)
+            messageTypeNamesWithOptions.Add(name, new ConsumerOptions()
+            {
+                Priority = name == nameof(ApiXchangeCreatedEvent) ? 10 : null
+            });
         return messageTypeNamesWithOptions;
     }
 }

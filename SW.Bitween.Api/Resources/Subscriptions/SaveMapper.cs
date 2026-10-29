@@ -10,12 +10,13 @@ namespace SW.Bitween.Resources.Subscriptions
 {
     [HandlerName("savemapper")]
     public class SaveMapper(BitweenDbContext dbContext, IInfolinkCache BitweenCache,
-        RequestContext requestContext) : ICommandHandler<int, SubscriptionSaveMapper, object>
+        RequestContext requestContext, SubscriptionRevisions revisions) : ICommandHandler<int, SubscriptionSaveMapper, object>
     {
         public async Task<object> Handle(int key, SubscriptionSaveMapper model)
         {
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.Edit);
-            var entity = await dbContext.FindAsync<Subscription>(key);
+            var entity = await dbContext.FindAsync<Subscription>(key)
+                         ?? throw new SWNotFoundException(key.ToString());
 
             entity.MapperId = model.MapperId;
             entity.SetDictionaries(
@@ -28,6 +29,7 @@ namespace SW.Bitween.Resources.Subscriptions
 
             await dbContext.SaveChangesAsync();
             await BitweenCache.BroadcastRevoke();
+            await revisions.RecordAsync(key);
             return null;
         }
 

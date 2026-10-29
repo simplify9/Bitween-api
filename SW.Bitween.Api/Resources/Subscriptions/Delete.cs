@@ -9,7 +9,8 @@ using System.Threading.Tasks;
 
 namespace SW.Bitween.Resources.Subscriptions
 {
-public class Delete(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
+public class Delete(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache,
+        SubscriptionSchedulerService scheduler)
         : IDeleteHandler<int,object>
     {
         public async Task<object> Handle(int key)
@@ -18,7 +19,13 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext, I
 
             await EnsureNothingPointsAtIt(key);
 
+            // Read before it goes, for its schedules; unscheduled only once the delete has succeeded,
+            // so a refused delete leaves the subscription running as it was.
+            var subscription = await dbContext.Set<Subscription>().AsNoTracking().FirstOrDefaultAsync(s => s.Id == key);
+
             await dbContext.DeleteByKeyAsync<Subscription>(key);
+            if (subscription != null)
+                await scheduler.UnscheduleAll(subscription);
             await cache.BroadcastRevoke();
             return null;
         }
@@ -27,7 +34,7 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext, I
         /// Says what still points at the integration, before the database says it less politely.
         /// </summary>
         /// <remarks>
-        /// All four references are <c>RESTRICT</c>, so the delete was already refused — but as a
+        /// All four references are <c>RESTRICT</c>, so the delete was already refused - but as a
         /// foreign key violation surfacing as a 500, which tells the operator nothing about which
         /// route or gateway is holding it, and reads like a broken screen rather than a decision.
         /// Exchanges are deliberately not checked: their reference is nullable and history is not

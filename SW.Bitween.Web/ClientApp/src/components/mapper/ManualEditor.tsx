@@ -2,17 +2,16 @@ import React, { useEffect } from "react";
 import CodeMirror from "@uiw/react-codemirror";
 import { EditorView } from "@codemirror/view";
 import { scribanLanguage } from "./scribanLanguage";
+import { useMappingEditorDispatch, useMappingEditorState } from "../../lib/mapping/mappingEditorHooks";
 import {
-  useMappingEditorDispatch,
-  useMappingEditorState,
   setArrayMappings,
   setFieldMappings,
   setManualTemplate,
   syncManualTemplate,
-} from "../../lib/mapping/MappingEditorContext";
+} from "../../lib/mapping/mappingEditorActions";
 import { generateScriban, parseScriban } from "../../lib/mapping/scribanGenerator";
 
-const SCRIBAN_HINT = `{{- # Scriban template — edit freely -}}
+const SCRIBAN_HINT = `{{- # Scriban template - edit freely -}}
 {{- # Use {{ variable.path }} for values, for/end for loops, if/end for filters -}}
 `;
 
@@ -37,7 +36,9 @@ const ManualEditor: React.FC = () => {
     if (!isManualDirty) {
       dispatch(syncManualTemplate(generateScriban(fieldMappings, arrayMappings, undefined, undefined)));
     }
-  }, []); // Only on mount — ongoing sync is handled by handleModeChange
+    // Only on mount - ongoing sync is handled by handleModeChange.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleEditorChange = (value: string) => {
     dispatch(setManualTemplate(value));
@@ -46,7 +47,7 @@ const ManualEditor: React.FC = () => {
   const handleRegenerateFromVisual = () => {
     const generated = generateScriban(fieldMappings, arrayMappings, undefined, undefined);
     // syncManualTemplate updates manualTemplate, which flows into the editor's
-    // controlled `value` below — no imperative setValue needed.
+    // controlled `value` below - no imperative setValue needed.
     dispatch(syncManualTemplate(generated));
     setParseWarnings([]);
     setParseSuccess(false);
@@ -95,7 +96,7 @@ const ManualEditor: React.FC = () => {
         <span className="text-xs font-semibold text-ink-600 uppercase tracking-wide">
           Scriban Template
         </span>
-        <span className="text-xs text-ink-400">— edit the template directly</span>
+        <span className="text-xs text-ink-500">- edit the template directly</span>
         <div className="ml-auto flex items-center gap-2">
           <button
             onClick={handleRegenerateFromVisual}
@@ -130,7 +131,7 @@ const ManualEditor: React.FC = () => {
       {parseSuccess && (
         <div className="flex-shrink-0 px-4 py-2 bg-ok-100 border-b border-ok-100">
           <p className="text-xs text-ok-600">
-            ✓ Template parsed successfully — switched to Visual mode.
+            ✓ Template parsed successfully - switched to Visual mode.
           </p>
         </div>
       )}
@@ -167,7 +168,7 @@ const ManualEditor: React.FC = () => {
             <span className="text-warn-700">{'{{- end -}}'}</span> condition
           </span>
           <span>
-            <span className="text-ink-400">{'{{- # comment -}}'}</span>
+            <span className="text-ink-500">{'{{- # comment -}}'}</span>
           </span>
         </div>
       </div>

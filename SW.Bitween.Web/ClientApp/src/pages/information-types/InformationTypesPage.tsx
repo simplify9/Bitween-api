@@ -1,20 +1,29 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { FileText, Plus, Search } from "lucide-react";
+import { FileText, Plus } from "lucide-react";
 import { api, type InformationTypeFormat } from "../../api";
 import { Can } from "../../auth/guards";
 import { InformationTypeDialog } from "../../components/config/InformationTypeDialog";
 import { SubscriptionMultiFilter } from "../../components/config/SubscriptionMultiFilter";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
-import { Select } from "../../components/ui/forms";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { CodeBadge } from "../../components/ui/Panel";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
-import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
+import { UsedByCell } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { keys } from "../../api/queryKeys";
-import { CARRIED_FORMAT_NOTE, formatLabel, INFORMATION_TYPE_FORMATS, readsContent } from "../../lib/informationTypeFormat";
+import {
+  CARRIED_FORMAT_NOTE,
+  formatLabel,
+  INFORMATION_TYPE_FORMATS,
+  readsContent,
+} from "../../lib/informationTypeFormat";
+import { useListParams } from "../../lib/listParams";
+import { NONE } from "../../lib/none";
+import { SearchBox } from "../../components/ui/SearchBox";
+import { FilterSelect } from "../../components/ui/SearchSelect";
 
 const PAGE_SIZE = 25;
 
@@ -26,7 +35,7 @@ const BUS_OPTIONS = [
   { value: "false", label: "Not on the bus" },
 ];
 
-/** ?subscriptions=3,5 — no id can be 0, so filter/join round-trip cleanly through this. */
+/** ?subscriptions=3,5 - no id can be 0, so filter/join round-trip cleanly through this. */
 const parseIds = (raw: string | null): number[] =>
   raw
     ? raw
@@ -36,7 +45,7 @@ const parseIds = (raw: string | null): number[] =>
     : [];
 
 export function InformationTypesPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const q = searchParams.get("q") ?? "";
@@ -46,12 +55,12 @@ export function InformationTypesPage() {
   const subscriptionIds = parseIds(searchParams.get("subscriptions"));
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
-  const subscriptions = useSubscriptionsCache().data ?? [];
+  const subscriptions = useSubscriptionsCache().data ?? NONE;
 
   // The backend's Search endpoint has no "id is in this set" filter, so filtering by
   // which subscriptions use a type can't be pushed down like name/format/bus can. Falls
   // back to the full list, filtered and paged client-side, only while that filter is
-  // active — same trade-off as the Partners and Global values pages.
+  // active - same trade-off as the Partners and Global values pages.
   const filtering = subscriptionIds.length > 0;
 
   const serverSearch = useQuery({
@@ -66,17 +75,6 @@ export function InformationTypesPage() {
     enabled: filtering,
   });
 
-  const setParam = (key: string, value: string | null, resetOffset = true) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        if (resetOffset) next.delete("offset");
-        return next;
-      },
-      { replace: key === "q" },
-    );
 
   const filteredSorted = useMemo(() => {
     if (!filtering) return [];
@@ -92,14 +90,24 @@ export function InformationTypesPage() {
   }, [filtering, allTypes.data, q, format, busEnabled, subscriptionIds, subscriptions]);
 
   const isPending = filtering ? allTypes.isPending : serverSearch.isPending;
+  const listQuery = filtering ? allTypes : serverSearch;
   const rows = filtering ? filteredSorted.slice(offset, offset + PAGE_SIZE) : (serverSearch.data?.result ?? []);
   const total = filtering ? filteredSorted.length : (serverSearch.data?.total ?? 0);
+
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="documents.create">
+      <Button variant="primary" onClick={() => setCreating(true)}>
+        <Plus className="size-4" /> New information type
+      </Button>
+    </Can>
+  );
 
   return (
     <div>
       <PageHeader
         title="Information types"
-        description="The kinds of business documents flowing between you and your partners — each with a short code used across the system."
+        description="The kinds of business documents flowing between you and your partners - each with a short code used across the system."
         help={{
           title: "How information types work",
           body: (
@@ -111,48 +119,30 @@ export function InformationTypesPage() {
               </p>
               <p>
                 <strong>Promoted properties</strong> pull values out of the payload (by JSON path
-                or XML path) so routes and filters can match on them — for example routing orders
+                or XML path) so routes and filters can match on them - for example routing orders
                 by store number.
               </p>
             </>
           ),
         }}
-        actions={
-          <Can permission="documents.create">
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              <Plus className="size-4" /> New information type
-            </Button>
-          </Can>
-        }
+        actions={createAction}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setParam("q", e.target.value || null)}
-            placeholder="Search by name"
-            aria-label="Search information types"
-            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-          />
-        </div>
+        <SearchBox value={searchText} onChange={setSearchText} label="Search information types" placeholder="Search by name" />
         <div className="w-36">
-          <Select
+          <FilterSelect
             aria-label="Filter by format"
-            className="!h-8 text-[13px]"
             value={format ?? ""}
-            onChange={(e) => setParam("format", e.target.value || null)}
+            onChange={(v) => setParam("format", v || null)}
             options={FORMAT_OPTIONS}
           />
         </div>
         <div className="w-44">
-          <Select
+          <FilterSelect
             aria-label="Filter by bus status"
-            className="!h-8 text-[13px]"
             value={busParam ?? ""}
-            onChange={(e) => setParam("bus", e.target.value || null)}
+            onChange={(v) => setParam("bus", v || null)}
             options={BUS_OPTIONS}
           />
         </div>
@@ -168,10 +158,12 @@ export function InformationTypesPage() {
 
       {isPending ? (
         <LoadingBlock label="Loading information types…" />
+      ) : listQuery.isError ? (
+        <LoadError error={listQuery.error} what="information types" onRetry={() => void listQuery.refetch()} />
       ) : rows.length === 0 ? (
         <EmptyState
           icon={<FileText />}
-          title={q || format || busParam || subscriptionIds.length > 0 ? "No information types match" : "No information types yet"}
+          title={q || format || busParam || subscriptionIds.length > 0 ? "No information types match" : "No information types yet"} action={q || format || busParam || subscriptionIds.length > 0 ? undefined : createAction}
         >
           {q || format || busParam || subscriptionIds.length > 0
             ? "Try a different search or filter."
@@ -188,7 +180,7 @@ export function InformationTypesPage() {
               offset={offset}
               limit={PAGE_SIZE}
               total={total}
-              onOffsetChange={(o) => setParam("offset", String(o), false)}
+              onOffsetChange={(o) => setParam("offset", String(o))}
             />
           }
           columns={[
@@ -197,9 +189,9 @@ export function InformationTypesPage() {
               header: "Name",
               cell: (t) => (
                 <span className="flex flex-wrap items-center gap-1.5">
-                  <span className={t.retiredOn ? "text-ink-400" : "font-medium text-ink-900"}>{t.name}</span>
+                  <span className={t.retiredOn ? "text-ink-500" : "font-medium text-ink-900"}>{t.name}</span>
                   {t.retiredOn && (
-                    <Badge tone="neutral" title="Taken out of use — kept so its exchanges still name it, but no longer offered for new work.">
+                    <Badge tone="neutral" title="Taken out of use - kept so its exchanges still name it, but no longer offered for new work.">
                       Retired
                     </Badge>
                   )}
@@ -218,11 +210,11 @@ export function InformationTypesPage() {
                 t.busEnabled ? (
                   <code className="font-mono text-xs text-ink-600">{t.busMessageTypeName}</code>
                 ) : (
-                  <span className="text-ink-400">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
             {
-              // The promoted keys themselves — these are what exchange search
+              // The promoted keys themselves - these are what exchange search
               // filters on, so knowing there are "3" of them helps nobody.
               header: "Promoted",
               truncate: true,
@@ -235,7 +227,7 @@ export function InformationTypesPage() {
                     {t.promotedProperties.map((p) => p.key).join(", ")}
                   </span>
                 ) : (
-                  <span className="text-ink-400">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
             {

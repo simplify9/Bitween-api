@@ -1,26 +1,28 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarClock, DownloadCloud, Plus, Search } from "lucide-react";
-import { api, type SubscriptionRow, type ScheduleHealth } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { CalendarClock, DownloadCloud, Plus, TriangleAlert } from "lucide-react";
+import { api, type SubscriptionRow, type ScheduleHealth, type MirrorListFilter } from "../../api";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { BringFromProd } from "../mirror/BringFromProd";
+import { PROD_FILTER_OPTIONS, ProdNotice, ProdStatus, TestFromProd, useProdListing } from "../mirror/ProdList";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
-import { Select } from "../../components/ui/forms";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
-import {
-  HealthBadge,
-  SubscriptionStatusBadges,
-  LinkListCell,
-  scheduleFault,
-  useSubscriptionsCache,
-  useRetryPolicyNames,
-  useWorkGroupNames,
-} from "../../components/config/shared";
+import { HealthBadge, SubscriptionStatusBadges, LinkListCell } from "../../components/config/shared";
+import { scheduleFault } from "../../components/config/subscriptionLabels";
+import { useSubscriptionsCache, useRetryPolicyNames, useWorkGroupNames } from "../../components/config/lookups";
 import { formatDateTime, formatDurationMs, timeAgo, timeUntil } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
+import { ExceptionLine } from "../../components/ui/Exception";
+import { useListParams } from "../../lib/listParams";
+import { NONE } from "../../lib/none";
+import { subscriptionPath } from "../../lib/subscriptionPaths";
+import { SearchBox } from "../../components/ui/SearchBox";
+import { FilterSelect } from "../../components/ui/SearchSelect";
 
 function ReceiveNowButton({ job }: { job: SubscriptionRow }) {
   const queryClient = useQueryClient();
@@ -48,7 +50,7 @@ function ReceiveNowButton({ job }: { job: SubscriptionRow }) {
       {confirming && (
         <ConfirmDialog
           title="Receive now?"
-          body={`${job.name} checks its source immediately — anything found becomes new exchanges, outside the regular schedule.`}
+          body={`${job.name} checks its source immediately - anything found becomes new exchanges, outside the regular schedule.`}
           confirmLabel="Receive now"
           onConfirm={async () => {
             await receive.mutateAsync();
@@ -62,7 +64,7 @@ function ReceiveNowButton({ job }: { job: SubscriptionRow }) {
 
 /**
  * The scheduler disagreeing with the subscription's own record. Everything here
- * means the job is not going to run, while Status still reads "Active" — so it
+ * means the job is not going to run, while Status still reads "Active" - so it
  * outranks the ordinary badges rather than sitting beside them.
  */
 const STATUS_OPTIONS = [
@@ -82,7 +84,7 @@ function ScheduleFault({ health }: { health: ScheduleHealth | undefined }) {
 }
 
 /**
- * Scheduled jobs — `Receiving` subscriptions, which pull documents in on a
+ * Scheduled jobs - `Receiving` subscriptions, which pull documents in on a
  * schedule. They also appear on the Subscriptions page; this page exists for the
  * columns only a scheduled thing has, and for running one off-schedule.
  *
@@ -92,104 +94,172 @@ function ScheduleFault({ health }: { health: ScheduleHealth | undefined }) {
 const PAGE_SIZE = 25;
 
 export function ScheduledJobsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
   const inactiveParam = searchParams.get("inactive");
   const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
+  const prod = useProdListing("subscriptions");
+  const prodFilter = prod.ready ? (searchParams.get("prod") as MirrorListFilter | null) : null;
   const canOperate = useSessionCan("subscriptions.operate");
   const canSeeInfoTypes = useSessionCan("documents.view");
 
   const rows = useQuery({
-    queryKey: keys.subscriptions.rowsSearch({ type: "Receiving", q, inactive, offset }),
+    queryKey: keys.subscriptions.rowsSearch({ type: "Receiving", q, inactive, prodFilter, offset }),
     queryFn: () =>
-      api.searchSubscriptionRows({ search: q, type: "Receiving", inactive, offset, limit: PAGE_SIZE }),
+      api.searchSubscriptionRows({ search: q, type: "Receiving", inactive, mirror: prodFilter, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
   // The list rows don't carry work group or retry policy; the subscriptions
   // cache does, and every page already holds it.
-  const setups = useSubscriptionsCache().data ?? [];
+  const setups = useSubscriptionsCache().data ?? NONE;
   const setupById = useMemo(() => new Map(setups.map((s) => [s.id, s])), [setups]);
   const workGroupNames = useWorkGroupNames();
   const retryPolicyNames = useRetryPolicyNames();
   // One request for the whole list rather than one per row.
-  const lastRuns = useQuery({ queryKey: keys.subscriptions.lastRuns, queryFn: () => api.listLastRuns() }).data ?? [];
+  const lastRuns = useQuery({ queryKey: keys.subscriptions.lastRuns, queryFn: () => api.listLastRuns() }).data ?? NONE;
   const lastRunById = useMemo(() => new Map(lastRuns.map((r) => [r.subscriptionId, r])), [lastRuns]);
   const health =
-    useQuery({ queryKey: keys.subscriptions.scheduleHealth, queryFn: () => api.listScheduleHealth() }).data ?? [];
+    useQuery({ queryKey: keys.subscriptions.scheduleHealth, queryFn: () => api.listScheduleHealth() }).data ?? NONE;
   const healthById = useMemo(() => new Map(health.map((h) => [h.subscriptionId, h])), [health]);
 
-  const setParam = (key: string, value: string | null, resetOffset = true) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        if (resetOffset) next.delete("offset");
-        return next;
-      },
-      { replace: true },
-    );
 
   const filtered = rows.data?.result ?? [];
   const total = rows.data?.total ?? 0;
+
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="subscriptions.create">
+      <Button variant="primary" onClick={() => navigate("/scheduled-jobs/new")}>
+        <Plus className="size-4" /> New scheduled job
+      </Button>
+    </Can>
+  );
 
   return (
     <div>
       <PageHeader
         title="Scheduled jobs"
-        description="Subscriptions that pull documents in on a schedule — from an FTP folder, a mailbox, an API."
+        description="Subscriptions that pull documents in on a schedule - from an FTP folder, a mailbox, an API."
         actions={
-          <Can permission="subscriptions.create">
-            <Button variant="primary" onClick={() => navigate("/scheduled-jobs/new")}>
-              <Plus className="size-4" /> New scheduled job
-            </Button>
-          </Can>
+          <>
+            <BringFromProd section="subscriptions" type="Receiving" label="scheduled jobs" />
+            <TestFromProd listing={prod} section="subscriptions" type="Receiving" label="scheduled jobs" />
+            {createAction}
+          </>
         }
+        help={{
+          title: "How scheduled jobs work",
+          body: (
+            <>
+              <p>
+                A scheduled job is a <strong>receiving subscription</strong>: each run checks its source,
+                and anything found becomes new exchanges. <strong>Receive now</strong> runs one straight
+                away, outside the schedule. Jobs also appear on the Subscriptions page.
+              </p>
+              <p>
+                <strong>Last run</strong> and <strong>Recent runs OK</strong> come from the scheduler's own
+                history (about 30 days), and <code>manual</code> marks a run someone started by hand.{" "}
+                <strong>Runs</strong> shows the schedule and when it fires next.
+              </p>
+              <p>
+                A job can read Active and still not run: <strong>Not scheduled</strong>,{" "}
+                <strong>Stuck</strong> or <strong>Trigger error</strong> in Status means the scheduler won't
+                run it. <strong>Paused</strong> holds a job without disabling it.
+              </p>
+            </>
+          ),
+        }}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setParam("q", e.target.value || null)}
-            placeholder="Search jobs"
-            aria-label="Search scheduled jobs"
-            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-          />
-        </div>
+        <SearchBox value={searchText} onChange={setSearchText} label="Search scheduled jobs" placeholder="Search jobs" />
         <div className="w-40">
-          <Select
+          <FilterSelect
             aria-label="Filter by status"
-            className="!h-8 text-[13px]"
             value={inactiveParam ?? ""}
-            onChange={(e) => setParam("inactive", e.target.value || null)}
+            onChange={(v) => setParam("inactive", v || null)}
             options={STATUS_OPTIONS}
           />
         </div>
+        {prod.ready && (
+          <div className="w-44">
+            <FilterSelect
+              aria-label="Filter by how it stands against prod"
+              value={prodFilter ?? ""}
+              onChange={(v) => setParam("prod", v || null)}
+              options={PROD_FILTER_OPTIONS}
+            />
+          </div>
+        )}
       </div>
+
+      <ProdNotice listing={prod} />
 
       {rows.isPending ? (
         <LoadingBlock label="Loading scheduled jobs…" />
+      ) : rows.isError ? (
+        <LoadError error={rows.error} what="scheduled jobs" onRetry={() => void rows.refetch()} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<CalendarClock />} title={q || inactive !== null ? "No jobs match" : "No scheduled jobs yet"}>
-          {q || inactive !== null ? "Try a different search or filter." : "Create a job to pull documents in on a schedule."}
+        <EmptyState icon={<CalendarClock />} title={q || inactive !== null || prodFilter ? "No jobs match" : "No scheduled jobs yet"} action={q || inactive !== null || prodFilter ? undefined : createAction}>
+          {q || inactive !== null || prodFilter ? "Try a different search or filter." : "Create a job to pull documents in on a schedule."}
         </EmptyState>
       ) : (
         <Table
           rows={filtered}
           rowKey={(r) => r.id}
           minWidth="min-w-270"
-          onRowClick={(r) => navigate(`/subscriptions/${r.id}`)}
+          onRowClick={(r) => navigate(subscriptionPath(r.id, "Receiving"))}
+          // On a phone: what is wrong, when it last ran, when it runs next, and the one thing
+          // people reach for away from a desk - pulling the source now.
+          card={(r) => {
+            const run = lastRunById.get(r.id);
+            return {
+              title: r.name,
+              status: (
+                <>
+                  <ScheduleFault health={healthById.get(r.id)} />
+                  <SubscriptionStatusBadges enabled={r.enabled} paused={r.paused} />
+                  <HealthBadge isRunning={r.isRunning} consecutiveFailures={r.consecutiveFailures} />
+                </>
+              ),
+              technical: r.informationTypeCode,
+              facts: [
+                {
+                  label: "Last run",
+                  value: run ? (run.success === null ? "running…" : timeAgo(run.startedOn)) : "-",
+                  tone: run?.success === false ? "danger" : run ? undefined : "muted",
+                },
+                {
+                  label: "Next run",
+                  value: r.nextReceiveOn ? timeUntil(r.nextReceiveOn) : "-",
+                  tone: r.nextReceiveOn ? undefined : "muted",
+                },
+                {
+                  label: "Recent runs OK",
+                  value: run && run.recentTotal > 0 ? `${run.recentSucceeded}/${run.recentTotal}` : "-",
+                  tone: run && run.recentTotal > run.recentSucceeded ? "danger" : undefined,
+                },
+              ],
+              footer: (r.lastException || canOperate) && (
+                <div className="flex flex-col gap-2">
+                  {r.lastException && <ExceptionLine text={r.lastException} className="text-[12px] text-danger-700" />}
+                  {canOperate && (
+                    <span>
+                      <ReceiveNowButton job={r} />
+                    </span>
+                  )}
+                </div>
+              ),
+            };
+          }}
           footer={
             <Pagination
               offset={offset}
               limit={PAGE_SIZE}
               total={total}
-              onOffsetChange={(o) => setParam("offset", String(o), false)}
+              onOffsetChange={(o) => setParam("offset", String(o))}
             />
           }
           columns={[
@@ -200,12 +270,14 @@ export function ScheduledJobsPage() {
             },
             {
               header: "Pulls in",
+              // Falls back to the type's name when it has no code, and a name can be long.
+              wrap: true,
               cell: (r) =>
                 canSeeInfoTypes ? (
                   <Link
                     to={`/information-types/${r.informationTypeId}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+                    className="font-mono text-xs text-ink-600 hover:link"
                   >
                     {r.informationTypeCode}
                   </Link>
@@ -222,8 +294,8 @@ export function ScheduledJobsPage() {
                 const run = lastRunById.get(r.id);
                 if (!run)
                   return (
-                    <span className="text-ink-400" title="No run in the last 30 days">
-                      —
+                    <span className="text-ink-500" title="No run in the last 30 days">
+                      -
                     </span>
                   );
                 const running = run.success === null;
@@ -231,8 +303,9 @@ export function ScheduledJobsPage() {
                   <>
                     <span className="text-[13px] font-medium text-ink-800">{timeAgo(run.startedOn)}</span>
                     <span
-                      className={`block text-xs ${run.success === false ? "text-danger-700" : "text-ink-400"}`}
+                      className={`flex items-center gap-1 text-xs ${run.success === false ? "text-danger-700" : "text-ink-500"}`}
                     >
+                      {run.success === false && <TriangleAlert className="size-3 shrink-0" aria-hidden />}
                       {running
                         ? "running…"
                         : [
@@ -250,11 +323,12 @@ export function ScheduledJobsPage() {
             {
               // A single failure is noise; a job that has been failing half its
               // runs is the one to look at, and the health badge can't say that.
-              header: "Reliability",
+              header: "Recent runs OK",
+              headerTitle: "How many of the last finished runs succeeded. 3/10 means 3 of the last 10 worked.",
               className: "whitespace-nowrap",
               cell: (r) => {
                 const run = lastRunById.get(r.id);
-                if (!run || run.recentTotal === 0) return <span className="text-ink-400">—</span>;
+                if (!run || run.recentTotal === 0) return <span className="text-ink-500">-</span>;
                 const failed = run.recentTotal - run.recentSucceeded;
                 return (
                   <span
@@ -270,18 +344,18 @@ export function ScheduledJobsPage() {
               // The rule and its next outcome in one column rather than two: they answer
               // the same question ("when does this run?"), and an eleventh column pushed
               // the table wider than its card. The schedule leads because it is the thing
-              // that was missing — a list showing only the next fire could never tell you
+              // that was missing - a list showing only the next fire could never tell you
               // a job runs hourly without opening it.
               header: "Runs",
               className: "whitespace-nowrap",
               cell: (r) => {
-                if (!r.scheduleSummary && !r.nextReceiveOn) return <span className="text-ink-400">—</span>;
+                if (!r.scheduleSummary && !r.nextReceiveOn) return <span className="text-ink-500">-</span>;
                 return (
                   <>
                     <span className="text-[13px] font-medium text-ink-800">
                       {r.scheduleSummary ?? "Not scheduled"}
                     </span>
-                    <span className="block text-xs text-ink-400">
+                    <span className="block text-xs text-ink-500">
                       {r.nextReceiveOn
                         ? `next ${timeUntil(r.nextReceiveOn)} · ${formatDateTime(r.nextReceiveOn)}`
                         : "no next run"}
@@ -305,24 +379,24 @@ export function ScheduledJobsPage() {
               ),
             },
             {
-              // Which queue lane it runs in — the difference between a job that
+              // Which queue lane it runs in - the difference between a job that
               // is merely idle and one that is queued behind everything else.
               header: "Work group",
               wrap: true,
               cell: (r) => {
                 const id = setupById.get(r.id)?.workGroupId ?? null;
                 const name = id === null ? null : (workGroupNames.get(id) ?? null);
-                if (id === null) return <span className="text-[13px] text-ink-400">Ungrouped</span>;
+                if (id === null) return <span className="text-[13px] text-ink-500">Ungrouped</span>;
                 return name ? (
                   <Link
                     to={`/work-groups/${id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:link"
                   >
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-400">—</span>
+                  <span className="text-[13px] text-ink-500">-</span>
                 );
               },
             },
@@ -332,17 +406,17 @@ export function ScheduledJobsPage() {
               cell: (r) => {
                 const id = setupById.get(r.id)?.retryPolicyId ?? null;
                 const name = id === null ? null : (retryPolicyNames.get(id) ?? null);
-                if (id === null) return <span className="text-[13px] text-ink-400">None</span>;
+                if (id === null) return <span className="text-[13px] text-ink-500">None</span>;
                 return name ? (
                   <Link
                     to={`/retry-policies/${id}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="block text-[13px] text-ink-700 hover:link"
                   >
                     {name}
                   </Link>
                 ) : (
-                  <span className="text-[13px] text-ink-400">—</span>
+                  <span className="text-[13px] text-ink-500">-</span>
                 );
               },
             },
@@ -356,19 +430,21 @@ export function ScheduledJobsPage() {
                 </span>
               ),
             },
+            ...(prod.ready
+              ? [{
+                  header: "Prod",
+                  headerTitle: "How its test with prod's traffic last went: Same, Check, Different or Not tested; - when prod has no subscription of its name.",
+                  cell: (r: SubscriptionRow) => <ProdStatus listing={prod} id={r.id} />,
+                }]
+              : []),
             {
               header: "Last error",
               truncate: true,
               cell: (r) =>
                 r.lastException ? (
-                  <span
-                    className="block truncate font-mono text-[11px] text-danger-700"
-                    title={r.lastException}
-                  >
-                    {r.lastException}
-                  </span>
+                  <ExceptionLine text={r.lastException} icon className="text-[12px] text-danger-700" />
                 ) : (
-                  <span className="text-ink-400">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
             {

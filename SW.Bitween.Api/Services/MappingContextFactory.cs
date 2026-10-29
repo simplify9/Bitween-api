@@ -16,23 +16,37 @@ namespace SW.Bitween;
 /// pipeline did not, so a mapping previewed with a partner value and then failed in production. One
 /// factory means that cannot happen twice.
 /// </remarks>
-public class MappingContextFactory(BitweenDbContext dbContext, IInfolinkCache cache)
+public class MappingContextFactory(IInfolinkCache cache)
 {
+    /// <param name="maskSecrets">
+    /// Replace the partner and global values their owners declared secret with
+    /// <see cref="AdapterSecretProperties.Sentinel"/>. The preview sets it: a mapping the caller
+    /// writes can copy any value into its output, so an unmasked context would hand every partner's
+    /// credentials to whoever can open the editor. The pipeline leaves it off, since it has to send
+    /// the real values.
+    /// </param>
     public async Task<MappingContext> Build(int? partnerId, string? xchangeId = null,
-        IReadOnlyDictionary<string, string>? sourceValues = null)
+        IReadOnlyDictionary<string, string>? sourceValues = null, bool maskSecrets = false)
     {
+        // From the cache, which a save to a partner revokes: this was a query per mapped exchange.
         var partner = partnerId.HasValue
-            ? await dbContext.FindAsync<Partner>(partnerId.Value)
+            ? await cache.PartnerByIdAsync(partnerId.Value)
             : null;
 
         var globals = new Dictionary<string, IReadOnlyDictionary<string, string>>();
         foreach (var set in await cache.ListGlobalAdapterValuesSetsAsync())
             if (set.Values?.Count > 0)
-                globals[set.Id] = set.Values;
+                globals[set.Id] = maskSecrets
+                    ? AdapterSecretProperties.Mask(set.Values, set.SecretProperties)
+                    : set.Values;
+
+        var partnerValues = partner?.AdapterProperties ?? new Dictionary<string, string>();
+        if (maskSecrets)
+            partnerValues = AdapterSecretProperties.Mask(partnerValues, partner?.SecretProperties);
 
         return new MappingContext
         {
-            Partner = partner?.AdapterProperties ?? new Dictionary<string, string>(),
+            Partner = partnerValues,
             Globals = globals,
             Source = sourceValues ?? new Dictionary<string, string>(),
             XchangeId = xchangeId,

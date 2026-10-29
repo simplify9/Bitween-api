@@ -24,7 +24,7 @@ namespace SW.Bitween.Domain
             DocumentFormat = format;
         }
 
-        /// <summary>Production creation path — Id is database-generated. Code is optional.</summary>
+        /// <summary>Production creation path - Id is database-generated. Code is optional.</summary>
         public Document(string code, string name, DocumentFormat format)
         {
             Code = code;
@@ -37,7 +37,18 @@ namespace SW.Bitween.Domain
         public string Code { get; private set; }
         public bool BusEnabled { get; set; }
         public string BusMessageTypeName { get; set; }
+        /// <summary>
+        /// Minutes within which the same payload from the same partner counts as a duplicate. 0 for
+        /// no check. A duplicate is reported, and dropped only when <see cref="DropDuplicates"/> says so.
+        /// </summary>
         public int DuplicateInterval { get; set; }
+
+        /// <summary>
+        /// Whether a duplicate is dropped rather than only reported. Off by default, and on every type
+        /// that existed before duplicates were checked: the window was shown for years without doing
+        /// anything, so turning it on for them would start dropping messages nobody expected to lose.
+        /// </summary>
+        public bool DropDuplicates { get; set; }
         public bool? DisregardsUnfilteredMessages { get; set; }
 
         public DocumentFormat DocumentFormat { get; set; }
@@ -67,6 +78,18 @@ namespace SW.Bitween.Domain
         public void SetCode(string code)
         {
             Code = code;
+        }
+
+        /// <summary>
+        /// JSON Schema for a JSON type, XSD for an XML one; null checks nothing. What arrives at a
+        /// gateway that doesn't match is refused, and an exchange whose input doesn't match fails.
+        /// A private setter so a save that doesn't mention it leaves it alone.
+        /// </summary>
+        public string ValidationSchema { get; private set; }
+
+        public void SetValidationSchema(string schema)
+        {
+            ValidationSchema = string.IsNullOrWhiteSpace(schema) ? null : schema;
         }
 
         public void Retire()

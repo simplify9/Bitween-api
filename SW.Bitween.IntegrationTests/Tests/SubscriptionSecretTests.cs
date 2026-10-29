@@ -19,7 +19,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// Secrets are masked on the way out as <c>__private__</c> and restored on the way back in. That
 /// leaves an obvious way to destroy one by accident: the browser sends back the dots it was shown,
 /// and a handler that took them literally would overwrite a working password with the placeholder
-/// — breaking the integration at the next run, with nothing in the audit trail that looks like a
+/// - breaking the integration at the next run, with nothing in the audit trail that looks like a
 /// password change. These tests hold that behaviour in place from both directions: the sentinel
 /// never lands in storage, and a real new value still does.
 /// </remarks>
@@ -32,7 +32,8 @@ public class SubscriptionSecretTests(BitweenFixture fixture)
     private static int _seq;
     private static string Unique(string prefix) => $"{prefix}-{Interlocked.Increment(ref _seq)}";
 
-    private async Task<(int subscriptionId, int documentId, int partnerId)> AnIntegrationWithASecret()
+    private async Task<(int subscriptionId, int documentId, int partnerId)> AnIntegrationWithASecret(
+        string handlerId = null)
     {
         await using var scope = fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
@@ -51,6 +52,7 @@ public class SubscriptionSecretTests(BitweenFixture fixture)
             DocumentId = document.Id,
             PartnerId = partner.Id,
             Type = SubscriptionType.ApiCall,
+            HandlerId = handlerId,
             HandlerProperties =
             [
                 new KeyAndValue { Key = "Host", Value = "smtp.example.com" },
@@ -61,7 +63,11 @@ public class SubscriptionSecretTests(BitweenFixture fixture)
         return (id, document.Id, partner.Id);
     }
 
-    private async Task Update(int id, int documentId, int partnerId, params KeyAndValue[] handlerProperties)
+    private Task Update(int id, int documentId, int partnerId, params KeyAndValue[] handlerProperties) =>
+        UpdateWithHandler(id, documentId, partnerId, null, handlerProperties);
+
+    private async Task UpdateWithHandler(int id, int documentId, int partnerId, string handlerId,
+        params KeyAndValue[] handlerProperties)
     {
         await using var scope = fixture.CreateScope();
         scope.Superuser();
@@ -71,6 +77,7 @@ public class SubscriptionSecretTests(BitweenFixture fixture)
             Name = Unique("Sends mail"),
             DocumentId = documentId,
             PartnerId = partnerId,
+            HandlerId = handlerId,
             HandlerProperties = handlerProperties,
         });
     }
@@ -88,15 +95,55 @@ public class SubscriptionSecretTests(BitweenFixture fixture)
     {
         var (id, documentId, partnerId) = await AnIntegrationWithASecret();
 
-        // Exactly what the browser posts when someone edits the host and leaves the password alone.
+        // Exactly what the browser posts when someone edits the subject and leaves the password alone.
         await Update(id, documentId, partnerId,
-            new KeyAndValue { Key = "Host", Value = "smtp.newhost.com" },
+            new KeyAndValue { Key = "Host", Value = "smtp.example.com" },
+            new KeyAndValue { Key = "Subject", Value = "Renamed subject" },
             new KeyAndValue { Key = "Password", Value = Sentinel });
 
         var properties = await StoredProperties(id);
 
         Assert.Equal(RealPassword, properties["Password"]);
-        Assert.Equal("smtp.newhost.com", properties["Host"]);
+        Assert.Equal("Renamed subject", properties["Subject"]);
+    }
+
+    /// <summary>
+    /// Except when the edit moves the integration to another server: the kept password would go to
+    /// whoever runs it, sent there by someone who never saw it. It has to be entered again.
+    /// </summary>
+    [Fact]
+    public async Task Moving_to_another_server_drops_the_kept_secret()
+    {
+        var (id, documentId, partnerId) = await AnIntegrationWithASecret();
+
+        await Update(id, documentId, partnerId,
+            new KeyAndValue { Key = "Host", Value = "smtp.attacker.example" },
+            new KeyAndValue { Key = "Password", Value = Sentinel });
+
+        var properties = await StoredProperties(id);
+
+        Assert.False(properties.ContainsKey("Password"));
+        Assert.Equal("smtp.attacker.example", properties["Host"]);
+    }
+
+    /// <summary>
+    /// Nor when the edit switches the adapter: the kept password would be handed to an adapter that
+    /// sends wherever its own settings say, by someone who never saw it.
+    /// </summary>
+    [Fact]
+    public async Task Switching_the_adapter_drops_the_kept_secret()
+    {
+        var (id, documentId, partnerId) = await AnIntegrationWithASecret("NativeSmtpHandler");
+
+        await UpdateWithHandler(id, documentId, partnerId, "NativeSmtpHandler",
+            new KeyAndValue { Key = "Host", Value = "smtp.example.com" },
+            new KeyAndValue { Key = "Password", Value = Sentinel });
+        Assert.Equal(RealPassword, (await StoredProperties(id))["Password"]);
+
+        await UpdateWithHandler(id, documentId, partnerId, "NativeHttpHandler",
+            new KeyAndValue { Key = "Host", Value = "smtp.example.com" },
+            new KeyAndValue { Key = "Password", Value = Sentinel });
+        Assert.False((await StoredProperties(id)).ContainsKey("Password"));
     }
 
     [Fact]
@@ -134,7 +181,7 @@ public class SubscriptionSecretTests(BitweenFixture fixture)
         await Update(id, documentId, partnerId,
             new KeyAndValue { Key = "Host", Value = "smtp.example.com" });
 
-        // Only a mask restores the stored value. A property the caller omits entirely is gone —
+        // Only a mask restores the stored value. A property the caller omits entirely is gone -
         // otherwise a setting could never be cleared once set.
         Assert.False((await StoredProperties(id)).ContainsKey("Password"));
     }
@@ -150,7 +197,7 @@ public class SubscriptionSecretTests(BitweenFixture fixture)
             new KeyAndValue { Key = "ApiKey", Value = Sentinel });
 
         // There is nothing to restore, so the sentinel must not be written through as if it were
-        // the value — that is how the literal string "__private__" ends up being sent as an API key.
+        // the value - that is how the literal string "__private__" ends up being sent as an API key.
         var properties = await StoredProperties(id);
         Assert.False(properties.ContainsKey("ApiKey"));
         Assert.Equal(RealPassword, properties["Password"]);

@@ -28,7 +28,7 @@ namespace SW.Bitween.Resources.Partners
         /// Says what still points at the partner, before the database says it less politely.
         /// </summary>
         /// <remarks>
-        /// All three references are <c>RESTRICT</c>, so the delete was already refused — but as a
+        /// All three references are <c>RESTRICT</c>, so the delete was already refused - but as a
         /// foreign key violation surfacing as a bare 500, which names a constraint instead of the
         /// integration holding it and reads like a broken screen rather than a decision.
         /// Exchanges are deliberately not checked: they carry a partner id with no foreign key
@@ -74,7 +74,7 @@ namespace SW.Bitween.Resources.Partners
 
         /// <summary>
         /// How many holders the message names before it stops listing them. A partner carrying
-        /// forty integrations would otherwise read out all forty into a dialog — longer to
+        /// forty integrations would otherwise read out all forty into a dialog - longer to
         /// understand than the short version, and forty rows fetched to build it.
         /// </summary>
         private const int MaxNamed = 5;

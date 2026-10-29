@@ -46,7 +46,7 @@ public class ExchangeRetentionJob(BitweenDbContext dbContext, BitweenOptions opt
             }
 
             // Something couldn't be archived. It's kept, and so is everything after it, until a later
-            // run gets it into the archive — retrying here would only fail the same way.
+            // run gets it into the archive - retrying here would only fail the same way.
             if (done.Count < batch.Count)
             {
                 logger.LogError(

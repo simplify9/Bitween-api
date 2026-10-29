@@ -26,7 +26,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// broker becomes an Xchange in Bitween through a resident adapter.
 ///
 /// The external broker is a second container, deliberately. Reusing the internal one would let a
-/// test pass while the message actually travelled Bitween's own bus — the precise confusion this
+/// test pass while the message actually travelled Bitween's own bus - the precise confusion this
 /// feature has to avoid.
 /// </summary>
 [Collection("Bitween")]
@@ -42,7 +42,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
 
         await using var adapter = await StartAsync(dataSourceId);
 
-        Publish(queue, "{\"orderId\":9001}");
+        await PublishAsync(queue, "{\"orderId\":9001}");
 
         var xchange = await WaitForXchangeAsync(documentId);
 
@@ -52,7 +52,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
 
     /// <summary>
     /// The ordering the whole design turns on. Until Bitween has persisted, the message must still
-    /// be the broker's — so a Bitween failure stops draining the customer's queue rather than
+    /// be the broker's - so a Bitween failure stops draining the customer's queue rather than
     /// losing their messages.
     /// </summary>
     [Fact]
@@ -65,11 +65,11 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
 
         await using var adapter = await StartAsync(dataSourceId);
 
-        Publish(queue, "{\"unclaimed\":true}");
+        await PublishAsync(queue, "{\"unclaimed\":true}");
 
         // An unclaimed endpoint is accepted-and-discarded on purpose: rejecting would requeue it
         // forever and the queue would never drain.
-        await WaitAsync(() => Depth(queue) == 0, TimeSpan.FromSeconds(30),
+        await WaitAsync(async () => await DepthAsync(queue) == 0, TimeSpan.FromSeconds(30),
             "an unclaimed message should be drained, not left to requeue for ever");
     }
 
@@ -79,7 +79,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
     ///
     /// This replaces a test that published malformed content and expected a nack. That premise was
     /// wrong: Bitween persists first and validates afterwards, so bad content becomes an Xchange
-    /// carrying a bad result — a pipeline outcome, not an ingest failure. Exercising the rejection
+    /// carrying a bad result - a pipeline outcome, not an ingest failure. Exercising the rejection
     /// path means making the SINK fail, which is what an unattributable event does.
     ///
     /// That the adapter then nacks and the broker redelivers is proven against a real broker in
@@ -105,7 +105,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
 
     /// <summary>
     /// The opposite case, and it must NOT reject. An endpoint no gateway claims is a
-    /// misconfiguration, not a Bitween failure — rejecting would requeue it for ever and the
+    /// misconfiguration, not a Bitween failure - rejecting would requeue it for ever and the
     /// customer's queue would never drain.
     /// </summary>
     [Fact]
@@ -132,7 +132,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
         var invoices = Unique("invoices");
         var shipments = Unique("shipments");
 
-        // Both, because the adapter consumes what the DATA SOURCE lists — a gateway naming an
+        // Both, because the adapter consumes what the DATA SOURCE lists - a gateway naming an
         // endpoint nobody is consuming would simply never see a message.
         var dataSourceId = await CreateDataSourceAsync($"{invoices},{shipments}", withGateway: false);
         var invoiceDoc = await AddGatewayAsync(dataSourceId, invoices);
@@ -140,7 +140,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
 
         await using var adapter = await StartAsync(dataSourceId);
 
-        Publish(shipments, "{\"shipmentId\":77}");
+        await PublishAsync(shipments, "{\"shipmentId\":77}");
 
         var xchange = await WaitForXchangeAsync(shipmentDoc);
         Assert.NotNull(xchange);
@@ -155,7 +155,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
     /// <summary>
     /// A gateway with no endpoint is the catch-all: it claims whatever no other gateway does. The
     /// exact match has to win, or a data source that gains a catch-all silently starts routing
-    /// every specific endpoint's messages to the wrong Document — running the wrong subscriptions,
+    /// every specific endpoint's messages to the wrong Document - running the wrong subscriptions,
     /// against the wrong mapping, with nothing in the audit trail saying so.
     ///
     /// Driven through the sink rather than the broker: this is a routing decision, and the queue
@@ -191,7 +191,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// And the catch-all still catches what nothing else claims — otherwise the fix above would
+    /// And the catch-all still catches what nothing else claims - otherwise the fix above would
     /// just be a way of disabling it.
     /// </summary>
     [Fact]
@@ -244,7 +244,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
         db.Remove(await db.Set<DataSource>().FirstAsync(d => d.Id == dataSourceId));
         await Assert.ThrowsAnyAsync<DbUpdateException>(() => db.SaveChangesAsync());
 
-        // And the gateway is untouched — still external, still on its data source.
+        // And the gateway is untouched - still external, still on its data source.
         await using var check = fixture.App.Services.CreateAsyncScope();
         var fresh = check.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var gateway = await fresh.Set<BusGateway>().AsNoTracking()
@@ -267,7 +267,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
         // whether the publish worked or not.
         var dataSourceId = await CreateDataSourceAsync(consumed, withGateway: false);
 
-        DeclareQueue(target);
+        await DeclareQueueAsync(target);
 
         await using var adapter = await StartAsync(dataSourceId);
 
@@ -277,14 +277,14 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
             Body = "{\"pushed\":true}"
         });
 
-        await WaitAsync(() => Depth(target) >= 1, TimeSpan.FromSeconds(15),
+        await WaitAsync(async () => await DepthAsync(target) >= 1, TimeSpan.FromSeconds(15),
             "the published message never arrived on the external queue");
     }
 
     /// <summary>
     /// A DELIVERY publishes, which is the half that was missing. Publish had existed since this
-    /// adapter did and nothing in the pipeline ever called it — the handler contract is Handle,
-    /// and this class had none — so an integration could drain a customer's queue and had no way
+    /// adapter did and nothing in the pipeline ever called it - the handler contract is Handle,
+    /// and this class had none - so an integration could drain a customer's queue and had no way
     /// to answer on one.
     ///
     /// Driven the way the pipeline drives it: Handle, with the endpoint arriving as a
@@ -300,7 +300,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
         // A queue the adapter is NOT consuming: depth on one it drains reads 0 whether the publish
         // worked or not, because the message is taken as fast as it is sent.
         var dataSourceId = await CreateDataSourceAsync(consumed, withGateway: false);
-        DeclareQueue(target);
+        await DeclareQueueAsync(target);
 
         await using var adapter = await StartAsync(dataSourceId);
 
@@ -308,7 +308,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
             new XchangeFile("{\"delivered\":true}", "out.json"),
             properties: new Dictionary<string, string> { ["Endpoint"] = target });
 
-        await WaitAsync(() => Depth(target) >= 1, TimeSpan.FromSeconds(15),
+        await WaitAsync(async () => await DepthAsync(target) >= 1, TimeSpan.FromSeconds(15),
             "the delivered message never arrived on the external queue");
 
         // The broker's receipt comes back as the response, so what was sent and under which id is
@@ -339,11 +339,11 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
     ///
     /// A broker data source is EXCLUSIVE: one node holds the connection so the customer's queue is
     /// drained once. A subscription's delivery, though, runs on whichever node picked the message
-    /// up — so a publish would fail on every node but the owner, which is to say almost always.
+    /// up - so a publish would fail on every node but the owner, which is to say almost always.
     ///
     /// Exclusivity is about CONSUMING, not about connecting. When the owned instance is not here,
-    /// the runtime opens a send-only connection of its own — Consume=false, no endpoints, its own
-    /// pool key — and publishes through that. Nothing is consumed twice, and a delivery works
+    /// the runtime opens a send-only connection of its own - Consume=false, no endpoints, its own
+    /// pool key - and publishes through that. Nothing is consumed twice, and a delivery works
     /// wherever it lands.
     ///
     /// Here nothing is running under the data source's instance key at all, which is exactly what
@@ -354,7 +354,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
     {
         var target = Unique("elsewhere-out");
         var dataSourceId = await CreateDataSourceAsync(Unique("elsewhere-src"), withGateway: false);
-        DeclareQueue(target);
+        await DeclareQueueAsync(target);
 
         var host = fixture.App.Services.GetRequiredService<IResidentAdapterHost>();
         Assert.Null(host.Get(BusAdapters.RabbitMq, dataSourceId.ToString()));
@@ -373,7 +373,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
             "Handle", new XchangeFile("{\"fromElsewhere\":true}", "out.json"),
             properties, Guid.NewGuid().ToString("N"));
 
-        await WaitAsync(() => Depth(target) >= 1, TimeSpan.FromSeconds(20),
+        await WaitAsync(async () => await DepthAsync(target) >= 1, TimeSpan.FromSeconds(20),
             "a node that does not own the connection could not publish");
 
         // And it did NOT take ownership on the way past: the send-only instance is pooled under
@@ -499,7 +499,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
 
         // The infolink cache is a singleton holding a ten-minute snapshot. Without revoking it,
         // XchangeService resolves this brand-new Document to null and builds an Xchange that no
-        // DocumentId query can find — which acks the message and silently drops it.
+        // DocumentId query can find - which acks the message and silently drops it.
         scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
 
         return document.Id;
@@ -517,7 +517,7 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
         var instance = await host.StartExclusiveAsync(new AdapterSpec
         {
             AdapterId = dataSource.AdapterId,
-            // The instance key IS the data source id — that is how the sink resolves the gateway.
+            // The instance key IS the data source id - that is how the sink resolves the gateway.
             InstanceKey = dataSourceId.ToString(),
             StartupValues = new Dictionary<string, string>(dataSource.Properties)
         });
@@ -536,42 +536,43 @@ public class ExternalBusGatewayTests(BitweenFixture fixture)
             new(_host.StopAsync(adapterId, instanceKey, drain: false));
     }
 
-    private void Publish(string queue, string body)
+    private async Task PublishAsync(string queue, string body)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
 
-        channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
+        await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false);
 
-        var properties = channel.CreateBasicProperties();
+        var properties = new BasicProperties();
         properties.ContentType = "application/json";
         properties.MessageId = Guid.NewGuid().ToString("N");
-        properties.DeliveryMode = 2;
+        properties.DeliveryMode = DeliveryModes.Persistent;
 
-        channel.BasicPublish("", queue, properties, Encoding.UTF8.GetBytes(body));
+        await channel.BasicPublishAsync("", queue, mandatory: false, basicProperties: properties,
+            body: Encoding.UTF8.GetBytes(body));
     }
 
-    private void DeclareQueue(string queue)
+    private async Task DeclareQueueAsync(string queue)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
-        channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false);
     }
 
-    private uint Depth(string queue)
+    private async Task<uint> DepthAsync(string queue)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
-        return channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false).MessageCount;
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        return (await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false)).MessageCount;
     }
 
-    private IConnection ExternalConnection() => new ConnectionFactory
+    private Task<IConnection> ExternalConnectionAsync() => new ConnectionFactory
     {
         HostName = fixture.ExternalRabbitHost,
         Port = fixture.ExternalRabbitPort,
         UserName = fixture.ExternalRabbitUser,
         Password = fixture.ExternalRabbitPassword
-    }.CreateConnection("integration-tests");
+    }.CreateConnectionAsync("integration-tests");
 
     private async Task<Xchange?> WaitForXchangeAsync(int documentId)
     {

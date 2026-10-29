@@ -9,7 +9,7 @@
 // nothing is recovered out of anything, so the editor reads back exactly what it
 // wrote.
 
-export type DocumentFormatId = "json" | "xml" | "csv";
+export type DocumentFormatId = "json" | "xml" | "csv" | "fixedwidth" | "excel";
 
 /**
  * Which of the day and the month comes first in the incoming document's dates.
@@ -20,11 +20,11 @@ export type DocumentFormatId = "json" | "xml" | "csv";
  */
 export type DateOrderName = "yearFirst" | "dayFirst" | "monthFirst";
 
-/** Each option is the same day — 4 September 2026 — written the three ways a partner might. */
+/** Each option is the same day - 4 September 2026 - written the three ways a partner might. */
 export const DATE_ORDERS: { value: DateOrderName; label: string }[] = [
-  { value: "yearFirst", label: "Year first — 2026-09-04" },
-  { value: "dayFirst", label: "Day first — 04.09.2026" },
-  { value: "monthFirst", label: "Month first — 09.04.2026" },
+  { value: "yearFirst", label: "Year first - 2026-09-04" },
+  { value: "dayFirst", label: "Day first - 04.09.2026" },
+  { value: "monthFirst", label: "Month first - 09.04.2026" },
 ];
 
 /**
@@ -32,7 +32,7 @@ export const DATE_ORDERS: { value: DateOrderName; label: string }[] = [
  *
  * Per side rather than per mapping: a partner's semicolon file routinely becomes somebody
  * else's comma file, and one client alone sends all three of comma, semicolon and pipe.
- * Nothing is sniffed from the sample — a guessed delimiter is right until the first field
+ * Nothing is sniffed from the sample - a guessed delimiter is right until the first field
  * that legitimately contains a comma, and by then the mapping is in production.
  */
 export interface CsvOptions {
@@ -55,6 +55,44 @@ export const defaultCsvOptions = (): CsvOptions => ({
   hasHeader: true,
   byteOrderMark: false,
 });
+
+/** One column of a fixed-width layout: where it starts (the line's first character is 1) and how long it is. */
+export interface FixedWidthColumn {
+  name: string;
+  start: number;
+  length: number;
+  /** Which side a written value keeps to; amounts are usually right-aligned. */
+  align?: "left" | "right";
+  /** The character padding a written value: a space unless the specification says otherwise. */
+  pad?: string;
+}
+
+/** How one side reads or writes fixed-width text. Nothing is inferred: the layout is the partner's specification. */
+export interface FixedWidthOptions {
+  columns: FixedWidthColumn[];
+  /** Lines at the top that aren't records, skipped when reading. */
+  skipLines?: number;
+  /** Whether read values have their padding taken off. On unless turned off. */
+  trim?: boolean;
+}
+
+export const defaultFixedWidthOptions = (): FixedWidthOptions => ({ columns: [], skipLines: 0, trim: true });
+
+/** How one side reads or writes an Excel workbook. */
+export interface ExcelOptions {
+  /** The sheet to read, or to name when writing; the first sheet, or Sheet1, when empty. */
+  sheet?: string;
+  hasHeader: boolean;
+}
+
+export const defaultExcelOptions = (): ExcelOptions => ({ sheet: "", hasHeader: true });
+
+/** The settings one side's format takes, whichever format it is. */
+export interface SideFormatOptions {
+  csv?: CsvOptions;
+  fixedWidth?: FixedWidthOptions;
+  excel?: ExcelOptions;
+}
 
 /** The separators worth offering, all of which turn up in real partner files. */
 export const CSV_DELIMITERS: { value: string; label: string }[] = [
@@ -87,21 +125,21 @@ export type FilterOperatorName =
 export interface ValueSource {
   kind: ValueSourceKind;
   /**
-   * `path` — a dot-separated path, read from wherever the rule sits: the whole
+   * `path` - a dot-separated path, read from wherever the rule sits: the whole
    * document at the top level, the current entry inside a list.
    *
-   * `rootPath` — the same, but always read from the top of the document. Only
+   * `rootPath` - the same, but always read from the top of the document. Only
    * different inside a list, where it is how one value from the order gets written
    * onto every line of it.
    *
-   * `source` — a path into the original document instead, read the same way.
+   * `source` - a path into the original document instead, read the same way.
    */
   path?: string;
-  /** `fixed` — a literal. */
+  /** `fixed` - a literal. */
   value?: unknown;
-  /** `partner` — an adapter-property key. `global` — a key within `setId`. */
+  /** `partner` - an adapter-property key. `global` - a key within `setId`. */
   key?: string;
-  /** `global` — which values set. */
+  /** `global` - which values set. */
   setId?: string;
 }
 
@@ -161,7 +199,7 @@ export interface ListRule {
   /**
    * Entries put into the list before the walked ones.
    *
-   * For a list that is partly or wholly constant — a header line a partner expects,
+   * For a list that is partly or wholly constant - a header line a partner expects,
    * or a list whose entries each come from a different field. Each is built from its
    * own rules, so a constant entry may still read the document, the partner or a
    * values set, and may hold lists of its own.
@@ -174,7 +212,7 @@ export interface ListRule {
    * Entries put into the list after the walked ones.
    *
    * The other end of `fixed`, and why it exists: a carrier's file ends with a trailer record
-   * carrying the number of records above it. Built the same way and reading the same scope —
+   * carrying the number of records above it. Built the same way and reading the same scope -
    * the only differences are where they land and that `count` can see the whole list by then.
    */
   after?: ListEntry[];
@@ -190,6 +228,14 @@ export interface MappingRules {
   sourceCsv?: CsvOptions;
   /** How the produced document is delimited, when it is delimited text. */
   targetCsv?: CsvOptions;
+  /** The incoming document's columns, when it is fixed-width text. */
+  sourceFixedWidth?: FixedWidthOptions;
+  /** The produced document's columns, when it is fixed-width text. */
+  targetFixedWidth?: FixedWidthOptions;
+  /** Which sheet of the incoming workbook, when it is Excel. */
+  sourceExcel?: ExcelOptions;
+  /** The produced workbook's sheet, when it is Excel. */
+  targetExcel?: ExcelOptions;
   fields: FieldRule[];
   lists: ListRule[];
   /** When set, the whole output is this list rather than an object. */
@@ -209,7 +255,7 @@ export const TARGET_SAMPLE_KEY = "TargetSample";
 //
 // The same rules with a client-side id on each one, so React can key rows and the
 // reducer can address a rule without walking indices through nested lists. Ids are
-// added on load and stripped on save — they never reach the wire.
+// added on load and stripped on save - they never reach the wire.
 
 export type RuleId = string;
 
@@ -281,7 +327,15 @@ export const DOCUMENT_FORMATS: { id: DocumentFormatId; label: string }[] = [
   { id: "json", label: "JSON" },
   { id: "xml", label: "XML" },
   { id: "csv", label: "CSV" },
+  { id: "fixedwidth", label: "Fixed-width" },
+  { id: "excel", label: "Excel" },
 ];
+
+/** One side's format settings, out of the rules. */
+export const sideOptions = (rules: MappingRules, side: "source" | "target"): SideFormatOptions =>
+  side === "source"
+    ? { csv: rules.sourceCsv, fixedWidth: rules.sourceFixedWidth, excel: rules.sourceExcel }
+    : { csv: rules.targetCsv, fixedWidth: rules.targetFixedWidth, excel: rules.targetExcel };
 
 /**
  * Where a value can come from, with labels short enough to sit inside a row.
@@ -289,7 +343,7 @@ export const DOCUMENT_FORMATS: { id: DocumentFormatId; label: string }[] = [
 /**
  * The segments shown on a row. `rootPath` is deliberately absent: it is not a
  * different kind of thing to a reader, it is the same "from the document" choice
- * pointed at the top rather than at the entry — so the path dropdown offers it as
+ * pointed at the top rather than at the entry - so the path dropdown offers it as
  * its own group instead of adding a fifth segment that means nothing at the top level.
  */
 export const SOURCE_KINDS: { value: ValueSourceKind; label: string; title: string }[] = [
@@ -326,7 +380,7 @@ const COUNT_KIND = {
 };
 
 /**
- * A path into the original document — what the subscription that fed this reply received, the
+ * A path into the original document - what the subscription that fed this reply received, the
  * order when the reply is a carrier's answer to it. Offered only on a response or bus gateway
  * subscription; nothing else is handed one.
  *
@@ -361,7 +415,7 @@ export const VALUE_TYPES: { value: string; label: string }[] = [
  * A fresh source of the given kind.
  *
  * Switching replaces the whole source rather than adding a field to it, so two
- * sources can never both be half-set — the thing the old model's six optional
+ * sources can never both be half-set - the thing the old model's six optional
  * fields kept getting wrong, since every switch had to remember to clear five.
  */
 export const freshSource = (kind: ValueSourceKind): ValueSource =>
@@ -444,7 +498,7 @@ export const TRANSFORMS: {
         kind: "choice",
         // A closed list on purpose. There was a second box here for which way round the
         // incoming date is written, and two dropdowns on one row asking different
-        // questions read as one question asked twice — so that moved to the source
+        // questions read as one question asked twice - so that moved to the source
         // document, where it is answered once for the whole mapping.
         options: [
           { value: "", label: "Format…" },

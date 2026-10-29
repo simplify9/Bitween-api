@@ -3,13 +3,14 @@ import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { AlertTriangle, ChevronDown, RotateCcw } from "lucide-react";
 import { api } from "../../api";
-import { useSessionCan } from "../../auth/guards";
-import { useSubscriptionsCache } from "../../components/config/shared";
+import { useSessionCan } from "../../auth/useSessionCan";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { FlowLegend, FlowMap } from "./FlowMap";
 import { buildFlowGraph } from "./model";
 import { layoutFlow } from "./layout";
 import { keys } from "../../api/queryKeys";
+import { subscriptionPath } from "../../lib/subscriptionPaths";
 
 /**
  * How data moves between gateways, on one surface.
@@ -36,6 +37,7 @@ export function FlowPage() {
     queryFn: () => api.listApiGateways(),
     enabled: canSeeApi,
   });
+  const [showingOmitted, setShowingOmitted] = useState(false);
   const busGateways = useQuery({
     queryKey: keys.busGateways.list,
     queryFn: () => api.listBusGateways(),
@@ -79,21 +81,47 @@ export function FlowPage() {
           </p>
         </div>
         <div className="flex flex-col items-end gap-1.5">
-          <p className="text-[12px] text-ink-400 tabular-nums">
+          <p className="text-[12px] text-ink-500 tabular-nums">
             {gateways} {gateways === 1 ? "gateway" : "gateways"} · {messages}{" "}
             {messages === 1 ? "message" : "messages"}
-            {graph.omitted > 0 && (
+            {graph.omitted.length > 0 && (
               <>
                 {" · "}
-                <span title="They belong to no gateway and route no response, so they have no place on a flow map.">
-                  {graph.omitted} not shown
-                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowingOmitted((o) => !o)}
+                  aria-expanded={showingOmitted}
+                  title="They belong to no gateway and route no response, so they have no place on a flow map."
+                  className="link"
+                >
+                  {graph.omitted.length} {graph.omitted.length === 1 ? "subscription" : "subscriptions"} without a
+                  gateway {graph.omitted.length === 1 ? "is" : "are"} not shown
+                </button>
               </>
             )}
           </p>
           <FlowLegend />
         </div>
       </header>
+
+      {/* A list rather than nodes on the canvas: with no gateway and no response they would
+          float unconnected, which says less than their names do. */}
+      {showingOmitted && graph.omitted.length > 0 && (
+        <div className="mx-4 mb-3 rounded-xl border border-ink-200 bg-white px-3.5 py-2.5 sm:mx-6">
+          <p className="mb-1.5 text-[13px] text-ink-600">
+            Not on the map: no gateway runs these and no response leaves them.
+          </p>
+          <ul className="flex max-h-40 flex-wrap gap-x-4 gap-y-1 overflow-y-auto text-[13px]">
+            {graph.omitted.map((s) => (
+              <li key={s.id}>
+                <Link to={subscriptionPath(s.id, s.type)} className="link">
+                  {s.name}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {layout.looping.size > 0 && (
         <div className="mx-4 mb-3 flex items-start gap-2 rounded-xl border border-danger-300 bg-danger-50 px-3.5 py-2.5 sm:mx-6">
@@ -112,7 +140,7 @@ export function FlowPage() {
         <div className="px-4 sm:px-6">
           <EmptyState title="Nothing to map yet">
             A flow appears once there is a gateway to draw.{" "}
-            <Link to="/bus-gateways" className="font-medium text-crimson-700 hover:underline">
+            <Link to="/bus-gateways" className="font-medium link">
               Add a bus gateway
             </Link>{" "}
             to begin.
@@ -129,7 +157,7 @@ export function FlowPage() {
  * The things on the map that look configured and move nothing.
  *
  * Above the canvas rather than floating over it. As a panel it covered whichever
- * node happened to be top-left — and the node it hid was, of course, one of the
+ * node happened to be top-left - and the node it hid was, of course, one of the
  * ones it was warning about. Collapsed by default so the diagram keeps the height:
  * the count alone is enough to make someone open it.
  */

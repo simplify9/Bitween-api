@@ -1,22 +1,23 @@
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Plus, Search, Webhook } from "lucide-react";
-import { api, type SubscriptionRow } from "../../api";
+import { Plus, Webhook } from "lucide-react";
+import { api, type ApiGatewayRow, type MirrorListFilter, type SubscriptionRow } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { BringFromProd } from "../mirror/BringFromProd";
+import { PROD_FILTER_OPTIONS, ProdNotice, ProdStatus, TestFromProd, useProdListing } from "../mirror/ProdList";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
-import { Select } from "../../components/ui/forms";
 import { Table } from "../../components/ui/Table";
 import { keys } from "../../api/queryKeys";
-import {
-  LinkListCell,
-  WiredHealthBadge,
-  useSubscriptionRowsById,
-} from "../../components/config/shared";
+import { LinkListCell, WiredHealthBadge } from "../../components/config/shared";
+import { useSubscriptionRowsById } from "../../components/config/lookups";
+import { useListParams } from "../../lib/listParams";
+import { SearchBox } from "../../components/ui/SearchBox";
+import { FilterSelect } from "../../components/ui/SearchSelect";
 
 /**
- * API gateways — the entry point partners push documents into. One row per
+ * API gateways - the entry point partners push documents into. One row per
  * gateway entity, not per pipeline: the pipelines behind it are reached through
  * the attachment that names them.
  */
@@ -29,34 +30,34 @@ const STATUS_OPTIONS = [
 ];
 
 export function ApiGatewaysPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
   const inactiveParam = searchParams.get("inactive");
   const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
+  const prod = useProdListing("apiGateways");
+  const prodFilter = prod.ready ? (searchParams.get("prod") as MirrorListFilter | null) : null;
 
   const gateways = useQuery({
-    queryKey: keys.apiGateways.search({ q, inactive, offset }),
-    queryFn: () => api.searchApiGateways({ search: q, inactive, offset, limit: PAGE_SIZE }),
+    queryKey: keys.apiGateways.search({ q, inactive, prodFilter, offset }),
+    queryFn: () => api.searchApiGateways({ search: q, inactive, mirror: prodFilter, offset, limit: PAGE_SIZE }),
     placeholderData: keepPreviousData,
   });
   const subscriptionsById = useSubscriptionRowsById();
 
-  const setParam = (key: string, value: string | null, resetOffset = true) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        if (resetOffset) next.delete("offset");
-        return next;
-      },
-      { replace: true },
-    );
 
   const rows = gateways.data?.result ?? [];
   const total = gateways.data?.total ?? 0;
+
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="api-gateways.create">
+      <Button variant="primary" onClick={() => navigate("/api-gateways/new")}>
+        <Plus className="size-4" /> New API gateway
+      </Button>
+    </Can>
+  );
 
   return (
     <div>
@@ -64,42 +65,67 @@ export function ApiGatewaysPage() {
         title="API gateways"
         description="URLs partners call to push documents in. Each attached partner is routed to one subscription."
         actions={
-          <Can permission="api-gateways.create">
-            <Button variant="primary" onClick={() => navigate("/api-gateways/new")}>
-              <Plus className="size-4" /> New API gateway
-            </Button>
-          </Can>
+          <>
+            <BringFromProd section="apiGateways" label="API gateways" />
+            <TestFromProd listing={prod} section="apiGateways" label="API gateways" />
+            {createAction}
+          </>
         }
+        help={{
+          title: "How API gateways work",
+          body: (
+            <>
+              <p>
+                A gateway is one <strong>URL</strong>, <code>{"/api/gateway/<url name>"}</code>. Partners
+                are <strong>attached</strong> to it, each with the subscription that runs on what that
+                partner sends.
+              </p>
+              <p>
+                The caller is identified by its <strong>API key</strong> (or by a token from a login
+                server, if the gateway is set to JWT), and that decides which attached partner the
+                exchange runs as. Keys are issued on the partner's page.
+              </p>
+              <p>
+                <strong>Health</strong> is the worst case across the subscriptions behind the gateway:
+                failing, paused or disabled. A deactivated gateway feeds nothing, so it shows{" "}
+                <strong>Off</strong> beside its name instead.
+              </p>
+            </>
+          ),
+        }}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setParam("q", e.target.value || null)}
-            placeholder="Search gateways"
-            aria-label="Search API gateways"
-            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-          />
-        </div>
+        <SearchBox value={searchText} onChange={setSearchText} label="Search API gateways" placeholder="Search gateways" />
         <div className="w-40">
-          <Select
+          <FilterSelect
             aria-label="Filter by status"
-            className="!h-8 text-[13px]"
             value={inactiveParam ?? ""}
-            onChange={(e) => setParam("inactive", e.target.value || null)}
+            onChange={(v) => setParam("inactive", v || null)}
             options={STATUS_OPTIONS}
           />
         </div>
+        {prod.ready && (
+          <div className="w-44">
+            <FilterSelect
+              aria-label="Filter by how it stands against prod"
+              value={prodFilter ?? ""}
+              onChange={(v) => setParam("prod", v || null)}
+              options={PROD_FILTER_OPTIONS}
+            />
+          </div>
+        )}
       </div>
+
+      <ProdNotice listing={prod} />
 
       {gateways.isPending ? (
         <LoadingBlock label="Loading API gateways…" />
+      ) : gateways.isError ? (
+        <LoadError error={gateways.error} what="API gateways" onRetry={() => void gateways.refetch()} />
       ) : rows.length === 0 ? (
-        <EmptyState icon={<Webhook />} title={q || inactive !== null ? "No gateways match" : "No API gateways yet"}>
-          {q || inactive !== null ? "Try a different search or filter." : "Create a gateway to give partners a URL to push documents to."}
+        <EmptyState icon={<Webhook />} title={q || inactive !== null || prodFilter ? "No gateways match" : "No API gateways yet"} action={q || inactive !== null || prodFilter ? undefined : createAction}>
+          {q || inactive !== null || prodFilter ? "Try a different search or filter." : "Create a gateway to give partners a URL to push documents to."}
         </EmptyState>
       ) : (
         <Table
@@ -112,7 +138,7 @@ export function ApiGatewaysPage() {
               offset={offset}
               limit={PAGE_SIZE}
               total={total}
-              onOffsetChange={(o) => setParam("offset", String(o), false)}
+              onOffsetChange={(o) => setParam("offset", String(o))}
             />
           }
           columns={[
@@ -121,7 +147,7 @@ export function ApiGatewaysPage() {
               wrap: true,
               cell: (g) => (
                 <span className="flex flex-wrap items-center gap-1.5">
-                  <span className={`font-medium ${g.inactive ? "text-ink-400" : "text-ink-900"}`}>
+                  <span className={`font-medium ${g.inactive ? "text-ink-500" : "text-ink-900"}`}>
                     {g.name}
                   </span>
                   {/* Beside the name, not in the Health column: health reports on what the
@@ -161,7 +187,7 @@ export function ApiGatewaysPage() {
             {
               // No Subscriptions or Handles column. Both vary per attachment, and
               // a second list beside Partners can't say which entry pairs with
-              // which — that belongs in the gateway's own attachments table,
+              // which - that belongs in the gateway's own attachments table,
               // where a row is exactly one partner and one subscription.
               // An aggregate has no such problem, so health stays.
               header: "Health",
@@ -174,6 +200,13 @@ export function ApiGatewaysPage() {
                 />
               ),
             },
+            ...(prod.ready
+              ? [{
+                  header: "Prod",
+                  headerTitle: "How the tests with prod's traffic of the subscriptions it leads to last went: Same, Check, Different or Not tested; - when prod has no gateway of its name.",
+                  cell: (g: ApiGatewayRow) => <ProdStatus listing={prod} id={g.id} />,
+                }]
+              : []),
           ]}
         />
       )}

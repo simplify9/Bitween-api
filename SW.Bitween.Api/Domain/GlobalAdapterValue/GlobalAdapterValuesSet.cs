@@ -12,7 +12,7 @@ public class GlobalAdapterValuesSet:BaseEntity<string>
     /// <summary>
     /// Names within <see cref="Values"/> whose values are never returned by the API in clear.
     /// A set is shared across every adapter that references it, so one secret in a set must not
-    /// force the whole set out of sight — the flag is per value, not per set.
+    /// force the whole set out of sight - the flag is per value, not per set.
     /// </summary>
     public List<string> SecretProperties { get; set; } = new();
 }

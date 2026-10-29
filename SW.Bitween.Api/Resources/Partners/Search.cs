@@ -29,7 +29,7 @@ namespace SW.Bitween.Resources.Partners
                             Name = subscriber.Name,
                             // Every place the partner is wired in, matching the three groups the
                             // detail page lists. Counting only the direct subscription link left
-                            // "Used by" reading "—" for partners plainly in use through a gateway.
+                            // "Used by" reading "-" for partners plainly in use through a gateway.
                             SubscriptionsCount = subscriber.Subscriptions.Count
                                 + dbContext.Set<ApiGatewayPartner>().Count(g => g.PartnerId == subscriber.Id)
                                 + dbContext.Set<BusGatewayRoute>().Count(r => r.PartnerId == subscriber.Id),

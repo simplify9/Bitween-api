@@ -11,14 +11,20 @@ import {
   permissionKey,
   usePermissionCatalog,
 } from "../../api/permissions";
-import { useSession } from "../../auth/SessionContext";
+import { useSession } from "../../auth/useSession";
 import { HistoryCard } from "../../components/config/HistoryCard";
 import { visibleGroups } from "../../nav";
-import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
 import { Field, TextInput } from "../../components/ui/forms";
-import { ConfirmDialog } from "../../components/ui/overlays";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
+import { splitErrors } from "../../lib/fieldErrors";
+import { usePageTitle } from "../../lib/pageTitle";
+import { usePhone } from "../../lib/useMediaQuery";
 
 /** Live answer to "what would someone with this role actually see?" */
 function AccessPreview({ permissions, total }: { permissions: Set<PermissionKey>; total: number }) {
@@ -34,13 +40,13 @@ function AccessPreview({ permissions, total }: { permissions: Set<PermissionKey>
       {groups.length === 0 ? (
         <div className="flex items-center gap-2 rounded-lg bg-ink-50 px-3 py-2.5 text-[13px] text-ink-500">
           <EyeOff className="size-4 shrink-0" />
-          No pages yet — grant a View permission.
+          No pages yet - grant a View permission.
         </div>
       ) : (
         <div className="space-y-3 rounded-lg bg-ink-950 p-3">
           {groups.map((group) => (
             <div key={group.label}>
-              <p className="px-1 pb-1 text-[10px] font-semibold tracking-widest text-ink-500 uppercase">
+              <p className="px-1 pb-1 text-[10px] font-semibold tracking-widest text-ink-400 uppercase">
                 {group.label}
               </p>
               <ul className="space-y-0.5">
@@ -72,6 +78,7 @@ export function RoleEditor() {
   const queryClient = useQueryClient();
   const { can } = useSession();
   const catalog = usePermissionCatalog();
+  const phone = usePhone();
   const areas = catalog.data ?? [];
 
   const source = useQuery({
@@ -80,14 +87,15 @@ export function RoleEditor() {
     enabled: sourceId !== null,
     retry: false,
   });
+  usePageTitle(isNew ? null : source.data?.name);
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [granted, setGranted] = useState<Set<PermissionKey> | null>(null);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   // Which role this form is currently filled from. React Router reuses this component when the
-  // route changes between /new and /:id, so tracking identity — not a plain "have we loaded"
-  // flag — is what makes Duplicate refill instead of keeping the role it came from.
+  // route changes between /new and /:id, so tracking identity - not a plain "have we loaded"
+  // flag - is what makes Duplicate refill instead of keeping the role it came from.
   const identity = isNew ? `new:${sourceId ?? ""}` : `edit:${id}`;
   const [loadedFor, setLoadedFor] = useState<string | null>(null);
   const loaded = loadedFor === identity;
@@ -130,17 +138,23 @@ export function RoleEditor() {
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.roles.all });
-      navigate("/team/roles", { replace: true });
+      leave(() => navigate("/team/roles", { replace: true }));
     },
   });
+  // See Roles/RoleValidation.cs.
+  const refused = splitErrors(save.error, { name: ["Name", "ROLE_EXISTS"] });
+
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
 
   if (catalog.isPending) return <LoadingBlock label="Loading permissions…" />;
   if (!loaded && source.isPending) return <LoadingBlock label="Loading role…" />;
+  if (!isNew && source.isError && !isNotFound(source.error))
+    return <LoadError error={source.error} what="this role" onRetry={() => void source.refetch()} />;
   if (!isNew && source.isError)
     return (
       <div className="py-16 text-center text-sm text-ink-500">
         This role no longer exists.{" "}
-        <Link to="/team/roles" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/team/roles" className="font-medium link">
           Back to roles
         </Link>
       </div>
@@ -177,6 +191,7 @@ export function RoleEditor() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/team/roles" label="Roles" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -195,10 +210,26 @@ export function RoleEditor() {
             </p>
           )}
         </div>
-        {!isNew && can("roles.create") && (
-          <Button onClick={() => navigate(`/team/roles/new?from=${id}`)}>
-            <Copy className="size-4" /> Duplicate
-          </Button>
+        {/* The same header as every other detail page: Delete used to sit in a Danger zone
+            at the bottom of the sidebar here, the one page that did it differently. */}
+        {!isNew && (
+          <MoreActionsMenu
+            actions={[
+              {
+                label: "Duplicate",
+                icon: <Copy className="size-4" />,
+                onSelect: () => navigate(`/team/roles/new?from=${id}`),
+                hidden: !can("roles.create"),
+              },
+              {
+                label: "Delete",
+                icon: <Trash2 className="size-4" />,
+                danger: true,
+                onSelect: () => setConfirmingDelete(true),
+                hidden: isSystem || !can("roles.delete"),
+              },
+            ]}
+          />
         )}
       </div>
 
@@ -213,7 +244,7 @@ export function RoleEditor() {
         <div className="min-w-0 space-y-6">
           {!isSystem && (
             <div className="grid gap-4 rounded-xl border border-ink-200 bg-white p-5 sm:grid-cols-2">
-              <Field label="Name" htmlFor="role-name">
+              <Field label="Name" htmlFor="role-name" error={refused.byField.name}>
                 <TextInput
                   id="role-name"
                   value={name}
@@ -236,6 +267,63 @@ export function RoleEditor() {
 
           {groupsIn(areas).map((group) => {
             const groupAreas = areas.filter((a) => a.group === group);
+            // On a phone the matrix squeezed every description one word to a line and the page ran
+            // to nine metres. Stacked, each area keeps the full width for its words and its boxes
+            // sit underneath with their names beside them, since there is no column header to
+            // read them from.
+            if (phone)
+              return (
+                <section key={group} aria-label={group} className="rounded-xl border border-ink-200 bg-white">
+                  <h2 className="border-b border-ink-100 px-4 py-3 text-xs font-semibold tracking-wide text-ink-500 uppercase">
+                    {group}
+                  </h2>
+                  <ul className="divide-y divide-ink-100">
+                    {groupAreas.map((area) => {
+                      const actionIds = area.actions.map((a) => a.id);
+                      const allOn = actionIds.every((a) => granted.has(permissionKey(area.id, a)));
+                      const box = "flex min-h-11 cursor-pointer items-center gap-2 pr-2 text-[13px] text-ink-700";
+                      return (
+                        <li key={area.id} className="px-4 py-3">
+                          <p className="font-medium text-ink-800">{area.label}</p>
+                          <p className="text-[13px] text-ink-500">{area.description}</p>
+                          <div className="mt-1 flex flex-wrap gap-x-3">
+                            {ACTION_ORDER.map((action) => {
+                              const def = area.actions.find((a) => a.id === action);
+                              if (!def) return null;
+                              const key = permissionKey(area.id, action);
+                              return (
+                                <label key={action} className={box}>
+                                  <input
+                                    type="checkbox"
+                                    aria-label={`${area.label}: ${ACTION_LABELS[action]}`}
+                                    title={`${key} - ${def.description}`}
+                                    checked={granted.has(key)}
+                                    disabled={!editable}
+                                    onChange={() => toggle(area.id, action)}
+                                    className="size-5 cursor-pointer rounded accent-crimson-600 disabled:cursor-default"
+                                  />
+                                  {ACTION_LABELS[action]}
+                                </label>
+                              );
+                            })}
+                            <label className={`${box} font-medium`}>
+                              <input
+                                type="checkbox"
+                                aria-label={`${area.label}: everything`}
+                                checked={allOn}
+                                disabled={!editable}
+                                onChange={() => toggleArea(area.id, actionIds, allOn)}
+                                className="size-5 cursor-pointer rounded accent-ink-700 disabled:cursor-default"
+                              />
+                              All
+                            </label>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              );
             return (
               <section key={group} className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
                 <table className="w-full min-w-130 text-sm">
@@ -267,7 +355,7 @@ export function RoleEditor() {
                             if (!def)
                               return (
                                 <td key={action} className="px-2 py-3 text-center text-ink-200">
-                                  —
+                                  -
                                 </td>
                               );
                             const key = permissionKey(area.id, action);
@@ -276,7 +364,7 @@ export function RoleEditor() {
                                 <input
                                   type="checkbox"
                                   aria-label={`${area.label}: ${ACTION_LABELS[action]}`}
-                                  title={`${key} — ${def.description}`}
+                                  title={`${key} - ${def.description}`}
                                   checked={granted.has(key)}
                                   disabled={!editable}
                                   onChange={() => toggle(area.id, action)}
@@ -311,20 +399,6 @@ export function RoleEditor() {
           {/* A role that doesn't exist yet has no history, and a system role's grants are
               computed rather than stored, so nothing ever edits one. */}
           {!isNew && !isSystem && <HistoryCard entityName="Role" entityKey={id} />}
-
-          {!isNew && !isSystem && can("roles.delete") && (
-            <div className="rounded-xl border border-danger-200 bg-white p-4">
-              <h3 className="text-xs font-semibold tracking-wide text-danger-800 uppercase">
-                Danger zone
-              </h3>
-              <p className="mt-1 mb-3 text-[13px] text-ink-500">
-                Roles can only be deleted once no member holds them.
-              </p>
-              <Button variant="danger" size="sm" onClick={() => setConfirmingDelete(true)}>
-                <Trash2 className="size-3.5" /> Delete role
-              </Button>
-            </div>
-          )}
         </div>
       </div>
 
@@ -336,10 +410,10 @@ export function RoleEditor() {
               <p className="truncate text-sm font-medium text-ink-800">
                 {isNew ? "New role" : "Unsaved changes"}
               </p>
-              <FormError>{save.error?.message}</FormError>
+              <FormError>{refused.rest}</FormError>
             </div>
             <div className="flex shrink-0 gap-2">
-              <Button onClick={() => navigate("/team/roles", { replace: true })}>Cancel</Button>
+              <Button onClick={() => leave(() => navigate("/team/roles", { replace: true }))}>Cancel</Button>
               <Button variant="primary" busy={save.isPending} onClick={() => save.mutate()}>
                 {isNew ? "Create role" : "Save changes"}
               </Button>
@@ -349,8 +423,10 @@ export function RoleEditor() {
       )}
 
       {confirmingDelete && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this role?"
+          name={source.data?.name ?? ""}
+          blockers={[counted(source.data?.memberCount ?? 0, "member holding it", "members holding it")]}
           body={
             <>
               <strong className="font-medium text-ink-800">{source.data?.name}</strong> will be gone
@@ -361,7 +437,7 @@ export function RoleEditor() {
           onConfirm={async () => {
             await api.deleteRole(id!);
             void queryClient.invalidateQueries({ queryKey: keys.roles.all });
-            navigate("/team/roles", { replace: true });
+            leave(() => navigate("/team/roles", { replace: true }));
           }}
           onClose={() => setConfirmingDelete(false)}
         />

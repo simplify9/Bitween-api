@@ -10,6 +10,8 @@ namespace SW.Bitween.Resources.Ops;
 /// The bus's consumer health, with each row told what it is for. Without the lane and the
 /// ids a caller can only see the queue's machine name, and would have to rebuild
 /// <see cref="WorkGroup.GetBusMessageName"/> for itself to work out which group a row is.
+/// <c>Concurrency</c> is how many of the lane's messages run at once on a node: its parallel
+/// exchanges, capped by its prefetch.
 /// </summary>
 public record ConsumerLaneView(
     string Name,
@@ -30,7 +32,8 @@ public record ConsumerLaneView(
     double ProcessingRate,
     double AckRate,
     bool IsBackpressured,
-    AlertSeverity HealthStatus);
+    AlertSeverity HealthStatus,
+    ushort Concurrency);
 
 [HandlerName("Consumers")]
 public class Consumers(IBusDashboardDataService dashboardDataService,
@@ -66,7 +69,11 @@ public class Consumers(IBusDashboardDataService dashboardDataService,
                 c.ProcessingRate,
                 c.AckRate,
                 c.IsBackpressured,
-                c.HealthStatus);
+                c.HealthStatus,
+                // Prefetch 0 is no limit at the broker.
+                c.Prefetch == 0
+                    ? laneResolver.Concurrency(identity)
+                    : System.Math.Min(laneResolver.Concurrency(identity), c.Prefetch));
         }).ToArray();
     }
 }

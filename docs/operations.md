@@ -6,7 +6,7 @@
 
 ## Finding an exchange
 
-The Exchanges page filters by status, subscription, partner, information type, exchange ids, correlation id, a promoted property value and a date range. Pick a promoted property to search inside its value only; any part of the value matches, ignoring case. Filters live in the URL, so a filtered view can be shared as a link. The list reloads itself every 15 seconds by default (adjustable, or off); **Refresh** reloads it right away.
+The Exchanges page filters by status, subscription, partner, information type, exchange ids, correlation id, a promoted property value and a date range. Pick a promoted property to search inside its value only; any part of the value matches, ignoring case. Filters live in the URL, so a filtered view can be shared as a link. The list reloads itself every 15 seconds by default (adjustable, or paused); **Refresh**, beside the pause button, reloads the list and its counts right away.
 
 - Search by **promoted property** to find a business document, such as an order number.
 - Search by **correlation id** to see every exchange in one flow, including exchanges created from responses.
@@ -32,6 +32,7 @@ Tick exchanges on the Exchanges page, or select everything a filter matches, and
 | Failed, with *Auto-retry in …* | A retry is scheduled | Wait, or use **Run now** |
 | Failed, with a blocked reason | The retry policy declined | Read the reason, fix the cause, then retry by hand or reset the budget |
 | Bad response | The handler flagged its response, such as an HTTP 4xx | Open the response file |
+| Success, with *File not stored* | Delivered: the partner has the document, but Bitween could not store the output or response file. The warning in the drawer says which and why | Nothing to retry, and retrying would deliver the document again. Check object storage, using the reason in the warning and the Warning log line with the exchange id and storage key. The file is not in the export or the archive; `missing.txt` lists it with the reason |
 | Failed, with a link to a later attempt | This attempt was already retried | Follow the chain to its newest attempt |
 | No exchange for a bus message | Nothing matched, or the information type disregards unfiltered messages | Check routes and match expressions on the Flow map |
 
@@ -61,7 +62,7 @@ See [Data sources](data-sources.md).
 
 - The **Scheduled jobs** and **Aggregations** pages show each subscription's last run, reliability, next run and schedule health.
 - A subscription's overview lists its receive attempts and the exchanges each created.
-- **Stuck** means a run was killed and left its running flag set, so later runs are skipped.
+- **Stuck** means a run was killed and left its running flag set, so later runs are skipped. The subscription's page says so and offers **Clear the running mark**, for anyone with `subscriptions.operate`; otherwise it clears itself after `Bitween:StaleRunAfterMinutes`.
 - **Not scheduled** means a trigger is missing. Saving the subscription again recreates it.
 
 See [Scheduling](scheduling.md).
@@ -76,12 +77,49 @@ Two parts come from the server instead. **Failures to act on** counts failed exc
 
 The Audit trail page shows who changed which configuration entity, when, and the values before and after. Filter by entity type, member, entity id, date range, or everything changed in one save. See [Security](security.md#audit-trail).
 
+## Metrics and traces
+
+Bitween exports metrics and traces over OpenTelemetry (OTLP) when a collector is set, so it shows up in
+Grafana, Datadog, Azure Monitor, Honeycomb or anything else that takes OTLP. Nothing is exported, and
+nothing changes, while neither address is set.
+
+| Variable | Default | |
+|---|---|---|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | | The collector, as `http://otel-collector:4317`. `OpenTelemetry__Endpoint` is read when this isn't set. |
+| `OTEL_EXPORTER_OTLP_PROTOCOL` | `grpc` | `http/protobuf` for a collector on port 4318, or one that takes HTTP only. |
+| `OTEL_SERVICE_NAME` | `bitween` | The service name every metric and span carries. Give each deployment its own. |
+
+What is exported:
+
+| Name | Kind | |
+|---|---|---|
+| `bitween.exchanges.created` | counter | Exchanges created, tagged `kind`: `routing` for a document to be fanned out to subscriptions, `subscription` for one subscription's |
+| `bitween.exchanges.processed` | counter | Exchanges processed, tagged `outcome`: `success`, `bad_response` or `error` |
+| `bitween.exchanges.processing.duration` | histogram, seconds | From taking an exchange off its queue to saving its result, tagged `outcome` |
+| `bitween.subscriptions.auto_paused` | counter | Subscriptions paused for failing too many deliveries in a row |
+| `bitween.circuits.opened` | counter | A destination's circuit opening, tagged `destination` ([Adapters](adapters.md#when-a-destination-keeps-failing)) |
+| ASP.NET Core, HttpClient and .NET runtime metrics | | Requests, outgoing calls, memory, GC and thread pool |
+| Traces | spans | Each incoming request (health checks left out), each outgoing HTTP call, and `exchange.process` for each exchange, tagged `bitween.exchange.id`, `bitween.subscription.id`, `bitween.document.id` and `bitween.outcome` |
+
+An outgoing call made while an exchange is processed is a child of its `exchange.process` span, so a
+trace shows which partner call took the time. The dashboard in the admin UI reads Bitween's own
+database and needs none of this.
+
+With the Helm chart, set the variables under `environmentVariables`:
+
+```yaml
+environmentVariables:
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://otel-collector.monitoring:4317"
+  OTEL_SERVICE_NAME: "bitween-acme-prod"
+```
+
 ## Logs
 
-Bitween logs to the console. When `SwLogger:ElasticsearchUrl` is set and the environment is listed in `SwLogger:ElasticsearchEnvironments`, logs also go to Elasticsearch, enriched with request context.
+Bitween logs to the console. SQL statements are logged without their parameter values, which hold passwords, partner keys and payloads, unless `Bitween:LogSqlParameterValues` is on; a developer's `launchSettings.json` turns it on locally, and no environment does by itself. When `SwLogger:ElasticsearchUrl` is set and the environment is listed in `SwLogger:ElasticsearchEnvironments`, logs also go to Elasticsearch, enriched with request context.
 
 Messages worth watching for:
 
+- `Bitween can't start until these are fixed:`, followed by what to change. See [When Bitween won't start](deployment.md#when-bitween-wont-start)
 - `Database migration failed on startup against {Host}:{Port}/{Database}`
 - A startup warning that the Microsoft sign-in redirect URI is not the sign-in landing page
 - `Auto-retry evaluation failed for xchange …`
@@ -98,11 +136,19 @@ Messages worth watching for:
 | Receive attempts | `Bitween:ReceiveAttemptRetentionDays`, 30 days by default |
 | Broker deduplication keys | Each data source's window, 30 days by default |
 | Scheduler execution history | Managed by the scheduler library |
-| Audit entries | Kept indefinitely |
+| Audit entries | `Bitween:AuditRetentionDays`, deleted by the daily receive attempt clean-up. 0, the default, keeps them indefinitely. |
 
 The retention job runs on the **Retention schedule** setting, 04:00 daily by default. It removes exchanges that started more than **Keep exchanges (days)** ago, oldest first and in small batches. An exchange waiting for a scheduled retry is kept, and so is one a newer retry still points at, until that retry is removed too.
 
 With **Archive before deleting** on, the default, each exchange is first written to `archive/{prefix}/{subscription id}/yyyy/MM/dd/{main value}_{exchange id}.json`. `{prefix}` is the document prefix without its `tempN/` part, and the main value is the exchange's value for the first promoted property of its information type; without one the file is named by the id alone. The file holds the exchange's details, its promoted properties, result and notifications, and the contents of its files while storage still has them. Handler and mapper properties are left out, because they can hold resolved secrets. If an exchange can't be archived, the run stops and keeps it for the next run.
+
+**Queue health** ends with **Bitween's own work**: each system job (automatic retries, exchange retention, receive attempt clean-up, broker deduplication clean-up) with when it last ran and runs next, flagged when it isn't scheduled, and the outbox - messages saved to be sent to the broker, how many are waiting and since when, and the last error of one that failed.
+
+When a partner says a gateway refuses them, the gateway's page lists **Calls turned away**: how many calls were refused for each reason (key not recognised, partner not attached, gateway switched off, nothing behind it, too many calls) and the most recent with the caller's address. Each node counts the calls it refused itself, in memory, since it started. A partner's page shows when each API key was last used, so a key nobody uses any more can be found and revoked.
+
+**Administration › Nodes** lists every node of the cluster. Each node writes itself into `ClusterNodes` every 30 seconds, with its host, version, whether it runs data sources (`Bitween:BusProvidersEnabled`) and which adapter runtimes it has; a node not seen for 90 seconds is shown as gone, and one not seen for a week is removed. The page shows the leases and exclusive data sources each node holds, and warns when the online nodes run different versions or none of them runs data sources.
+
+**Settings › About this instance** shows what this Bitween is and how it is set up, as the node that answered sees it: its version, the node's name and whether it runs data sources, the database and RabbitMQ checks `/health/ready` runs (run when the page opens), storage and queue prefix, which adapter runtimes (.NET, Python, Node.js) and pip/npm are on the node, the adapter editor's limits, rate limits, and the network and housekeeping settings that live in configuration. In a cluster, open it on each node to compare.
 
 The **Documents & storage** section of the Settings page shows the bucket's rules and what the settings do: how long files and exchanges are kept, when the job next runs, how many exchanges are listed without their files, and warnings such as exchanges that outlive their files, archives that come too late to hold them, aggregations that run less often than exchanges are kept, or a bucket that lets anyone read Bitween's files without credentials. Saving a change to these settings shows the same list and asks first.
 
@@ -114,19 +160,23 @@ Exchange rows can outlive their files. Opening such a file says it was deleted b
 |---|---|
 | The Microsoft sign-in popup fails with `user_cancelled` | The redirect URI does not point at `/blank.html` |
 | Changing appsettings or Helm values does not change a setting | The setting is already stored in the database, which wins |
+| Every subscription slows down while one partner is slow | Subscriptions without a work group share one lane. A slow partner's calls each hold one of the lane's parallel exchanges for up to `Bitween:NativeAdapterTimeout`, and once they hold them all the lane waits. Give that partner's subscriptions a [work group](concepts.md#work-group) of their own, so it only slows itself: a small **Parallel exchanges** caps how many calls it gets at once, and 1 sends it one call at a time per node. The **Work groups** page says how many subscriptions share the default lane; **Queue health** shows each lane's parallel exchanges and how many are in flight. |
 | Queue health says RabbitMQ management isn't configured | One of the three management keys is missing |
-| Rebex adapters are missing from the pickers | No Rebex license key is saved |
+| Rebex adapters are missing from the pickers | No Rebex license key is saved, or nothing uses that one any more: it [moved to the marketplace](adapters.md#moved-to-the-marketplace) |
 | An API gateway returns 404 at the right URL | The attached subscription is inactive |
 | An API gateway returns 503 | The gateway is deactivated |
 | A scheduled job never runs | Check schedule health for Stuck or Not scheduled, and that the subscription is active |
 | A mapper fails parsing JSON on XML input | The subscription uses a mapper other than the rules-based mapper |
-| `{{partner.KEY}}` appears literally in a request | The partner has no such property, or the adapter is a receiver or notifier, which get no partner values |
+| `{{partner.KEY}}` appears literally in a request | The partner has no such property, or the adapter is a receiver or legacy notifier, which get no partner values. A notification channel gets the reported exchange's partner, so its test message, which has none, leaves the token as written |
 | A response exchange fails with *the handler can't be filled in* | The original document had no value at that `{{source.PATH}}`. Open the exchange it is a response to, from the drawer's *Response to* link, and check the path against its input |
 | A bus gateway exchange fails with *its message wasn't published as a Bitween delivery's response* | Its handler uses `{{source.PATH}}`, and the message came from somewhere else |
 | A bus gateway exchange fails with *the original document … couldn't be read* | Its message came from a delivery in another Bitween on the same bus, or that exchange's input file is gone |
-| Sync gateway calls hang | The sync wait never times out for a `Wait-Period` of 8 or more, including the default |
+| Sync gateway calls take about 2 seconds more than their exchanges | The calls are answered by the backstop check, not the worker's signal. On a node of an earlier version during an upgrade this is expected. Otherwise the nodes aren't receiving each other's broadcasts on RabbitMQ: check that every node is connected to the same broker and that cache changes reach the other nodes, which travel the same way |
+| Sync gateway calls answer `202` | The exchange had no result within `Wait-Period` (120 seconds when absent, at most `Bitween:MaxResponseWaitSeconds`). Look for it under **Exchanges**: still queued means its lane is behind, see **Queue health** |
 | Retry is refused with `ALREADY_RETRIED` | That exchange was already retried. Retry its newest attempt. |
 | A data source shows no live data, or statements save as *not checked* | The request reached a node that does not run the adapter, or `Bitween__BusProvidersEnabled` is off |
 | A delivery fails with *not running on this node* | Data sources are not enabled on the node processing the exchange |
 | A new adapter version still shows its old properties | Adapter descriptions are cached on each node |
+| The adapter editor refuses a draft that names packages in `requirements.txt` or `package.json` | The editor builds only adapters that need nothing beyond the SDKs. Build it with `bitween adapter build` and publish the package |
+| A `bitween` command says *Your Bitween account doesn't have the permission this needs* | The account lacks the permission: `adapter-source.operate` to publish, promote or withdraw, `subscriptions.view` to list versions |
 | A database receives the same row twice | Marking the row or saving the cursor failed after its exchange was stored |

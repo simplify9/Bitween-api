@@ -8,7 +8,7 @@ public class HttpHandlerInput
     [Description("Authentication type (e.g. ApiKey, Basic, OAuth2, Bearer).")]
     public string? AuthType { get; set; }
     [Secure]
-    [Description("API key used for ApiKey or Bearer authentication.")]
+    [Description("API key, sent as the ApiKey header with the ApiKey authentication type.")]
     public string? ApiKey { get; set; }
     [Description("URL used to obtain a login token for OAuth2 or Basic auth flows.")]
     public string? LoginUrl { get; set; }
@@ -17,10 +17,10 @@ public class HttpHandlerInput
     [Description("HTTP verb to use when calling the endpoint (e.g. get, post, put, patch, delete).")]
     public string Verb { get; set; } = "post";
 
-    [Description("Username for Basic or OAuth2 password-grant authentication.")]
+    [Description("Username for Basic and Login authentication.")]
     public string? LoginUsername { get; set; }
     [Secure]
-    [Description("Password for Basic or OAuth2 password-grant authentication.")]
+    [Description("Password for Basic and Login authentication, and the token for Bearer: {{connections.NAME.accessToken}} works here.")]
     public string? LoginPassword { get; set; }
     [Description("Optional custom login request (Login auth type). Put the real username and password in LoginUsername and LoginPassword, then write {{username}} and {{password}} here where they belong, e.g. {\"email\":\"{{username}}\",\"password\":\"{{password}}\"}. This field is not hidden, so never type a secret into it directly. Leave empty to send the default body.")]
     public string? LoginBody { get; set; }
@@ -40,6 +40,8 @@ public class HttpHandlerInput
     public string? Headers { get; set; }
     [Description("Field name or JSON path used to extract a correlation ID from the response.")]
     public string? CorrelationId { get; set; }
+    [Description("Seconds to wait for the endpoint to answer before the delivery fails. Default 100.")]
+    public int TimeoutSeconds { get; set; } = 100;
     [Description("OAuth2 client ID.")]
     public string? ClientId { get; set; }
     [Secure]

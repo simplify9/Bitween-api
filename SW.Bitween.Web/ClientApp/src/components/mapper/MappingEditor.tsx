@@ -2,17 +2,16 @@ import type React from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
 import { Search } from "lucide-react";
+import { MappingEditorProvider } from "../../lib/mapping/MappingEditorContext";
 import {
-  MappingEditorProvider,
-  useMappingEditorState,
-  useMappingEditorDispatch,
   generateFromTargetJson,
   setInputJson,
   setOutputJson,
   setSearchInput,
   setSearchOutput,
   togglePreview,
-} from "../../lib/mapping/MappingEditorContext";
+} from "../../lib/mapping/mappingEditorActions";
+import { useMappingEditorState, useMappingEditorDispatch } from "../../lib/mapping/mappingEditorHooks";
 import {
   buildTree,
   flattenLeafPaths,
@@ -62,7 +61,7 @@ const MappingEditorInner: React.FC = () => {
   const { isSaving, saveSuccess, handleValidate, handleSave, handleModeChange } = useSave(subscriptionId);
   useKeyboardShortcuts(() => void handleSave());
 
-  const [jsonAreaHeight, setJsonAreaHeight] = useState(96); // px — both panels share this
+  const [jsonAreaHeight, setJsonAreaHeight] = useState(96); // px - both panels share this
   const srcTextareaRef = useRef<HTMLTextAreaElement>(null);
   const tgtTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -74,7 +73,7 @@ const MappingEditorInner: React.FC = () => {
 
   // ── Trees ───────────────────────────────────────────────────────────────────
   const inputObj = useMemo(() => tryParseJson(inputJson), [inputJson]);
-  // outputObj is only used for "Generate from JSON" — the live tree is always driven by fieldMappings
+  // outputObj is only used for "Generate from JSON" - the live tree is always driven by fieldMappings
   const outputObj = useMemo(() => tryParseJson(outputJson), [outputJson]);
   const sourceTree: TreeNode[] = useMemo(
     () => (inputObj ? buildTree(inputObj) : []),
@@ -107,7 +106,7 @@ const MappingEditorInner: React.FC = () => {
     const paths = basePaths;
     for (const am of arrayMappings) {
       if (am.isRootOutput) {
-        // Root-output AM has no named target — its container path is '[*]'
+        // Root-output AM has no named target - its container path is '[*]'
         if (!paths.includes('[*]')) paths.push('[*]');
         for (const m of am.mappings) {
           if (m.target) paths.push(`[*].${m.target}`);
@@ -193,9 +192,9 @@ const MappingEditorInner: React.FC = () => {
                 </span>
               </div>
               <div className="relative">
-                <Search className="absolute left-2 top-1.5 text-ink-400" size={11} />
+                <Search className="absolute left-2 top-1.5 text-ink-500" size={11} />
                 <input
-                  className="w-full border border-ink-200 rounded pl-6 pr-2 py-1 text-xs focus:outline-none focus:border-crimson-400 font-mono"
+                  className="w-full border border-ink-200 rounded pl-6 pr-2 py-1 text-xs focus:outline-none focus:border-focus-400 font-mono"
                   placeholder="Search fields…"
                   value={searchInput}
                   onChange={(e) => dispatch(setSearchInput(e.target.value))}
@@ -207,7 +206,7 @@ const MappingEditorInner: React.FC = () => {
             <div className="px-3 py-2 border-b border-ink-100 flex-shrink-0">
               <textarea
                 ref={srcTextareaRef}
-                className="w-full min-h-[60px] border border-ink-200 rounded px-2 py-1.5 text-[11px] font-mono resize-y focus:outline-none focus:border-crimson-400 bg-ink-50"
+                className="w-full min-h-[60px] border border-ink-200 rounded px-2 py-1.5 text-[11px] font-mono resize-y focus:outline-none focus:border-focus-400 bg-ink-50"
                 style={{ height: jsonAreaHeight }}
                 placeholder='{ "paste": "source JSON here" }'
                 value={inputJson}
@@ -253,7 +252,7 @@ const MappingEditorInner: React.FC = () => {
                 <span className="text-xs font-semibold text-ink-500 uppercase tracking-wide">
                   Output Structure
                 </span>
-                <span className="text-xs text-ink-400">
+                <span className="text-xs text-ink-500">
                   {fieldMappings.filter((m) => m.target).length} fields ·{' '}
                   {assignedFieldCount} assigned
                 </span>
@@ -267,9 +266,9 @@ const MappingEditorInner: React.FC = () => {
                 </button>
               </div>
               <div className="relative">
-                <Search className="absolute left-2 top-1.5 text-ink-400" size={11} />
+                <Search className="absolute left-2 top-1.5 text-ink-500" size={11} />
                 <input
-                  className="w-full border border-ink-200 rounded pl-6 pr-2 py-1 text-xs focus:outline-none focus:border-crimson-400 font-mono"
+                  className="w-full border border-ink-200 rounded pl-6 pr-2 py-1 text-xs focus:outline-none focus:border-focus-400 font-mono"
                   placeholder="Search fields…"
                   value={searchOutput}
                   onChange={(e) => dispatch(setSearchOutput(e.target.value))}
@@ -281,9 +280,9 @@ const MappingEditorInner: React.FC = () => {
             <div className="px-3 py-2 border-b border-ink-100 flex-shrink-0">
               <textarea
                 ref={tgtTextareaRef}
-                className="w-full min-h-[40px] border border-ink-200 rounded px-2 py-1.5 text-[11px] font-mono resize-y focus:outline-none focus:border-crimson-400 bg-ink-50"
+                className="w-full min-h-[40px] border border-ink-200 rounded px-2 py-1.5 text-[11px] font-mono resize-y focus:outline-none focus:border-focus-400 bg-ink-50"
                 style={{ height: jsonAreaHeight }}
-                placeholder='{ "desired": "output shape" }  (optional — used to generate structure)'
+                placeholder='{ "desired": "output shape" }  (optional - used to generate structure)'
                 value={outputJson}
                 onChange={(e) => dispatch(setOutputJson(e.target.value))}
                 onMouseUp={() => syncHeight('tgt')}
@@ -315,7 +314,7 @@ const MappingEditorInner: React.FC = () => {
               >
                 {showPreview ? '▾ Hide Preview' : '▸ Show Live Preview'}
                 {!showPreview && fieldMappings.length > 0 && (
-                  <span className="ml-auto text-ink-400">
+                  <span className="ml-auto text-ink-500">
                     {assignedFieldCount} mapped
                   </span>
                 )}

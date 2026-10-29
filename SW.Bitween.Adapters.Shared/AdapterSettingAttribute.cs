@@ -3,7 +3,7 @@ using System;
 namespace SW.Bitween.Adapters;
 
 /// <summary>
-/// Marks the type that describes an adapter's connection settings — one per adapter.
+/// Marks the type that describes an adapter's connection settings - one per adapter.
 ///
 /// The point is that the UI stops knowing anything about a particular broker. Before this, the
 /// fields a data source form offered, their defaults and their allowed values were a hand-written
@@ -21,7 +21,7 @@ public sealed class AdapterSettingsAttribute : Attribute
 
     /// <summary>
     /// What kind of thing this connects to, from Bitween's DataSourceKind vocabulary: Broker,
-    /// Relational, Document, ObjectStore or Http. It is not decoration — a bus gateway can only
+    /// Relational, Document, ObjectStore or Http. It is not decoration - a bus gateway can only
     /// read from a Broker, so a resident adapter that holds a database connection must not be
     /// offerable as one. Unstated means Broker, which is all that existed when this was added.
     /// </summary>
@@ -35,7 +35,7 @@ public sealed class AdapterSettingsAttribute : Attribute
 /// One operator-visible setting, declared beside the property that consumes it.
 ///
 /// Every public read/write property of an <see cref="AdapterSettingsAttribute"/> type is a setting
-/// whether or not it carries this attribute — nothing an adapter binds is invisible to the person
+/// whether or not it carries this attribute - nothing an adapter binds is invisible to the person
 /// configuring it. The attribute adds what reflection cannot see: why the field exists, what values
 /// are legal, whether it holds a credential, and what the default is (a property initialiser lives
 /// in IL that is deliberately never executed here).
@@ -65,7 +65,7 @@ public sealed class AdapterSettingAttribute : Attribute
     public bool Required { get; set; }
 
     /// <summary>
-    /// Supplied by Bitween itself, not by an operator — endpoints come from the gateways bound to
+    /// Supplied by Bitween itself, not by an operator - endpoints come from the gateways bound to
     /// the data source, and Consume is how a connection test avoids draining a live queue.
     /// Hidden settings are not offered as fields at all.
     /// </summary>

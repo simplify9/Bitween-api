@@ -17,9 +17,10 @@ using SW.Scheduler.PgSql;
 
 namespace SW.Bitween.PgSql
 {
-public class BitweenDbContext(DbContextOptions options, RequestContext requestContext, IPublish publish)
+public class BitweenDbContext(DbContextOptions options, RequestContext requestContext, IPublish publish,
+        IInfolinkCache cache = null, OutboxAcknowledger outboxAcknowledger = null)
         : Bitween.BitweenDbContext(
-        options, requestContext, publish)
+        options, requestContext, publish, cache, outboxAcknowledger)
     {
         public const string Schema = "infolink";
 
@@ -78,7 +79,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 //b.ToTable("Partners");
                 b.Metadata.SetNavigationAccessMode(PropertyAccessMode.Field);
                 b.Property(p => p.Name).IsRequired().HasMaxLength(200);
-                b.Property(p => p.AdapterProperties).HasColumnType("jsonb");
+                b.Property(p => p.AdapterProperties).EncryptedJsonb();
                 b.Property(p => p.SecretProperties).HasColumnType("jsonb");
                 b.Property(p => p.LoginIdentity).HasMaxLength(500);
                 b.HasIndex(p => p.LoginIdentity).IsUnique();
@@ -89,6 +90,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                     apicred.ToTable("partner_api_credential");
                     apicred.Property(p => p.Name).IsRequired().HasMaxLength(500);
                     apicred.Property(p => p.Key).IsRequired().HasMaxLength(500);
+                    apicred.Property(p => p.KeyPrefix).HasMaxLength(10);
                     apicred.HasIndex(p => p.Key).IsUnique();
                     apicred.WithOwner().HasForeignKey("PartnerId");
 
@@ -138,7 +140,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                     .IsRequired().OnDelete(DeleteBehavior.Restrict);
             });
 
-            // NOTE: this context does NOT call base.OnModelCreating — it redeclares the model.
+            // NOTE: this context does NOT call base.OnModelCreating - it redeclares the model.
             // Anything configured only in SW.Bitween.Api's context is inert here. DataSource
             // reached the model anyway, by convention, through the BusGateway.DataSource
             // navigation; InboundMessage has no such navigation and has to be declared.
@@ -150,6 +152,74 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 cl.Property(i => i.OwnerNode).HasMaxLength(200);
             });
 
+            modelBuilder.Entity<OperatorAction>(b =>
+            {
+                b.ToTable("operator_action");
+                b.HasKey(a => a.Id);
+                b.Property(a => a.Id).ValueGeneratedOnAdd();
+                b.Property(a => a.Action).HasMaxLength(50).IsRequired();
+                b.Property(a => a.Target).HasMaxLength(500);
+                b.Property(a => a.Detail).HasMaxLength(2000);
+                b.Property(a => a.AccountId).HasMaxLength(50);
+                b.HasIndex(a => a.OccurredOn);
+            });
+
+            modelBuilder.Entity<ApiKeyUse>(b =>
+            {
+                b.ToTable("api_key_use");
+                b.HasKey(u => new { u.PartnerId, u.KeyName });
+                b.Property(u => u.KeyName).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<Domain.Cluster.ClusterNode>(b =>
+            {
+                b.ToTable("cluster_node");
+                b.HasKey(i => i.Id);
+                b.Property(i => i.Id).HasMaxLength(200);
+                b.Property(i => i.Host).HasMaxLength(200);
+                b.Property(i => i.Version).HasMaxLength(50);
+                b.Property(i => i.Runtimes).HasMaxLength(100);
+                b.Property(i => i.ResidentHealth).HasMaxLength(4000);
+                b.HasIndex(i => i.LastSeenOn);
+            });
+
+            // Metrics: hourly rollups each node adds to once a minute, and broker snapshots. Keys lead
+            // with the hour, so reading a time range and pruning old hours both use the key itself.
+            modelBuilder.Entity<Domain.Metrics.ExchangeStats>(b =>
+            {
+                b.ToTable("exchange_stats");
+                b.HasKey(p => new { p.Hour, p.Node, p.SubscriptionId, p.PartnerId });
+                b.Property(p => p.Node).HasMaxLength(100);
+            });
+
+            modelBuilder.Entity<Domain.Metrics.AdapterStats>(b =>
+            {
+                b.ToTable("adapter_stats");
+                b.HasKey(p => new { p.Hour, p.Node, p.AdapterId, p.Version, p.Role, p.Runtime });
+                b.Property(p => p.Node).HasMaxLength(100);
+                b.Property(p => p.AdapterId).HasMaxLength(200);
+                b.Property(p => p.Version).HasMaxLength(50);
+                b.Property(p => p.Role).HasMaxLength(20);
+                b.Property(p => p.Runtime).HasMaxLength(20);
+            });
+
+            modelBuilder.Entity<Domain.Metrics.ErrorStats>(b =>
+            {
+                b.ToTable("error_stats");
+                b.HasKey(p => new { p.Hour, p.Node, p.Scope, p.ScopeKey, p.Fingerprint });
+                b.Property(p => p.Node).HasMaxLength(100);
+                b.Property(p => p.Scope).HasMaxLength(20);
+                b.Property(p => p.ScopeKey).HasMaxLength(200);
+                b.Property(p => p.Fingerprint).HasMaxLength(16);
+                b.Property(p => p.Sample).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<Domain.Metrics.QueueSnapshot>(b =>
+            {
+                b.ToTable("queue_snapshot");
+                b.HasKey(p => p.At);
+            });
+
             modelBuilder.Entity<DataSourceStatement>(st =>
             {
                 st.ToTable("data_source_statement");
@@ -159,7 +229,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 st.Property(p => p.Sql).IsRequired();
                 st.Property(p => p.Description).HasMaxLength(1000);
 
-                // Column names, so the database's own identifier limit is the ceiling — 128 is
+                // Column names, so the database's own identifier limit is the ceiling - 128 is
                 // above every engine's (Oracle allows 128, PostgreSQL 63).
                 st.Property(p => p.CursorColumn).HasMaxLength(128);
                 st.Property(p => p.KeyColumn).HasMaxLength(128);
@@ -196,7 +266,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 im.ToTable("inbound_message");
 
                 // The dedupe key IS the primary key. Deduplication is decided by an insert
-                // failing, not by a lookup succeeding — see the type's remarks.
+                // failing, not by a lookup succeeding - see the type's remarks.
                 im.HasKey(i => i.Id);
                 im.Property(i => i.Id).HasMaxLength(400);
                 im.Property(i => i.XchangeId).HasMaxLength(50);
@@ -241,7 +311,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
             {
                 gav.ToTable("global_adapter_values_set");
                 gav.HasKey(i => i.Id);
-                gav.Property(p => p.Values).HasColumnType("jsonb");
+                gav.Property(p => p.Values).EncryptedJsonb();
                 gav.Property(p => p.SecretProperties).HasColumnType("jsonb");
             });
             modelBuilder.Entity<Subscription>(b =>
@@ -257,16 +327,20 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 });
 
 
-                b.Property(p => p.HandlerProperties).HasColumnType("jsonb");
-                b.Property(p => p.MapperProperties).HasColumnType("jsonb");
-                b.Property(p => p.ReceiverProperties).HasColumnType("jsonb");
-                b.Property(p => p.ValidatorProperties).HasColumnType("jsonb");
+                b.Property(p => p.HandlerProperties).EncryptedJsonb();
+                b.Property(p => p.MapperProperties).EncryptedJsonb();
+                b.Property(p => p.ReceiverProperties).EncryptedJsonb();
+                b.Property(p => p.ValidatorProperties).EncryptedJsonb();
                 b.Property(p => p.DocumentFilter).HasColumnType("jsonb");
 
                 b.Property(p => p.ResponseMessageTypeName).HasMaxLength(500);
 
                 b.Property(p => p.MapperId).HasMaxLength(200);
                 b.Property(p => p.HandlerId).HasMaxLength(200);
+                b.Property(p => p.ReceiverVersion).HasMaxLength(50);
+                b.Property(p => p.ValidatorVersion).HasMaxLength(50);
+                b.Property(p => p.MapperVersion).HasMaxLength(50);
+                b.Property(p => p.HandlerVersion).HasMaxLength(50);
                 b.Property(p => p.ReceiverId).HasMaxLength(200);
                 b.Property(p => p.ValidatorId).HasMaxLength(200);
 
@@ -301,8 +375,8 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.InputName).HasMaxLength(200);
                 b.Property(p => p.MapperId).HasMaxLength(200);
                 b.Property(p => p.HandlerId).HasMaxLength(200);
-                b.Property(p => p.HandlerProperties).HasColumnType("jsonb");
-                b.Property(p => p.MapperProperties).HasColumnType("jsonb");
+                b.Property(p => p.HandlerProperties).EncryptedJsonb();
+                b.Property(p => p.MapperProperties).EncryptedJsonb();
                 b.Property(p => p.SourceValues).HasColumnType("jsonb");
                 b.Property(p => p.SourceXchangeId).HasMaxLength(50);
                 b.Property(p => p.InputContentType).HasMaxLength(200);
@@ -335,19 +409,25 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.ResponseContentType).HasMaxLength(200);
                 b.Property(p => p.OutputContentType).HasMaxLength(200);
                 b.Property(p => p.RetryBlockedReason).HasMaxLength(500);
+                b.Property(p => p.Warning).HasMaxLength(XchangeResult.WarningMaxLength);
                 b.Property(p => p.RetryGroupId);
                 b.Property(p => p.AttemptNumber);
                 b.HasIndex(p => p.RetryGroupId);
+                b.Property(p => p.NodeName).HasMaxLength(100);
+                b.Property(p => p.MapperVersion).HasMaxLength(50);
+                b.Property(p => p.HandlerVersion).HasMaxLength(50);
+                // A subscription's latest result: what auto-pause counts from.
+                b.HasIndex(p => new { p.SubscriptionId, p.FinishedOn }).IsCreatedConcurrently();
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });
 
-            modelBuilder.Entity<XchangeDelivery>(b =>
+            modelBuilder.Entity<XchangeRetryClaim>(b =>
             {
-                //b.ToTable("XchangeDeliveries");
+                //b.ToTable("XchangeRetryClaims");
                 b.Property(p => p.Id).HasMaxLength(50);
-                b.HasIndex(i => i.DeliveredOn);
-                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeDelivery>(p => p.Id)
+                b.Property(p => p.RetryXchangeId).HasMaxLength(50).IsRequired();
+                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeRetryClaim>(p => p.Id)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
@@ -372,18 +452,54 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 // No b-tree on PropertiesRaw. The only query on it is the Exchanges page's substring
                 // search, a leading-wildcard LIKE no b-tree can serve (Postgres has a trigram index
                 // for it, PromotedPropertiesTrigramIndex). Having one made long values fail the
-                // save — after the delivery, so the retry delivered again — and it is what had
+                // save - after the delivery, so the retry delivered again - and it is what had
                 // capped the column at 450 characters on SQL Server and 255 on MySQL.
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.Id)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // hstore by convention, so encrypted value by value rather than as one JSON document.
+            modelBuilder.Entity<DataSource>(b =>
+                b.Property(p => p.Properties).EncryptedValues().HasColumnType("hstore"));
+
+            modelBuilder.Entity<Domain.Connections.Connection>(c =>
+            {
+                c.ToTable("Connections");
+                c.Property(p => p.Id).ValueGeneratedOnAdd();
+                c.Property(p => p.Name).IsRequired().HasMaxLength(100).IsUnicode(false);
+                c.HasIndex(p => p.Name).IsUnique();
+                c.Property(p => p.Grant).HasConversion<int>();
+                c.Property(p => p.Status).HasConversion<int>();
+                c.Property(p => p.AuthorizeUrl).HasMaxLength(1000);
+                c.Property(p => p.TokenUrl).HasMaxLength(1000);
+                c.Property(p => p.ClientId).HasMaxLength(500);
+                c.Property(p => p.ClientSecret).EncryptedText();
+                c.Property(p => p.Scopes).HasMaxLength(2000);
+                c.Property(p => p.AuthorizeParameters).HasMaxLength(2000);
+                c.Property(p => p.TokenAuth).HasMaxLength(20).IsUnicode(false);
+                c.Property(p => p.Username).HasMaxLength(500);
+                c.Property(p => p.Password).EncryptedText();
+                c.Property(p => p.RefreshToken).EncryptedText();
+                c.Property(p => p.AccessToken).EncryptedText();
+                c.Property(p => p.LastError).HasMaxLength(2000);
+                c.Property(p => p.AuthorizedBy).HasMaxLength(200);
             });
 
             modelBuilder.Entity<Notifier>(b =>
             {
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
-                b.Property(p => p.HandlerProperties).StoreAsJson();
+                b.Property(p => p.HandlerProperties).StoreAsJson().Encrypted();
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
+            });
+
+            modelBuilder.Entity<NotificationChannel>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Name).HasMaxLength(100).IsRequired();
+                b.HasIndex(p => p.Name).IsUnique();
+                b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false).IsRequired();
+                b.Property(p => p.HandlerProperties).StoreAsJson().Encrypted();
             });
 
             modelBuilder.Entity<XchangeNotification>(b =>
@@ -392,6 +508,10 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.XchangeId).IsUnicode(false).HasMaxLength(50);
                 // Retention deletes an exchange's notifications by exchange id.
                 b.HasIndex(p => p.XchangeId);
+                // The quiet window looks up a notifier's recent sends.
+                b.HasIndex(p => new { p.NotifierId, p.FinishedOn });
+                // And a channel's.
+                b.HasIndex(p => new { p.ChannelId, p.FinishedOn });
             });
 
             modelBuilder.Entity<Account>(b =>
@@ -407,6 +527,8 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
 
                 b.Property(p => p.EmailProvider).HasConversion<byte>();
                 b.Property(p => p.LoginMethods).HasConversion<byte>();
+                // Added with service accounts; every account before them is a person (0).
+                b.Property(p => p.Kind).HasConversion<byte>();
 
                 b.HasData(
                     new
@@ -421,6 +543,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                         Disabled = false,
                         Password = defaultPasswordHash,
                         Role = AccountRole.Admin,
+                        Kind = AccountKind.Person,
                         FailedLoginCount = 0,
                         // True for a fresh installation, whose password is the published default.
                         // Installations that already exist are handled by the migration, which
@@ -438,6 +561,36 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.AccountId);
                 b.Property(p => p.LoginMethod).HasConversion<byte>();
+            });
+
+            modelBuilder.Entity<ServiceToken>(b =>
+            {
+                b.ToTable("ServiceTokens");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasOne<Account>().WithMany().HasForeignKey(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
+
+                b.Property(p => p.Name).IsRequired().HasMaxLength(100);
+                b.Property(p => p.Hash).IsRequired().IsUnicode(false).HasMaxLength(64);
+                b.Property(p => p.Shown).IsRequired().IsUnicode(false).HasMaxLength(20);
+                b.Property(p => p.RevokedBy).HasMaxLength(200);
+                b.Property(p => p.LastUsedFrom).IsUnicode(false).HasMaxLength(64);
+                // Every sign-in looks a token up by its hash.
+                b.HasIndex(p => p.Hash).IsUnique();
+            });
+
+            modelBuilder.Entity<AccountLink>(b =>
+            {
+                b.ToTable("AccountLinks");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasOne<Account>().WithMany().HasForeignKey(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
+
+                b.Property(p => p.Purpose).HasConversion<byte>();
+                b.Property(p => p.Hash).IsRequired().IsUnicode(false).HasMaxLength(64);
+                b.Property(p => p.EmailError).HasMaxLength(500);
+                // A link is looked up by its hash when it is opened.
+                b.HasIndex(p => p.Hash).IsUnique();
             });
 
             modelBuilder.Entity<Role>(b =>
@@ -471,7 +624,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(200);
             });
 
-            // ——— Audit trail ———
+            // --- Audit trail ---
             // A table that only ever grows and is only ever appended to. The indexes answer the two
             // questions asked of it: the history of one row, and everything one save changed.
             modelBuilder.Entity<AuditEntry>(b =>
@@ -497,7 +650,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.Name).IsRequired().HasMaxLength(200);
                 b.Property(p => p.AlertHandlerId).HasMaxLength(200);
-                b.Property(p => p.AlertHandlerProperties).StoreAsJson();
+                b.Property(p => p.AlertHandlerProperties).StoreAsJson().Encrypted();
                 b.Property(p => p.Groups).HasConversion(
                     groups => JsonSerializer.Serialize(groups, _polymorphicOpts),
                     json => JsonSerializer.Deserialize<List<RetryGroup>>(json, _polymorphicOpts)!,
@@ -517,6 +670,11 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                     cp => cp == null ? null : JsonSerializer.Serialize(cp, _polymorphicOpts),
                     json => json == null ? null : JsonSerializer.Deserialize<CustomRetryPolicy>(json, _polymorphicOpts)
                 );
+                b.Property(s => s.ExpectTraffic).HasConversion(
+                    e => e == null ? null : JsonSerializer.Serialize(e, _polymorphicOpts),
+                    json => json == null ? null : JsonSerializer.Deserialize<ExpectTraffic>(json, _polymorphicOpts)
+                );
+                b.Property(s => s.Notifications).StoreAsJson();
             });
 
             modelBuilder.Entity<DelayedRetry>(b =>
@@ -524,6 +682,81 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.HasKey(p => p.Id);
                 b.Property(p => p.Id).HasMaxLength(50);
                 b.HasIndex(p => p.On);
+            });
+
+            modelBuilder.Entity<IdempotencyKey>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Scope).IsRequired().HasMaxLength(200);
+                b.Property(p => p.Key).IsRequired().HasMaxLength(200);
+                b.Property(p => p.XchangeId).IsRequired().IsUnicode(false).HasMaxLength(50);
+                b.HasIndex(p => new { p.Scope, p.Key }).IsUnique();
+                b.HasIndex(p => p.CreatedOn);
+            });
+
+            modelBuilder.Entity<OutboxMessage>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.MessageType).IsRequired().HasMaxLength(500);
+                b.Property(p => p.Body).IsRequired();
+                b.Property(p => p.Headers).StoreAsJson();
+                b.Property(p => p.LastError).HasMaxLength(2000);
+                // What the dispatcher looks for: rows not yet published. Published rows are deleted
+                // now, so the rows it covers are the only ones there normally are.
+                b.HasIndex(p => p.CreatedOn).HasFilter("published_on IS NULL").IsCreatedConcurrently();
+            });
+
+            modelBuilder.Entity<AdapterDraft>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.AdapterId).HasMaxLength(200).IsUnicode(false).IsRequired();
+                b.Property(p => p.Language).HasMaxLength(20).IsUnicode(false).IsRequired();
+                b.Property(p => p.Kind).HasMaxLength(20).IsUnicode(false);
+                b.Property(p => p.BaseVersion).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.FilesJson).IsRequired();
+                b.Property(p => p.FilesHash).HasMaxLength(64).IsUnicode(false).IsRequired();
+                b.Property(p => p.CreatedBy).HasMaxLength(200);
+                b.Property(p => p.ModifiedBy).HasMaxLength(200);
+                b.HasIndex(p => p.AdapterId);
+            });
+
+            modelBuilder.Entity<AdapterRelease>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.AdapterId).HasMaxLength(200).IsUnicode(false).IsRequired();
+                b.Property(p => p.Version).HasMaxLength(50).IsUnicode(false).IsRequired();
+                b.Property(p => p.Action).HasMaxLength(20).IsUnicode(false).IsRequired();
+                b.Property(p => p.AccountId).HasMaxLength(100).IsUnicode(false);
+                b.HasIndex(p => new { p.AdapterId, p.OccurredOn });
+            });
+
+            modelBuilder.Entity<AdapterSourceAccess>(b =>
+            {
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.AdapterId).HasMaxLength(200).IsUnicode(false).IsRequired();
+                b.Property(p => p.Version).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.Path).HasMaxLength(500);
+                b.Property(p => p.AccountId).HasMaxLength(100).IsUnicode(false);
+                b.HasIndex(p => new { p.AdapterId, p.OccurredOn });
+            });
+
+            modelBuilder.Entity<SubscriptionRevision>(b =>
+            {
+                //b.ToTable("SubscriptionRevisions");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Snapshot).IsRequired();
+                b.Property(p => p.SavedBy).HasMaxLength(200);
+                b.HasIndex(p => new { p.SubscriptionId, p.Number }).IsUnique();
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.SubscriptionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<DuplicateArrival>(b =>
+            {
+                //b.ToTable("DuplicateArrivals");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.OriginalXchangeId).HasMaxLength(50).IsRequired();
+                b.HasIndex(p => new { p.DocumentId, p.OccurredOn });
             });
 
             modelBuilder.Entity<ReceiveAttempt>(b =>
@@ -545,7 +778,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.HasKey(p => new { p.SubscriptionId, p.GroupId });
                 b.Property(p => p.AlertMode).HasConversion<byte>();
                 b.Property(p => p.AlertHandlerId).HasMaxLength(200);
-                b.Property(p => p.AlertHandlerProperties).StoreAsJson();
+                b.Property(p => p.AlertHandlerProperties).StoreAsJson().Encrypted();
             });
 
             modelBuilder.UseSchedulerPostgreSql(Schema);

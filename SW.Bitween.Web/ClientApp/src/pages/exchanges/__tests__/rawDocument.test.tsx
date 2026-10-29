@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { apiPath, renderApp } from "../../../__tests__/support/renderApp";
@@ -75,6 +75,9 @@ function openExchanges(documents: Record<string, string | typeof EXPIRED_FILE> =
       http.get(apiPath("/subscriptions"), () => HttpResponse.json(NONE)),
       http.get(apiPath("/partners"), () => HttpResponse.json(NONE)),
       http.get(apiPath("/documents"), () => HttpResponse.json(NONE)),
+      http.get(apiPath("/xchanges/summary"), () =>
+        HttpResponse.json({ counts: { processing: 0, success: 0, badResponse: 0, failed: 1 }, buckets: [], bucketMinutes: 0 }),
+      ),
     ],
   });
 }
@@ -83,12 +86,12 @@ describe("an exchange's document", () => {
   it("shows the bytes as they arrived, uncoloured, under Raw", async () => {
     // The Raw toggle's whole promise is that nothing has been done to the document. Colour is a
     // claim about its structure, and the pane was making that claim on both sides of the
-    // toggle — including for a payload that never parsed, where the parts a grammar still
+    // toggle - including for a payload that never parsed, where the parts a grammar still
     // recognises would come out looking fine.
     const { user } = openExchanges();
 
-    const row = (await screen.findAllByRole("row"))[1];
-    await user.click(within(row).getAllByRole("cell").at(-1)!);
+    // A link to one exchange opens it: nothing to click.
+    await screen.findByRole("complementary", { name: `Exchange ${EXCHANGE_ID}` });
     // The drawer opens on the furthest stage with a document, which here is the mapped one.
     // Raw is a promise about what arrived, so ask for that.
     await user.click(screen.getByTitle("Show the Input document"));
@@ -107,13 +110,10 @@ describe("an exchange's document", () => {
 
   it("says a file was deleted by the retention policy rather than that it failed", async () => {
     let asked = 0;
-    const { user } = openExchanges({ ...DOCUMENTS, "out-1": EXPIRED_FILE } as never);
+    openExchanges({ ...DOCUMENTS, "out-1": EXPIRED_FILE } as never);
     server.events.on("request:start", ({ request }) => {
       if (request.url.includes("documentKey=out-1")) asked++;
     });
-
-    const row = (await screen.findAllByRole("row"))[1];
-    await user.click(within(row).getAllByRole("cell").at(-1)!);
 
     // The drawer opens on the mapped stage, whose file the bucket has already deleted.
     expect(await screen.findByText(EXPIRED)).toBeVisible();

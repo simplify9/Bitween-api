@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { ADMIN, apiPath, renderApp } from "../../../__tests__/support/renderApp";
@@ -89,7 +89,7 @@ describe("the member list", () => {
     // holds the write itself.
     await expect.poll(() => row("on.leave@test.local").textContent).toContain("Disabled");
 
-    // A disabled account keeps its roles and history but must not be able to sign in — that
+    // A disabled account keeps its roles and history but must not be able to sign in - that
     // refusal is the server's, and LoginTests.A_disabled_account_cannot_sign_in holds it.
 
     await user.click(panel.getByRole("button", { name: "Re-enable account" }));
@@ -124,7 +124,7 @@ describe("the member list", () => {
     expect(panel.queryByRole("button", { name: "Remove from team" })).not.toBeInTheDocument();
     expect(panel.queryByRole("button", { name: "Disable account" })).not.toBeInTheDocument();
 
-    // Dropping the role is offered, but the server refuses it — and says why.
+    // Dropping the role is offered, but the server refuses it - and says why.
     await user.click(role);
     await user.click(panel.getByRole("button", { name: "Save roles" }));
     expect(await panel.findByText(/only member with the Administrator role/i)).toBeVisible();
@@ -139,8 +139,9 @@ describe("the member list", () => {
     const search = await screen.findByLabelText("Search members");
     await screen.findByRole("row", { name: /findable@test.local/ });
     await user.type(search, "Findable");
+    // The search runs once typing pauses.
+    await waitFor(() => expect(screen.queryByRole("row", { name: new RegExp(ADMIN.email) })).not.toBeInTheDocument());
     expect(row("findable@test.local")).toBeVisible();
-    expect(screen.queryByRole("row", { name: new RegExp(ADMIN.email) })).not.toBeInTheDocument();
 
     await user.clear(search);
     await user.click(screen.getByRole("button", { name: "Disabled" }));

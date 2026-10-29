@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 namespace SW.Bitween.Resources.DataSourceStatements;
 
 /// <summary>
-/// Not just how many, but WHICH — with the slot and the operation, so "can I change this?" is
+/// Not just how many, but WHICH - with the slot and the operation, so "can I change this?" is
 /// answerable without opening every subscription bound to the connection.
 /// </summary>
 [HandlerName("usage")]

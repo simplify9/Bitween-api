@@ -11,13 +11,20 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween;
 
-public record AggregationJobParams(int SubscriptionId, string? CronExpression);
+/// <param name="Correlation">The roll-up's correlation id: a mirror's rehearsal names one, so the roll-up runs as its traffic.</param>
+/// <param name="InputPrefix">
+/// Only exchanges whose correlation starts with it are rolled up: a mirror's test rolls up what tests ran,
+/// never staging's own exchanges. Null rolls up every one waiting.
+/// </param>
+public record AggregationJobParams(int SubscriptionId, string? CronExpression, string? Correlation = null, string? InputPrefix = null);
 
 [ScheduleConfig(AllowConcurrentExecution = false, MisfireInstructions = MisfireInstructions.Skip)]
 public class AggregationJob(
     BitweenDbContext dbContext,
+    RunFlagUpdater runFlagUpdater,
     XchangeService xchangeService,
-    ILogger<AggregationJob> logger) : IScheduledJob<AggregationJobParams>
+    ILogger<AggregationJob> logger,
+    BitweenOptions options = null) : IScheduledJob<AggregationJobParams>
 {
     public async Task Execute(AggregationJobParams jobParams)
     {
@@ -25,11 +32,37 @@ public class AggregationJob(
             .FirstOrDefaultAsync(s => s.Id == jobParams.SubscriptionId && !s.Inactive);
 
         if (aggSub == null) return;
+        if (Services.Mirror.MirrorTraffic.HoldsScheduledRun(options, aggSub, jobParams.CronExpression))
+        {
+            // Held, but its next run still moves on, so its page doesn't show one in the past.
+            try { aggSub.SetSchedules(); await dbContext.SaveChangesAsync(); }
+            catch (BitweenException) { }
+            return;
+        }
+
+        // Quartz runs each fire once across the cluster, but each schedule of a subscription and each
+        // "aggregate now" is a job of its own, so two runs of one aggregation can still overlap, on one
+        // replica or two. Only one roll-up could be saved (an exchange is rolled up once), so the other
+        // run failed and was logged as an error. Claimed as a receiver is, the other run steps aside.
+        if (!await runFlagUpdater.MarkAsRunning(aggSub.Id)) return;
+        try
+        {
+            await RollUpAsync(aggSub, jobParams.Correlation, jobParams.InputPrefix);
+        }
+        finally
+        {
+            // Released after the roll-up is saved, so a run that starts next sees it.
+            await runFlagUpdater.MarkAsIdle(aggSub.Id);
+        }
+    }
+
+    async Task RollUpAsync(Subscription aggSub, string correlationId, string inputPrefix)
+    {
 
         var startedOn = DateTime.UtcNow;
         // Decided as the run goes and written once at the end. Recording inside both the try
         // and the catch wrote two rows for a single run whenever something threw after the
-        // roll-up was already built — SetSchedules does exactly that on an aggregation that
+        // roll-up was already built - SetSchedules does exactly that on an aggregation that
         // somehow has no schedule.
         var outcome = ReceiveOutcome.NoNewData;
         string errorMessage = null;
@@ -43,9 +76,13 @@ public class AggregationJob(
                 join agg in dbContext.Set<XchangeAggregation>() on xchange.Id equals agg.Id into xa
                 from agg in xa.DefaultIfEmpty()
                 where result.Success == true && agg == null &&
-                      xchange.SubscriptionId == aggSub.AggregationForId && !aggSub.Inactive
+                      xchange.SubscriptionId == aggSub.AggregationForId && !aggSub.Inactive &&
+                      (inputPrefix == null || xchange.CorrelationId.StartsWith(inputPrefix))
+                orderby xchange.StartedOn
                 select new { xchange.Id, xchange.FilesPrefix };
 
+            // Oldest first: without an order, a backlog over the limit was rolled up in whatever order
+            // the database returned, and the same old exchanges could wait run after run.
             var targetXchangeList = await xchangeQuery.Take(10000).ToListAsync();
 
             if (targetXchangeList.Count > 0)
@@ -55,7 +92,7 @@ public class AggregationJob(
                 var urlList = targetXchangeList.Select(x =>
                     xchangeService.AdapterFileUrl(x.Id, x.FilesPrefix, aggSub.AggregationTarget)).ToList();
                 var xchangeAggregationFile = new XchangeFile(JsonConvert.SerializeObject(urlList));
-                var aggXchange = await xchangeService.CreateXchange(aggSub, xchangeAggregationFile);
+                var aggXchange = await xchangeService.CreateXchange(aggSub, xchangeAggregationFile, correlationId: correlationId);
                 dbContext.Add(aggXchange);
                 targetXchangeList.ForEach(x => dbContext.Add(new XchangeAggregation(x.Id, aggXchange.Id)));
                 outcome = ReceiveOutcome.Received;
@@ -75,7 +112,7 @@ public class AggregationJob(
             // that is bookkeeping, and calling the run failed would misreport delivered work.
             // The error is kept on the attempt either way, and on the integration's health.
             if (createdExchangeIds.Length == 0) outcome = ReceiveOutcome.Failed;
-            logger.LogError(ex, "Error processing aggregation for subscription {SubscriptionId}", jobParams.SubscriptionId);
+            logger.LogError(ex, "Error processing aggregation for subscription {SubscriptionId}", aggSub.Id);
         }
 
         RecordAttempt(aggSub.Id, startedOn, outcome, errorMessage, createdExchangeIds);

@@ -58,11 +58,20 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<int>("FailedLoginCount")
                         .HasColumnType("int");
 
+                    b.Property<byte>("Kind")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<DateTime?>("LastSignInOn")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<DateTime?>("LockoutEnd")
                         .HasColumnType("datetime(6)");
 
                     b.Property<byte>("LoginMethods")
                         .HasColumnType("tinyint unsigned");
+
+                    b.Property<string>("MicrosoftIdentity")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("ModifiedBy")
                         .HasColumnType("longtext");
@@ -72,6 +81,9 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<bool>("MustChangePassword")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("OidcIdentity")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Password")
                         .HasMaxLength(500)
@@ -99,11 +111,55 @@ namespace SW.Bitween.MySql.Migrations
                             Email = "admin@Bitween.systems",
                             EmailProvider = (byte)0,
                             FailedLoginCount = 0,
+                            Kind = (byte)0,
                             LoginMethods = (byte)2,
                             MustChangePassword = true,
                             Password = "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ",
                             Role = 0
                         });
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountLink", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("EmailError")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime?>("EmailedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("ExpiresOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<byte>("Purpose")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("Hash")
+                        .IsUnique();
+
+                    b.ToTable("AccountLinks", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountRoleLink", b =>
@@ -136,6 +192,9 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<byte>("LoginMethod")
                         .HasColumnType("tinyint unsigned");
+
+                    b.Property<DateTime?>("SupersededOn")
+                        .HasColumnType("datetime(6)");
 
                     b.HasKey("Id");
 
@@ -216,6 +275,234 @@ namespace SW.Bitween.MySql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.ServiceToken", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("AccountId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("ExpiresOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("LastUsedFrom")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<DateTime?>("LastUsedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("RevokedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("RevokedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Shown")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AccountId");
+
+                    b.HasIndex("Hash")
+                        .IsUnique();
+
+                    b.ToTable("ServiceTokens", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.AdapterDraft", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AdapterId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("BaseVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("CreatedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("FilesHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
+                    b.Property<string>("FilesJson")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Kind")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Language")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdapterId");
+
+                    b.ToTable("AdapterDrafts", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.AdapterRelease", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AccountId")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("AdapterId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int?>("DraftId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("OccurredOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Version")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdapterId", "OccurredOn");
+
+                    b.ToTable("AdapterReleases", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.AdapterSourceAccess", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AccountId")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("AdapterId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime>("OccurredOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Path")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("Version")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AdapterId", "OccurredOn");
+
+                    b.ToTable("AdapterSourceAccesses", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.ApiKeyUse", b =>
+                {
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("KeyName")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime>("LastUsedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("PartnerId", "KeyName");
+
+                    b.ToTable("ApiKeyUses", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.AuditEntry", b =>
                 {
                     b.Property<string>("Id")
@@ -290,6 +577,149 @@ namespace SW.Bitween.MySql.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("ClusterLeases", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Cluster.ClusterNode", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<bool>("DataSources")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Host")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime>("LastSeenOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int?>("OutboxPublishedLastHour")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResidentHealth")
+                        .HasMaxLength(4000)
+                        .HasColumnType("varchar(4000)");
+
+                    b.Property<string>("Runtimes")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<DateTime>("StartedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Version")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LastSeenOn");
+
+                    b.ToTable("ClusterNodes", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Connections.Connection", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AccessToken")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("AccessTokenExpiresOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("AuthorizeParameters")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<string>("AuthorizeUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("AuthorizedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime?>("AuthorizedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ClientId")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<string>("ClientSecret")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Grant")
+                        .HasColumnType("int");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Password")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("RefreshToken")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("RenewingUntil")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Scopes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TokenAuth")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("TokenUrl")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<string>("Username")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Connections", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.DataSources.AdapterState", b =>
@@ -509,6 +939,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<DateTime>("On")
                         .HasColumnType("datetime(6)");
 
+                    b.Property<int>("RunFailures")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("On");
@@ -543,6 +976,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<int>("DocumentFormat")
                         .HasColumnType("int");
 
+                    b.Property<bool>("DropDuplicates")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<int>("DuplicateInterval")
                         .HasColumnType("int");
 
@@ -557,6 +993,9 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<DateTime?>("RetiredOn")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("ValidationSchema")
+                        .HasColumnType("longtext");
 
                     b.HasKey("Id");
 
@@ -577,10 +1016,44 @@ namespace SW.Bitween.MySql.Migrations
                             Id = 10001,
                             BusEnabled = false,
                             DocumentFormat = 0,
+                            DropDuplicates = false,
                             DuplicateInterval = 0,
                             Name = "Aggregation Document",
                             PromotedProperties = "{}"
                         });
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.DuplicateArrival", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("DocumentId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Dropped")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<DateTime>("OccurredOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("OriginalXchangeId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<int?>("PartnerId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DocumentId", "OccurredOn");
+
+                    b.ToTable("DuplicateArrivals", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Gateway.ApiGateway", b =>
@@ -599,6 +1072,9 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<int>("FailureAnswer")
+                        .HasColumnType("int");
 
                     b.Property<bool>("Inactive")
                         .HasColumnType("tinyint(1)");
@@ -790,6 +1266,335 @@ namespace SW.Bitween.MySql.Migrations
                     b.ToTable("GlobalAdapterValuesSets", (string)null);
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.IdempotencyKey", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("XchangeId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedOn");
+
+                    b.HasIndex("Scope", "Key")
+                        .IsUnique();
+
+                    b.ToTable("IdempotencyKeys", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Metrics.AdapterStats", b =>
+                {
+                    b.Property<DateTime>("Hour")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Node")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("AdapterId")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Version")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Role")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("Runtime")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<int>("Calls")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Crashes")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D0")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D1")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D2")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D3")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D4")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D5")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D6")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D7")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D8")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D9")
+                        .HasColumnType("int");
+
+                    b.Property<long>("DurationMaxMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("DurationSumMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Failures")
+                        .HasColumnType("int");
+
+                    b.Property<int>("LimitStops")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Timeouts")
+                        .HasColumnType("int");
+
+                    b.HasKey("Hour", "Node", "AdapterId", "Version", "Role", "Runtime");
+
+                    b.ToTable("AdapterStats", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Metrics.ErrorStats", b =>
+                {
+                    b.Property<DateTime>("Hour")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Node")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<string>("Scope")
+                        .HasMaxLength(20)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(20)");
+
+                    b.Property<string>("ScopeKey")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Fingerprint")
+                        .HasMaxLength(16)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(16)");
+
+                    b.Property<int>("Count")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("LastSeenOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Sample")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.HasKey("Hour", "Node", "Scope", "ScopeKey", "Fingerprint");
+
+                    b.ToTable("ErrorStats", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Metrics.ExchangeStats", b =>
+                {
+                    b.Property<DateTime>("Hour")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Node")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("BadResponse")
+                        .HasColumnType("int");
+
+                    b.Property<long>("BytesIn")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("BytesOut")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("D0")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D1")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D2")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D3")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D4")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D5")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D6")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D7")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D8")
+                        .HasColumnType("int");
+
+                    b.Property<int>("D9")
+                        .HasColumnType("int");
+
+                    b.Property<long>("DbCommands")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("DurationMaxMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("DurationSumMs")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Failed")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FailedAtHandler")
+                        .HasColumnType("int");
+
+                    b.Property<int>("FailedAtMapper")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ManualRetries")
+                        .HasColumnType("int");
+
+                    b.Property<long?>("PayloadParses")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("Retries")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Succeeded")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Total")
+                        .HasColumnType("int");
+
+                    b.HasKey("Hour", "Node", "SubscriptionId", "PartnerId");
+
+                    b.ToTable("ExchangeStats", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Metrics.QueueSnapshot", b =>
+                {
+                    b.Property<DateTime>("At")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<double>("AckRate")
+                        .HasColumnType("double");
+
+                    b.Property<int>("Consumers")
+                        .HasColumnType("int");
+
+                    b.Property<long>("DeadLetterBacklog")
+                        .HasColumnType("bigint");
+
+                    b.Property<double>("IncomingRate")
+                        .HasColumnType("double");
+
+                    b.Property<long>("QueueDepth")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("RetryBacklog")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("UnhealthyConsumers")
+                        .HasColumnType("int");
+
+                    b.HasKey("At");
+
+                    b.ToTable("QueueSnapshots", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.NotificationChannel", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("HandlerId")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("HandlerProperties")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("NotificationChannels", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Notifier", b =>
                 {
                     b.Property<int>("Id")
@@ -876,6 +1681,84 @@ namespace SW.Bitween.MySql.Migrations
                     b.ToTable("OnHoldXchanges", (string)null);
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.OperatorAction", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("AccountId")
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Action")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Detail")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<DateTime>("OccurredOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Target")
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OccurredOn");
+
+                    b.ToTable("OperatorActions", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.OutboxMessage", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ClaimedUntil")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Headers")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("LastError")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
+
+                    b.Property<string>("MessageType")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<DateTime?>("PublishedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PublishedOn", "CreatedOn");
+
+                    b.ToTable("OutboxMessages", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Partner", b =>
                 {
                     b.Property<int>("Id")
@@ -957,6 +1840,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<Guid>("GroupId")
                         .HasColumnType("char(36)");
 
+                    b.Property<int?>("AlertChannelId")
+                        .HasColumnType("int");
+
                     b.Property<string>("AlertHandlerId")
                         .HasMaxLength(200)
                         .IsUnicode(false)
@@ -1002,6 +1888,9 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("AlertChannelId")
+                        .HasColumnType("int");
 
                     b.Property<string>("AlertHandlerId")
                         .HasMaxLength(200)
@@ -1080,6 +1969,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<byte>("AggregationTarget")
                         .HasColumnType("tinyint unsigned");
 
+                    b.Property<int?>("AutoPauseAfterFailures")
+                        .HasColumnType("int");
+
                     b.Property<int?>("CategoryId")
                         .HasColumnType("int");
 
@@ -1098,6 +1990,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<int>("DocumentId")
                         .HasColumnType("int");
 
+                    b.Property<string>("ExpectTraffic")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("HandlerId")
                         .HasMaxLength(200)
                         .IsUnicode(false)
@@ -1105,6 +2000,11 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("HandlerProperties")
                         .HasColumnType("longtext");
+
+                    b.Property<string>("HandlerVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<bool>("Inactive")
                         .HasColumnType("tinyint(1)");
@@ -1123,6 +2023,11 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<string>("MapperProperties")
                         .HasColumnType("longtext");
 
+                    b.Property<string>("MapperVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
                     b.Property<string>("MatchExpression")
                         .HasColumnType("longtext");
 
@@ -1131,10 +2036,19 @@ namespace SW.Bitween.MySql.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<string>("Notifications")
+                        .HasColumnType("longtext");
+
                     b.Property<int?>("PartnerId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("PausedAutomatically")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<DateTime?>("PausedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime?>("QuietSince")
                         .HasColumnType("datetime(6)");
 
                     b.Property<DateTime?>("ReceiveOn")
@@ -1147,6 +2061,11 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("ReceiverProperties")
                         .HasColumnType("longtext");
+
+                    b.Property<string>("ReceiverVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<string>("ResponseMessageTypeName")
                         .HasMaxLength(500)
@@ -1162,6 +2081,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<bool>("RunOnBadResponses")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<DateTime?>("RunningSince")
+                        .HasColumnType("datetime(6)");
+
                     b.Property<bool>("Temporary")
                         .HasColumnType("tinyint(1)");
 
@@ -1175,6 +2097,11 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<string>("ValidatorProperties")
                         .HasColumnType("longtext");
+
+                    b.Property<string>("ValidatorVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
 
                     b.Property<int?>("WorkGroupId")
                         .HasColumnType("int");
@@ -1232,6 +2159,39 @@ namespace SW.Bitween.MySql.Migrations
                         .IsUnique();
 
                     b.ToTable("SubscriptionCategory");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.SubscriptionRevision", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("Number")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SavedBy")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<DateTime>("SavedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Snapshot")
+                        .IsRequired()
+                        .HasColumnType("longtext");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubscriptionId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("SubscriptionRevisions", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.WorkGroup", b =>
@@ -1385,23 +2345,6 @@ namespace SW.Bitween.MySql.Migrations
                     b.ToTable("XchangeAggregations", (string)null);
                 });
 
-            modelBuilder.Entity("SW.Bitween.Domain.XchangeDelivery", b =>
-                {
-                    b.Property<string>("Id")
-                        .HasMaxLength(50)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(50)");
-
-                    b.Property<DateTime>("DeliveredOn")
-                        .HasColumnType("datetime(6)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DeliveredOn");
-
-                    b.ToTable("XchangeDeliveries", (string)null);
-                });
-
             modelBuilder.Entity("SW.Bitween.Domain.XchangeNotification", b =>
                 {
                     b.Property<int>("Id")
@@ -1409,6 +2352,9 @@ namespace SW.Bitween.MySql.Migrations
                         .HasColumnType("int");
 
                     MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int?>("ChannelId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Exception")
                         .HasColumnType("longtext");
@@ -1425,6 +2371,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<bool>("Success")
                         .HasColumnType("tinyint(1)");
 
+                    b.Property<bool>("Suppressed")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("XchangeId")
                         .HasMaxLength(50)
                         .IsUnicode(false)
@@ -1433,6 +2382,10 @@ namespace SW.Bitween.MySql.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("XchangeId");
+
+                    b.HasIndex("ChannelId", "FinishedOn");
+
+                    b.HasIndex("NotifierId", "FinishedOn");
 
                     b.ToTable("XchangeNotifications", (string)null);
                 });
@@ -1470,11 +2423,32 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<int?>("AttemptNumber")
                         .HasColumnType("int");
 
+                    b.Property<int?>("ConsecutiveFailures")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("DurationMs")
+                        .HasColumnType("int");
+
                     b.Property<string>("Exception")
                         .HasColumnType("longtext");
 
                     b.Property<DateTime>("FinishedOn")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("HandlerVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("MapperVersion")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<string>("NodeName")
+                        .HasMaxLength(100)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(100)");
 
                     b.Property<bool>("OutputBad")
                         .HasColumnType("tinyint(1)");
@@ -1526,14 +2500,44 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<Guid?>("RetryGroupId")
                         .HasColumnType("char(36)");
 
+                    b.Property<int?>("SubscriptionId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("Success")
                         .HasColumnType("tinyint(1)");
+
+                    b.Property<string>("Warning")
+                        .HasMaxLength(2000)
+                        .HasColumnType("varchar(2000)");
 
                     b.HasKey("Id");
 
                     b.HasIndex("RetryGroupId");
 
+                    b.HasIndex("SubscriptionId", "FinishedOn");
+
                     b.ToTable("XchangeResults", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.XchangeRetryClaim", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime>("ClaimedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("RetryXchangeId")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("XchangeRetryClaims", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.RunFlagUpdater+RunningResult", b =>
@@ -2065,6 +3069,15 @@ namespace SW.Bitween.MySql.Migrations
                     b.ToTable("QRTZ_triggers", (string)null);
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountLink", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.AccountRoleLink", b =>
                 {
                     b.HasOne("SW.Bitween.Domain.Accounts.Account", null)
@@ -2081,6 +3094,15 @@ namespace SW.Bitween.MySql.Migrations
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Accounts.RefreshToken", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Accounts.Account", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.ServiceToken", b =>
                 {
                     b.HasOne("SW.Bitween.Domain.Accounts.Account", null)
                         .WithMany()
@@ -2202,6 +3224,10 @@ namespace SW.Bitween.MySql.Migrations
                                 .IsUnicode(false)
                                 .HasColumnType("varchar(500)");
 
+                            b1.Property<string>("KeyPrefix")
+                                .HasMaxLength(10)
+                                .HasColumnType("varchar(10)");
+
                             b1.Property<string>("Name")
                                 .IsRequired()
                                 .HasMaxLength(500)
@@ -2312,6 +3338,15 @@ namespace SW.Bitween.MySql.Migrations
                     b.Navigation("WorkGroup");
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.SubscriptionRevision", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Subscription", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Xchange", b =>
                 {
                     b.HasOne("SW.Bitween.Domain.Document", null)
@@ -2330,15 +3365,6 @@ namespace SW.Bitween.MySql.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("SW.Bitween.Domain.XchangeDelivery", b =>
-                {
-                    b.HasOne("SW.Bitween.Domain.Xchange", null)
-                        .WithOne()
-                        .HasForeignKey("SW.Bitween.Domain.XchangeDelivery", "Id")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("SW.Bitween.Domain.XchangePromotedProperties", b =>
                 {
                     b.HasOne("SW.Bitween.Domain.Xchange", null)
@@ -2353,6 +3379,15 @@ namespace SW.Bitween.MySql.Migrations
                     b.HasOne("SW.Bitween.Domain.Xchange", null)
                         .WithOne()
                         .HasForeignKey("SW.Bitween.Domain.XchangeResult", "Id")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.XchangeRetryClaim", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Xchange", null)
+                        .WithOne()
+                        .HasForeignKey("SW.Bitween.Domain.XchangeRetryClaim", "Id")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

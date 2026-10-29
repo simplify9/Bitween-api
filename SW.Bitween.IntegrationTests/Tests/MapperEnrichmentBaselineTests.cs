@@ -19,7 +19,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// <para>
 /// Partner and global values reach a Scriban template by being written <em>into the payload</em> as
 /// <c>__partner__</c> and <c>__globals__</c>. Every template in production reads them from there, so
-/// the enrichment is load-bearing behaviour rather than an implementation detail — which is why it
+/// the enrichment is load-bearing behaviour rather than an implementation detail - which is why it
 /// gets pinned before the guard that skips it for context-aware mappers is written, not after.
 /// </para>
 /// <para>
@@ -49,7 +49,7 @@ public class MapperEnrichmentBaselineTests
     /// </summary>
     /// <remarks>
     /// No handler is configured: <c>RunHandler</c> returns immediately on a null <c>HandlerId</c>,
-    /// which leaves the mapper's output as the last thing the pipeline produced — and it is already
+    /// which leaves the mapper's output as the last thing the pipeline produced - and it is already
     /// persisted, because <c>RunMapper</c> stores it as the <see cref="XchangeFileType.Output"/> file.
     /// </remarks>
     private sealed record MapperRun(string? Output, string? Exception);
@@ -115,7 +115,7 @@ public class MapperEnrichmentBaselineTests
         await xchangeService.Process("BaselineTest", $"{{\"Id\":\"{xchange.Id}\"}}");
 
         // Process swallows any failure into the XchangeResult rather than rethrowing, and only
-        // writes the Output file when the mapper actually produced one — so a mapping that blew up
+        // writes the Output file when the mapper actually produced one - so a mapping that blew up
         // has no file to read, and the reason is on the result.
         // An XchangeResult's own Id is the exchange id it belongs to.
         var result = await db.FindAsync<XchangeResult>(xchange.Id);
@@ -174,7 +174,7 @@ public class MapperEnrichmentBaselineTests
 
     /// <summary>
     /// A root-array payload is not enriched, because the enrichment only runs when the payload
-    /// parses as a <c>JObject</c> — so a template reading <c>__partner__</c> fails the exchange.
+    /// parses as a <c>JObject</c> - so a template reading <c>__partner__</c> fails the exchange.
     /// </summary>
     /// <remarks>
     /// The preview endpoint <em>does</em> inject into every element of a root array, so this mapping
@@ -195,8 +195,8 @@ public class MapperEnrichmentBaselineTests
     }
 
     /// <summary>
-    /// A payload that is valid JSON but not an object — a receiver handing back a JSON-encoded
-    /// string — is not enriched either, and fails the same way.
+    /// A payload that is valid JSON but not an object - a receiver handing back a JSON-encoded
+    /// string - is not enriched either, and fails the same way.
     /// </summary>
     /// <remarks>
     /// This is the case <c>RunMapperEnrichmentTests</c> was added for. It proves only that the
@@ -221,7 +221,7 @@ public class MapperEnrichmentBaselineTests
     /// <remarks>
     /// Deliberately does not assert that the payload is untouched. Enrichment reads <em>every</em>
     /// global values set in the database, and the fixture's database is shared across the whole
-    /// collection — so a set added by any other test would appear in this payload too. What the
+    /// collection - so a set added by any other test would appear in this payload too. What the
     /// added keys are called is pinned by the tests above; this one pins that adding them does not
     /// disturb the fields that were already there.
     /// </remarks>

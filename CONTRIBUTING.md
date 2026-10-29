@@ -269,7 +269,7 @@ dotnet test --collect:"XPlat Code Coverage"
 
 # Frontend, from SW.Bitween.Web/ClientApp
 yarn test        # unit + component tests, no backend needed
-yarn test:e2e    # end-to-end, needs the backend running on the Local profile
+yarn test:e2e    # end-to-end, against a running backend; tools/e2e.sh starts one from scratch
 ```
 
 ### Where a New Test Goes
@@ -280,7 +280,7 @@ Four layers, fastest first. Put a test in the lowest layer that can see the bug 
 |---|---|---|
 | Unit | `SW.Bitween.UnitTests` (MSTest); `ClientApp/src/**/__tests__/*.test.ts` (vitest) | Logic with no database, bus or screen: the mapping engine, transforms, schedules, parsing, the editor's reducer. |
 | Integration | `SW.Bitween.IntegrationTests` (xUnit, real Postgres and RabbitMQ in Docker) | Anything that crosses into the database, the bus, or a permission guard. |
-| Component | `ClientApp/src/**/__tests__/*.test.tsx` (vitest in jsdom, against a mock network — see `src/__tests__/support`) | What one page shows and does: which controls appear, what a click sends, how an error reads. |
+| Component | `ClientApp/src/**/__tests__/*.test.tsx` (vitest in jsdom, against a mock network - see `src/__tests__/support`) | What one page shows and does: which controls appear, what a click sends, how an error reads. |
 | End-to-end | `ClientApp/e2e` (Playwright, against the running backend) | A whole user journey through the real app, and what only a real browser can check: layout widths, drag and drop, two tabs. |
 
 An end-to-end test that asserts what the engine returns, or what one page renders, belongs a layer down: it runs far slower, and fails for reasons that have nothing to do with what it tests.
@@ -452,7 +452,11 @@ Instances of abusive, harassing, or otherwise unacceptable behavior may be repor
 
 ## 📄 License
 
-By contributing to Bitween, you agree that your contributions will be licensed under the MIT License.
+By submitting a contribution to Bitween, you agree that:
+
+- your contribution is licensed under the GNU Affero General Public License v3.0, or under the MIT License if it is in `SW.Bitween.Sdk` or a `SW.Bitween.Sample*` project;
+- you grant Simplify9 a perpetual, worldwide, royalty-free right to also license your contribution under other terms, including commercial licenses; and
+- you have the right to make the contribution (for example, your employer permits it).
 
 ---
 

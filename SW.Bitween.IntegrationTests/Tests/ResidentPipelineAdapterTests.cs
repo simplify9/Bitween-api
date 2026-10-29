@@ -15,7 +15,7 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// A RESIDENT adapter used as an ordinary pipeline adapter — a subscription's handler or mapper.
+/// A RESIDENT adapter used as an ordinary pipeline adapter - a subscription's handler or mapper.
 ///
 /// The two packaged lifecycles are published identically and differ only in their entry point, so
 /// nothing about the pipeline's contract changes. What used to happen is that the invoke path did
@@ -69,7 +69,7 @@ public class ResidentPipelineAdapterTests(BitweenFixture fixture)
     /// The distinction a single call cannot show: the SAME process serves more than one message.
     ///
     /// A classic adapter is a new process per invocation and would answer 1 every time, so a count
-    /// above 1 is the proof that the instance was kept and reused — which is the only reason to
+    /// above 1 is the proof that the instance was kept and reused - which is the only reason to
     /// make an adapter resident in the first place.
     /// </summary>
     [Fact]
@@ -95,7 +95,7 @@ public class ResidentPipelineAdapterTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// A session holds one instance across several calls, which is what a receiver depends on —
+    /// A session holds one instance across several calls, which is what a receiver depends on -
     /// Initialize, the listing and every GetFile have to reach the same place.
     /// </summary>
     [Fact]

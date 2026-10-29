@@ -28,8 +28,8 @@ namespace SW.Bitween
 
         /// <summary>
         /// Present on a token issued to an account whose password nobody has chosen. Such a token
-        /// authenticates but grants nothing, so the account can reach self-service — changing the
-        /// password — and nothing else.
+        /// authenticates but grants nothing, so the account can reach self-service - changing the
+        /// password - and nothing else.
         /// </summary>
         /// <remarks>
         /// A sign-in has to succeed for the password to be changeable at all: the change requires
@@ -40,12 +40,10 @@ namespace SW.Bitween
         public const string MustChangePasswordClaim = "bitween_must_change_password";
 
         /// <summary>
-        /// Throws unless the caller holds at least one of <paramref name="anyOf"/>. This is really a
-        /// "forbidden" — the caller is signed in and simply isn't allowed — but CqApi renders
-        /// SWForbiddenException as a 401 that's byte-identical to sending no token, so there is no
-        /// distinction to be had on the wire. The client answers a 401 by refreshing the token and
-        /// retrying once, which means every denial costs a wasted round trip. Worth revisiting if
-        /// CqApi ever maps forbidden to 403.
+        /// Throws unless the caller holds at least one of <paramref name="anyOf"/>. CqApi renders
+        /// the exception as a 401; for a signed-in caller the web host rewrites that to 403 on the
+        /// way out (see Startup), so a client can tell "not allowed" from "not signed in" and does
+        /// not spend a token refresh on a refusal.
         /// </summary>
         public static async Task EnsurePermission(this RequestContext requestContext, BitweenDbContext dbContext,
             params string[] anyOf)
@@ -81,6 +79,11 @@ namespace SW.Bitween
             // Fail closed: no identifiable account means no grants.
             if (!int.TryParse(requestContext.GetNameIdentifier(), out var accountId))
                 throw new SWUnauthorizedException("INSUFFICIENT_PERMISSIONS");
+
+            // A token outlives the account's state: disabling someone has to take effect now, not
+            // when their last token expires. Same for an account that has since been removed.
+            if (!await dbContext.Set<Account>().AnyAsync(a => a.Id == accountId && !a.Disabled && !a.Deleted))
+                return [];
 
             return await GetPermissionsOf(dbContext, accountId);
         }

@@ -5,7 +5,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.Retention;
 
 /// <summary>
-/// What retention settings someone is about to save would do, in the same shape as <see cref="Get"/> —
+/// What retention settings someone is about to save would do, in the same shape as <see cref="Get"/> -
 /// shown before the change is confirmed. Changes nothing.
 /// </summary>
 [HandlerName("preview")]

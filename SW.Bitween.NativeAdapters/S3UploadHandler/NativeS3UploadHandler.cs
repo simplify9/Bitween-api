@@ -9,7 +9,10 @@ public class NativeS3UploadHandler : INativeInfolinkHandler
 
     public async Task<XchangeFile> Handle(XchangeFile xchangeFile)
     {
-        using var cloudFiles = new CloudFilesService(new CloudFilesOptions
+        // S3CloudFilesOptions, not the base CloudFilesOptions: the S3 service casts what it is
+        // given to its own options type, so the base type failed every upload with an
+        // InvalidCastException before a byte was sent.
+        using var cloudFiles = new CloudFilesService(new S3CloudFilesOptions
         {
             AccessKeyId = _options.AccessKeyId,
             SecretAccessKey = _options.SecretAccessKey,
@@ -28,7 +31,9 @@ public class NativeS3UploadHandler : INativeInfolinkHandler
                 key = $"{_options.FolderName}/{key}";
         }
 
-        await cloudFiles.WriteTextAsync(xchangeFile.Data, new WriteFileSettings
+        // base64 for a binary payload, such as a workbook the mapper wrote, so the object is the bytes.
+        var bytes = Bytes(xchangeFile.Data, _options.DataEncoding);
+        await cloudFiles.WriteAsync(new MemoryStream(bytes), new WriteFileSettings
         {
             Key = key,
             ContentType = _options.ContentType,
@@ -36,6 +41,13 @@ public class NativeS3UploadHandler : INativeInfolinkHandler
 
         return new XchangeFile(key, xchangeFile.Filename);
     }
+
+    internal static byte[] Bytes(string data, string encoding) => (encoding ?? "utf8").ToLowerInvariant() switch
+    {
+        "base64" => Convert.FromBase64String(data ?? ""),
+        "utf8" => System.Text.Encoding.UTF8.GetBytes(data ?? ""),
+        _ => throw new ArgumentException($"Unknown DataEncoding '{encoding}'"),
+    };
 
     public string Name => "NativeS3UploadHandler";
 

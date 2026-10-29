@@ -25,6 +25,7 @@ public static class SettingsHostExtensions
             settings.ImportMissing(dbContext).GetAwaiter().GetResult();
             settings.Reload(dbContext).GetAwaiter().GetResult();
             settings.RememberLegacyDocumentPrefix(dbContext).GetAwaiter().GetResult();
+            settings.WarnAboutIgnoredConfiguration(dbContext).GetAwaiter().GetResult();
         }
         catch (Exception ex)
         {

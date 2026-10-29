@@ -19,7 +19,7 @@ public record UnattendedQueueSkip(string QueueName, string Reason);
 public record DeleteUnattendedQueuesResult(List<string> Deleted, List<UnattendedQueueSkip> Skipped);
 
 /// <summary>
-/// Deletes unattended lanes — each one's main queue and whichever of retry/bad exist — along with
+/// Deletes unattended lanes - each one's main queue and whichever of retry/bad exist - along with
 /// whatever they hold. Names are only ever matched against a fresh unattended list, never passed to
 /// the broker as given, so this can't be pointed at a queue something still uses. A lane that can't
 /// go is skipped with the reason rather than failing the rest.
@@ -71,6 +71,9 @@ public class DeleteUnattendedQueues(BrokerQueues brokerQueues,
             }
         }
 
+        if (deleted.Count > 0)
+            await dbContext.RecordNowAsync(requestContext, OperatorAction.DeleteQueues, string.Join(", ", deleted),
+                $"{deleted.Count} deleted, {skipped.Count} skipped");
         return new DeleteUnattendedQueuesResult(deleted, skipped);
     }
 }

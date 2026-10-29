@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
@@ -8,9 +8,11 @@ import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { TextInput } from "../../components/ui/forms";
 import { SearchSelect } from "../../components/ui/SearchSelect";
 import { Table } from "../../components/ui/Table";
-import { ChangedCell } from "../../components/config/shared";
+import { ActionBadge, ChangedCell } from "../../components/config/shared";
 import { formatDateTime, timeAgo } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
+import { entityLabel } from "../../lib/auditLabels";
+import { actorName, collapseMachineRuns, isRun, type MachineRun } from "../../lib/auditSummary";
 
 const PAGE_SIZE = 25;
 
@@ -39,7 +41,13 @@ const ENTITY_NAMES = [
   "Account",
   "Role",
   "AccountRoleLink",
+  "OperatorAction",
+  "AdapterDraft",
+  "AdapterRelease",
+  "AdapterSourceAccess",
 ];
+
+
 
 /** Where a recorded row lives in the UI, where it has a page of its own. */
 const ENTITY_LINK: Record<string, (key: string) => string> = {
@@ -52,12 +60,6 @@ const ENTITY_LINK: Record<string, (key: string) => string> = {
   RetryPolicy: (k) => `/retry-policies/${k}`,
   Notifier: (k) => `/notifiers/${k}`,
   Account: (k) => `/team/members/${k}`,
-};
-
-const ACTION_STYLE: Record<string, string> = {
-  Added: "bg-emerald-50 text-emerald-700",
-  Modified: "bg-amber-50 text-amber-700",
-  Deleted: "bg-rose-50 text-rose-700",
 };
 
 const readQuery = (sp: URLSearchParams): AuditQuery => ({
@@ -109,6 +111,22 @@ export function AuditPage() {
   const rows = data?.result ?? [];
   const total = data?.total ?? 0;
 
+  // The scheduler writes a job's next run back after every run; back-to-back writes like that fold
+  // into one line, opened on request, as on the History cards (see `collapseMachineRuns`).
+  const [opened, setOpened] = useState<string[]>([]);
+  const toggleRun = (id: string) =>
+    setOpened((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  const lines: { entry: (typeof rows)[number]; run?: MachineRun; inRun?: boolean }[] = collapseMachineRuns(
+    rows,
+  ).flatMap((row) =>
+    isRun(row)
+      ? [
+          { entry: row.entries[0], run: row },
+          ...(opened.includes(row.id) ? row.entries.map((entry) => ({ entry, inRun: true })) : []),
+        ]
+      : [{ entry: row }],
+  );
+
   return (
     <div>
       <PageHeader
@@ -118,7 +136,7 @@ export function AuditPage() {
           title: "What is recorded here",
           body: (
             <>
-              Every create, edit and delete of a configuration entity — subscriptions, partners,
+              Every create, edit and delete of a configuration entity - subscriptions, partners,
               information types, gateways, work groups, retry policies, notifiers, settings,
               members and roles. Exchanges and other runtime traffic are deliberately excluded:
               there are far too many of them, and they are already visible on the Exchanges page.
@@ -132,7 +150,7 @@ export function AuditPage() {
         }}
       />
 
-      {/* — filters — */}
+      {/* - filters - */}
       <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-5">
         <SearchSelect
           aria-label="Filter by entity type"
@@ -140,7 +158,7 @@ export function AuditPage() {
           clearLabel="Any entity"
           value={query.entityName ?? ""}
           onChange={(v) => setParam("entityName", v || null)}
-          options={ENTITY_NAMES.map((n) => ({ value: n, label: n }))}
+          options={ENTITY_NAMES.map((n) => ({ value: n, label: entityLabel(n) }))}
         />
         <SearchSelect
           aria-label="Filter by member"
@@ -186,7 +204,7 @@ export function AuditPage() {
           )}
           <button
             onClick={() => setSearchParams(new URLSearchParams(), { replace: true })}
-            className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[13px] font-medium text-crimson-700 hover:bg-crimson-50"
+            className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-[13px] font-medium text-ink-700 hover:bg-ink-100"
           >
             <X className="size-3.5" aria-hidden />
             Clear filters
@@ -204,50 +222,54 @@ export function AuditPage() {
         </EmptyState>
       ) : (
         <Table
-          rows={rows}
-          rowKey={(r) => r.id}
+          rows={lines}
+          rowKey={(l) => (l.run ? `run:${l.run.id}` : l.entry.id)}
           minWidth="min-w-240"
           columns={[
             {
               header: "When",
               headerTitle: "When the change was saved.",
               className: "whitespace-nowrap",
-              cell: (r) => (
+              cell: ({ entry: r, run }) => (
                 <>
-                  <span className="font-medium text-ink-800">{timeAgo(r.on)}</span>
-                  <span className="block text-xs text-ink-400">{formatDateTime(r.on)}</span>
+                  <span className="font-medium text-ink-800">
+                    {run ? "last " : ""}
+                    {timeAgo(r.on)}
+                  </span>
+                  <span className="block text-xs text-ink-500">{formatDateTime(r.on)}</span>
                 </>
               ),
             },
             {
               header: "Action",
               headerTitle: "Whether the row was created, changed or deleted.",
-              cell: (r) => (
-                <span
-                  className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${ACTION_STYLE[r.action] ?? "bg-ink-100 text-ink-600"}`}
-                >
-                  {r.action}
-                </span>
-              ),
+              cell: ({ entry: r, inRun }) =>
+                inRun ? (
+                  <span aria-hidden className="ml-3 block h-4 border-l-2 border-ink-200" />
+                ) : (
+                  <ActionBadge action={r.action} />
+                ),
             },
             {
               header: "Entity",
               headerTitle: "The kind of thing that changed, and which one.",
-              cell: (r) => {
+              cell: ({ entry: r }) => {
                 const to = ENTITY_LINK[r.entityName]?.(r.entityKey);
                 return (
                   <>
-                    <span className="block text-[13px] font-medium text-ink-800">{r.entityName}</span>
+                    <span className="block text-[13px] font-medium text-ink-800" title={r.entityName}>
+                      {entityLabel(r.entityName)}
+                    </span>
                     {to && r.action !== "Deleted" ? (
                       <Link
                         to={to}
-                        className="font-mono text-xs text-ink-500 hover:text-crimson-700 hover:underline"
+                        className="font-mono text-xs text-ink-500 hover:link"
                       >
                         {r.entityKey}
                       </Link>
                     ) : (
                       <span
-                        className="font-mono text-xs text-ink-400"
+                        className="font-mono text-xs text-ink-500"
                         title={r.action === "Deleted" ? "This row no longer exists." : undefined}
                       >
                         {r.entityKey}
@@ -261,26 +283,38 @@ export function AuditPage() {
               header: "Changed",
               headerTitle: "The fields this change touched. Open one to see the values.",
               wrap: true,
-              cell: (r) => <ChangedCell changes={r.changes} />,
+              cell: ({ entry: r }) => <ChangedCell changes={r.changes} entity={r.entityName} action={r.action} />,
             },
             {
               header: "By",
               headerTitle: "The member signed in when the change was saved.",
               wrap: true,
-              cell: (r) =>
-                r.byUserId ? (
+              cell: ({ entry: r, run }) =>
+                run ? (
+                  <span className="text-[13px] text-ink-600">
+                    {actorName(r)}, {run.entries.length} times{" "}
+                    <button
+                      type="button"
+                      onClick={() => toggleRun(run.id)}
+                      aria-expanded={opened.includes(run.id)}
+                      className="text-xs link"
+                    >
+                      {opened.includes(run.id) ? "Hide" : "Show each"}
+                    </button>
+                  </span>
+                ) : r.byUserId ? (
                   <Link
                     to={`/team/members/${r.byUserId}`}
-                    className="text-[13px] text-ink-600 hover:text-crimson-700 hover:underline"
+                    className="text-[13px] text-ink-600 hover:link"
                   >
                     {r.by}
                   </Link>
                 ) : (
                   <span
                     className="text-[13px] text-ink-500"
-                    title="No signed-in user — a scheduled job or a bus consumer."
+                    title="No signed-in user - a scheduled job or a bus consumer."
                   >
-                    {r.by}
+                    {actorName(r)}
                   </span>
                 ),
             },
@@ -288,13 +322,16 @@ export function AuditPage() {
               header: "",
               headerTitle: "Everything else the same save changed.",
               align: "right",
-              cell: (r) => (
+              // A neutral chip: it is a way into related rows, on every line, and in red it read as
+              // twenty-five warnings a page.
+              cell: ({ entry: r }) => (
                 <button
+                  type="button"
                   onClick={() => setParam("correlationId", r.correlationId)}
-                  className="text-xs font-medium text-crimson-700 hover:underline"
-                  title="Show every row this one save changed."
+                  className="rounded-md bg-ink-100 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-ink-700 hover:bg-ink-200 hover:text-ink-900"
+                  title="Show every change saved at the same moment as this one: one edit often changes several rows."
                 >
-                  Same save
+                  Saved together
                 </button>
               ),
             },
@@ -302,7 +339,7 @@ export function AuditPage() {
           footer={
             <div className="flex items-center justify-between border-t border-ink-100 px-4 py-2.5 text-[13px] text-ink-500">
               <span>
-                Showing {query.offset + 1}–{Math.min(query.offset + PAGE_SIZE, total)} of {total}
+                Showing {query.offset + 1}-{Math.min(query.offset + PAGE_SIZE, total)} of {total}
               </span>
               <span className="flex gap-1.5">
                 <Button

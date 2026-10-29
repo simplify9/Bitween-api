@@ -2,6 +2,7 @@ import type { ApiClient } from "../client";
 import {
   ApiRequestError,
   type AggregationTarget,
+  type ExpectTraffic,
   type SourcePaths,
   type Subscription,
   type SubscriptionDetail,
@@ -11,6 +12,7 @@ import {
   type SubscriptionRun,
   type SubscriptionType,
   type InformationTypeRow,
+  type MirrorListFilter,
   type NewResponseSubscriptionDraft,
   type Paged,
   type PartnerRow,
@@ -18,13 +20,16 @@ import {
   type ReceiveOutcome,
   type Schedule,
   type ScheduleHealth,
+  type SubscriptionNotification,
+  type SubscriptionRevision,
+  type SubscriptionRevisionDetail,
 } from "../types";
 import { schedulesSummary } from "../../lib/schedules";
 import { documentMethods } from "./documents";
 import { deriveStatus, exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
 import { partnerMethods } from "./partners";
-import { scanReferenceTokens } from "./references";
+import { referencesFrom, type RawReferences } from "./references";
 import { get, post, request } from "./request";
 import { buildListQuery, SEARCHY_RULE, SEARCHY_SORT } from "./searchQuery";
 import { toMatchGroup, toRawMatchExpression, type RawMatchSpec } from "./matchExpression";
@@ -36,7 +41,7 @@ import {
   type RawSchedule,
 } from "./subscriptionBody";
 
-// ——— backend shapes (camelCase over the wire) ———
+// --- backend shapes (camelCase over the wire) ---
 interface SearchyResponse<T> {
   result: T[];
   totalCount: number;
@@ -85,6 +90,8 @@ interface RawSubscription {
   mapperProperties: RawKeyAndValue[] | null;
   receiverProperties: RawKeyAndValue[] | null;
   validatorProperties: RawKeyAndValue[] | null;
+  /** List rows only: what the withheld adapter properties reference. */
+  references?: RawReferences | null;
   documentFilter: RawKeyAndValue[] | null;
   matchExpression: RawMatchSpec | null;
   workGroupId: number | null;
@@ -94,9 +101,18 @@ interface RawSubscription {
   responseSubscriptionId: number | null;
   responseMessageTypeName: string | null;
   runOnBadResponses?: boolean;
+  notifications?: SubscriptionNotification[] | null;
   receiveOn: string | null;
   aggregateOn: string | null;
   pausedOn: string | null;
+  pausedAutomatically?: boolean;
+  autoPauseAfterFailures?: number | null;
+  expectTraffic?: ExpectTraffic | null;
+  quietSince?: string | null;
+  receiverVersion?: string | null;
+  validatorVersion?: string | null;
+  mapperVersion?: string | null;
+  handlerVersion?: string | null;
   isRunning: boolean | null;
   consecutiveFailures: number;
   lastException: string | null;
@@ -129,7 +145,7 @@ const toSubscriptionType = (t: number | string): SubscriptionType =>
 
 // Empty-valued properties are dropped: an adapter property with no value means
 // "not set", and keeping it would make a freshly-cleared field compare unequal to
-// stored data that never had the key — leaving the Save bar up after an undo.
+// stored data that never had the key - leaving the Save bar up after an undo.
 const toRecord = (kvs: RawKeyAndValue[] | null): Record<string, string> =>
   Object.fromEntries((kvs ?? []).filter((kv) => kv.value !== "").map((kv) => [kv.key, kv.value]));
 
@@ -143,8 +159,8 @@ const toSchedules = (raw: RawSchedule[] | null): Schedule[] =>
   }));
 
 /**
- * When the schedule fires next. The two scheduled types keep it in different columns —
- * `ReceiveOn` for Receiving, `AggregateOn` for Aggregation — and only ever one of them is
+ * When the schedule fires next. The two scheduled types keep it in different columns -
+ * `ReceiveOn` for Receiving, `AggregateOn` for Aggregation - and only ever one of them is
  * set, so taking whichever exists lets every screen read one field.
  */
 const nextRunOf = (raw: RawSubscription): string | null => raw.receiveOn ?? raw.aggregateOn ?? null;
@@ -158,8 +174,18 @@ function toSubscription(raw: RawSubscription, idOverride?: number): Subscription
     partnerId: raw.partnerId,
     enabled: !raw.inactive,
     pausedOn: raw.pausedOn ?? null,
+    pausedAutomatically: raw.pausedAutomatically ?? false,
+    receiverVersion: raw.receiverVersion ?? null,
+    validatorVersion: raw.validatorVersion ?? null,
+    mapperVersion: raw.mapperVersion ?? null,
+    handlerVersion: raw.handlerVersion ?? null,
+    autoPauseAfterFailures: raw.autoPauseAfterFailures ?? null,
+    expectTraffic: raw.expectTraffic ?? null,
+    quietSince: raw.quietSince ?? null,
     workGroupId: raw.workGroupId ?? null,
+    categoryId: raw.categoryId ?? null,
     retryPolicyId: raw.retryPolicyId ?? null,
+    customRetryGroups: customRetryGroups(raw.customRetryPolicy),
     receiverId: raw.receiverId ?? null,
     receiverProperties: toRecord(raw.receiverProperties),
     validatorId: raw.validatorId ?? null,
@@ -174,6 +200,7 @@ function toSubscription(raw: RawSubscription, idOverride?: number): Subscription
     responseSubscriptionId: raw.responseSubscriptionId ?? null,
     responseMessageTypeName: raw.responseMessageTypeName ?? null,
     runOnBadResponses: raw.runOnBadResponses ?? false,
+    notifications: raw.notifications ?? [],
     aggregationForId: raw.aggregationForId ?? null,
     aggregationTarget: raw.aggregationTarget ?? "Input",
     isRunning: raw.isRunning ?? false,
@@ -202,6 +229,7 @@ type UpdatableFields = Partial<
     | "name"
     | "enabled"
     | "workGroupId"
+    | "categoryId"
     | "retryPolicyId"
     | "receiverId"
     | "receiverProperties"
@@ -217,7 +245,14 @@ type UpdatableFields = Partial<
     | "responseSubscriptionId"
     | "responseMessageTypeName"
     | "runOnBadResponses"
+    | "notifications"
     | "aggregationTarget"
+    | "autoPauseAfterFailures"
+    | "expectTraffic"
+    | "receiverVersion"
+    | "validatorVersion"
+    | "mapperVersion"
+    | "handlerVersion"
   >
 > & {
   /** Create this response subscription in the same save and hand the response to it. */
@@ -227,27 +262,39 @@ type UpdatableFields = Partial<
 /**
  * POST /subscriptions/{id} replaces the whole record, and Update.cs's model
  * (SubscriptionUpdate) carries several fields this UI never shows (categoryId,
- * temporary, …) — omitting them would silently reset them to their type
+ * temporary, …) - omitting them would silently reset them to their type
  * default. So every write reads the current full record first
  * and splices `changes` on top of it, mirroring writePartner()'s pattern.
  *
  * Secret adapter property values arrive masked as the literal string
  * "__private__" (Get.cs's PrivateSentinel); passed straight through unedited,
- * Update.cs's own merge logic restores the real stored value — this file
+ * Update.cs's own merge logic restores the real stored value - this file
  * never needs to know about the sentinel itself.
  */
+/** How many rule groups an inline retry policy has; null when there is none. */
+function customRetryGroups(policy: unknown): number | null {
+  if (!policy || typeof policy !== "object") return null;
+  const groups = (policy as { groups?: unknown[]; Groups?: unknown[] }).groups ?? (policy as { Groups?: unknown[] }).Groups;
+  return Array.isArray(groups) ? groups.length : 0;
+}
+
 async function applyChanges(id: number, current: RawSubscription, changes: UpdatableFields): Promise<void> {
   await post(`/subscriptions/${id}`, {
     name: changes.name ?? current.name,
     documentId: current.documentId,
     partnerId: current.partnerId,
     aggregationForId: current.aggregationForId,
-    categoryId: current.categoryId,
+    categoryId: changes.categoryId !== undefined ? changes.categoryId : current.categoryId,
     inactive: changes.enabled !== undefined ? !changes.enabled : current.inactive,
     workGroupId: changes.workGroupId !== undefined ? changes.workGroupId : current.workGroupId,
-    // This UI only ever assigns a named policy, never an inline one.
     retryPolicyId: changes.retryPolicyId !== undefined ? changes.retryPolicyId : current.retryPolicyId,
-    customRetryPolicy: null,
+    // This UI assigns named policies only. A policy written on the subscription itself, through
+    // the API, is kept unless a different named one is chosen: sending null for it, as every
+    // save used to, erased it on a rename.
+    customRetryPolicy:
+      changes.retryPolicyId !== undefined && changes.retryPolicyId !== current.retryPolicyId
+        ? null
+        : (current.customRetryPolicy ?? null),
     receiverId: changes.receiverId !== undefined ? changes.receiverId : current.receiverId,
     receiverProperties: toKvArray(changes.receiverProperties ?? toRecord(current.receiverProperties)),
     validatorId: changes.validatorId !== undefined ? changes.validatorId : current.validatorId,
@@ -266,6 +313,19 @@ async function applyChanges(id: number, current: RawSubscription, changes: Updat
     responseMessageTypeName:
       changes.responseMessageTypeName !== undefined ? changes.responseMessageTypeName : current.responseMessageTypeName,
     runOnBadResponses: changes.runOnBadResponses ?? current.runOnBadResponses ?? false,
+    // Pins carried over like the rest: left out, the update would unpin every adapter.
+    receiverVersion: changes.receiverVersion !== undefined ? changes.receiverVersion : (current.receiverVersion ?? null),
+    validatorVersion: changes.validatorVersion !== undefined ? changes.validatorVersion : (current.validatorVersion ?? null),
+    mapperVersion: changes.mapperVersion !== undefined ? changes.mapperVersion : (current.mapperVersion ?? null),
+    handlerVersion: changes.handlerVersion !== undefined ? changes.handlerVersion : (current.handlerVersion ?? null),
+    // Carried over like the rest: left out, the update would switch auto-pause off.
+    autoPauseAfterFailures:
+      changes.autoPauseAfterFailures !== undefined
+        ? changes.autoPauseAfterFailures
+        : (current.autoPauseAfterFailures ?? null),
+    // The same: left out, the update would drop the expectation. quietSince is the server's alone.
+    expectTraffic: changes.expectTraffic !== undefined ? changes.expectTraffic : (current.expectTraffic ?? null),
+    notifications: changes.notifications ?? current.notifications ?? [],
     newResponseSubscription: newResponseSubscriptionBody(changes.newResponseSubscription),
     temporary: current.temporary,
     aggregationTarget:
@@ -324,20 +384,23 @@ export const subscriptionMethods = {
       partnerIds: raw.partnerId !== null ? [raw.partnerId] : [],
       informationTypeId: raw.documentId,
       workGroupId: raw.workGroupId ?? null,
+      categoryId: raw.categoryId ?? null,
       retryPolicyId: raw.retryPolicyId ?? null,
       handlerId: raw.handlerId ?? null,
+      adapterUses: (
+        [
+          ["receiver", raw.receiverId, raw.receiverVersion],
+          ["validator", raw.validatorId, raw.validatorVersion],
+          ["mapper", raw.mapperId, raw.mapperVersion],
+          ["handler", raw.handlerId, raw.handlerVersion],
+        ] as const
+      )
+        .filter(([, adapterId]) => !!adapterId)
+        .map(([kind, adapterId, version]) => ({ kind, adapterId: adapterId!, version: version ?? null })),
       responseMessageTypeName: raw.responseMessageTypeName ?? null,
       responseSubscriptionId: raw.responseSubscriptionId ?? null,
-      // No backend endpoint indexes reference tokens, but the search rows carry
-      // every adapter property, so the scan costs nothing extra here.
-      ...scanReferenceTokens(
-        [
-          raw.receiverProperties,
-          raw.validatorProperties,
-          raw.mapperProperties,
-          raw.handlerProperties,
-        ].flatMap((props) => (props ?? []).map((p) => p.value)),
-      ),
+      // The list withholds adapter property values, so it says what they reference instead.
+      ...referencesFrom(raw.references),
     }));
   },
 
@@ -357,7 +420,10 @@ export const subscriptionMethods = {
     type: SubscriptionType | null;
     informationTypeId?: number | null;
     partnerId?: number | null;
+    categoryId?: number | null;
     inactive?: boolean | null;
+    /** On a mirror: only those prod has too, or only those whose test says this. */
+    mirror?: MirrorListFilter | null;
     offset: number;
     limit: number;
   }): Promise<Paged<SubscriptionRow>> {
@@ -367,7 +433,9 @@ export const subscriptionMethods = {
         ["Type", SEARCHY_RULE.equalsTo, query.type ?? ""],
         ["DocumentId", SEARCHY_RULE.equalsTo, query.informationTypeId ?? ""],
         ["PartnerId", SEARCHY_RULE.equalsTo, query.partnerId ?? ""],
+        ["CategoryId", SEARCHY_RULE.equalsTo, query.categoryId ?? ""],
         ["Inactive", SEARCHY_RULE.equalsTo, query.inactive == null ? "" : String(query.inactive)],
+        ["Mirror", SEARCHY_RULE.equalsTo, query.mirror ?? ""],
       ],
       sort: ["Name", SEARCHY_SORT.asc],
       offset: query.offset,
@@ -391,7 +459,7 @@ export const subscriptionMethods = {
       fetchRaw(id),
       gatewayMethods.listApiGateways(),
       gatewayMethods.listBusGateways(),
-      exchangeMethods.searchExchanges({ subscriptionId: id, offset: 0, limit: 8 }),
+      exchangeMethods.searchExchanges({ subscriptionIds: [id], offset: 0, limit: 8 }),
     ]);
     const infoType = await documentMethods.getInformationType(raw.documentId).catch(() => null);
     return {
@@ -431,11 +499,11 @@ export const subscriptionMethods = {
     type: SubscriptionType;
     name: string;
     /**
-     * Ignored for Aggregation — the backend constructor forces the built-in
+     * Ignored for Aggregation - the backend constructor forces the built-in
      * "Aggregation Document" whatever the caller sends, so there is nothing to pick.
      */
     informationTypeId: number;
-    /** Required by the types that carry their own partner — Internal, ApiCall and Aggregation. */
+    /** Required by the types that carry their own partner - Internal, ApiCall and Aggregation. */
     partnerId?: number | null;
     /** Aggregation only: whose exchanges get rolled up. Required, and fixed once created. */
     aggregationForId?: number | null;
@@ -458,10 +526,11 @@ export const subscriptionMethods = {
     responseSubscriptionId?: number | null;
     responseMessageTypeName?: string | null;
     runOnBadResponses?: boolean;
+    notifications?: SubscriptionNotification[];
     enabled?: boolean;
   }): Promise<Subscription> {
     // One call, one transaction. This used to be a POST followed by a PATCH,
-    // because create accepted only the name/type/document — and since the POST
+    // because create accepted only the name/type/document - and since the POST
     // committed on its own, a rejected PATCH left an empty subscription behind.
     const id = await post<number>("/subscriptions", {
       name: input.name,
@@ -490,6 +559,7 @@ export const subscriptionMethods = {
       responseSubscriptionId: input.responseSubscriptionId ?? null,
       responseMessageTypeName: input.responseMessageTypeName ?? null,
       runOnBadResponses: input.runOnBadResponses ?? false,
+      notifications: input.notifications ?? [],
       inactive: !(input.enabled ?? false),
     });
     return toSubscription(await fetchRaw(id), id);
@@ -510,6 +580,11 @@ export const subscriptionMethods = {
     return toSubscription(await fetchRaw(id), id);
   },
 
+  /** Clears a running flag a dead run left behind, so the next scheduled run starts. */
+  async clearRunning(id: number): Promise<{ cleared: boolean }> {
+    return post<{ cleared: boolean }>(`/subscriptions/${id}/clearrunning`, {});
+  },
+
   async receiveNow(id: number): Promise<Subscription> {
     await post(`/subscriptions/${id}/receivenow`, {});
     return toSubscription(await fetchRaw(id), id);
@@ -520,8 +595,49 @@ export const subscriptionMethods = {
     return toSubscription(await fetchRaw(id), id);
   },
 
+  listSubscriptionRevisions(id: number): Promise<SubscriptionRevision[]> {
+    return get<SubscriptionRevision[]>(`/subscriptions/history?subscriptionId=${id}`);
+  },
+
+  getSubscriptionRevision(id: number, number: number): Promise<SubscriptionRevisionDetail> {
+    return get<SubscriptionRevisionDetail>(`/subscriptions/revision?subscriptionId=${id}&number=${number}`);
+  },
+
+  /** The subscription as it reads now, raw, for comparing a revision with. */
+  async getSubscriptionConfiguration(id: number): Promise<Record<string, unknown>> {
+    return (await fetchRaw(id)) as unknown as Record<string, unknown>;
+  },
+
+  /**
+   * Saves a revision's configuration as the subscription: an ordinary save, so it is checked as
+   * any save is and becomes a revision of its own. What a save can't change, and whether the
+   * subscription is active, are kept as they are now.
+   */
+  async restoreSubscriptionRevision(id: number, number: number): Promise<void> {
+    const [current, revision] = await Promise.all([
+      fetchRaw(id),
+      get<SubscriptionRevisionDetail>(`/subscriptions/revision?subscriptionId=${id}&number=${number}`),
+    ]);
+    await post(`/subscriptions/${id}`, {
+      ...revision.configuration,
+      documentId: current.documentId,
+      partnerId: current.partnerId,
+      aggregationForId: current.aggregationForId,
+      inactive: current.inactive,
+      newResponseSubscription: null,
+    });
+  },
+
   listSubscriptionRuns(id: number, limit = 20): Promise<SubscriptionRun[]> {
     return get<SubscriptionRun[]>(`/subscriptions/runs?subscriptionId=${id}&limit=${limit}`);
+  },
+
+  getBookmark(subscriptionId: number): Promise<{ value: string | null; updatedOn: string | null }> {
+    return get<{ value: string | null; updatedOn: string | null }>(`/subscriptions/bookmark?subscriptionId=${subscriptionId}`);
+  },
+
+  async forgetBookmark(subscriptionId: number): Promise<void> {
+    await post(`/subscriptions/${subscriptionId}/forgetbookmark`, {});
   },
 
   async searchReceiveAttempts(

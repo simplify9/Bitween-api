@@ -35,7 +35,7 @@ namespace SW.Bitween.Resources.GlobalAdapterValuesSets
 
             var result = await query.Search(searchyRequest.Conditions, searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync();
 
-            // The keys stay — the reference picker offers {{globals.set.key}} from this list, and a
+            // The keys stay - the reference picker offers {{globals.set.key}} from this list, and a
             // secret you cannot point at is no use to anyone. Only the values behind them go.
             foreach (var row in result)
                 row.Values = AdapterSecretProperties.Mask(row.Values, row.SecretProperties);

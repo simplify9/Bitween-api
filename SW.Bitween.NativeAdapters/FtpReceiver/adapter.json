@@ -1,0 +1,104 @@
+{
+  "manifestVersion": 1,
+  "id": "nativeftpreceiver",
+  "displayName": "FTP / FTPS pickup",
+  "summary": "Picks up files from an FTP server, plain or over TLS (explicit or implicit FTPS), on a schedule, leaving files still being written for the next run.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "ftp",
+    "ftps",
+    "file"
+  ],
+  "categories": [
+    "Intake"
+  ],
+  "kinds": [
+    "receiver"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "Host",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "FTP server hostname."
+    },
+    {
+      "name": "Port",
+      "type": "number",
+      "description": "Server port. If empty, 990 is used for implicit FTPS and 21 otherwise."
+    },
+    {
+      "name": "Username",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "FTP account username."
+    },
+    {
+      "name": "Password",
+      "type": "text",
+      "required": true,
+      "secret": true,
+      "description": "FTP account password."
+    },
+    {
+      "name": "Encryption",
+      "type": "text",
+      "default": "none",
+      "description": "none for plain FTP, explicit for FTPS that upgrades the connection with AUTH TLS (usually port 21), or implicit for FTPS that is TLS from the start (usually port 990)."
+    },
+    {
+      "name": "CertificateThumbprint",
+      "type": "text",
+      "description": "For FTPS: the SHA-256 thumbprint of the server's certificate, in hex. When set, exactly that certificate is trusted, a self-signed one included, and any other is refused before credentials are sent. When empty, the certificate must be valid."
+    },
+    {
+      "name": "PassiveMode",
+      "type": "boolean",
+      "default": "True",
+      "description": "Passive mode, where the client opens the data connections; what almost every server behind a firewall needs. Turn off for active mode."
+    },
+    {
+      "name": "TargetPath",
+      "type": "text",
+      "description": "Remote directory to read files from."
+    },
+    {
+      "name": "BatchSize",
+      "type": "number",
+      "default": "50",
+      "description": "Maximum number of files to fetch per polling batch."
+    },
+    {
+      "name": "ResponseEncoding",
+      "type": "text",
+      "default": "utf8",
+      "description": "Encoding used to decode file contents: utf8, or base64 for binary files."
+    },
+    {
+      "name": "DeleteMovesFileTo",
+      "type": "text",
+      "description": "Folder to move a file to after it's received. If empty, the file is deleted instead."
+    },
+    {
+      "name": "CheckFileExistence",
+      "type": "boolean",
+      "default": "True",
+      "description": "Whether to verify the file still exists before attempting to delete or move it after receiving."
+    },
+    {
+      "name": "MinimumFileAgeSeconds",
+      "type": "number",
+      "default": "0",
+      "description": "Seconds a file must have gone unchanged before it is taken, so one still being uploaded is left for the next run. 0 takes every file listed."
+    }
+  ]
+}

@@ -9,13 +9,10 @@ public class RetryPolicyCreate
     public List<RetryGroup> Groups { get; set; } = [];
 
     /// <summary>
-    /// Default destination for budget-exhausted alerts, inherited by every group that does not
-    /// override it. Null means no alert unless a group or a subscription+group override sets one.
+    /// Default notification channel for budget-exhausted alerts, inherited by every group that does
+    /// not override it. Null means no alert unless a group or a subscription+group override sets one.
     /// </summary>
-    public string? AlertHandlerId { get; set; }
-
-    /// <summary>That adapter's own settings — api key, recipients, subject.</summary>
-    public Dictionary<string, string>? AlertHandlerProperties { get; set; }
+    public int? AlertChannelId { get; set; }
 }
 
 public class RetryPolicyUpdate : RetryPolicyCreate { }
@@ -46,7 +43,7 @@ public class RetryPolicyRow
 /// when a budget runs out is "did anyone get told?", and that needs both.
 /// </para>
 /// <para>
-/// A row exists for every pair, including subscriptions that have never failed — an alert override
+/// A row exists for every pair, including subscriptions that have never failed - an alert override
 /// has to be configurable before the first failure, not after. Those rows carry the group's ceiling
 /// with nothing spent against it, and a null <see cref="LastAttemptOn"/>.
 /// </para>
@@ -71,7 +68,7 @@ public class RetryGroupUsageRow
     public DateTime? LastAttemptOn { get; set; }
 
     /// <summary>
-    /// When the exhaustion alert was raised, or null if the budget still has room — or ran out
+    /// When the exhaustion alert was raised, or null if the budget still has room - or ran out
     /// before alerts existed.
     /// </summary>
     public DateTime? ExhaustedNotifiedOn { get; set; }
@@ -82,8 +79,8 @@ public class RetryGroupUsageRow
     /// <remarks>
     /// Separate from <see cref="ExhaustedNotifiedOn"/> because they are different facts:
     /// claiming the alert is what stops it firing twice, and it is claimed before the send is
-    /// attempted. A send through a customer-configured adapter can fail — a wrong password, a
-    /// refused TLS handshake — and the counter records none of that. Reporting only the claim
+    /// attempted. A send through a customer-configured adapter can fail - a wrong password, a
+    /// refused TLS handshake - and the counter records none of that. Reporting only the claim
     /// tells the reader someone was told when nobody was, which is the one thing this page
     /// must never do.
     ///
@@ -98,23 +95,13 @@ public class RetryGroupUsageRow
     /// <summary>This pair's own override mode. <c>Inherit</c> when no override row exists.</summary>
     public RetryAlertMode AlertMode { get; set; }
 
-    /// <summary>The override's handler, when it defines one. Not the resolved handler.</summary>
-    public string? OverrideHandlerId { get; set; }
+    /// <summary>The override's channel, when it defines one. Not the resolved channel.</summary>
+    public int? OverrideChannelId { get; set; }
 
-    /// <summary>That override's own settings.</summary>
-    public Dictionary<string, string>? OverrideHandlerProperties { get; set; }
+    /// <summary>The channel the alert actually goes through, or null when nothing sends for this pair.</summary>
+    public int? ResolvedChannelId { get; set; }
 
-    /// <summary>Where the alert actually goes, or null when nothing sends for this pair.</summary>
-    public string? ResolvedHandlerId { get; set; }
-
-    /// <summary>
-    /// The winning level's own settings. Carried so that overriding an inherited alert can start
-    /// from what it currently sends: an override replaces rather than merges, so a handler copied
-    /// without its properties would save an override that fails at send time.
-    /// </summary>
-    public Dictionary<string, string>? ResolvedHandlerProperties { get; set; }
-
-    /// <summary>Which level supplied <see cref="ResolvedHandlerId"/>, or null when nothing sends.</summary>
+    /// <summary>Which level supplied <see cref="ResolvedChannelId"/>, or null when nothing sends.</summary>
     public RetryAlertLevel? ResolvedFrom { get; set; }
 
     /// <summary>
@@ -185,11 +172,10 @@ public class RetryAlertOverrideSave
     public int SubscriptionId { get; set; }
     public Guid GroupId { get; set; }
     public RetryAlertMode AlertMode { get; set; }
-    public string? AlertHandlerId { get; set; }
-    public Dictionary<string, string>? AlertHandlerProperties { get; set; }
+    public int? AlertChannelId { get; set; }
 }
 
-/// <summary>Empty request body — the subject is identified by the route key.</summary>
+/// <summary>Empty request body - the subject is identified by the route key.</summary>
 public class RetryPolicyUsageRequest
 {
 }
@@ -221,10 +207,10 @@ public class RetryPolicyResetUsage
 /// </summary>
 public class TestRetryPolicyRequest
 {
-    /// <summary>The draft groups to test — not necessarily the persisted policy's groups.</summary>
+    /// <summary>The draft groups to test - not necessarily the persisted policy's groups.</summary>
     public List<RetryGroup> Groups { get; set; } = [];
 
-    /// <summary>Error or BadResult — Success is never retried and is rejected.</summary>
+    /// <summary>Error or BadResult - Success is never retried and is rejected.</summary>
     public XchangeResultType ResultType { get; set; }
 
     /// <summary>Exception text for Error, or the raw JSON response body for BadResult.</summary>

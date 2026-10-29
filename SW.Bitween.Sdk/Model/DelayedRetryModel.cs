@@ -7,6 +7,12 @@ public class DelayedRetryRow
 {
     public string Id { get; set; } = null!;
     public DateTime On { get; set; }
+
+    /// <summary>
+    /// Kept because its group's retry budget is spent: <see cref="On"/> is a placeholder, and it runs
+    /// once the subscription next succeeds or the budget is reset.
+    /// </summary>
+    public bool Held { get; set; }
     public int? SubscriptionId { get; set; }
     /// <summary>Null alongside a null SubscriptionId.</summary>
     public string? SubscriptionName { get; set; }
@@ -25,7 +31,7 @@ public class DelayedRetryRow
 
     /// <summary>
     /// The shared retry policy the subscription currently points at. Null when the
-    /// subscription carries an inline <c>CustomRetryPolicy</c> instead — a delayed retry
+    /// subscription carries an inline <c>CustomRetryPolicy</c> instead - a delayed retry
     /// can only be scheduled by one or the other, so null means "look on the subscription".
     /// Reflects the policy as it stands now, not necessarily the one that set <see cref="On"/>.
     /// </summary>

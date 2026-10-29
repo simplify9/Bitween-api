@@ -28,7 +28,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// Everything else in the external-bus feature has been exercised through an adapter started by
 /// hand. That skips the part most likely to go wrong in production, because reconciliation is not a
 /// one-shot: it runs every thirty seconds, for ever, against a database other people are editing.
-/// The failures it can produce are the expensive kind — an adapter restarted on every pass drops
+/// The failures it can produce are the expensive kind - an adapter restarted on every pass drops
 /// in-flight messages, a lease held after it was superseded means two nodes consuming one queue,
 /// and one unreachable broker taking the loop down with it stops every other integration on the
 /// node.
@@ -41,7 +41,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
 {
     /// <summary>
     /// The whole point, end to end: a row in the database becomes a live broker connection, and a
-    /// message on that broker becomes an Xchange — with nobody starting an adapter by hand.
+    /// message on that broker becomes an Xchange - with nobody starting an adapter by hand.
     /// </summary>
     [Fact]
     public async Task Reconciling_starts_the_adapter_for_an_active_data_source()
@@ -55,7 +55,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
 
         Assert.NotNull(InstanceOf(dataSourceId));
 
-        Publish(queue, """{"from":"the supervisor"}""");
+        await PublishAsync(queue, """{"from":"the supervisor"}""");
 
         var xchange = await WaitForXchangeAsync(documentId);
         Assert.NotNull(xchange);
@@ -79,7 +79,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
         var declared = await DetailsOf(dataSourceId);
         Assert.Contains(queue, string.Join(",", declared.Values));
 
-        Publish(queue, """{"routed":"by endpoint"}""");
+        await PublishAsync(queue, """{"routed":"by endpoint"}""");
         Assert.NotNull(await WaitForXchangeAsync(documentId));
     }
 
@@ -102,8 +102,8 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
         var secondDocument = await AddGatewayAsync(dataSourceId, second);
         await supervisor.ReconcileAsync();
 
-        Publish(first, """{"queue":"first"}""");
-        Publish(second, """{"queue":"second"}""");
+        await PublishAsync(first, """{"queue":"first"}""");
+        await PublishAsync(second, """{"queue":"second"}""");
 
         Assert.NotNull(await WaitForXchangeAsync(firstDocument));
         Assert.NotNull(await WaitForXchangeAsync(secondDocument));
@@ -113,7 +113,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
     /// The most consequential thing this loop does is NOTHING. Reconciliation runs every thirty
     /// seconds; if an unchanged data source were restarted each pass, every long-running consumer
     /// on the node would be torn down twice a minute and whatever it held in flight would be
-    /// redelivered. The process id is the honest witness — a restart cannot preserve it.
+    /// redelivered. The process id is the honest witness - a restart cannot preserve it.
     /// </summary>
     [Fact]
     public async Task An_unchanged_data_source_is_left_alone_across_passes()
@@ -157,6 +157,79 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
         Assert.NotEqual(before, after);
     }
 
+    /// <summary>
+    /// An adapter whose broker connection drops must be restarted: it leaves reconnecting to the
+    /// supervisor. The lab's broker came back after an outage and its data source stayed dead for
+    /// two hours, because the adapter answered every heartbeat and only the configuration was ever
+    /// compared.
+    /// </summary>
+    [Fact]
+    public async Task An_adapter_whose_connection_dropped_is_restarted()
+    {
+        var queue = Unique("sup-heal");
+        var dataSourceId = await CreateDataSourceAsync();
+        var documentId = await AddGatewayAsync(dataSourceId, queue);
+
+        var options = fixture.App.Services.GetRequiredService<BitweenOptions>();
+        var restartAfter = options.BusProviderUnhealthyRestartSeconds;
+        options.BusProviderUnhealthyRestartSeconds = 1;
+        try
+        {
+            await using var supervisor = Supervisor();
+            await supervisor.ReconcileAsync();
+            await WaitAsync(() => Task.FromResult(InstanceOf(dataSourceId) is { Connected: true }),
+                TimeSpan.FromSeconds(30), "the adapter never connected");
+            var before = InstanceOf(dataSourceId).ProcessId;
+
+            await fixture.CloseExternalRabbitConnectionsAsync();
+            await WaitAsync(() => Task.FromResult(InstanceOf(dataSourceId) is { Connected: false, ReportedState: "Disconnected" }),
+                TimeSpan.FromSeconds(30), "the adapter never reported its dropped connection");
+
+            // Unchanged, and only just unhealthy: left alone.
+            await supervisor.ReconcileAsync();
+            Assert.Equal(before, InstanceOf(dataSourceId)?.ProcessId);
+
+            await Task.Delay(TimeSpan.FromSeconds(1.5));
+            await supervisor.ReconcileAsync();
+            var after = InstanceOf(dataSourceId)?.ProcessId;
+            Assert.NotNull(after);
+            Assert.NotEqual(before, after);
+
+            await PublishAsync(queue, """{"from":"after the restart"}""");
+            Assert.NotNull(await WaitForXchangeAsync(documentId));
+        }
+        finally { options.BusProviderUnhealthyRestartSeconds = restartAfter; }
+    }
+
+    /// <summary>A healthy adapter is never restarted for being unhealthy, however often it's looked at.</summary>
+    [Fact]
+    public async Task A_connected_adapter_is_not_restarted_as_unhealthy()
+    {
+        var dataSourceId = await CreateDataSourceAsync();
+        await AddGatewayAsync(dataSourceId, Unique("sup-healthy"));
+
+        var options = fixture.App.Services.GetRequiredService<BitweenOptions>();
+        var restartAfter = options.BusProviderUnhealthyRestartSeconds;
+        options.BusProviderUnhealthyRestartSeconds = 1;
+        try
+        {
+            await using var supervisor = Supervisor();
+            await supervisor.ReconcileAsync();
+            await WaitAsync(() => Task.FromResult(InstanceOf(dataSourceId) is { Connected: true }),
+                TimeSpan.FromSeconds(30), "the adapter never connected");
+            var before = InstanceOf(dataSourceId).ProcessId;
+
+            for (var pass = 0; pass < 3; pass++)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1.2));
+                await supervisor.ReconcileAsync();
+            }
+
+            Assert.Equal(before, InstanceOf(dataSourceId)?.ProcessId);
+        }
+        finally { options.BusProviderUnhealthyRestartSeconds = restartAfter; }
+    }
+
     /// <summary>Deactivating is how an operator stops a connection without losing its configuration.</summary>
     [Fact]
     public async Task Deactivating_a_data_source_stops_its_adapter()
@@ -175,7 +248,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// Stopping is not enough — the lease has to go too. A node holding a lock on a data source
+    /// Stopping is not enough - the lease has to go too. A node holding a lock on a data source
     /// nobody is running would block whichever node later wants it, and nothing would ever
     /// release it.
     /// </summary>
@@ -202,7 +275,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
 
     /// <summary>
     /// Placement. A data source another node already owns must not be started here, or both nodes
-    /// consume the same queue and every message is processed twice — the failure this whole design
+    /// consume the same queue and every message is processed twice - the failure this whole design
     /// exists to prevent.
     /// </summary>
     [Fact]
@@ -226,16 +299,16 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
     /// lease to be superseded still believes it holds ownership; the database term is what tells it
     /// otherwise. Bumping the term stands in for that pause.
     ///
-    /// What the supervisor must do is STOP — immediately, and without draining, because another
+    /// What the supervisor must do is STOP - immediately, and without draining, because another
     /// node may already be consuming and finishing in-flight work here would process the same
     /// messages twice. The process id is the witness: it can only change if the adapter was torn
     /// down and started again.
     ///
     /// It then starts again under a new term, and that is correct rather than a miss. Losing the
-    /// term does not mean the resource is taken — it means this node's claim is no longer proof
+    /// term does not mean the resource is taken - it means this node's claim is no longer proof
     /// that it isn't. So it drops everything and asks again. Here nobody else holds the broker
     /// lock, so it legitimately wins; when another node really does hold it, the re-acquire fails
-    /// and the adapter stays down — which is what
+    /// and the adapter stays down - which is what
     /// <see cref="A_data_source_taken_over_by_another_node_is_stopped_here"/> covers.
     /// </summary>
     [Fact]
@@ -273,7 +346,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
 
     /// <summary>
     /// The handover this node is on the losing side of. Once another node holds the resource, an
-    /// adapter still running here is duplicate processing — so it has to go, even though the data
+    /// adapter still running here is duplicate processing - so it has to go, even though the data
     /// source is perfectly active and perfectly healthy.
     ///
     /// StopAsync releases the leases but leaves the supervisor's idea of what it is running intact,
@@ -318,14 +391,43 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
 
         await using var supervisor = Supervisor();
 
-        // Not "does not throw" — the pass has to complete far enough to start the good one.
+        // Not "does not throw" - the pass has to complete far enough to start the good one.
         await supervisor.ReconcileAsync();
 
         Assert.Null(InstanceOf(broken));
         Assert.NotNull(InstanceOf(healthy));
 
-        Publish(queue, """{"still":"working"}""");
+        await PublishAsync(queue, """{"still":"working"}""");
         Assert.NotNull(await WaitForXchangeAsync(documentId));
+    }
+
+    /// <summary>
+    /// A node that cannot start a data source - it can't reach the broker, say - used to keep the
+    /// lease and retry forever, so the node that could have run it never got the chance. After a
+    /// few failed starts it lets go.
+    /// </summary>
+    [Fact]
+    public async Task A_data_source_that_keeps_failing_to_start_gives_up_its_lease()
+    {
+        var broken = await CreateDataSourceAsync(adapterId: "bitween.bus.doesnotexist");
+        await AddGatewayAsync(broken, Unique("sup-yield"));
+
+        await using var supervisor = Supervisor();
+        await supervisor.ReconcileAsync();
+
+        using var other = Node();
+        Assert.Null(await other.TryAcquireAsync($"datasource.{broken}"));
+
+        await supervisor.ReconcileAsync();
+        await supervisor.ReconcileAsync();
+
+        var lease = await WaitForAcquireAsync(other, $"datasource.{broken}");
+        Assert.NotNull(lease);
+
+        // And while it waits out the pause, this node does not grab it back.
+        await supervisor.ReconcileAsync();
+        Assert.Null(InstanceOf(broken));
+        await lease!.DisposeAsync();
     }
 
     /// <summary>
@@ -383,7 +485,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
 
     /// <summary>
     /// An inactive gateway must not contribute its endpoint. Otherwise deactivating a gateway would
-    /// leave Bitween still consuming its queue and acking messages nobody routes anywhere — a
+    /// leave Bitween still consuming its queue and acking messages nobody routes anywhere - a
     /// silent drop, which is worse than an error.
     /// </summary>
     [Fact]
@@ -413,7 +515,7 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
         Assert.DoesNotContain(dead, details);
 
         // And prove it by behaviour: the live queue still works.
-        Publish(live, """{"gateway":"live"}""");
+        await PublishAsync(live, """{"gateway":"live"}""");
         Assert.NotNull(await WaitForXchangeAsync(liveDocument));
     }
 
@@ -603,28 +705,29 @@ public class BusProviderSupervisorTests(BitweenFixture fixture)
         try { await host.StopAsync(instance.AdapterId, instance.InstanceKey, drain: false); } catch { }
     }
 
-    private void Publish(string queue, string body)
+    private async Task PublishAsync(string queue, string body)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
 
-        channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
+        await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false);
 
-        var properties = channel.CreateBasicProperties();
+        var properties = new BasicProperties();
         properties.ContentType = "application/json";
         properties.MessageId = Guid.NewGuid().ToString("N");
-        properties.DeliveryMode = 2;
+        properties.DeliveryMode = DeliveryModes.Persistent;
 
-        channel.BasicPublish("", queue, properties, Encoding.UTF8.GetBytes(body));
+        await channel.BasicPublishAsync("", queue, mandatory: false, basicProperties: properties,
+            body: Encoding.UTF8.GetBytes(body));
     }
 
-    private IConnection ExternalConnection() => new ConnectionFactory
+    private Task<IConnection> ExternalConnectionAsync() => new ConnectionFactory
     {
         HostName = fixture.ExternalRabbitHost,
         Port = fixture.ExternalRabbitPort,
         UserName = fixture.ExternalRabbitUser,
         Password = fixture.ExternalRabbitPassword
-    }.CreateConnection("supervisor-tests");
+    }.CreateConnectionAsync("supervisor-tests");
 
     private async Task<Xchange> WaitForXchangeAsync(int documentId)
     {

@@ -1,0 +1,8 @@
+{
+  "id": "infolink6.handlers.pyorders",
+  "version": "1.0.0",
+  "displayName": "Python orders",
+  "summary": "Answers an order with who it went to.",
+  "runtime": "python",
+  "entry": "main.py"
+}

@@ -11,7 +11,7 @@ namespace SW.Bitween.UnitTests;
 /// </summary>
 /// <remarks>
 /// These validators are nested private classes discovered by the request pipeline, so a test that
-/// calls the handler directly never runs them — which is exactly how the handler and its validator
+/// calls the handler directly never runs them - which is exactly how the handler and its validator
 /// came to disagree. The handler was updated to take explicit role ids and treat the coarse
 /// <c>Role</c> as legacy, but the validator went on demanding <c>Role</c> unconditionally, so the
 /// payload the UI actually sends was rejected and adding a member failed outright.
@@ -20,7 +20,7 @@ namespace SW.Bitween.UnitTests;
 public class AccountCreateValidatorTests
 {
     /// <summary>
-    /// Builds the handler's nested validator. Reflection because it is private by design — the
+    /// Builds the handler's nested validator. Reflection because it is private by design - the
     /// pipeline finds it by scanning, and nothing else is meant to construct one.
     /// </summary>
     private static IValidator<CreateAccountModel> Validator(bool disableEmailPasswordLogin = false)
@@ -65,7 +65,7 @@ public class AccountCreateValidatorTests
     public void Naming_no_role_at_all_is_refused()
     {
         // The rule the original NotNull was really protecting. When Role was a plain int, omitting
-        // it sent 0 — which is Admin — so a member added with nothing ticked got the run of the
+        // it sent 0 - which is Admin - so a member added with nothing ticked got the run of the
         // instance. Neither field given has to stay a refusal.
         CollectionAssert.Contains(FailedFields(Valid()), nameof(CreateAccountModel.Role));
     }
@@ -76,7 +76,7 @@ public class AccountCreateValidatorTests
         var model = Valid();
         model.RoleIds = [];
 
-        // An empty list is not an answer — it is the absence of one, and must not slip past the
+        // An empty list is not an answer - it is the absence of one, and must not slip past the
         // guard just because the property was present.
         CollectionAssert.Contains(FailedFields(model), nameof(CreateAccountModel.Role));
     }

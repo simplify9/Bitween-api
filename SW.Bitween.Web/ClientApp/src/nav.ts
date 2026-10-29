@@ -1,37 +1,14 @@
-import {
-  Activity,
-  ArrowLeftRight,
-  BellRing,
-  Cable,
-  Database,
-  CalendarClock,
-  CornerDownLeft,
-  FileText,
-  Handshake,
-  FileStack,
-  Layers,
-  Network,
-  RefreshCw,
-  RotateCcw,
-  ScrollText,
-  Settings,
-  ShieldCheck,
-  SlidersHorizontal,
-  Users,
-  Webhook,
-  Workflow,
-  type LucideIcon,
-} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { PermissionKey, Session } from "./api";
+import { PAGES, type NavGroupId, type PageId } from "./pages";
 
 export interface NavItem {
+  id: PageId;
   label: string;
   path: string;
   icon: LucideIcon;
   /** Visible when the session holds ANY of these. */
   permissions: PermissionKey[];
-  /** True for areas that belong to a later phase of the redesign. */
-  planned?: boolean;
 }
 
 export interface NavGroup {
@@ -39,84 +16,34 @@ export interface NavGroup {
   items: NavItem[];
 }
 
+const GROUP_LABELS: Record<NavGroupId, string> = {
+  operate: "Operate",
+  subscriptions: "Subscriptions",
+  configuration: "Configuration",
+  administration: "Administration",
+};
+
 /**
- * The whole information architecture in one place. The sidebar, the
- * role editor's live access preview, and the post-login redirect all
- * derive from this registry, so they can never drift apart.
+ * The sidebar, built from the page registry (src/pages.ts): every page with a `nav` entry, in
+ * the registry's order, under its group. The role editor's live access preview and the
+ * post-login redirect read the same groups, so they can never drift apart.
  */
-export const NAV_GROUPS: NavGroup[] = [
-  {
-    label: "Operate",
-    items: [
-      { label: "Exchanges", path: "/exchanges", icon: ArrowLeftRight, permissions: ["exchanges.view"] },
+export const NAV_GROUPS: NavGroup[] = (Object.keys(GROUP_LABELS) as NavGroupId[]).map((group) => ({
+  label: GROUP_LABELS[group],
+  items: (Object.keys(PAGES) as PageId[]).flatMap((id) => {
+    const page = PAGES[id];
+    if (page.nav?.group !== group) return [];
+    return [
       {
-        label: "Scheduled retries",
-        path: "/scheduled-retries",
-        icon: RefreshCw,
-        permissions: ["exchanges.view"],
+        id,
+        label: page.title,
+        path: `/${page.path}`,
+        icon: page.nav.icon,
+        permissions: page.permission ? [page.permission, ...(page.alsoFor ?? [])] : [],
       },
-      { label: "Queue health", path: "/queue-health", icon: Activity, permissions: ["monitoring.view"] },
-    ],
-  },
-  {
-    // The overview first, then entry points — how a document gets in — then the
-    // pipelines it runs through, then who it's with. The heading names the area, not the
-    // entity: a gateway is not itself a subscription.
-    label: "Subscriptions",
-    items: [
-      { label: "API gateways", path: "/api-gateways", icon: Webhook, permissions: ["api-gateways.view"] },
-      { label: "Bus gateways", path: "/bus-gateways", icon: Cable, permissions: ["bus-gateways.view"] },
-      { label: "Scheduled jobs", path: "/scheduled-jobs", icon: CalendarClock, permissions: ["subscriptions.view"] },
-      // Directly under scheduled jobs: it is the other thing that runs on a schedule,
-      // and it collects what one of these produced.
-      { label: "Aggregations", path: "/aggregations", icon: FileStack, permissions: ["subscriptions.view"] },
-      // Last of the pipelines, because it runs on what one of the others delivered.
-      {
-        label: "Response subscriptions",
-        path: "/response-subscriptions",
-        icon: CornerDownLeft,
-        permissions: ["subscriptions.view"],
-      },
-      // After the three ways work enters, because it is the picture of how they join up
-      // rather than a fourth kind of them. Gated on the bus alone: bus messages are what
-      // carry work *between* gateways, so without that permission there is no flow to map.
-      { label: "Flow map", path: "/flow", icon: Network, permissions: ["bus-gateways.view"] },
-      { label: "All subscriptions", path: "/subscriptions", icon: Workflow, permissions: ["subscriptions.view"] },
-      { label: "Partners", path: "/partners", icon: Handshake, permissions: ["partners.view"] },
-    ],
-  },
-  {
-    label: "Configuration",
-    items: [
-      // First in Configuration, and no longer under bus gateways. It sat there while a data
-      // source could only be a broker feeding one; now it is just as often a database a
-      // subscription runs statements against, which no gateway is involved in at all. What it
-      // describes is a connection to something outside Bitween — configuration, not a pipeline.
-      { label: "Data sources", path: "/data-sources", icon: Database, permissions: ["data-sources.view"] },
-      { label: "Information types", path: "/information-types", icon: FileText, permissions: ["documents.view"] },
-      { label: "Global values", path: "/global-values", icon: SlidersHorizontal, permissions: ["global-values.view"] },
-      { label: "Work groups", path: "/work-groups", icon: Layers, permissions: ["workgroups.view"] },
-      { label: "Retry policies", path: "/retry-policies", icon: RotateCcw, permissions: ["retry-policies.view"] },
-      // Directly under retry policies: both are about what happens when something goes
-      // wrong, and a budget-exhausted alert is delivered by a notifier.
-      { label: "Notifiers", path: "/notifiers", icon: BellRing, permissions: ["notifiers.view"] },
-    ],
-  },
-  {
-    label: "Administration",
-    items: [
-      // Who can sign in, then what signing in lets them do. Two entries rather than one
-      // "Team" with tabs inside it: they are gated on different permissions, so a session
-      // that holds only one of them used to land on a page whose other half was a dead tab.
-      { label: "Members", path: "/team/members", icon: Users, permissions: ["users.view"] },
-      { label: "Roles", path: "/team/roles", icon: ShieldCheck, permissions: ["roles.view"] },
-      { label: "Settings", path: "/settings", icon: Settings, permissions: ["settings.view"] },
-      // Last in Administration: it reports on everything above it rather than configuring
-      // anything, and it is the one page whose value is that nobody can quietly change it.
-      { label: "Audit trail", path: "/audit", icon: ScrollText, permissions: ["audit.view"] },
-    ],
-  },
-];
+    ];
+  }),
+}));
 
 export const navItemVisible = (item: NavItem, permissions: PermissionKey[]) =>
   item.permissions.some((p) => permissions.includes(p));
@@ -127,11 +54,9 @@ export const visibleGroups = (permissions: PermissionKey[]): NavGroup[] =>
   );
 
 /**
- * Where to land after signing in with nowhere particular to go.
- *
- * The dashboard, which is deliberately not in the sidebar — reached from the logo — so the
- * rule below would never pick it. Landing there is the one moment it is the obviously right
- * page: you have just arrived and want to know how the system is doing before going anywhere.
+ * Where to land after signing in with nowhere particular to go: the dashboard when the session
+ * may see it - you have just arrived and want to know how the system is doing - otherwise the
+ * first page the sidebar offers.
  *
  * Signing in *to get somewhere* is a different thing and does not come through here: the guard
  * remembers the page it turned away and login returns to it, so an expired session and a link

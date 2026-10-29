@@ -44,6 +44,11 @@ public class ResetUsage(BitweenDbContext dbContext, RequestContext requestContex
             query = query.Where(u => u.GroupId == request.GroupId.Value);
 
         await query.ExecuteDeleteAsync();
+
+        // A budget put back by hand frees what was held for it, as a success would.
+        await DelayedRetry.ReleaseHeldAsync(dbContext, request.SubscriptionId is { } one
+            ? subscriptionIds.Where(id => id == one).ToList()
+            : subscriptionIds);
         return null;
     }
 }

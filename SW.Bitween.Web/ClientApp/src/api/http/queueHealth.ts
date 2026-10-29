@@ -1,5 +1,7 @@
 import type { ApiClient } from "../client";
 import type {
+  BackgroundWork,
+  DeadLetterMessage,
   QueueHealthSnapshot,
   QueueLane,
   QueueSeverity,
@@ -8,7 +10,7 @@ import type {
 } from "../types";
 import { get, post } from "./request";
 
-// ——— backend shapes (camelCase over the wire; severities are PascalCase strings) ———
+// --- backend shapes (camelCase over the wire; severities are PascalCase strings) ---
 type RawSeverity = "Info" | "Warning" | "Critical";
 interface RawSummary {
   totalConsumers: number;
@@ -36,6 +38,8 @@ interface RawConsumer {
   failedCount: number;
   priority: number;
   prefetch: number;
+  /** Older servers don't send it. */
+  concurrency?: number;
   incomingRate: number;
   ackRate: number;
   isBackpressured: boolean;
@@ -68,6 +72,11 @@ interface RawAlert {
 const toSeverity = (s: RawSeverity): QueueSeverity => (s === "Critical" ? "critical" : s === "Warning" ? "warning" : "healthy");
 
 export const queueHealthMethods = {
+  /** Bitween's own system jobs and its outbox to the broker. */
+  getBackgroundWork(): Promise<BackgroundWork> {
+    return get<BackgroundWork>("/ops/background");
+  },
+
   async getQueueHealth(): Promise<QueueHealthSnapshot> {
     const [summary, consumers, retries, deadLetters, alerts, unattended] = await Promise.all([
       get<RawSummary>("/ops/summary"),
@@ -113,6 +122,8 @@ export const queueHealthMethods = {
         failedCount: c.failedCount,
         priority: c.priority,
         prefetch: c.prefetch,
+        // A server from before parallel exchanges ran every lane one at a time.
+        concurrency: c.concurrency ?? 1,
         incomingRate: c.incomingRate,
         ackRate: c.ackRate,
         isBackpressured: c.isBackpressured,
@@ -138,7 +149,7 @@ export const queueHealthMethods = {
       })),
       unattended,
       // The frontend's alert severity is narrower ("warning"|"critical") than
-      // the backend's ("Info"|"Warning"|"Critical") — informational alerts
+      // the backend's ("Info"|"Warning"|"Critical") - informational alerts
       // aren't alerts from the UI's point of view, so drop them.
       alerts: alerts
         .filter((a) => a.severity !== "Info")
@@ -154,5 +165,16 @@ export const queueHealthMethods = {
 
   deleteUnattendedQueues(queueNames: string[]): Promise<UnattendedDeleteResult> {
     return post<UnattendedDeleteResult>("/ops/deleteunattendedqueues", { queueNames });
+  },
+
+  browseDeadLetters(queueName: string, count = 20): Promise<DeadLetterMessage[]> {
+    return get<DeadLetterMessage[]>(
+      `/ops/deadlettermessages?queue=${encodeURIComponent(queueName)}&count=${count}`,
+    );
+  },
+
+  async requeueDeadLetters(queueName: string): Promise<number> {
+    const result = await post<{ requeued: number }>("/ops/requeuedeadletters", { queue: queueName });
+    return result.requeued;
   },
 } satisfies Partial<ApiClient>;

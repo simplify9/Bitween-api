@@ -12,7 +12,7 @@ public static class StartupValuesFiller
     /// How the pipeline tells a runtime that this subscription runs through a data source, without
     /// every call site along the way having to grow a parameter for it.
     ///
-    /// Reserved, and stripped before the adapter ever sees it — the adapter's own settings come
+    /// Reserved, and stripped before the adapter ever sees it - the adapter's own settings come
     /// from the data source itself. The double-underscore convention matches the
     /// <c>__partner__</c> and <c>__globals__</c> injections the mapper already relies on.
     /// </summary>
@@ -23,7 +23,7 @@ public static class StartupValuesFiller
     ///
     /// Unlike <see cref="DataSourceIdKey"/> this is NOT stripped: the adapter reads it. A resident
     /// data source is one instance shared by every subscription pointed at it, so anything the
-    /// adapter remembers between calls — a receive cursor above all — has to be namespaced by the
+    /// adapter remembers between calls - a receive cursor above all - has to be namespaced by the
     /// reader, or two subscriptions polling one connection share one cursor and each sees half the
     /// rows. The adapter side of this contract is DbReceiver's CursorStateName.
     /// </summary>
@@ -66,8 +66,8 @@ public static class StartupValuesFiller
 
     /// <summary>
     /// Fills <c>{{source.PATH}}</c> from the values read out of the original document: the input of
-    /// the exchange whose delivery got the response this one runs on. Null values leave the tokens as they are — every exchange but
-    /// a response or bus gateway subscription's — and so does a path with no value, for
+    /// the exchange whose delivery got the response this one runs on. Null values leave the tokens as they are - every exchange but
+    /// a response or bus gateway subscription's - and so does a path with no value, for
     /// <see cref="SourcePathsIn"/> to find.
     /// </summary>
     public static Dictionary<string, string> FillSource(this Dictionary<string, string> properties,
@@ -82,6 +82,42 @@ public static class StartupValuesFiller
         .Where(v => v != null)
         .SelectMany(v => SourceToken.Matches(v).Select(m => m.Groups[1].Value))
         .Distinct();
+
+    // As permissive as the resolver below: it splits a globals token on the first dot only and
+    // restricts neither half.
+    private static readonly Regex GlobalToken = new(@"\{\{globals\.([^.}]+)\.([^}]+)\}\}", RegexOptions.IgnoreCase);
+    private static readonly Regex PartnerToken = new(@"\{\{partner\.([^}]+)\}\}", RegexOptions.IgnoreCase);
+
+    /// <summary>
+    /// The global values and partner properties <paramref name="values"/> name, by
+    /// <c>{{globals.SET.KEY}}</c> and <c>{{partner.KEY}}</c>. Names only, never what they resolve
+    /// to, so this can go where the values themselves can't.
+    /// </summary>
+    /// <remarks>
+    /// Set ids and keys are told apart ignoring case, the way the resolver looks them up, and kept
+    /// as first written.
+    /// </remarks>
+    public static Model.SubscriptionReferences ReferencesIn(IEnumerable<string> values)
+    {
+        var present = (values ?? []).Where(v => v != null).ToList();
+
+        var globals = present
+            .SelectMany(v => GlobalToken.Matches(v))
+            .GroupBy(m => m.Groups[1].Value, StringComparer.OrdinalIgnoreCase)
+            .Select(set => new Model.GlobalValuesReference
+            {
+                SetId = set.Key,
+                Keys = set.Select(m => m.Groups[2].Value).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+            })
+            .ToList();
+
+        var partnerProperties = present
+            .SelectMany(v => PartnerToken.Matches(v).Select(m => m.Groups[1].Value))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        return new Model.SubscriptionReferences { Globals = globals, PartnerProperties = partnerProperties };
+    }
 
     public static Dictionary<string, string> Fill(this IDictionary<string, string> inputTemplated,
         Partner partner, GlobalAdapterValuesSet[] globals)

@@ -18,7 +18,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 ///
 /// A broker connection is exclusive: two nodes consuming one queue is duplicate processing, which
 /// is the failure the whole external-bus design exists to prevent. So these tests are about one
-/// question — can two nodes ever believe they own the same resource at the same time?
+/// question - can two nodes ever believe they own the same resource at the same time?
 ///
 /// Each ILeaderElection instance here stands in for a NODE. They share the database and the
 /// broker, which is exactly the situation a real cluster is in.
@@ -43,7 +43,7 @@ public class LeaderElectionTests(BitweenFixture fixture)
 
     /// <summary>
     /// The race, rather than the sequence. Six nodes reaching for one resource at once must
-    /// produce exactly one winner — a lock that only works when contention is polite is not a lock.
+    /// produce exactly one winner - a lock that only works when contention is polite is not a lock.
     /// </summary>
     [Fact]
     public async Task Concurrent_nodes_produce_exactly_one_owner()
@@ -161,7 +161,7 @@ public class LeaderElectionTests(BitweenFixture fixture)
     private static string Unique(string prefix) => $"{prefix}.{Guid.NewGuid():N}"[..24];
 
     /// <summary>
-    /// A node. Each gets its own election instance, and therefore its own broker connection —
+    /// A node. Each gets its own election instance, and therefore its own broker connection -
     /// which is what makes the exclusive-queue lock meaningful between them.
     /// </summary>
     private RabbitMqLeaderElection Node() => new(

@@ -4,7 +4,7 @@ namespace SW.Bitween.Adapters.Db.MySql;
 
 /// <summary>
 /// Every setting here arrives as a DataSource property, bound by name, and the form an operator
-/// fills in is generated from these attributes — so a field added here appears in Bitween with no
+/// fills in is generated from these attributes - so a field added here appears in Bitween with no
 /// front-end change.
 ///
 /// The hints spend their weight on the two things that are genuinely MySQL's own: a database and
@@ -25,13 +25,13 @@ public class MySqlOptions : DbOptionsBase
     public int Port { get; set; } = 3306;
 
     /// <summary>
-    /// MySQL has no schema separate from the database — CREATE SCHEMA is a synonym for CREATE
-    /// DATABASE — so this one value is both, and it is what an unqualified table name resolves
+    /// MySQL has no schema separate from the database - CREATE SCHEMA is a synonym for CREATE
+    /// DATABASE - so this one value is both, and it is what an unqualified table name resolves
     /// against.
     /// </summary>
     [AdapterSetting(Required = true, Hint =
         "The database to connect to. In MySQL a database IS a schema, so this is also what an "
-        + "unqualified table name resolves against — there is no separate schema setting.")]
+        + "unqualified table name resolves against - there is no separate schema setting.")]
     public string Database { get; set; }
 
     [AdapterSetting(Required = true)]
@@ -54,7 +54,7 @@ public class MySqlOptions : DbOptionsBase
 
     [AdapterSetting(Default = "180", Hint =
         "Seconds an idle pooled connection is kept before it is closed. Keep it below the server's "
-        + "own wait_timeout — the default is 28800, but a managed instance or a proxy in front of "
+        + "own wait_timeout - the default is 28800, but a managed instance or a proxy in front of "
         + "one is often far lower, and a connection the server closed first surfaces as a broken "
         + "pipe on the next message rather than as a timeout.")]
     public int ConnectionIdleLifetimeSeconds { get; set; } = 180;
@@ -68,7 +68,7 @@ public class MySqlOptions : DbOptionsBase
 
     [AdapterSetting(Default = "false", AllowedValues = new[] { "true", "false" }, Hint =
         "Return DATE and DATETIME as strings rather than dates. MySQL permits '0000-00-00', which "
-        + "is not a date any .NET type can hold — a column holding one throws on read unless this "
+        + "is not a date any .NET type can hold - a column holding one throws on read unless this "
         + "is on. Only needed against a schema that has them, which is usually an old one.")]
     public bool AllowZeroDateTime { get; set; }
 }

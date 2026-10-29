@@ -8,12 +8,12 @@ import type { ApiGatewayRow, BusGatewayRow, InformationTypeRow, SubscriptionInfo
  * back round. Both fall out of four list calls with no new endpoint, because
  * publishing is resolved by *name*: `BusService` maps a message type name to the one
  * information type carrying it (the column is unique), and `FilterService` then
- * offers that message to every bus-gateway route bound to the type — on any gateway.
+ * offers that message to every bus-gateway route bound to the type - on any gateway.
  *
  * Messages are nodes rather than edge labels on purpose. Fan-out is the whole point:
  * one message reaching five gateways is one node with five arrows, which reads at a
  * glance, where five separately-labelled arrows read as five unrelated facts. It also
- * makes the silent failure visible — a message node with nothing leaving it is a
+ * makes the silent failure visible - a message node with nothing leaving it is a
  * response published to nobody at all.
  */
 
@@ -29,7 +29,7 @@ export interface FlowNode {
   code?: string;
   href: string;
   /**
-   * Why this node needs attention. Shown on the card, not only as a tooltip — every
+   * Why this node needs attention. Shown on the card, not only as a tooltip - every
    * one of these is a configuration that looks finished and moves nothing.
    */
   warning?: string;
@@ -48,7 +48,7 @@ export interface FlowGraph {
   nodes: FlowNode[];
   edges: FlowEdge[];
   /** Subscriptions with no place on the map: no gateway runs them, no response leaves them. */
-  omitted: number;
+  omitted: SubscriptionInfo[];
 }
 
 const JOB_TYPES = new Set(["Receiving", "Aggregation"]);
@@ -80,7 +80,7 @@ export function buildFlowGraph({
   /** Which node runs a subscription. A route or an attachment is drawn as its gateway. */
   const runBy = new Map<number, string>();
 
-  // ——— Gateways always appear, even with nothing attached: an idle gateway is a
+  // --- Gateways always appear, even with nothing attached: an idle gateway is a
   // thing you need to be able to find, and the map is the inventory of them.
   for (const g of apiGateways) {
     nodes.set(`apigw:${g.id}`, {
@@ -102,7 +102,7 @@ export function buildFlowGraph({
       kind: "busGateway",
       title: g.name,
       detail: routeWord(g.routes.length),
-      // From the information type, not `g.informationTypeCode` — the bus gateway
+      // From the information type, not `g.informationTypeCode` - the bus gateway
       // list endpoint sends `documentName`, so that field holds the name, and the
       // gateway cards would have shown a name where every other card shows a code.
       code: type?.code || g.informationTypeCode,
@@ -112,7 +112,7 @@ export function buildFlowGraph({
     for (const r of g.routes) runBy.set(r.subscriptionId, `busgw:${g.id}`);
   }
 
-  // ——— Every bus-enabled information type is a message node. Listed even when
+  // --- Every bus-enabled information type is a message node. Listed even when
   // untouched: one that nothing publishes and nothing listens for is a mistake
   // that has no other place to show up.
   const messageByName = new Map<string, string>();
@@ -139,7 +139,7 @@ export function buildFlowGraph({
     else warn(`busgw:${g.id}`, `Its information type is not on the bus, so no message can reach it.`);
   }
 
-  /** A node for a subscription no gateway runs — reached only through a response. */
+  /** A node for a subscription no gateway runs - reached only through a response. */
   const standalone = (id: number): string | null => {
     const i = subscriptionById.get(id);
     if (!i) return null;
@@ -165,7 +165,7 @@ export function buildFlowGraph({
     // A response is whatever the delivery hands back, so with no delivery there is never
     // one to route: `XchangeService.RunHandler` returns null without a handler, and both
     // response paths are gated on that file being non-null. Drawing the edges anyway would
-    // make the map assert a flow the runtime cannot produce — the exact kind of lie it
+    // make the map assert a flow the runtime cannot produce - the exact kind of lie it
     // exists to catch. The subscription's own page hides these fields once the delivery is
     // cleared, which is what lets the pair drift apart unnoticed.
     if (i.handlerId === null) {
@@ -184,13 +184,13 @@ export function buildFlowGraph({
     if (i.responseSubscriptionId !== null) {
       const to = runBy.get(i.responseSubscriptionId) ?? standalone(i.responseSubscriptionId);
       // Same node on both ends means one of a gateway's routes hands off to another
-      // of its own — real, but a loop drawn onto itself; its studio shows the chain.
+      // of its own - real, but a loop drawn onto itself; its studio shows the chain.
       if (to !== null && to !== from) edges.push({ id: `hand:${i.id}`, from, to, kind: "handsOff" });
     }
   }
 
   // A message nothing picks up. Distinct from one nothing publishes, which is
-  // normal — plenty of traffic originates outside Bitween.
+  // normal - plenty of traffic originates outside Bitween.
   const hasListener = new Set(edges.filter((e) => e.kind === "listens").map((e) => e.from));
   for (const node of nodes.values())
     if (node.kind === "message" && !hasListener.has(node.id))
@@ -198,7 +198,7 @@ export function buildFlowGraph({
 
   const omitted = subscriptions.filter(
     (i) => !runBy.has(i.id) && !nodes.has(`int:${i.id}`) && !nodes.has(`job:${i.id}`),
-  ).length;
+  );
 
   return { nodes: [...nodes.values()], edges, omitted };
 }

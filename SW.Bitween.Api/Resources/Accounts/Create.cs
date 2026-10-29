@@ -20,14 +20,20 @@ namespace SW.Bitween.Resources.Accounts
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Users.Create);
 
             if (string.IsNullOrEmpty(request.Name) || string.IsNullOrEmpty(request.Email) ||
-                (!_bitweenOptions.DisableEmailPasswordLogin && string.IsNullOrEmpty(request.Password)))
+                (!_bitweenOptions.DisableEmailPasswordLogin && !request.Invite && string.IsNullOrEmpty(request.Password)))
                 throw new SWValidationException("INVALID_PAYLOAD", "The payload is invalid");
+
+            // An invited member chooses their own password; one set here too would be a second
+            // way in that nobody asked them about.
+            if (request.Invite && !string.IsNullOrEmpty(request.Password))
+                throw new SWValidationException("INVITE_OR_PASSWORD",
+                    "Send either a password or an invite, not both.");
 
             if (await dbContext.Set<Account>().AnyAsync(a => a.Email == request.Email))
                 throw new SWValidationException("ACCOUNT_EXISTS", $"Account with email {request.Email} exists");
 
             // Prefer explicit role ids, and fall back to the legacy coarse role only when one was
-            // actually sent. It used to be a plain int, so omitting it meant 0 — which is Admin —
+            // actually sent. It used to be a plain int, so omitting it meant 0 - which is Admin -
             // and adding a member with no roles ticked handed them the run of the instance.
             var roleIds = request.RoleIds is { Count: > 0 }
                 ? request.RoleIds.Distinct().ToList()
@@ -35,9 +41,11 @@ namespace SW.Bitween.Resources.Accounts
                     ? []
                     : [BuiltInRoleFor((AccountRole)request.Role)];
 
-            // No password at all when this instance signs in through Microsoft only — the account
+            await GrantLimits.EnsureCallerHoldsRoles(dbContext, requestContext, roleIds);
+
+            // No password at all when this instance signs in through Microsoft only - the account
             // exists purely to be matched by email.
-            var password = _bitweenOptions.DisableEmailPasswordLogin
+            var password = _bitweenOptions.DisableEmailPasswordLogin || request.Invite
                 ? null
                 : SecurePasswordHasher.Hash(request.Password);
 
@@ -68,10 +76,11 @@ namespace SW.Bitween.Resources.Accounts
             {
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.Email).NotEmpty();
-                RuleFor(i => i.Password).Password().When(_ => !bitweenOptions.DisableEmailPasswordLogin);
+                // An invited member chooses their own password later, against the same rules.
+                RuleFor(i => i.Password).Password().When(i => !bitweenOptions.DisableEmailPasswordLogin && !i.Invite);
                 // The handler prefers explicit role ids and only falls back to the legacy coarse
                 // Role, so demanding Role unconditionally rejected the payload the UI actually
-                // sends — adding a member failed outright. Still required when no ids were sent,
+                // sends - adding a member failed outright. Still required when no ids were sent,
                 // which is what keeps an account from being created with no roles at all.
                 RuleFor(i => i.Role).NotNull().When(i => i.RoleIds is not { Count: > 0 });
             }

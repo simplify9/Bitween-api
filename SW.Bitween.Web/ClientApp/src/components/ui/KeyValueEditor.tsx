@@ -9,7 +9,7 @@ export interface KvRow {
 }
 
 const cellInput =
-  "h-8.5 w-full rounded-md border border-ink-200 bg-white px-2.5 text-sm text-ink-900 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none disabled:border-transparent disabled:bg-transparent disabled:px-0";
+  "h-8.5 w-full rounded-md border border-ink-200 bg-white px-2.5 text-sm text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none disabled:border-transparent disabled:bg-transparent disabled:px-0";
 
 /** Shared metrics so the textarea and its invisible sizing ghost stay identical. */
 const growBox = "border px-2.5 py-1.5 text-sm leading-5 break-words whitespace-pre-wrap";
@@ -41,7 +41,7 @@ function GrowingValueInput({
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         aria-label={ariaLabel}
-        className={`${growBox} [grid-area:1/1] w-full resize-none overflow-hidden rounded-md border-ink-200 bg-white text-ink-900 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none disabled:border-transparent disabled:bg-transparent disabled:px-0`}
+        className={`${growBox} [grid-area:1/1] w-full resize-none overflow-hidden rounded-md border-ink-200 bg-white text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none disabled:border-transparent disabled:bg-transparent disabled:px-0`}
       />
       <span aria-hidden className={`${growBox} [grid-area:1/1] invisible border-transparent ${disabled ? "px-0" : ""}`}>
         {value || placeholder || " "}{" "}
@@ -53,7 +53,7 @@ function GrowingValueInput({
 /**
  * A stored secret's value: dots, with a Replace button, exactly as adapter config
  * shows one. Used whenever the value is the sentinel, which covers both a row that
- * is still marked secret and one just unmarked — unmarking cannot reveal the value
+ * is still marked secret and one just unmarked - unmarking cannot reveal the value
  * on its own, because the browser was never sent it.
  */
 function SecretValueCell({
@@ -72,7 +72,7 @@ function SecretValueCell({
   onChange: (value: string) => void;
 }) {
   // Keyed off "is the operator part-way through typing", not off whether the box
-  // holds text — the latter re-masks on the first keystroke and hides what they typed.
+  // holds text - the latter re-masks on the first keystroke and hides what they typed.
   const [entering, setEntering] = useState(false);
   const lastEmitted = useRef<string | null>(null);
 
@@ -95,10 +95,10 @@ function SecretValueCell({
         title={
           stillSecret
             ? "Stored and hidden. Replace it to set a new value."
-            : "Still hidden — save to reveal this value."
+            : "Still hidden - save to reveal this value."
         }
       >
-        <span className="font-mono text-sm tracking-widest text-ink-400" aria-label={ariaLabel}>
+        <span className="font-mono text-sm tracking-widest text-ink-500" aria-label={ariaLabel}>
           ••••••••
         </span>
         {!disabled && (
@@ -122,7 +122,7 @@ function SecretValueCell({
 }
 
 /**
- * The runtime reference token, click-to-copy. Wraps instead of truncating —
+ * The runtime reference token, click-to-copy. Wraps instead of truncating -
  * a cut-off token is useless since it can't be pasted correctly.
  */
 function ReferenceToken({ token }: { token: string }) {
@@ -160,13 +160,14 @@ function ReferenceToken({ token }: { token: string }) {
  * row (e.g. {{partner.KEY}}); `rowDetails` renders a per-row note under it
  * (e.g. "where is this used?"), always visible. `secrets` adds a lock column:
  * a locked value never leaves the server, so it reads back as the sentinel and
- * shows as dots until someone replaces it. `reorderable` adds a drag handle to each row — also
- * moved with the arrow keys — for editors whose order means something.
+ * shows as dots until someone replaces it. `reorderable` adds a drag handle to each row - also
+ * moved with the arrow keys - for editors whose order means something.
  */
 export function KeyValueEditor({
   rows,
   onChange,
   keyLabel,
+  addLabel,
   valueLabel,
   keyPlaceholder,
   valuePlaceholder,
@@ -182,13 +183,15 @@ export function KeyValueEditor({
   rows: KvRow[];
   onChange: (rows: KvRow[]) => void;
   keyLabel: string;
+  /** The add button's words, when "Add <key label>" doesn't name the thing: "Add promoted property". */
+  addLabel?: string;
   valueLabel: string;
   keyPlaceholder?: string;
   valuePlaceholder?: string;
   editable: boolean;
   token?: (row: KvRow) => string;
   emptyText: string;
-  /** Fixed (not percentage) column widths — comfortable at rest, shrinks at narrower breakpoints. */
+  /** Fixed (not percentage) column widths - comfortable at rest, shrinks at narrower breakpoints. */
   keyWidthClass?: string;
   valueWidthClass?: string;
   rowDetails?: (row: KvRow) => ReactNode | null;
@@ -326,7 +329,7 @@ export function KeyValueEditor({
                             : "Drag to change the order, or focus this and use the arrow keys."
                         }
                         className={`flex h-7 w-6 cursor-grab items-center justify-center rounded-md hover:bg-ink-100 active:cursor-grabbing ${
-                          i === 0 && reorderable?.first ? "text-crimson-600" : "text-ink-300 hover:text-ink-500"
+                          i === 0 && reorderable?.first ? "text-ink-700" : "text-ink-300 hover:text-ink-500"
                         }`}
                       >
                         <GripVertical className="size-3.5" aria-hidden />
@@ -344,7 +347,10 @@ export function KeyValueEditor({
                       className={`${cellInput} font-medium`}
                     />
                     {i === 0 && reorderable?.first && (
-                      <span className="mt-0.5 block text-[11px] font-medium text-crimson-700" title={reorderable.first.title}>
+                      <span
+                        className="mt-1 inline-block rounded bg-ink-100 px-1.5 py-0.5 text-[11px] font-medium text-ink-700"
+                        title={reorderable.first.title}
+                      >
                         {reorderable.first.label}
                       </span>
                     )}
@@ -390,7 +396,7 @@ export function KeyValueEditor({
                           }
                           className={`rounded-md p-1.5 disabled:cursor-default ${
                             isSecret(row.key)
-                              ? "text-crimson-600 hover:bg-crimson-50"
+                              ? "text-ink-800 hover:bg-ink-100"
                               : "text-ink-300 hover:bg-ink-100 hover:text-ink-500"
                           }`}
                         >
@@ -408,7 +414,7 @@ export function KeyValueEditor({
                       <button
                         onClick={() => remove(i)}
                         aria-label={`Remove ${row.key || "row"}`}
-                        className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
+                        className="rounded-md p-1.5 text-ink-500 hover:bg-danger-50 hover:text-danger-700"
                       >
                         <Trash2 className="size-3.5" />
                       </button>
@@ -430,16 +436,9 @@ export function KeyValueEditor({
       {rows.length === 0 && <p className="pb-2 text-sm text-ink-500">{emptyText}</p>}
       {editable && (
         <Button size="sm" onClick={add} className="mt-1.5">
-          <Plus className="size-3.5" /> Add {keyLabel.toLowerCase()}
+          <Plus className="size-3.5" /> {addLabel ?? `Add ${keyLabel.toLowerCase()}`}
         </Button>
       )}
     </div>
   );
 }
-
-/** Record<string,string> ⇄ ordered rows helpers. */
-export const toRows = (record: Record<string, string>): KvRow[] =>
-  Object.entries(record).map(([key, value]) => ({ key, value }));
-
-export const toRecord = (rows: KvRow[]): Record<string, string> =>
-  Object.fromEntries(rows.filter((r) => r.key.trim()).map((r) => [r.key.trim(), r.value]));

@@ -130,7 +130,7 @@ describe("matchSources", () => {
     matchSources(rules, tree(SOURCE));
 
     // A written entry is not produced by walking anything, so its rules read from
-    // where the list sits — the document — exactly as the mapper runs them.
+    // where the list sits - the document - exactly as the mapper runs them.
     expect(rules.lists[0].fixed[0].fields[0].from).toEqual({
       kind: "path",
       path: "order.customer",
@@ -149,7 +149,7 @@ describe("matchSources", () => {
     matchSources(rules, tree(SOURCE));
 
     // The root list is not inside any container, so the walk that reaches a nested
-    // list's written entries never reached these — they were skipped in silence.
+    // list's written entries never reached these - they were skipped in silence.
     expect(rules.root!.fixed[0].fields[0].from).toEqual({
       kind: "path",
       path: "order.customer",
@@ -227,7 +227,7 @@ describe("the toolbar actions", () => {
     ]);
     expect(matched.rules.fields.every((f) => f.from.path)).toBe(true);
 
-    // One press, one undo — not one per rule it filled in.
+    // One press, one undo - not one per rule it filled in.
     const undone = rulesEditorReducer(matched, { type: "UNDO" });
     expect(undone.rules.fields.every((f) => f.from.path === "")).toBe(true);
   });
@@ -303,7 +303,7 @@ describe("a transform argument that is only punctuation and spaces", () => {
     const rule = emptyFieldRule(["label"]);
     rule.from = { kind: "path", path: "order.ref" };
     // The whole point of `concat` is usually the separator, and a leading space is
-    // invisible in the box — so if anything trimmed it, it would look like the
+    // invisible in the box - so if anything trimmed it, it would look like the
     // transform had simply ignored the argument.
     rule.transform = { fn: "concat", with: " (EDI)" };
     rules.fields.push(rule);

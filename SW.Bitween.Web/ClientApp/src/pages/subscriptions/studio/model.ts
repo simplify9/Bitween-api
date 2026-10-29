@@ -7,6 +7,7 @@ export type Draft = Pick<
   | "name"
   | "enabled"
   | "workGroupId"
+  | "categoryId"
   | "retryPolicyId"
   | "receiverId"
   | "receiverProperties"
@@ -22,13 +23,21 @@ export type Draft = Pick<
   | "responseSubscriptionId"
   | "responseMessageTypeName"
   | "runOnBadResponses"
+  | "notifications"
   | "aggregationTarget"
+  | "autoPauseAfterFailures"
+  | "expectTraffic"
+  | "receiverVersion"
+  | "validatorVersion"
+  | "mapperVersion"
+  | "handlerVersion"
 >;
 
 export const draftOf = (d: SubscriptionDetail): Draft => ({
   name: d.name,
   enabled: d.enabled,
   workGroupId: d.workGroupId,
+  categoryId: d.categoryId,
   retryPolicyId: d.retryPolicyId,
   receiverId: d.receiverId,
   receiverProperties: structuredClone(d.receiverProperties),
@@ -44,13 +53,20 @@ export const draftOf = (d: SubscriptionDetail): Draft => ({
   responseSubscriptionId: d.responseSubscriptionId,
   responseMessageTypeName: d.responseMessageTypeName,
   runOnBadResponses: d.runOnBadResponses,
+  notifications: structuredClone(d.notifications),
   aggregationTarget: d.aggregationTarget,
+  autoPauseAfterFailures: d.autoPauseAfterFailures,
+  expectTraffic: structuredClone(d.expectTraffic),
+  receiverVersion: d.receiverVersion,
+  validatorVersion: d.validatorVersion,
+  mapperVersion: d.mapperVersion,
+  handlerVersion: d.handlerVersion,
 });
 
 /**
  * A subscription being defined on a gateway's canvas, before it exists.
  *
- * The route already worked this way — see `NEW_ROUTE` — and a subscription is the
+ * The route already worked this way - see `NEW_ROUTE` - and a subscription is the
  * same problem one level down: asking for it in a modal hides the diagram the
  * answers are about. It lives in the studio's state until one save writes it and
  * the thing pointing at it together.
@@ -59,6 +75,7 @@ export const EMPTY_SUBSCRIPTION: Draft = {
   name: "",
   enabled: true,
   workGroupId: null,
+  categoryId: null,
   retryPolicyId: null,
   receiverId: null,
   receiverProperties: {},
@@ -74,7 +91,14 @@ export const EMPTY_SUBSCRIPTION: Draft = {
   responseSubscriptionId: null,
   responseMessageTypeName: null,
   runOnBadResponses: false,
+  notifications: [],
   aggregationTarget: "Input",
+  autoPauseAfterFailures: null,
+  expectTraffic: null,
+  receiverVersion: null,
+  validatorVersion: null,
+  mapperVersion: null,
+  handlerVersion: null,
 };
 
 /**
@@ -85,7 +109,7 @@ export const EMPTY_SUBSCRIPTION: Draft = {
 export const NEW_SUBSCRIPTION_ID = -1;
 
 /**
- * Stands in for a response subscription being defined on a bus gateway's canvas — one per hop,
+ * Stands in for a response subscription being defined on a bus gateway's canvas - one per hop,
  * so a new one handing on to another new one can't collide. Never sent either: the save nests
  * it under the hop that feeds it, as that one's `newResponseSubscription`.
  */
@@ -94,18 +118,18 @@ export const isNewResponseSubscriptionId = (id: number | null | undefined) =>
   id !== null && id !== undefined && id <= -10;
 
 /**
- * Which draft fields each stage owns — only so a card can carry an unsaved dot.
+ * Which draft fields each stage owns - only so a card can carry an unsaved dot.
  * Name, enabled, work group and retry policy belong to no stage; they live on
  * the header and the overview, and the save bar covers them.
  */
 const STAGE_FIELDS: Record<StageId, (keyof Draft)[]> = {
   trigger: ["matchExpression", "runOnBadResponses"],
-  source: ["receiverId", "receiverProperties", "dataSourceId"],
+  source: ["receiverId", "receiverProperties", "receiverVersion", "dataSourceId"],
   schedule: ["schedules"],
   aggregation: ["aggregationTarget"],
-  validation: ["validatorId", "validatorProperties"],
-  transformation: ["mapperId", "mapperProperties", "dataSourceId"],
-  delivery: ["handlerId", "handlerProperties", "dataSourceId"],
+  validation: ["validatorId", "validatorProperties", "validatorVersion"],
+  transformation: ["mapperId", "mapperProperties", "mapperVersion", "dataSourceId"],
+  delivery: ["handlerId", "handlerProperties", "handlerVersion", "dataSourceId"],
   response: ["responseSubscriptionId", "responseMessageTypeName"],
 };
 
@@ -115,7 +139,7 @@ export const stageDirty = (stage: StageId, draft: Draft, saved: Draft): boolean 
 
 /**
  * The one adapter property worth putting on a pipeline node: *where* the step
- * points. "NativeS3Receiver" tells an operator nothing on its own — the bucket
+ * points. "NativeS3Receiver" tells an operator nothing on its own - the bucket
  * does. Adapters name these keys differently, so this walks a priority list
  * rather than trying to know every adapter.
  *
@@ -161,7 +185,7 @@ export interface EntryPoint {
 }
 
 /**
- * Both kinds of entry point in one list — what matters is "who can feed this",
+ * Both kinds of entry point in one list - what matters is "who can feed this",
  * not which of the two mechanisms does it.
  */
 export const entryPointsOf = (s: SubscriptionDetail): EntryPoint[] => [
@@ -181,7 +205,7 @@ export const entryPointsOf = (s: SubscriptionDetail): EntryPoint[] => [
     kind: "Bus route",
     partnerId: r.partnerId,
     partnerName: r.partnerName,
-    detail: "—",
+    detail: "-",
   })),
 ];
 
@@ -199,5 +223,5 @@ export const feedersOf = (id: number, subscriptions: SubscriptionInfo[] | undefi
       kind: "Response",
       partnerId: null,
       partnerName: null,
-      detail: "—",
+      detail: "-",
     }));

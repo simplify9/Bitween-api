@@ -3,28 +3,51 @@ import { Link, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RotateCcw } from "lucide-react";
 import { api, resetAppConfig, type SettingRow } from "../../api";
-import { useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, LoadingBlock } from "../../components/ui/basics";
-import { Checkbox, TextInput } from "../../components/ui/forms";
+import { Badge, Button, LoadingBlock, ProblemText } from "../../components/ui/basics";
+import { Checkbox, Select, TextInput } from "../../components/ui/forms";
 import { UnsavedBar } from "../../components/ui/Panel";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { settingsDraft, useSettingsDraft } from "../../lib/settingsDraft";
 import { keys } from "../../api/queryKeys";
 import { RETENTION_SECTION, retentionProposal, useRetention } from "../../lib/retention";
 import { NoticeList, RetentionPanel } from "./RetentionPanel";
+import { AboutPanel } from "./AboutPanel";
+import { NotificationChannelsPanel } from "./NotificationChannelsPanel";
+import { MarketplacePanel, MARKETPLACE_SECTION } from "./MarketplacePanel";
 
-/** Sections, in the order the backend catalog lists them. */
-const sectionsOf = (rows: SettingRow[]): string[] => [...new Set(rows.map((r) => r.section))];
+/** Not a section of the catalog: a read-only view of the instance, after the editable ones. */
+const ABOUT_SECTION = "About this instance";
+
+/**
+ * Not a catalog section either: channels are records with their own pages, not key/value
+ * settings. Listed with the sections all the same, because they are instance-wide configuration
+ * and this is where an administrator looks for it.
+ */
+const CHANNELS_SECTION = "Notification channels";
+
+/**
+ * Sections, in the order the backend catalog lists them, with channels placed after the mail
+ * server every Email channel sends through, and About last.
+ */
+const sectionsOf = (rows: SettingRow[], withChannels: boolean): string[] => {
+  const sections = [...new Set(rows.map((r) => r.section))];
+  if (withChannels) {
+    const after = sections.indexOf("Mail server");
+    sections.splice(after === -1 ? sections.length : after + 1, 0, CHANNELS_SECTION);
+  }
+  return [...sections, ABOUT_SECTION];
+};
 
 const sectionOf = (rows: SettingRow[], key: string) => rows.find((r) => r.key === key)?.section;
 
 /**
  * The one section with a reset-the-lot button, and deliberately the only one.
  * Everything here is cosmetic and re-enterable from what you can see on screen;
- * other sections hold values the database is the sole home for — the Rebex
- * license key, the MSAL client ids — where one click is far too little standing
+ * other sections hold values the database is the sole home for - the Rebex
+ * license key, the MSAL client ids - where one click is far too little standing
  * between an administrator and config nobody can reconstruct. Per-row "Reset to
  * default" still covers those, one considered decision at a time.
  */
@@ -42,7 +65,7 @@ const formatValue = (row: SettingRow, value: string): string => {
 
 /**
  * A setting this instance was started with. Read once at startup, so there's nothing to change
- * here — the row exists so an administrator can see what the instance is actually running on
+ * here - the row exists so an administrator can see what the instance is actually running on
  * without shelling into it. A `presence` row's value never leaves the server.
  */
 function EnvironmentSettingRow({ row }: { row: SettingRow }) {
@@ -61,7 +84,7 @@ function EnvironmentSettingRow({ row }: { row: SettingRow }) {
           <Badge tone={row.hasValue ? "ok" : "neutral"}>{row.hasValue ? "Set" : "Not set"}</Badge>
         ) : (
           <span
-            className={`font-mono text-sm break-all ${row.value?.trim() ? "text-ink-700" : "text-ink-400"}`}
+            className={`font-mono text-sm break-all ${row.value?.trim() ? "text-ink-700" : "text-ink-500"}`}
           >
             {formatValue(row, row.value ?? "")}
           </span>
@@ -159,9 +182,18 @@ function SettingRowEditor({
               className="max-w-40 font-mono uppercase"
             />
           </div>
+        ) : row.choices ? (
+          <Select
+            aria-label={row.label}
+            value={effective}
+            disabled={disabled}
+            onChange={(e) => stage(e.target.value)}
+            options={row.choices.map((c) => ({ value: c, label: c }))}
+            className="max-w-60"
+          />
         ) : masked ? (
           <div className="flex h-9.5 items-center justify-between rounded-lg border border-ink-200 bg-ink-50 px-3">
-            <span className="font-mono text-sm tracking-widest text-ink-400">••••••••</span>
+            <span className="font-mono text-sm tracking-widest text-ink-500">••••••••</span>
             {!disabled && (
               <button
                 type="button"
@@ -169,7 +201,7 @@ function SettingRowEditor({
                   setReplacing(true);
                   setDraft("");
                 }}
-                className="text-[13px] font-medium text-crimson-700 hover:underline"
+                className="text-[13px] font-medium link"
               >
                 Replace
               </button>
@@ -203,7 +235,7 @@ function SettingRowEditor({
         ) : (
           !row.secret &&
           !showsOverridden && (
-            <p className="mt-1 text-xs text-ink-400">
+            <p className="mt-1 text-xs text-ink-500">
               Default: <span className="font-mono">{formatDefault(row)}</span>
             </p>
           )
@@ -215,7 +247,7 @@ function SettingRowEditor({
           <button
             type="button"
             onClick={() => stage(null)}
-            className="text-[13px] font-medium whitespace-nowrap text-crimson-700 hover:underline"
+            className="text-[13px] font-medium whitespace-nowrap link"
           >
             Reset to default
           </button>
@@ -227,22 +259,30 @@ function SettingRowEditor({
 
 /**
  * Edits stage into a draft (never saved on the spot). The draft previews
- * live across the whole app — leave this page and look around; the shell's
+ * live across the whole app - leave this page and look around; the shell's
  * banner brings you back. Save writes everything; Discard reverts it all.
  */
 export function SettingsPage() {
+  const canView = useSessionCan("settings.view");
   const canEdit = useSessionCan("settings.edit");
+  const canViewChannels = useSessionCan("notifiers.view");
   const queryClient = useQueryClient();
-  const { data: rows, isLoading } = useQuery({ queryKey: keys.settings.list, queryFn: () => api.listSettings() });
+  // Opened for the notification channels alone, by a role without Settings: nothing else to load.
+  const { data: settingRows, isLoading } = useQuery({
+    queryKey: keys.settings.list,
+    queryFn: () => api.listSettings(),
+    enabled: canView,
+  });
+  const rows = canView ? settingRows : [];
   const draft = useSettingsDraft();
   const [confirmingRetention, setConfirmingRetention] = useState(false);
 
   const [searchParams] = useSearchParams();
-  const sections = sectionsOf(rows ?? []);
+  const sections = canView ? sectionsOf(rows ?? [], canViewChannels) : [CHANNELS_SECTION];
   const fromUrl = searchParams.get("section");
   const section = fromUrl && sections.includes(fromUrl) ? fromUrl : sections[0];
   // Deleting exchanges, or changing where files go and so how long they last, is said out loud
-  // before it's saved — the same preview the panel shows, now as the thing being confirmed.
+  // before it's saved - the same preview the panel shows, now as the thing being confirmed.
   const retention = useRetention(
     rows ?? [],
     draft,
@@ -258,7 +298,11 @@ export function SettingsPage() {
 
   const saveAll = useMutation({
     mutationFn: async () => {
-      for (const [key, value] of Object.entries(settingsDraft.get())) {
+      // In the page's order: an address goes before the login typed for it, which saving the address
+      // would otherwise empty again.
+      const order = (rows ?? []).map((r) => r.key);
+      const changed = Object.entries(settingsDraft.get()).sort(([a], [b]) => order.indexOf(a) - order.indexOf(b));
+      for (const [key, value] of changed) {
         await api.updateSetting(key, value);
       }
     },
@@ -272,7 +316,7 @@ export function SettingsPage() {
     },
   });
 
-  if (isLoading) return <LoadingBlock label="Loading settings…" />;
+  if (canView && isLoading) return <LoadingBlock label="Loading settings…" />;
   if (!rows) return null;
 
   const dirtyCount = Object.keys(draft).length;
@@ -295,13 +339,17 @@ export function SettingsPage() {
     <div className={dirtyCount > 0 ? "pb-20" : ""}>
       <PageHeader
         title="Settings"
-        description="Instance-wide configuration. Changes preview live across the app — walk around and look, then save (or discard) here. Rows marked Environment are fixed by how this instance was started."
+        description={
+          canView
+            ? "Instance-wide configuration. Changes preview live across the app - walk around and look, then save (or discard) here. Rows marked Environment are fixed by how this instance was started."
+            : "Where notifications and retry alerts are sent. The rest of Settings is for administrators."
+        }
       />
 
       {/* A left column, not a row of pill tabs: eight sections wrap to a second row on a
           narrow window, and a wrapped tab row is precisely where you lose track of which
           one you're in. House pattern for anything that wanted tabs. On a phone it stacks
-          above the rows — settings is a desk job, and a list that never wraps beats one
+          above the rows - settings is a desk job, and a list that never wraps beats one
           that sometimes does. */}
       <div className="grid grid-cols-1 gap-x-6 gap-y-3 lg:grid-cols-[13.5rem_minmax(0,48rem)] lg:items-start">
         <nav aria-label="Settings sections" className="lg:sticky lg:top-4">
@@ -309,7 +357,7 @@ export function SettingsPage() {
             {sections.map((s) => {
               const active = s === section;
               const hasUnsaved = rows.some((r) => r.section === s && r.key in draft);
-              // Standing count of rows this instance has moved off the product default —
+              // Standing count of rows this instance has moved off the product default -
               // the answer to "what has been done to this instance", visible without
               // opening all eight sections.
               const customized = rows.filter((r) => r.section === s && r.overridden).length;
@@ -341,7 +389,7 @@ export function SettingsPage() {
                     ) : (
                       customized > 0 && (
                         <span
-                          className="shrink-0 text-[11px] tabular-nums text-ink-400"
+                          className="shrink-0 text-[11px] tabular-nums text-ink-500"
                           title={`${customized} changed from the default`}
                         >
                           {customized}
@@ -363,7 +411,7 @@ export function SettingsPage() {
               <h2 className="text-[15px] font-semibold text-ink-900">{section}</h2>
               {/* Stages a reset per row rather than writing: the draft previews the stock
                   branding across the whole app, and Discard puts it all back untouched. */}
-              {resettable.length > 0 && (
+              {section !== CHANNELS_SECTION && resettable.length > 0 && (
                 <Button size="sm" onClick={() => resettable.forEach((r) => settingsDraft.stage(r, null))}>
                   <RotateCcw className="size-3.5" aria-hidden />
                   Reset all to default
@@ -373,28 +421,42 @@ export function SettingsPage() {
             {resettable.length > 0 && (
               <p className="mt-1.5 text-[13px] text-ink-500">
                 {resettable.length} of these {resettable.length === 1 ? "is" : "are"} customized.
-                Resetting stages the change like any other — nothing is written until you save.
+                Resetting stages the change like any other - nothing is written until you save.
               </p>
             )}
           </div>
           {section === RETENTION_SECTION && <RetentionPanel rows={rows} draft={draft} />}
-          <div className="divide-y divide-ink-100">
-            {sectionRows.map((row) =>
-              row.access === "editable" ? (
-                <SettingRowEditor key={row.key} row={row} staged={draft[row.key]} canEdit={canEdit} />
-              ) : (
-                <EnvironmentSettingRow key={row.key} row={row} />
-              ),
-            )}
-          </div>
+          {section === ABOUT_SECTION && <AboutPanel />}
+          {section === MARKETPLACE_SECTION && <MarketplacePanel rows={rows} canEdit={canEdit} />}
+          {section === CHANNELS_SECTION ? (
+            <NotificationChannelsPanel />
+          ) : (
+            <div className="divide-y divide-ink-100">
+              {sectionRows.map((row) =>
+                row.access === "editable" ? (
+                  <SettingRowEditor key={row.key} row={row} staged={draft[row.key]} canEdit={canEdit} />
+                ) : (
+                  <EnvironmentSettingRow key={row.key} row={row} />
+                ),
+              )}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Not per section: a setting has no page of its own, so the one useful question is
           "who changed anything here", and that is the whole table rather than a slice of it. */}
-      <div className="mt-5">
-        <HistoryCard entityName="Setting" description="Recent changes to instance settings." />
-      </div>
+      {canView && (
+        <div className="mt-5">
+          {/* Each line names its setting as the form above labels it; a key the catalog no longer
+              lists (a retired setting) still shows, as its key. */}
+          <HistoryCard
+            entityName="Setting"
+            description="Recent changes to instance settings."
+            subjectOf={(e) => rows?.find((r) => r.key === e.entityKey)?.label ?? e.entityKey}
+          />
+        </div>
+      )}
 
       {dirtyCount > 0 && (
         <UnsavedBar
@@ -414,7 +476,7 @@ export function SettingsPage() {
             <div className="space-y-3">
               <p>This is what the new settings will do once they're saved:</p>
               {retention.error ? (
-                <p className="text-danger-700">Couldn't work out what they'd do: {retention.error.message}</p>
+                <ProblemText>Couldn't work out what they'd do: {retention.error.message}</ProblemText>
               ) : retention.previewing && retention.status && !retention.loading ? (
                 <NoticeList notices={retention.status.notices} />
               ) : (

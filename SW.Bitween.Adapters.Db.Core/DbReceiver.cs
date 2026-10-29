@@ -13,8 +13,8 @@ namespace SW.Bitween.Adapters.Db;
 /// <summary>
 /// The receiver half: rows out of the database and into Bitween as Xchanges.
 ///
-/// Modes are Kafka Connect's vocabulary, because it is the one operators already have —
-/// <c>bulk</c>, <c>incrementing</c>, <c>timestamp</c>, <c>timestamp+incrementing</c> — plus
+/// Modes are Kafka Connect's vocabulary, because it is the one operators already have -
+/// <c>bulk</c>, <c>incrementing</c>, <c>timestamp</c>, <c>timestamp+incrementing</c> - plus
 /// <c>marker</c>, a processed-flag column, which is what enterprise integration tables actually
 /// tend to use. None of them can see a DELETE. That is a property of polling, not of this adapter,
 /// and the UI says so rather than letting someone discover it.
@@ -22,7 +22,7 @@ namespace SW.Bitween.Adapters.Db;
 /// Two things make this safe to run at all:
 ///
 /// * The cursor is HOST-HELD, through <c>IAdapterContext.SetStateAsync</c>. An adapter cannot keep
-///   its own progress — the supervisor restarts it and the next instance may be elsewhere — and a
+///   its own progress - the supervisor restarts it and the next instance may be elsewhere - and a
 ///   cursor that resets to the beginning replays every row already processed.
 /// * The cursor advances per row, in DeleteFile, which the pipeline calls only after Bitween has
 ///   durably accepted that row. Advancing on read instead would lose rows on a crash; advancing
@@ -58,13 +58,13 @@ public abstract partial class DbResidentAdapterBase
 
     /// <summary>
     /// The host holds state per (adapter, instance, name), and the instance here is the DATA
-    /// SOURCE — one connection shared by every subscription pointed at it. So the name has to
+    /// SOURCE - one connection shared by every subscription pointed at it. So the name has to
     /// carry the reader, or two subscriptions polling one connection share a cursor: whichever
     /// polls first advances it, and the rows it took are invisible to the other. No error, no
     /// warning, half the rows each.
     ///
     /// The subscription id arrives as a per-invocation value, which is why this is computed per
-    /// call rather than held in a field — the field would belong to whichever subscription
+    /// call rather than held in a field - the field would belong to whichever subscription
     /// happened to call first.
     /// </summary>
     string CursorStateName()
@@ -74,6 +74,41 @@ public abstract partial class DbResidentAdapterBase
             ? LegacyCursorStateName
             : $"{LegacyCursorStateName}.{subscriptionId}";
     }
+
+    /// <summary>
+    /// Rows Bitween accepted whose marking failed: the mark-processed statement, or advancing the
+    /// cursor, threw after the row's exchange was stored. Without this the next poll read them again
+    /// and made a second exchange of each. Scoped per subscription, as the cursor is.
+    /// </summary>
+    string UnmarkedStateName()
+    {
+        var subscriptionId = Context.ValueOf(SubscriptionIdKey);
+        return string.IsNullOrWhiteSpace(subscriptionId) ? "receive.unmarked" : $"receive.unmarked.{subscriptionId}";
+    }
+
+    /// <summary>The most unmarked keys remembered, oldest forgotten first, so the state stays small.</summary>
+    const int MaxUnmarked = 1000;
+
+    async Task<List<string>> ReadUnmarkedAsync()
+    {
+        var saved = await Context.GetStateAsync(UnmarkedStateName(), Stopping);
+        if (string.IsNullOrWhiteSpace(saved)) return new List<string>();
+        try
+        {
+            return JsonConvert.DeserializeObject<List<string>>(saved) ?? new List<string>();
+        }
+        catch (JsonException)
+        {
+            return new List<string>();
+        }
+    }
+
+    Task SaveUnmarkedAsync(List<string> keys) =>
+        Context.SetStateAsync(UnmarkedStateName(),
+            JsonConvert.SerializeObject(keys.Count > MaxUnmarked ? keys.Skip(keys.Count - MaxUnmarked).ToList() : keys),
+            Stopping);
+
+    static string KeyText(object key) => Convert.ToString(key, CultureInfo.InvariantCulture);
 
     /// <summary>
     /// Set by the host on every invocation. Its Bitween-side name is
@@ -94,15 +129,15 @@ public abstract partial class DbResidentAdapterBase
     const string CursorClaimStateName = "receive.cursor.inheritedBy";
 
     /// <summary>
-    /// The saved cursor: this subscription's own, or — once, for whichever subscription asks
-    /// first — the unscoped one left behind by a version that did not scope them.
+    /// The saved cursor: this subscription's own, or - once, for whichever subscription asks
+    /// first - the unscoped one left behind by a version that did not scope them.
     /// </summary>
     async Task<string> ReadCursorAsync()
     {
         var name = CursorStateName();
         var saved = await Context.GetStateAsync(name, Stopping);
 
-        // Already has its own progress, or there is no subscription id to scope by — either way
+        // Already has its own progress, or there is no subscription id to scope by - either way
         // there is nothing to inherit.
         if (!string.IsNullOrEmpty(saved) || name == LegacyCursorStateName) return saved;
 
@@ -122,7 +157,7 @@ public abstract partial class DbResidentAdapterBase
             return legacy;
         }
 
-        // Claimed by this one already, and it has not accepted a row yet — so the inherited value
+        // Claimed by this one already, and it has not accepted a row yet - so the inherited value
         // is still where it is up to.
         if (claimedBy == subscriptionId) return legacy;
 
@@ -142,7 +177,7 @@ public abstract partial class DbResidentAdapterBase
     ///
     /// * <b>The SQL</b> is a named statement, exactly like every other statement. It is a name and
     ///   never text, because a per-invocation property has <c>{{partner.X}}</c> substituted into it
-    ///   before the adapter sees it — SQL there would be steerable by ordinary partner data.
+    ///   before the adapter sees it - SQL there would be steerable by ordinary partner data.
     /// * <b>The cursor and key columns</b> come from that statement, because they describe what the
     ///   query returns. The same statement returns the same cursor column whoever reads it.
     /// * <b>The mode and batch size</b> come from the subscription, because they are the reader's
@@ -192,7 +227,7 @@ public abstract partial class DbResidentAdapterBase
         if (int.TryParse(Given("ReceiveBatchSize"), out var parsed) && parsed > 0)
             plan.BatchSize = parsed;
 
-        // A named statement supersedes the data source's own receive settings entirely — SQL and
+        // A named statement supersedes the data source's own receive settings entirely - SQL and
         // row shape together, because taking the SQL from one place and the cursor column from
         // another is how they come to disagree.
         var name = Given("ReceiveStatement");
@@ -233,7 +268,7 @@ public abstract partial class DbResidentAdapterBase
     /// <summary>
     /// Nothing to do. The transaction a mark-processed statement might want cannot live here: the
     /// pipeline calls Initialize, then ListFiles, then a GetFile and DeleteFile per row, then
-    /// Finalize — and holding one transaction open across all of that would pin a pooled connection
+    /// Finalize - and holding one transaction open across all of that would pin a pooled connection
     /// for as long as Bitween takes to persist every row, on a shared instance serving other
     /// subscriptions at the same time. Each mark-processed runs in its own transaction instead,
     /// after Bitween has accepted the row, which is the at-least-once boundary anyway.
@@ -256,7 +291,7 @@ public abstract partial class DbResidentAdapterBase
         if (string.IsNullOrEmpty(plan.Mode))
             throw new InvalidOperationException(
                 "No ReceiveMode, so this cannot be used as a receiver. Set one on the subscription "
-                + "(or on the data source, as a default) — one of bulk, incrementing, timestamp, "
+                + "(or on the data source, as a default) - one of bulk, incrementing, timestamp, "
                 + "timestamp+incrementing or marker.");
 
         if (string.IsNullOrWhiteSpace(plan.Sql))
@@ -296,7 +331,7 @@ public abstract partial class DbResidentAdapterBase
             MaxRows = plan.BatchSize,
 
             // Already resolved from the allow-list by Plan(), so this is configured SQL rather
-            // than SQL a message supplied — it does not go through the ad-hoc gate again.
+            // than SQL a message supplied - it does not go through the ad-hoc gate again.
             Name = null
         }, adHocAllowed: true);
 
@@ -307,8 +342,10 @@ public abstract partial class DbResidentAdapterBase
         if (page.Rows.Count == 0) return Array.Empty<string>();
 
         var batchId = Guid.NewGuid().ToString("N");
-        var batch = new ReceiveBatch { Outstanding = page.Rows.Count };
+        var batch = new ReceiveBatch();
         var ids = new List<string>(page.Rows.Count);
+        var unmarked = await ReadUnmarkedAsync();
+        var unmarkedBefore = unmarked.Count;
 
         foreach (var row in page.Rows)
         {
@@ -316,6 +353,23 @@ public abstract partial class DbResidentAdapterBase
                 throw new InvalidOperationException(
                     $"A row came back with no value in the key column '{plan.KeyColumn}'. The "
                     + "receive statement has to select it, spelled as the database returns it.");
+
+            // Already accepted, and only its marking failed: finish that, rather than hand it to
+            // Bitween again as a new exchange.
+            if (unmarked.Contains(KeyText(key)))
+            {
+                try
+                {
+                    await Acknowledge(row, plan, plan.NeedsCursor && row.TryGetValue(plan.CursorColumn, out var c) ? c : null);
+                    unmarked.Remove(KeyText(key));
+                    Logger.LogInformation("Row {Key} was already received; marked it processed now instead of receiving it again.", key);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogWarning(ex, "Row {Key} was already received and still can't be marked processed; it is skipped, not received again.", key);
+                }
+                continue;
+            }
 
             var id = $"{batchId}:{key}";
             batch.Rows[id] = row;
@@ -326,6 +380,10 @@ public abstract partial class DbResidentAdapterBase
             ids.Add(id);
         }
 
+        if (unmarked.Count != unmarkedBefore) await SaveUnmarkedAsync(unmarked);
+        if (ids.Count == 0) return Array.Empty<string>();
+
+        batch.Outstanding = ids.Count;
         batches[batchId] = batch;
         Logger.LogInformation("Polled {Count} row(s) in batch {Batch}.", ids.Count, batchId);
         return ids;
@@ -353,23 +411,23 @@ public abstract partial class DbResidentAdapterBase
         var key = KeyOf(fileId);
         var plan = Plan();
 
-        if (!string.IsNullOrWhiteSpace(plan.MarkProcessedSql))
+        try
         {
-            var parameters = new Dictionary<string, object> { ["key"] = RawKey(row, plan) };
-
-            // Every column is offered as a parameter too, so a mark statement can use more than the
-            // key — a status column, a batch id, the row's own timestamp.
-            foreach (var kv in row) parameters[kv.Key] = kv.Value;
-
-            await Execute(new StatementRequest
-            {
-                Sql = plan.MarkProcessedSql,
-                Parameters = parameters
-            }, adHocAllowed: true);
+            await Acknowledge(row, plan, batch.Cursors.TryGetValue(fileId, out var cursorValue) ? cursorValue : null);
         }
-
-        if (batch.Cursors.TryGetValue(fileId, out var cursorValue) && cursorValue != null)
-            await Context.SetStateAsync(CursorStateName(), FormatCursor(cursorValue), Stopping);
+        catch
+        {
+            // The row's exchange is stored. Remembered, so the next poll marks it rather than
+            // receiving it a second time; the failure still fails this call, so it is reported.
+            var unmarked = await ReadUnmarkedAsync();
+            var text = KeyText(RawKey(row, plan) ?? key);
+            if (!unmarked.Contains(text))
+            {
+                unmarked.Add(text);
+                await SaveUnmarkedAsync(unmarked);
+            }
+            throw;
+        }
 
         batch.Rows.Remove(fileId);
         batch.Outstanding--;
@@ -379,7 +437,7 @@ public abstract partial class DbResidentAdapterBase
 
     /// <summary>
     /// Drops whatever the run did not get through. Rows left here were never accepted by Bitween
-    /// and the cursor never moved past them, so the next poll reads them again — which is the
+    /// and the cursor never moved past them, so the next poll reads them again - which is the
     /// correct at-least-once behaviour, not a leak.
     /// </summary>
     public virtual Task Finalize()
@@ -390,6 +448,31 @@ public abstract partial class DbResidentAdapterBase
 
         PruneStaleBatches();
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// What makes a row's progress real: the mark-processed statement runs, then the cursor advances
+    /// past it. Both, in that order. Advancing the cursor first would skip a row whose marking failed.
+    /// </summary>
+    async Task Acknowledge(Dictionary<string, object> row, ReceivePlan plan, object cursorValue)
+    {
+        if (!string.IsNullOrWhiteSpace(plan.MarkProcessedSql))
+        {
+            var parameters = new Dictionary<string, object> { ["key"] = RawKey(row, plan) };
+
+            // Every column is offered as a parameter too, so a mark statement can use more than the
+            // key - a status column, a batch id, the row's own timestamp.
+            foreach (var kv in row) parameters[kv.Key] = kv.Value;
+
+            await Execute(new StatementRequest
+            {
+                Sql = plan.MarkProcessedSql,
+                Parameters = parameters
+            }, adHocAllowed: true);
+        }
+
+        if (cursorValue != null)
+            await Context.SetStateAsync(CursorStateName(), FormatCursor(cursorValue), Stopping);
     }
 
     // ------------------------------------------------------------------ helpers
@@ -404,7 +487,7 @@ public abstract partial class DbResidentAdapterBase
         if (!batches.TryGetValue(batchId, out batch))
             throw new InvalidOperationException(
                 $"Batch {batchId} is no longer held. Either the run already finished, or the adapter "
-                + "restarted between the listing and this call — in which case the rows were never "
+                + "restarted between the listing and this call - in which case the rows were never "
                 + "acknowledged and the next poll will read them again.");
 
         if (!batch.Rows.TryGetValue(fileId, out var row))
@@ -416,7 +499,7 @@ public abstract partial class DbResidentAdapterBase
     static string KeyOf(string fileId) => fileId.Substring(fileId.IndexOf(':') + 1);
 
     /// <summary>
-    /// The row's key as the database returned it — not the string from the file id, which has been
+    /// The row's key as the database returned it - not the string from the file id, which has been
     /// through JSON and would bind a number as text.
     /// </summary>
     static object RawKey(Dictionary<string, object> row, ReceivePlan plan) =>
@@ -424,7 +507,7 @@ public abstract partial class DbResidentAdapterBase
 
     /// <summary>
     /// A cursor comes back from the host as text, and has to go into the query as the type the
-    /// column compares against — a string on one side of a timestamp comparison silently matches
+    /// column compares against - a string on one side of a timestamp comparison silently matches
     /// nothing on some engines rather than failing.
     /// </summary>
     object ParseCursor(string saved, string mode)
@@ -456,7 +539,7 @@ public abstract partial class DbResidentAdapterBase
     };
 
     /// <summary>
-    /// A batch whose run died mid-way — the job was cancelled, the node went down — is otherwise
+    /// A batch whose run died mid-way - the job was cancelled, the node went down - is otherwise
     /// held for the life of the process, and it holds every row of that poll in memory.
     /// </summary>
     void PruneStaleBatches()

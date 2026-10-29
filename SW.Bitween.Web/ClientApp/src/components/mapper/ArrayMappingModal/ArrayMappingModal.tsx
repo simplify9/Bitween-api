@@ -1,6 +1,6 @@
 import type React from "react";
 import { PlusCircle, X } from "lucide-react";
-import { useMappingEditorState } from "../../../lib/mapping/MappingEditorContext";
+import { useMappingEditorState } from "../../../lib/mapping/mappingEditorHooks";
 import type { FilterOperator } from "../../../lib/mapping/types";
 import { generateExample } from "../../../lib/mapping/arrayMappingHelpers";
 import { useArrayMappingModal } from "./useArrayMappingModal";
@@ -80,7 +80,7 @@ const ArrayMappingModal: React.FC = () => {
             </h2>
             <p className="text-xs text-ink-500 mt-0.5">Configure a loop over a source array with optional filters</p>
           </div>
-          <button onClick={handleClose} className="text-ink-400 hover:text-ink-600 transition">
+          <button onClick={handleClose} aria-label="Close" className="text-ink-500 hover:text-ink-600 transition">
             <X size={18} />
           </button>
         </div>
@@ -109,16 +109,16 @@ const ArrayMappingModal: React.FC = () => {
               <label className="block text-xs font-semibold text-ink-600 mb-1">Source Array Path</label>
               {sourceArrayPaths.length > 0 ? (
                 <select
-                  className="w-full border border-ink-200 rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-crimson-400 bg-white"
+                  className="w-full border border-ink-200 rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-focus-400 bg-white"
                   value={source}
                   onChange={(e) => { setSource(e.target.value); }}
                 >
-                  <option value="">— select array —</option>
+                  <option value="">- select array -</option>
                   {sourceArrayPaths.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               ) : (
                 <input
-                  className="w-full border border-ink-200 rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-crimson-400"
+                  className="w-full border border-ink-200 rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-focus-400"
                   placeholder="e.g. order.items"
                   value={source}
                   onChange={(e) => { setSource(e.target.value); }}
@@ -128,7 +128,7 @@ const ArrayMappingModal: React.FC = () => {
             <div>
               <label className="block text-xs font-semibold text-ink-600 mb-1">Loop Alias</label>
               <input
-                className="w-full border border-ink-200 rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-crimson-400"
+                className="w-full border border-ink-200 rounded px-2 py-1.5 text-xs font-mono focus:outline-none focus:border-focus-400"
                 placeholder="item"
                 value={alias}
                 onChange={(e) => setAlias(e.target.value)}
@@ -144,12 +144,12 @@ const ArrayMappingModal: React.FC = () => {
                   type="checkbox"
                   checked={hasFilter}
                   onChange={(e) => setHasFilter(e.target.checked)}
-                  className="rounded border-ink-300 text-crimson-600 focus:ring-crimson-500"
+                  className="rounded border-ink-300 text-crimson-600 focus:ring-focus-500"
                 />
                 <span className="text-xs font-semibold text-ink-700">Apply filter on array items</span>
               </label>
               {hasFilter && (
-                <span className="text-xs text-ink-400">
+                <span className="text-xs text-ink-500">
                   e.g. only include items where{' '}
                   <code className="font-mono bg-white px-1 rounded border border-ink-200">
                     {alias}.{filterField || 'field'} {filterOp} {filterValue || 'value'}
@@ -162,7 +162,7 @@ const ArrayMappingModal: React.FC = () => {
                 <div>
                   <label className="block text-xs text-ink-500 mb-1">Field</label>
                   <input
-                    className="w-full border border-ink-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-crimson-400 bg-white"
+                    className="w-full border border-ink-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-focus-400 bg-white"
                     placeholder="status"
                     value={filterField}
                     onChange={(e) => setFilterField(e.target.value)}
@@ -171,7 +171,7 @@ const ArrayMappingModal: React.FC = () => {
                 <div>
                   <label className="block text-xs text-ink-500 mb-1">Operator</label>
                   <select
-                    className="w-full border border-ink-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-crimson-400 bg-white"
+                    className="w-full border border-ink-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-focus-400 bg-white"
                     value={filterOp}
                     onChange={(e) => setFilterOp(e.target.value as FilterOperator)}
                   >
@@ -181,7 +181,7 @@ const ArrayMappingModal: React.FC = () => {
                 <div>
                   <label className="block text-xs text-ink-500 mb-1">Value</label>
                   <input
-                    className="w-full border border-ink-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-crimson-400 bg-white"
+                    className="w-full border border-ink-200 rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-focus-400 bg-white"
                     placeholder="10"
                     value={filterValue}
                     onChange={(e) => setFilterValue(e.target.value)}
@@ -195,7 +195,7 @@ const ArrayMappingModal: React.FC = () => {
           <div>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-xs font-semibold text-ink-700">Field Mappings inside loop</span>
-              <span className="text-xs text-ink-400">
+              <span className="text-xs text-ink-500">
                 Use <code className="font-mono">{alias || 'item'}.fieldName</code> for source fields
               </span>
             </div>
@@ -239,12 +239,12 @@ const ArrayMappingModal: React.FC = () => {
             </button>
           </div>
 
-          {/* Child Array Mappings — read-only */}
+          {/* Child Array Mappings - read-only */}
           {!isCreating && childArrayMappings.length > 0 && (
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-xs font-semibold text-ink-700">Nested Array Mappings</span>
-                <span className="text-xs text-ink-400">configured via their own loop buttons</span>
+                <span className="text-xs text-ink-500">configured via their own loop buttons</span>
               </div>
               <div className="space-y-1.5">
                 {childArrayMappings.map((child) => (
@@ -252,8 +252,8 @@ const ArrayMappingModal: React.FC = () => {
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[10px] font-bold bg-warn-100 text-warn-700 border border-warn-100 rounded px-1.5">loop</span>
                       <span className="text-xs font-mono text-ink-700">
-                        {child.source} <span className="text-ink-400">{'→'}</span> {child.target}
-                        <span className="text-ink-400 ml-1">as {child.alias}</span>
+                        {child.source} <span className="text-ink-500">{'→'}</span> {child.target}
+                        <span className="text-ink-500 ml-1">as {child.alias}</span>
                       </span>
                       {child.filter && (
                         <span className="text-[10px] text-ink-500 font-mono border border-ink-200 rounded px-1 bg-white">
@@ -265,7 +265,7 @@ const ArrayMappingModal: React.FC = () => {
                       <div className="space-y-0.5 pl-2 border-l border-warn-100">
                         {child.mappings.map((m) => (
                           <div key={m.id} className="text-[10px] font-mono text-ink-500">
-                            {m.source || (m.fixedValue !== undefined ? `"${m.fixedValue}"` : '—')}
+                            {m.source || (m.fixedValue !== undefined ? `"${m.fixedValue}"` : '-')}
                             {' '}<span className="text-ink-300">{'→'}</span>{' '}
                             {m.target}
                           </div>

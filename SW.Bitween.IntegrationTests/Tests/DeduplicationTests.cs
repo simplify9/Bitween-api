@@ -123,7 +123,7 @@ public class DeduplicationTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// Atomicity. A failed ingest must NOT leave the key behind — remembering a message that was
+    /// Atomicity. A failed ingest must NOT leave the key behind - remembering a message that was
     /// never persisted suppresses its redelivery for ever, which is silent data loss and the worse
     /// of the two failure modes.
     /// </summary>

@@ -30,7 +30,7 @@ public enum SettingAccess
     ReadOnly,
 
     /// <summary>
-    /// Environment-owned and private: only whether a value is set is reported, never the value —
+    /// Environment-owned and private: only whether a value is set is reported, never the value -
     /// for credentials and keys that would be pointless to leak into the browser.
     /// </summary>
     Presence
@@ -53,28 +53,37 @@ public sealed record SettingDefinition(
     Func<SettingsTarget, string> Read,
     Action<SettingsTarget, string> Write)
 {
-    /// <summary>Editable unless a definition says otherwise — see <see cref="SettingAccess"/>.</summary>
+    /// <summary>Editable unless a definition says otherwise - see <see cref="SettingAccess"/>.</summary>
     public SettingAccess Access { get; init; } = SettingAccess.Editable;
 
     /// <summary>
     /// Extra work needed to make a new value take effect, where assigning the property isn't
-    /// enough — rescheduling a job, re-declaring queues. Runs on the instance that saved it,
+    /// enough - rescheduling a job, re-declaring queues. Runs on the instance that saved it,
     /// after the value has been applied.
     /// </summary>
     public Func<IServiceProvider, Task> OnChange { get; init; }
+
+    /// <summary>The only values a string setting takes, offered as a dropdown. Null for free text.</summary>
+    public IReadOnlyList<string> Choices { get; init; }
+
+    /// <summary>
+    /// Settings emptied when this one is saved with another value: a login saved for one address is
+    /// never sent to another, so it is entered again.
+    /// </summary>
+    public IReadOnlyList<string> Clears { get; init; }
 
     /// <summary>Only editable settings get a row; the rest are read straight off the options.</summary>
     public bool Stored => Access == SettingAccess.Editable;
 }
 
 /// <summary>
-/// Every setting the settings page shows, and — for the editable ones — the only keys the
+/// Every setting the settings page shows, and - for the editable ones - the only keys the
 /// <c>Settings</c> table ever holds.
 /// <para>
 /// The membership rule is about <see cref="SettingAccess"/>, not about being listed here. A
 /// setting is <b>editable</b> only if every consumer reads it from the options singleton per call,
 /// so a change takes effect immediately. Anything captured once during
-/// <c>Startup.ConfigureServices</c> — the bus, CORS, storage, JWT signing, the DB provider — is
+/// <c>Startup.ConfigureServices</c> - the bus, CORS, storage, JWT signing, the DB provider - is
 /// environment-owned and appears as <see cref="SettingAccess.ReadOnly"/> (its value shown) or
 /// <see cref="SettingAccess.Presence"/> (only whether it's set), so an administrator can see what
 /// the instance is running on without being offered an edit that couldn't work.
@@ -88,12 +97,12 @@ public static class SettingsCatalog
 {
     public static readonly IReadOnlyList<SettingDefinition> All =
     [
-        // ——— Documents & storage ———
+        // --- Documents & storage ---
         // Exchange files are always private now; there's no switch for it. Readers without a login
         // get sealed links (see FileLinks).
         new("Bitween.DocumentPrefix", "Documents & storage",
             "Exchange files prefix",
-            "Where new exchange files are written in storage. The bucket's lifecycle rule for this prefix decides how long they're kept — temp30/… keeps them 30 days. Each exchange keeps the prefix it was written under, so a change only applies to exchanges created after it.",
+            "Where new exchange files are written in storage. The bucket's lifecycle rule for this prefix decides how long they're kept - temp30/… keeps them 30 days. Each exchange keeps the prefix it was written under, so a change only applies to exchanges created after it.",
             SettingKind.String, false,
             t => t.Bitween.DocumentPrefix,
             (t, v) => t.Bitween.DocumentPrefix = StoragePrefix(v)),
@@ -107,7 +116,7 @@ public static class SettingsCatalog
 
         new("Bitween.ArchiveExchanges", "Documents & storage",
             "Archive before deleting",
-            "Copies each exchange — its details, and its files while storage still has them — to the archive before the retention job deletes it.",
+            "Copies each exchange - its details, and its files while storage still has them - to the archive before the retention job deletes it.",
             SettingKind.Boolean, false,
             t => Str(t.Bitween.ArchiveExchanges),
             (t, v) => t.Bitween.ArchiveExchanges = Bool(v)),
@@ -123,7 +132,7 @@ public static class SettingsCatalog
                 .Schedule<ExchangeRetentionJob>(sp.GetRequiredService<BitweenOptions>().ExchangeRetentionCron)
         },
 
-        // ——— API behavior ———
+        // --- API behavior ---
         new("Bitween.ApiCallSubscriptionResponseAcceptedStatusCode", "API behavior",
             "Accepted response status code",
             "Change this if a partner's API expects a different HTTP status code (instead of 202 Accepted) when their request has been queued for async processing.",
@@ -149,12 +158,12 @@ public static class SettingsCatalog
             "The origins allowed to call this API with cookies attached. Read once when the CORS policy is built at startup.",
             SettingKind.String, t => Join(t.Bitween.CorsOrigins)),
 
-        // ——— Single sign-on (Microsoft) ———
+        // --- Single sign-on (Microsoft) ---
         // Not secrets: these are public client identifiers, and the [Unprotect] Config endpoint
         // already serves them to anonymous visitors so the login page can offer the MS button.
         new("Bitween.MsalClientId", "Single sign-on (Microsoft)",
             "Azure AD client ID",
-            "Add this — together with the tenant ID and redirect URI below — if you want to let teammates sign in with a Microsoft account. All three are required for Microsoft sign-in to turn on.",
+            "Add this - together with the tenant ID and redirect URI below - if you want to let teammates sign in with a Microsoft account. All three are required for Microsoft sign-in to turn on.",
             SettingKind.String, false,
             t => t.Bitween.MsalClientId,
             (t, v) => t.Bitween.MsalClientId = v),
@@ -168,22 +177,65 @@ public static class SettingsCatalog
 
         new("Bitween.MsalRedirectUri", "Single sign-on (Microsoft)",
             "Azure AD redirect URI",
-            "The URL Azure AD sends users back to after signing in — must match the redirect URI registered on the Azure AD app. Point it at this app's /blank.html (for example https://your-host/blank.html), not the app root: the root boots the admin UI, which navigates away and loses the sign-in code before the popup can hand it over. Required alongside the client ID and tenant ID.",
+            "The URL Azure AD sends users back to after signing in - must match the redirect URI registered on the Azure AD app. Point it at this app's /blank.html (for example https://your-host/blank.html), not the app root: the root boots the admin UI, which navigates away and loses the sign-in code before the popup can hand it over. Required alongside the client ID and tenant ID.",
             SettingKind.String, false,
             t => t.Bitween.MsalRedirectUri,
             (t, v) => t.Bitween.MsalRedirectUri = v),
 
         new("Bitween.DisableEmailPasswordLogin", "Single sign-on (Microsoft)",
             "Microsoft sign-in only",
-            "Turn this on to stop anyone signing in with an email and password — the sign-in page then offers Microsoft alone, and new teammates are added without a password. Only do this once Microsoft sign-in above is working, or nobody will be able to get in.",
+            "Turn this on to stop anyone signing in with an email and password - the sign-in page then offers Microsoft alone, and new teammates are added without a password. Only do this once Microsoft sign-in above is working, or nobody will be able to get in.",
             SettingKind.Boolean, false,
             t => Str(t.Bitween.DisableEmailPasswordLogin),
             (t, v) => t.Bitween.DisableEmailPasswordLogin = Bool(v)),
 
-        // ——— Adapters ———
+        // --- Single sign-on (OpenID Connect) ---
+        new("Bitween.OidcAuthority", "Single sign-on (OpenID Connect)",
+            "Provider address",
+            "The issuer address of an OpenID Connect provider, such as Keycloak, Okta, Entra ID, Google or ADFS: for example https://id.example.com/realms/main. With the client ID, the sign-in page offers it. Register this app's /oidc-callback as the redirect URI.",
+            SettingKind.String, false,
+            t => t.Bitween.OidcAuthority,
+            (t, v) => t.Bitween.OidcAuthority = v),
+
+        new("Bitween.OidcClientId", "Single sign-on (OpenID Connect)",
+            "Client ID",
+            "The client the provider registered for this app. Required alongside the provider address.",
+            SettingKind.String, false,
+            t => t.Bitween.OidcClientId,
+            (t, v) => t.Bitween.OidcClientId = v),
+
+        new("Bitween.OidcClientSecret", "Single sign-on (OpenID Connect)",
+            "Client secret",
+            "Only for a confidential client. A public client signs in with PKCE alone and needs none.",
+            SettingKind.String, true,
+            t => t.Bitween.OidcClientSecret,
+            (t, v) => t.Bitween.OidcClientSecret = v),
+
+        new("Bitween.OidcDisplayName", "Single sign-on (OpenID Connect)",
+            "Button label",
+            "The name on the sign-in button, as \"Sign in with {name}\". \"single sign-on\" when empty.",
+            SettingKind.String, false,
+            t => t.Bitween.OidcDisplayName,
+            (t, v) => t.Bitween.OidcDisplayName = v),
+
+        new("Bitween.OidcScopes", "Single sign-on (OpenID Connect)",
+            "Scopes",
+            "Asked of the provider, separated by spaces. openid email profile when empty; openid is always asked.",
+            SettingKind.String, false,
+            t => t.Bitween.OidcScopes,
+            (t, v) => t.Bitween.OidcScopes = v),
+
+        new("Bitween.OidcRedirectUri", "Single sign-on (OpenID Connect)",
+            "Redirect URI",
+            "Where the provider sends people back. Leave empty for this app's own /oidc-callback; set it when the public address isn't the one requests arrive on.",
+            SettingKind.String, false,
+            t => t.Bitween.OidcRedirectUri,
+            (t, v) => t.Bitween.OidcRedirectUri = v),
+
+        // --- Adapters ---
         new("Bitween.RebexLicenseKey", "Adapters",
             "Rebex license key",
-            "Add this if you want the native POP3 and FTP adapters, which are built on the Rebex library — without a key they aren't offered when picking a receiver or handler.",
+            "Keeps the built-in Rebex POP3 and FTP adapters working for the subscriptions that still use them; they moved to the marketplace, whose packages take their key in their own LicenseKey property. Without a key they aren't offered when picking a receiver or handler.",
             SettingKind.String, true,
             t => t.Bitween.RebexLicenseKey,
             (t, v) => t.Bitween.RebexLicenseKey = v),
@@ -196,7 +248,217 @@ public static class SettingsCatalog
             "How long a custom adapter may run before the serverless runner gives up on it.",
             SettingKind.Number, t => t.Bitween.ServerlessCommandTimeout.ToString(CultureInfo.InvariantCulture)),
 
-        // ——— Reliability & jobs ———
+        View("Bitween.NativeAdapterTimeout", "Adapters", "Built-in adapter timeout (seconds)",
+            "How long one call to a built-in adapter may take before the exchange fails as a timeout. 0 for no limit.",
+            SettingKind.Number, t => t.Bitween.NativeAdapterTimeout.ToString(CultureInfo.InvariantCulture)),
+
+        View("Bitween.CircuitBreakerFailures", "Adapters", "Circuit breaker failures",
+            "Failures in a row (timeouts, refused connections, 429, 5xx) after which a built-in adapter's calls to that destination fail at once, as a 503, for a while. 0 switches it off.",
+            SettingKind.Number, t => t.Bitween.CircuitBreakerFailures.ToString(CultureInfo.InvariantCulture)),
+
+        View("Bitween.CircuitBreakerWindowSeconds", "Adapters", "Circuit breaker window (seconds)",
+            "The failures must fall within this many seconds to open a destination's circuit.",
+            SettingKind.Number, t => t.Bitween.CircuitBreakerWindowSeconds.ToString(CultureInfo.InvariantCulture)),
+
+        View("Bitween.CircuitBreakerOpenSeconds", "Adapters", "Circuit breaker cool-down (seconds)",
+            "How long an open circuit fails calls at once before one is let through to try the destination again.",
+            SettingKind.Number, t => t.Bitween.CircuitBreakerOpenSeconds.ToString(CultureInfo.InvariantCulture)),
+
+        // --- Marketplace ---
+        new("Bitween.RegistryEnabled", "Marketplace",
+            "Marketplace",
+            "The Marketplace tab on the Adapters page, where connectors from the registry below are browsed and installed. Turn it off for a Bitween that must not reach the internet: nothing is fetched from the registry while it's off.",
+            SettingKind.Boolean, false,
+            t => Str(t.Bitween.RegistryEnabled),
+            (t, v) => t.Bitween.RegistryEnabled = Bool(v)),
+
+        new("Bitween.RegistryUrl", "Marketplace",
+            "Registry address",
+            "The Bitween Registry the marketplace uses. Simplify9's unless you run your own or a mirror.",
+            SettingKind.String, false,
+            t => t.Bitween.RegistryUrl,
+            (t, v) => t.Bitween.RegistryUrl = v),
+
+        new("Bitween.RegistryTrustedKeys", "Marketplace",
+            "Registry signing keys",
+            "The registry's public keys, separated by commas or new lines. A connector is installed only when the registry's signature on it verifies with one of these, so a wrong address can never install anything. Simplify9's registry's keys unless changed.",
+            SettingKind.String, false,
+            t => t.Bitween.RegistryTrustedKeys,
+            (t, v) => t.Bitween.RegistryTrustedKeys = v),
+
+        new("Bitween.RegistryAllowCommunity", "Marketplace",
+            "Allow Community connectors",
+            "Turn this on to install connectors from Community publishers, which Simplify9 hasn't vetted. Official and Verified connectors can always be installed.",
+            SettingKind.Boolean, false,
+            t => Str(t.Bitween.RegistryAllowCommunity),
+            (t, v) => t.Bitween.RegistryAllowCommunity = Bool(v)),
+
+        new("Bitween.RegistryInstanceId", "Marketplace",
+            "Registered as",
+            "What the registry calls this Bitween, once it is registered with a registration code (Settings, Marketplace, Register). Needed only for private connectors, paid connectors and usage reports. Clear it, with the token, to unregister.",
+            SettingKind.String, false,
+            t => t.Bitween.RegistryInstanceId,
+            (t, v) => t.Bitween.RegistryInstanceId = v),
+
+        new("Bitween.RegistryInstanceToken", "Marketplace",
+            "Instance token",
+            "The token the registry gave at registration, sent with every call to it. Set by registering; clear it to unregister.",
+            SettingKind.String, true,
+            t => t.Bitween.RegistryInstanceToken,
+            (t, v) => t.Bitween.RegistryInstanceToken = v),
+
+        new("Bitween.RegistryUsageReports", "Marketplace",
+            "Send usage reports",
+            "Once a day, for each connector installed from the registry: how many subscriptions use it, calls and failures. No payloads, no partner or subscription names, no hostnames. Off unless turned on; needs the Bitween registered.",
+            SettingKind.Boolean, false,
+            t => Str(t.Bitween.RegistryUsageReports),
+            (t, v) => t.Bitween.RegistryUsageReports = Bool(v)),
+
+        // --- AI ---
+        // Every AI feature reads these per call, so a new key or model applies to the next request.
+        new("Bitween.Ai.Provider", "AI",
+            "Provider",
+            "Who AI features call. OpenAI also covers anything that speaks its API - Azure OpenAI, Ollama, a company proxy - at the address below. Sample documents sent to AI features go to this provider, with the names - never the values - of partner properties and global values.",
+            SettingKind.String, false,
+            t => t.Bitween.Ai.Provider,
+            (t, v) => t.Bitween.Ai.Provider = Choice(v, Ai.AiOptions.Providers))
+        {
+            Choices = Ai.AiOptions.Providers
+        },
+
+        new("Bitween.Ai.ApiKey", "AI",
+            "API key",
+            "The provider's API key. AI features stay off until one is set.",
+            SettingKind.String, true,
+            t => t.Bitween.Ai.ApiKey,
+            (t, v) => t.Bitween.Ai.ApiKey = Trimmed(v)),
+
+        new("Bitween.Ai.Model", "AI",
+            "Model",
+            $"The model AI features use. Empty uses {Ai.AiOptions.DefaultAnthropicModel} with Anthropic; OpenAI needs one named, or your Azure deployment's name.",
+            SettingKind.String, false,
+            t => t.Bitween.Ai.Model,
+            (t, v) => t.Bitween.Ai.Model = Trimmed(v)),
+
+        new("Bitween.Ai.BaseUrl", "AI",
+            "API address",
+            "Leave empty for the provider's own API. Set it for Azure OpenAI (https://your-resource.openai.azure.com/openai/v1/), a local Ollama (http://localhost:11434/v1/) or a proxy. Plain http only reaches this machine.",
+            SettingKind.String, false,
+            t => t.Bitween.Ai.BaseUrl,
+            (t, v) => t.Bitween.Ai.BaseUrl = AiAddress(v)),
+
+        // --- Mail server ---
+        // Shared by every Email notification channel, which then only names its recipients. The
+        // Email adapter reads these on each send, so a change applies to the next email.
+        new("Bitween.MailServer.Host", "Mail server",
+            "Server",
+            "The SMTP server that Email notification channels, member invites and password resets send through, e.g. smtp.office365.com. While it's empty, none of them can be emailed.",
+            SettingKind.String, false,
+            t => t.Bitween.MailServer.Host,
+            (t, v) => t.Bitween.MailServer.Host = Trimmed(v)),
+
+        new("Bitween.MailServer.Port", "Mail server",
+            "Port",
+            "587 for STARTTLS, 465 for SSL, 25 for an internal relay without encryption.",
+            SettingKind.Number, false,
+            t => t.Bitween.MailServer.Port.ToString(CultureInfo.InvariantCulture),
+            (t, v) => t.Bitween.MailServer.Port = Port(v)),
+
+        new("Bitween.MailServer.UseTls", "Mail server",
+            "Encrypt the connection",
+            "Uses STARTTLS or SSL, whichever the port calls for. Turn it off only for an internal relay without TLS; a password is then never sent.",
+            SettingKind.Boolean, false,
+            t => Str(t.Bitween.MailServer.UseTls),
+            (t, v) => t.Bitween.MailServer.UseTls = Bool(v)),
+
+        new("Bitween.MailServer.CertificateThumbprint", "Mail server",
+            "Certificate thumbprint",
+            "The SHA-256 thumbprint of the server's certificate, in hex. When set, exactly that certificate is trusted, a self-signed one included, and any other is refused. Leave it empty for a server with a valid certificate.",
+            SettingKind.String, false,
+            t => t.Bitween.MailServer.CertificateThumbprint,
+            (t, v) => t.Bitween.MailServer.CertificateThumbprint = Trimmed(v)),
+
+        new("Bitween.MailServer.Username", "Mail server",
+            "Username",
+            "The account to sign in as. Leave it empty to sign in as the From address, or for a relay that needs no sign-in.",
+            SettingKind.String, false,
+            t => t.Bitween.MailServer.Username,
+            (t, v) => t.Bitween.MailServer.Username = Trimmed(v)),
+
+        new("Bitween.MailServer.Password", "Mail server",
+            "Password",
+            "The password for that account. Leave it empty for a relay that needs no sign-in.",
+            SettingKind.String, true,
+            t => t.Bitween.MailServer.Password,
+            (t, v) => t.Bitween.MailServer.Password = v),
+
+        new("Bitween.MailServer.From", "Mail server",
+            "From address",
+            "The address notification emails come from, e.g. bitween@acme.com.",
+            SettingKind.String, false,
+            t => t.Bitween.MailServer.From,
+            (t, v) => t.Bitween.MailServer.From = EmailAddress(v)),
+
+        new("Bitween.MailServer.FromName", "Mail server",
+            "From name",
+            "Shown beside the From address, e.g. Bitween alerts.",
+            SettingKind.String, false,
+            t => t.Bitween.MailServer.FromName,
+            (t, v) => t.Bitween.MailServer.FromName = Trimmed(v)),
+
+        // --- Prod mirror ---
+        // Where this staging copies prod's setup from, faked, to rehearse an upgrade on. Whether it
+        // may be overwritten at all is the deployment's to say, never a setting's.
+        View("Bitween.Mirror.Target", "Prod mirror", "This Bitween is a mirror",
+            "Whether prod's items may be brought onto this Bitween and tested with prod's traffic. Set by the deployment (Bitween__Mirror__Target=true), so nothing of prod's can be brought onto a prod from here.",
+            SettingKind.Boolean, t => Str(t.Bitween.Mirror.Target)),
+
+        new("Bitween.Mirror.SourceUrl", "Prod mirror",
+            "Prod's address",
+            "The prod this staging copies, e.g. https://bitween.acme.com. Read only, through its own API: nothing is installed or changed there. Plain http only for an address inside the cluster. Changing it empties the saved token and password, to enter again.",
+            SettingKind.String, false,
+            t => t.Bitween.Mirror.SourceUrl,
+            (t, v) => t.Bitween.Mirror.SourceUrl = AbsoluteUrl(v))
+        {
+            Clears = ["Bitween.Mirror.SourceToken", "Bitween.Mirror.SourcePassword"]
+        },
+
+        new("Bitween.Mirror.SourceToken", "Prod mirror",
+            "Service account token",
+            "A token of a service account on prod whose role only views, such as the built-in Viewer. Used instead of an email and password when both are set.",
+            SettingKind.String, true,
+            t => t.Bitween.Mirror.SourceToken,
+            (t, v) => t.Bitween.Mirror.SourceToken = Trimmed(v)),
+
+        new("Bitween.Mirror.SourceEmail", "Prod mirror",
+            "Viewer email",
+            "For a prod on r10.0, which has no service accounts: the email of a member with the Viewer role.",
+            SettingKind.String, false,
+            t => t.Bitween.Mirror.SourceEmail,
+            (t, v) => t.Bitween.Mirror.SourceEmail = Trimmed(v)),
+
+        new("Bitween.Mirror.SourcePassword", "Prod mirror",
+            "Viewer password",
+            "That member's password.",
+            SettingKind.String, true,
+            t => t.Bitween.Mirror.SourcePassword,
+            (t, v) => t.Bitween.Mirror.SourcePassword = v),
+
+        new("Bitween.Mirror.KeepRealValues", "Prod mirror",
+            "Values copied as they are",
+            "Partner properties and global values that are settings rather than data, such as a time zone, one per line: partner:timeZone or global:formats/date. Everything else of theirs is faked. Addresses and secrets are never copied.",
+            SettingKind.String, false,
+            t => t.Bitween.Mirror.KeepRealValues,
+            (t, v) => t.Bitween.Mirror.KeepRealValues = Trimmed(v)),
+
+        // --- Reliability & jobs ---
+        new("Bitween.MaxRetryAfterSeconds", "Reliability & jobs",
+            "Longest wait an adapter can ask for (seconds)",
+            "When an adapter says when to try again - a partner answered 429 Too Many Requests with a Retry-After - a retry the policy allows waits at least that long, up to this. It never makes a retry sooner or makes one the policy wouldn't. 0 ignores what adapters ask.",
+            SettingKind.Number, false,
+            t => t.Bitween.MaxRetryAfterSeconds.ToString(CultureInfo.InvariantCulture),
+            (t, v) => t.Bitween.MaxRetryAfterSeconds = NonNegativeInt(v)),
+
         new("Bitween.RetryJobCron", "Reliability & jobs",
             "Retry poll schedule",
             "How often Bitween looks for exchanges whose scheduled retry has come due, as a cron expression: second minute hour day-of-month month day-of-week. Saving re-schedules the job straight away.",
@@ -210,7 +472,7 @@ public static class SettingsCatalog
                 .Schedule<RetryJob>(sp.GetRequiredService<BitweenOptions>().RetryJobCron)
         },
 
-        // ——— Messaging ———
+        // --- Messaging ---
         // All environment-owned: the bus connection and its queue topology are built once, during
         // startup, so nothing here could take effect on a running instance.
         View("Bitween.QueuePrefix", "Messaging", "Queue name prefix",
@@ -221,9 +483,9 @@ public static class SettingsCatalog
             "How many messages a consumer may hold unacknowledged by default. A work group can override it for its own queue.",
             SettingKind.Number, t => t.Bitween.BusDefaultQueuePrefetch?.ToString(CultureInfo.InvariantCulture)),
 
-        View("Bitween.ConsumeLegacyEventMessages", "Messaging", "Consume legacy event messages",
-            "Whether this instance also drains the five queues named after exchange events, which an older Bitween published to before work groups existed. Nothing publishes to them today, so this is only for finishing off messages left behind by an upgrade.",
-            SettingKind.Boolean, t => Str(t.Bitween.ConsumeLegacyEventMessages)),
+        View("Bitween.BusDefaultConcurrency", "Messaging", "Default parallel exchanges",
+            "How many messages of a lane run at once on each node when nothing more specific says: the ungrouped lane and the bus's other consumers. A work group sets its own. Unset, it is the default prefetch.",
+            SettingKind.Number, t => t.Bitween.ResolvedBusDefaultConcurrency.ToString(CultureInfo.InvariantCulture)),
 
         Presence("Bitween.RabbitMqManagementUrl", "Messaging", "RabbitMQ management URL",
             "The management API queue health is read from. All three management values are needed before queue depths can be shown.",
@@ -237,7 +499,7 @@ public static class SettingsCatalog
             "The password for the management account. Required alongside the URL and username.",
             t => t.Bitween.RabbitMqManagementPassword),
 
-        // ——— Database ———
+        // --- Database ---
         View("Bitween.UseAzureManagedIdentity", "Database", "Use Azure managed identity",
             "Whether database connections authenticate with an Azure managed identity instead of a password in the connection string.",
             SettingKind.Boolean, t => Str(t.Bitween.UseAzureManagedIdentity)),
@@ -246,15 +508,15 @@ public static class SettingsCatalog
             "Set only when a user-assigned identity is used; left unset, the system-assigned identity is.",
             t => t.Bitween.AzureManagedIdentityClientId),
 
-        // ——— Security ———
+        // --- Security ---
         Presence("Bitween.SettingsEncryptionKey", "Security", "Settings encryption key",
             "Encrypts secret settings before they're stored. Without it, a secret can't be saved here at all and stays environment-only.",
             t => t.Bitween.SettingsEncryptionKey),
 
-        // ——— Brand & theme ———
+        // --- Brand & theme ---
         new("Theme.PrimaryColor", "Brand & theme",
             "Primary color",
-            "Re-brands the whole app's accent color — buttons, links, active nav, focus rings — instantly, without waiting on a deploy.",
+            "Re-brands the whole app's accent color - buttons, links, active nav, focus rings - instantly, without waiting on a deploy.",
             SettingKind.Color, false,
             t => t.Theme.PrimaryColor,
             (t, v) => t.Theme.PrimaryColor = v),
@@ -272,6 +534,20 @@ public static class SettingsCatalog
             SettingKind.String, false,
             t => t.Theme.TabTitle,
             (t, v) => t.Theme.TabTitle = v),
+
+        new("Theme.EnvironmentName", "Brand & theme",
+            "Environment name",
+            "Shown in a badge at the top of every page - \"Production\", \"Staging\" - so nobody mistakes one instance for another. Leave empty for no badge.",
+            SettingKind.String, false,
+            t => t.Theme.EnvironmentName,
+            (t, v) => t.Theme.EnvironmentName = v),
+
+        new("Theme.EnvironmentColor", "Brand & theme",
+            "Environment badge color",
+            "The color of the environment badge. Red for production is a common choice.",
+            SettingKind.Color, false,
+            t => t.Theme.EnvironmentColor,
+            (t, v) => t.Theme.EnvironmentColor = v),
 
         new("Theme.TabIcon", "Brand & theme",
             "Favicon URL",
@@ -315,28 +591,28 @@ public static class SettingsCatalog
 
         new("Theme.ShowFooter", "Brand & theme",
             "Show the footer",
-            "Turn this off to hide the footer everywhere — the copyright line and the website / LinkedIn / GitHub links below every page.",
+            "Turn this off to hide the footer everywhere - the copyright line and the website / LinkedIn / GitHub links below every page.",
             SettingKind.Boolean, false,
             t => Str(t.Theme.ShowFooter),
             (t, v) => t.Theme.ShowFooter = Bool(v)),
 
         new("Theme.LinkedinLink", "Brand & theme",
             "LinkedIn link",
-            "Add this if you want a LinkedIn link in the footer — leave blank to hide it.",
+            "Add this if you want a LinkedIn link in the footer - leave blank to hide it.",
             SettingKind.String, false,
             t => t.Theme.LinkedinLink,
             (t, v) => t.Theme.LinkedinLink = v),
 
         new("Theme.GithubLink", "Brand & theme",
             "GitHub link",
-            "Add this if you want a GitHub link in the footer — leave blank to hide it.",
+            "Add this if you want a GitHub link in the footer - leave blank to hide it.",
             SettingKind.String, false,
             t => t.Theme.GithubLink,
             (t, v) => t.Theme.GithubLink = v),
 
         new("Theme.WebsiteLink", "Brand & theme",
             "Website link",
-            "Add this if you want a company website link in the footer — leave blank to hide it.",
+            "Add this if you want a company website link in the footer - leave blank to hide it.",
             SettingKind.String, false,
             t => t.Theme.WebsiteLink,
             (t, v) => t.Theme.WebsiteLink = v),
@@ -383,7 +659,7 @@ public static class SettingsCatalog
 
     /// <summary>
     /// Rejected here rather than by the scheduler, because a bad expression that reached the table
-    /// would throw on the next boot — inside the background service that seeds every subscription's
+    /// would throw on the next boot - inside the background service that seeds every subscription's
     /// schedule, taking all of them down with it.
     /// </summary>
     private static string Cron(string value) =>
@@ -391,7 +667,7 @@ public static class SettingsCatalog
             ? value
             : throw new FormatException($"'{value}' is not a valid cron expression.");
 
-    /// <summary>Anything but an explicit "true" is off — matches how the UI posts checkboxes.</summary>
+    /// <summary>Anything but an explicit "true" is off - matches how the UI posts checkboxes.</summary>
     private static string HeaderName(string value) =>
         PartnerKeyHeaders.Problem(value) is { } problem ? throw new FormatException(problem) : value.Trim();
 
@@ -417,8 +693,8 @@ public static class SettingsCatalog
         if (!System.Text.RegularExpressions.Regex.IsMatch(prefix, "^[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*$"))
             throw new FormatException(
                 "Use folder names of letters, digits, dots, dashes and underscores, separated by slashes.");
-        // "." and ".." are steps to anything that resolves the key as a path — a file link opened in a
-        // browser, say — and would put the archive outside archive/.
+        // "." and ".." are steps to anything that resolves the key as a path - a file link opened in a
+        // browser, say - and would put the archive outside archive/.
         return prefix.Split('/').Any(folder => folder.Trim('.').Length == 0)
             ? throw new FormatException("A folder name can't be only dots.")
             : prefix;
@@ -427,4 +703,46 @@ public static class SettingsCatalog
     /// <summary>Empty clears it. Otherwise an absolute http(s) address with nothing after the host and path.</summary>
     private static int? NullableInt(string value) =>
         string.IsNullOrWhiteSpace(value) ? null : Int(value);
+
+    private static int Port(string value) =>
+        Int(value) is var parsed and >= 1 and <= 65535
+            ? parsed
+            : throw new FormatException($"'{value}' isn't a port. Use a number from 1 to 65535.");
+
+    /// <summary>Empty clears it.</summary>
+    private static string Trimmed(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+    /// <summary>
+    /// Empty clears it. Otherwise an absolute http(s) address, kept without a trailing slash; without a
+    /// login, query or fragment, which would be shown with it and sent with every call.
+    /// </summary>
+    private static string AbsoluteUrl(string value)
+    {
+        var url = Trimmed(value);
+        if (url == null) return null;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var parsed) || parsed.Scheme is not ("https" or "http") || parsed.Host.Length == 0)
+            throw new FormatException($"'{url}' isn't an address. Use one like https://bitween.acme.com.");
+        if (parsed.UserInfo.Length > 0 || parsed.Query.Length > 0 || parsed.Fragment.Length > 0 || url.Contains('?') || url.Contains('#'))
+            throw new FormatException($"'{url}' has more than an address: leave out any login, ? or #. Use one like https://bitween.acme.com.");
+        return url.TrimEnd('/');
+    }
+
+    /// <summary>One of <paramref name="choices"/>, spelled the way the list spells it.</summary>
+    private static string Choice(string value, IReadOnlyList<string> choices) =>
+        choices.FirstOrDefault(c => string.Equals(c, value?.Trim(), StringComparison.OrdinalIgnoreCase))
+        ?? throw new FormatException($"'{value}' isn't one of {string.Join(", ", choices)}.");
+
+    /// <summary>Empty clears it. Otherwise https, or http to this machine - see <see cref="Ai.AiOptions.AddressProblem"/>.</summary>
+    private static string AiAddress(string value) =>
+        Ai.AiOptions.AddressProblem(value) is { } problem ? throw new FormatException(problem) : Trimmed(value);
+
+    /// <summary>Empty clears it. Otherwise one plain address, without the display name, which has a setting of its own.</summary>
+    private static string EmailAddress(string value)
+    {
+        var address = Trimmed(value);
+        if (address == null) return null;
+        return MimeKit.MailboxAddress.TryParse(address, out var parsed) && parsed.Address == address
+            ? address
+            : throw new FormatException($"'{address}' isn't an email address.");
+    }
 }

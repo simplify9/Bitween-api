@@ -23,7 +23,7 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext) :
         var policy = await dbContext.FindAsync<RetryPolicy>(key);
         var groupIds = policy.Groups.Select(g => g.Id).ToList();
 
-        // One change, one commit — same reasoning as Update: a half-done delete leaves rows keyed
+        // One change, one commit - same reasoning as Update: a half-done delete leaves rows keyed
         // by groups that no longer exist anywhere, which nothing can then reach.
         await using var transaction = await dbContext.Database.BeginTransactionAsync();
 

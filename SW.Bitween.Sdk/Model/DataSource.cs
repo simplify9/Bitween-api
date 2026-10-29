@@ -21,7 +21,7 @@ public class DataSourceCreate : IName
     /// <summary>
     /// How many nodes may run this source's adapter: <c>Auto</c>, <c>Exclusive</c> or <c>PerNode</c>.
     ///
-    /// Auto — the default — follows from <see cref="Kind"/>: a broker connection is exclusive
+    /// Auto - the default - follows from <see cref="Kind"/>: a broker connection is exclusive
     /// because two nodes consuming one queue is duplicate processing, and everything else is
     /// per-node because a connection pool held by a single node leaves every other node unable to
     /// use it. Override only for the case that crosses over: a relational source registered for
@@ -58,7 +58,7 @@ public class DataSourceCreate : IName
 
     /// <summary>
     /// Sustained CPU ceiling as a percentage of the whole node. Zero leaves the host default.
-    /// One pegged core on a sixteen-core node is about 6%, not 100% — see the entity's remarks.
+    /// One pegged core on a sixteen-core node is about 6%, not 100% - see the entity's remarks.
     /// </summary>
     public double CpuPercentLimit { get; set; }
 
@@ -121,7 +121,7 @@ public class DataSourceTestResult
     /// <summary>Stage name to outcome, in the order the adapter attempted them.</summary>
     public List<DataSourceTestStage> Stages { get; set; } = new();
 
-    /// <summary>Whatever the adapter chose to report — endpoint, queue depths, visibility timeout.</summary>
+    /// <summary>Whatever the adapter chose to report - endpoint, queue depths, visibility timeout.</summary>
     public Dictionary<string, string> Details { get; set; } = new();
 }
 
@@ -138,7 +138,7 @@ public class DataSourceTestStage
 /// What the connection is doing right now, as opposed to what it was configured to do.
 ///
 /// Read live from the resident adapter host rather than from the data source row, because the row
-/// only carries what the last reconcile happened to write back — a summary, thirty seconds stale at
+/// only carries what the last reconcile happened to write back - a summary, thirty seconds stale at
 /// worst. This is the heartbeat itself: the counters the adapter keeps, the queue depths it can
 /// see, and what the host observes about the process without needing the adapter's cooperation.
 /// </summary>
@@ -151,7 +151,7 @@ public class DataSourceTelemetry
     /// </summary>
     public bool RunningHere { get; set; }
 
-    /// <summary>Which node holds the connection, from the data source row — filled in even when it is not this one.</summary>
+    /// <summary>Which node holds the connection, from the data source row - filled in even when it is not this one.</summary>
     public string? OwnedByNode { get; set; }
 
     // ---------------------------------------------------------------- adapter-reported
@@ -167,7 +167,7 @@ public class DataSourceTelemetry
 
     /// <summary>
     /// Whatever the adapter chose to report: per-queue depth, messages received and acknowledged,
-    /// prefetch, the endpoint it is connected to. Untyped on purpose — Bitween does not model any
+    /// prefetch, the endpoint it is connected to. Untyped on purpose - Bitween does not model any
     /// broker's telemetry any more than it models its topology.
     /// </summary>
     public Dictionary<string, string> Details { get; set; } = new();
@@ -188,7 +188,7 @@ public class DataSourceTelemetry
 
     public DateTime? LastHeartbeatOn { get; set; }
 
-    /// <summary>What the adapter says it can do — the commands the UI could offer against it.</summary>
+    /// <summary>What the adapter says it can do - the commands the UI could offer against it.</summary>
     public List<string> Commands { get; set; } = new();
 }
 
@@ -205,7 +205,7 @@ public class DataSourceInspectRequest
     /// Strings, and deliberately so: this crosses two serialization boundaries to reach an
     /// adapter that binds it to a typed request, and "200"/"true" coerce cleanly while an
     /// untyped object graph would not survive the trip unchanged. Nothing here can widen what
-    /// the command does — the allow-list decides that, and every command on it is read-only.
+    /// the command does - the allow-list decides that, and every command on it is read-only.
     /// </summary>
     public Dictionary<string, string>? Arguments { get; set; }
 }
@@ -231,7 +231,7 @@ public class DataSourceInspectResult
 /// What a bus provider accepts, as the adapter itself declares it.
 ///
 /// This exists so the UI can render a data source form without knowing anything about brokers. The
-/// alternative — the one this replaced — is a table of fields, defaults and allowed values kept by
+/// alternative - the one this replaced - is a table of fields, defaults and allowed values kept by
 /// hand in the front end, which is a copy of a contract it does not own and cannot be told when it
 /// changes.
 /// </summary>
@@ -243,7 +243,7 @@ public class DataSourceProviderDescriptor
     public string Label { get; set; } = null!;
 
     /// <summary>
-    /// Which DataSourceKind this provider produces — Broker, Relational, Document, ObjectStore or
+    /// Which DataSourceKind this provider produces - Broker, Relational, Document, ObjectStore or
     /// Http. A data source is not only a broker connection: a resident adapter that holds a
     /// database session is one too, and it must never be offered as a bus gateway's source.
     /// </summary>
@@ -252,7 +252,7 @@ public class DataSourceProviderDescriptor
     /// <summary>
     /// How many nodes may run this source's adapter: <c>Auto</c>, <c>Exclusive</c> or <c>PerNode</c>.
     ///
-    /// Auto — the default — follows from <see cref="Kind"/>: a broker connection is exclusive
+    /// Auto - the default - follows from <see cref="Kind"/>: a broker connection is exclusive
     /// because two nodes consuming one queue is duplicate processing, and everything else is
     /// per-node because a connection pool held by a single node leaves every other node unable to
     /// use it. Override only for the case that crosses over: a relational source registered for
@@ -273,7 +273,7 @@ public class DataSourceProviderSetting
     public const string NumberType = "number";
     public const string BooleanType = "boolean";
 
-    /// <summary>The property name the adapter binds by — this is the data source property key.</summary>
+    /// <summary>The property name the adapter binds by - this is the data source property key.</summary>
     public string Name { get; set; } = null!;
 
     /// <summary>string, number or boolean. Coarse on purpose: it picks an input, nothing more.</summary>
@@ -286,7 +286,7 @@ public class DataSourceProviderSetting
     /// <summary>Null when the adapter declares none.</summary>
     public string? Default { get; set; }
 
-    /// <summary>When set, the only legal values — the UI offers these instead of free text.</summary>
+    /// <summary>When set, the only legal values - the UI offers these instead of free text.</summary>
     /// <summary>Null when the setting is free text rather than a fixed choice.</summary>
     public string[]? AllowedValues { get; set; }
 

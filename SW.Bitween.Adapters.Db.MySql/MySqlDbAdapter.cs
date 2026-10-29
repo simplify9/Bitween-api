@@ -15,13 +15,13 @@ namespace SW.Bitween.Adapters.Db.MySql;
 /// <summary>
 /// Bitween's MySQL data source provider, which serves MariaDB too.
 ///
-/// Everything generic — the command surface, paging, the statement allow-list, the polling receiver
-/// — lives in <see cref="DbResidentAdapterBase"/>. What is here is the part that is genuinely
+/// Everything generic - the command surface, paging, the statement allow-list, the polling receiver
+/// - lives in <see cref="DbResidentAdapterBase"/>. What is here is the part that is genuinely
 /// MySQL: the connection string, information_schema, and what this user is actually granted.
 ///
 /// The one structural difference from the other providers is that MySQL has no schema separate
 /// from the database. A "schema" filter in discovery therefore means a database, and the default
-/// is the one this connection opened rather than every database on the server — a service account
+/// is the one this connection opened rather than every database on the server - a service account
 /// on a shared instance can usually see the names of databases it has no business reading.
 /// </summary>
 // Three roles, one package. "datasource" is what makes it configurable as a connection;
@@ -74,7 +74,7 @@ public class MySqlDbAdapter(IOptions<MySqlOptions> options, ILogger<MySqlDbAdapt
 
             // A pooled connection MySQL closed at its end is indistinguishable from a healthy one
             // until it is used. This is what turns that into a fresh connection rather than into a
-            // failed message — and it matters more here than anywhere, because wait_timeout on a
+            // failed message - and it matters more here than anywhere, because wait_timeout on a
             // managed instance is routinely minutes.
             ConnectionReset = true,
 
@@ -111,7 +111,7 @@ public class MySqlDbAdapter(IOptions<MySqlOptions> options, ILogger<MySqlDbAdapt
         ProcedureOutParameters = true,
 
         // The one place MySQL is more capable than PostgreSQL here: a procedure returns result sets
-        // simply by SELECTing, with no cursor to declare and nothing to bind — so Call returns rows
+        // simply by SELECTing, with no cursor to declare and nothing to bind - so Call returns rows
         // directly, where PostgreSQL needs a set-returning function queried with SELECT and Oracle
         // needs an explicit REF CURSOR.
         ProcedureResultSets = true,
@@ -120,11 +120,11 @@ public class MySqlDbAdapter(IOptions<MySqlOptions> options, ILogger<MySqlDbAdapt
         NamedParameters = true,
         Transactions = true,
 
-        // All four, and READ UNCOMMITTED genuinely does something here — unlike PostgreSQL, where
+        // All four, and READ UNCOMMITTED genuinely does something here - unlike PostgreSQL, where
         // it is accepted and silently treated as READ COMMITTED.
         IsolationLevels = ["ReadUncommitted", "ReadCommitted", "RepeatableRead", "Serializable"],
 
-        // MySqlBulkCopy exists and is fast, but BulkLoad is not implemented for it yet — false
+        // MySqlBulkCopy exists and is fast, but BulkLoad is not implemented for it yet - false
         // rather than advertising a path that would quietly fall back to row-by-row inserts.
         BulkCopy = false,
 
@@ -151,7 +151,7 @@ public class MySqlDbAdapter(IOptions<MySqlOptions> options, ILogger<MySqlDbAdapt
 
     /// <summary>
     /// What this user may do, asked of the server rather than assumed. SHOW GRANTS is the only
-    /// answer that accounts for roles, wildcards and grants made at every level at once —
+    /// answer that accounts for roles, wildcards and grants made at every level at once -
     /// information_schema.user_privileges reports the global ones only.
     /// </summary>
     protected override async Task<List<string>> ProbePrivilegesAsync(DbConnection connection,
@@ -170,7 +170,7 @@ public class MySqlDbAdapter(IOptions<MySqlOptions> options, ILogger<MySqlDbAdapt
             {
                 var grant = reader.GetString(0);
 
-                // "GRANT SELECT, INSERT ON `sales`.* TO ..." — the useful half is between GRANT
+                // "GRANT SELECT, INSERT ON `sales`.* TO ..." - the useful half is between GRANT
                 // and ON, and the rest is the grantee, which is who we already asked about.
                 var on = grant.IndexOf(" ON ", StringComparison.OrdinalIgnoreCase);
                 if (!grant.StartsWith("GRANT ", StringComparison.OrdinalIgnoreCase) || on < 0)
@@ -189,7 +189,7 @@ public class MySqlDbAdapter(IOptions<MySqlOptions> options, ILogger<MySqlDbAdapt
         }
         catch (Exception ex)
         {
-            // A user that cannot run SHOW GRANTS is unusual but not broken — it just cannot tell
+            // A user that cannot run SHOW GRANTS is unusual but not broken - it just cannot tell
             // us what it can do. Saying so beats failing the connection test over it.
             Logger.LogDebug(ex, "Could not read grants.");
             privileges.Add($"(could not be read: {ex.Message})");
@@ -209,7 +209,7 @@ public class MySqlDbAdapter(IOptions<MySqlOptions> options, ILogger<MySqlDbAdapt
 
     /// <summary>
     /// information_schema, which on MySQL is the catalog rather than a slow standard view over one
-    /// — there is no lower layer to reach for the way pg_class is under PostgreSQL's.
+    /// - there is no lower layer to reach for the way pg_class is under PostgreSQL's.
     /// </summary>
     protected override async Task<List<DbObject>> DiscoverAsync(DbConnection connection,
         DiscoverRequest request, CancellationToken cancellationToken)
@@ -269,7 +269,7 @@ public class MySqlDbAdapter(IOptions<MySqlOptions> options, ILogger<MySqlDbAdapt
 
                     // table_rows is InnoDB's estimate from the index statistics and can be out by
                     // a wide margin on a table that has not been analysed. Reported as an estimate
-                    // everywhere it surfaces — the alternative is COUNT(*) on a stranger's table,
+                    // everywhere it surfaces - the alternative is COUNT(*) on a stranger's table,
                     // which a menu should not do. Always null for a view, which has no rows of its
                     // own to estimate.
                     RowCount = !request.IncludeRowCounts || reader.IsDBNull(4)
@@ -293,7 +293,7 @@ public class MySqlDbAdapter(IOptions<MySqlOptions> options, ILogger<MySqlDbAdapt
         //
         // MySqlConnector has no array parameter, so the pair of IN lists is built from the page's
         // own values. They are identifiers this connection just read back from the catalog, not
-        // anything a caller supplied — but they are quoted anyway, because "it cannot contain a
+        // anything a caller supplied - but they are quoted anyway, because "it cannot contain a
         // quote" is the kind of assumption that survives right up until a table is named oddly.
         var schemas = string.Join(",", objects.Select(o => Quote(o.Schema)).Distinct());
         var names = string.Join(",", objects.Select(o => Quote(o.Name)).Distinct());
@@ -327,7 +327,7 @@ public class MySqlDbAdapter(IOptions<MySqlOptions> options, ILogger<MySqlDbAdapt
                 Nullable = string.Equals(reader.GetString(4), "YES", StringComparison.OrdinalIgnoreCase),
                 Ordinal = (int)reader.GetInt64(5),
 
-                // auto_increment, a generated column, and DEFAULT_GENERATED — which is what a
+                // auto_increment, a generated column, and DEFAULT_GENERATED - which is what a
                 // CURRENT_TIMESTAMP default reports as. All three are values the database fills in,
                 // which is the only distinction an insert cares about.
                 Generated = extra.IndexOf("auto_increment", StringComparison.OrdinalIgnoreCase) >= 0
@@ -408,7 +408,7 @@ public class MySqlDbAdapter(IOptions<MySqlOptions> options, ILogger<MySqlDbAdapt
     {
         // information_schema.parameters, one query for the page. The row with ordinal_position 0
         // is a function's return value, which RoutinesAsync has already recorded from
-        // dtd_identifier — so it is skipped here rather than listed twice.
+        // dtd_identifier - so it is skipped here rather than listed twice.
         var schemas = string.Join(",", routines.Select(r => Quote(r.Schema)).Distinct());
         var names = string.Join(",", routines.Select(r => Quote(r.Name)).Distinct());
 
@@ -453,7 +453,7 @@ public class MySqlDbAdapter(IOptions<MySqlOptions> options, ILogger<MySqlDbAdapt
     static string Quote(string value) => "'" + (value ?? "").Replace("'", "''").Replace("\\", "\\\\") + "'";
 
     /// <summary>
-    /// What a value of this column arrives as in a result row. Coarse on purpose — it tells a
+    /// What a value of this column arrives as in a result row. Coarse on purpose - it tells a
     /// mapper author whether to expect a string or a number, and is not trying to be a type system.
     /// </summary>
     static string ClrTypeOf(string dbType)
@@ -463,7 +463,7 @@ public class MySqlDbAdapter(IOptions<MySqlOptions> options, ILogger<MySqlDbAdapt
 
         return bare switch
         {
-            // tinyint(1) is how MySQL stores a boolean — there is no separate type — and the
+            // tinyint(1) is how MySQL stores a boolean - there is no separate type - and the
             // driver hands it back as one, so saying "int" here would mislead a mapper author.
             "tinyint" when dbType.StartsWith("tinyint(1)", StringComparison.OrdinalIgnoreCase) => "bool",
             "bool" or "boolean" => "bool",

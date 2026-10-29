@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, CornerDownRight, Trash2 } from "lucide-react";
 import type { OutputEntryNode } from "../../lib/nativeMapper/outputTree";
-import { useRules, useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import {
   TYPE_BADGES,
   freshSource,
@@ -18,7 +18,7 @@ import { useSourceValues } from "./sourceValuesContext";
  *
  * A header line a partner expects, or one slot of a list whose entries each come
  * from somewhere different. Its rules read whatever the list reads, because there
- * is no entry of its own to read — which is what lets a constant entry still pull a
+ * is no entry of its own to read - which is what lets a constant entry still pull a
  * value out of the document, the partner or a values set.
  *
  * An entry holding one value is a whole rule on this line, so it gets what any other
@@ -28,7 +28,7 @@ import { useSourceValues } from "./sourceValuesContext";
  */
 export function EntryRow({
   node,
-  /** The paths this entry may read — the list's own scope, not an entry of it. */
+  /** The paths this entry may read - the list's own scope, not an entry of it. */
   paths,
 }: {
   node: OutputEntryNode;
@@ -56,7 +56,7 @@ export function EntryRow({
   return (
     <div
       // Named, so this entry's own controls can be told apart from the list's and
-      // from the other entries' — the position is the only thing distinguishing them.
+      // from the other entries' - the position is the only thing distinguishing them.
       role="group"
       aria-label={named}
       className={`rounded border ${
@@ -96,7 +96,7 @@ export function EntryRow({
                   : "Change it, substitute it, or set its type"
               }
               className={`flex flex-shrink-0 items-center gap-0.5 rounded px-1 py-0.5 hover:bg-ink-100 ${
-                extras > 0 ? "text-crimson-600" : "text-ink-400 hover:text-ink-700"
+                extras > 0 ? "text-crimson-600" : "text-ink-500 hover:text-ink-700"
               }`}
             >
               {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}

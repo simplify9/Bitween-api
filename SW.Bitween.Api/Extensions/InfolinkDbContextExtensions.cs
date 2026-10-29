@@ -29,8 +29,14 @@ namespace SW.Bitween
             if (string.IsNullOrEmpty(partnerKey))
                 return (false, null, null);
 
+            // Stored hashed. The plain form still matches a row the startup pass has not converted
+            // yet, so an upgrade does not lock anyone out for the moment between the two - but never
+            // for a value in the stored form itself, or the hash out of a copied database would be
+            // a working key. Real keys never look like one.
+            var hashedKey = PartnerKeyHash.Of(partnerKey);
+            var plainKey = PartnerKeyHash.IsHashed(partnerKey) ? hashedKey : partnerKey;
             var partnerQuery = from partner in dbContext.Set<Partner>()
-                where partner.ApiCredentials.Any(cred => cred.Key == partnerKey)
+                where partner.ApiCredentials.Any(cred => cred.Key == hashedKey || cred.Key == plainKey)
                 select partner;
 
             var par = await partnerQuery.AsNoTracking().SingleOrDefaultAsync();
@@ -39,8 +45,7 @@ namespace SW.Bitween
 
             // The database may compare without regard to case (SQL Server and MySQL often do), so
             // the row found can hold a key that only matches ignoring case. Keys are exact.
-            var credential = par.ApiCredentials
-                .SingleOrDefault(c => string.Equals(c.Key, partnerKey, StringComparison.Ordinal));
+            var credential = ExactKey(par, hashedKey, plainKey);
             if (credential == null)
                 return (false, null, null);
             if (keyName != null && !string.Equals(keyName, credential.Name, StringComparison.OrdinalIgnoreCase))
@@ -48,6 +53,38 @@ namespace SW.Bitween
 
             return (true, par, credential.Name);
         }
+
+        /// <summary>
+        /// <see cref="CheckPartnerAuthorized(BitweenDbContext,RequestContext,string)"/> against the
+        /// partners in the cache, for the gateway, which checks a key on every call. The same rules;
+        /// a key removed or changed stops working once the save's revoke reaches the cache.
+        /// </summary>
+        public static async Task<(bool Authorized, Partner Partner, string KeyName)> CheckPartnerAuthorized(
+            this IInfolinkCache cache,
+            RequestContext requestContext,
+            string keyHeader)
+        {
+            var (partnerKey, keyName) = ReadPartnerKey(requestContext, keyHeader);
+            if (string.IsNullOrEmpty(partnerKey))
+                return (false, null, null);
+
+            var hashedKey = PartnerKeyHash.Of(partnerKey);
+            var plainKey = PartnerKeyHash.IsHashed(partnerKey) ? hashedKey : partnerKey;
+            foreach (var partner in await cache.ListPartnersAsync())
+            {
+                var credential = ExactKey(partner, hashedKey, plainKey);
+                if (credential == null) continue;
+                if (keyName != null && !string.Equals(keyName, credential.Name, StringComparison.OrdinalIgnoreCase))
+                    return (false, null, null);
+                return (true, partner, credential.Name);
+            }
+
+            return (false, null, null);
+        }
+
+        static ApiCredential ExactKey(Partner partner, string hashedKey, string plainKey) =>
+            partner.ApiCredentials?.SingleOrDefault(c => string.Equals(c.Key, hashedKey, StringComparison.Ordinal) ||
+                                                         string.Equals(c.Key, plainKey, StringComparison.Ordinal));
 
         /// <summary>
         /// The same key, from any of these places: the header named for keys, <c>partnerkey</c>
@@ -88,7 +125,7 @@ namespace SW.Bitween
                 return (null, null);
             }
 
-            // The username is everything before the first colon — Basic has no way to escape one.
+            // The username is everything before the first colon - Basic has no way to escape one.
             var colon = decoded.IndexOf(':');
             return colon < 0 ? (null, null) : (decoded[(colon + 1)..], decoded[..colon]);
         }

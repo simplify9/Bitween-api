@@ -4,9 +4,13 @@ import {
   SOURCE_SAMPLE_KEY,
   TARGET_SAMPLE_KEY,
   defaultCsvOptions,
+  defaultExcelOptions,
+  defaultFixedWidthOptions,
   emptyRules,
   newRuleId,
   type CsvOptions,
+  type ExcelOptions,
+  type FixedWidthOptions,
   type DocumentFormatId,
   type EditorFieldRule,
   type EditorListEntry,
@@ -107,6 +111,11 @@ export function toWire(rules: EditorRules): MappingRules {
   // be configuration that never applies.
   if (rules.sourceFormat === "csv") wire.sourceCsv = rules.sourceCsv ?? defaultCsvOptions();
   if (rules.targetFormat === "csv") wire.targetCsv = rules.targetCsv ?? defaultCsvOptions();
+  // The same for the other formats that take settings: written while that side is the format.
+  if (rules.sourceFormat === "fixedwidth") wire.sourceFixedWidth = rules.sourceFixedWidth ?? defaultFixedWidthOptions();
+  if (rules.targetFormat === "fixedwidth") wire.targetFixedWidth = rules.targetFixedWidth ?? defaultFixedWidthOptions();
+  if (rules.sourceFormat === "excel") wire.sourceExcel = rules.sourceExcel ?? defaultExcelOptions();
+  if (rules.targetFormat === "excel") wire.targetExcel = rules.targetExcel ?? defaultExcelOptions();
 
   return wire;
 }
@@ -115,8 +124,8 @@ export function toWire(rules: EditorRules): MappingRules {
  * Stored delimited-text options, with anything missing or unusable filled in.
  *
  * Rules can be written by hand or saved by an older build, so `{}` and a delimiter that is not a
- * string both reach here. Neither is worth refusing the whole mapping over — an absent option
- * already means the default — but neither can be passed on either: the editor reads the delimiter
+ * string both reach here. Neither is worth refusing the whole mapping over - an absent option
+ * already means the default - but neither can be passed on either: the editor reads the delimiter
  * while it is drawing, and would throw rather than show a mapping.
  */
 function csvOptionsFrom(stored: CsvOptions | undefined, format: DocumentFormatId) {
@@ -133,6 +142,32 @@ function csvOptionsFrom(stored: CsvOptions | undefined, format: DocumentFormatId
   };
 }
 
+/** Stored fixed-width options, with anything missing or unusable filled in, as for delimited text. */
+function fixedWidthFrom(stored: FixedWidthOptions | undefined, format: DocumentFormatId) {
+  if (format !== "fixedwidth") return undefined;
+  return {
+    columns: Array.isArray(stored?.columns)
+      ? stored.columns.map((c) => ({
+          name: typeof c?.name === "string" ? c.name : "",
+          start: Number.isFinite(c?.start) ? c.start : 1,
+          length: Number.isFinite(c?.length) ? c.length : 1,
+          align: c?.align === "right" ? ("right" as const) : ("left" as const),
+          pad: typeof c?.pad === "string" && c.pad.length > 0 ? c.pad : " ",
+        }))
+      : [],
+    skipLines: Number.isFinite(stored?.skipLines) ? stored!.skipLines : 0,
+    trim: stored?.trim !== false,
+  };
+}
+
+function excelFrom(stored: ExcelOptions | undefined, format: DocumentFormatId) {
+  if (format !== "excel") return undefined;
+  return {
+    sheet: typeof stored?.sheet === "string" ? stored.sheet : "",
+    hasHeader: stored?.hasHeader !== false,
+  };
+}
+
 /** Adds the editor's ids to rules that came off the wire. */
 export function fromWire(rules: MappingRules): EditorRules {
   return {
@@ -140,10 +175,14 @@ export function fromWire(rules: MappingRules): EditorRules {
     sourceFormat: (rules.sourceFormat ?? "json") as DocumentFormatId,
     targetFormat: (rules.targetFormat ?? "json") as DocumentFormatId,
     // Kept as they were stored. A mapping whose format is delimited text but whose options
-    // are missing — hand-written, or saved before these existed — falls back to the same
+    // are missing - hand-written, or saved before these existed - falls back to the same
     // defaults the server would apply, rather than to nothing.
     sourceCsv: csvOptionsFrom(rules.sourceCsv, rules.sourceFormat),
     targetCsv: csvOptionsFrom(rules.targetCsv, rules.targetFormat),
+    sourceFixedWidth: fixedWidthFrom(rules.sourceFixedWidth, rules.sourceFormat),
+    targetFixedWidth: fixedWidthFrom(rules.targetFixedWidth, rules.targetFormat),
+    sourceExcel: excelFrom(rules.sourceExcel, rules.sourceFormat),
+    targetExcel: excelFrom(rules.targetExcel, rules.targetFormat),
     // Absent means year-first: a mapping saved before this existed could only ever have
     // read the unambiguous shapes correctly anyway.
     sourceDateOrder: rules.sourceDateOrder ?? "yearFirst",
@@ -201,7 +240,7 @@ export function loadMapping(properties: Record<string, string> | undefined): Loa
 
   // `loops` was renamed to `lists` before release, when a list stopped being only a
   // loop. Reading such a mapping would find no lists and quietly drop every one of
-  // them, and saving from there would destroy it — so refuse instead.
+  // them, and saving from there would destroy it - so refuse instead.
   if (Object.prototype.hasOwnProperty.call(parsed ?? {}, "loops")) {
     return {
       rules: emptyRules(),
@@ -213,7 +252,7 @@ export function loadMapping(properties: Record<string, string> | undefined): Loa
     };
   }
 
-  // Valid JSON of the wrong shape — `"fields": {}`, a list where a field belongs —
+  // Valid JSON of the wrong shape - `"fields": {}`, a list where a field belongs -
   // reaches this line, and `fromWire` maps over what it is given. A thrown TypeError
   // here would escape into the route as a blank screen rather than the refusal above.
   try {

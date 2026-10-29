@@ -22,7 +22,7 @@ interface RawNotifier {
   runOnFailedResult: boolean;
   runOnSubscriptions: { id: number; name: string | null }[] | null;
 }
-/** Shape of a search-endpoint row — lighter than `RawNotifier`, no adapter properties. */
+/** Shape of a search-endpoint row - lighter than `RawNotifier`, no adapter properties. */
 interface RawNotifierRow {
   id: number;
   name: string;
@@ -41,7 +41,7 @@ interface RawNotification {
 }
 // Empty-valued properties are dropped: an adapter property with no value means
 // "not set", and keeping it would make a freshly-cleared field compare unequal to
-// stored data that never had the key — leaving the Save bar up after an undo.
+// stored data that never had the key - leaving the Save bar up after an undo.
 const toRecord = (kvs: RawKeyAndValue[] | null): Record<string, string> =>
   Object.fromEntries((kvs ?? []).filter((kv) => kv.value !== "").map((kv) => [kv.key, kv.value]));
 const toKvArray = (record: Record<string, string>): RawKeyAndValue[] =>

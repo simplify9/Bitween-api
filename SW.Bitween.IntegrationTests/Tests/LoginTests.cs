@@ -13,7 +13,7 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// The account login handler — the one door into the system, and the only place a password is
+/// The account login handler - the one door into the system, and the only place a password is
 /// checked.
 /// </summary>
 /// <remarks>
@@ -31,14 +31,15 @@ public class LoginTests(BitweenFixture fixture)
     /// <summary>
     /// One attempt in its own scope, because that is what a real request is. Sharing a scope across
     /// attempts would share a DbContext, and the lockout counter is written with a database-side
-    /// UPDATE that the change tracker never sees — so a second attempt would read a stale account
+    /// UPDATE that the change tracker never sees - so a second attempt would read a stale account
     /// and the lockout would look broken when it isn't.
     /// </summary>
-    private async Task<object> Login(string email, string password)
+    private async Task<object> Login(string email, string password, string address = "203.0.113.1")
     {
         await using var scope = fixture.CreateScope();
         var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
         accessor.HttpContext = new DefaultHttpContext();
+        accessor.HttpContext.Connection.RemoteIpAddress = System.Net.IPAddress.Parse(address);
         var handler = ActivatorUtilities.CreateInstance<Resources.Accounts.Login>(scope.ServiceProvider);
         return await handler.Handle(new UserLogin { Username = email, Password = password });
     }
@@ -122,6 +123,20 @@ public class LoginTests(BitweenFixture fixture)
         Assert.Contains("disabled", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Only someone who knows the password learns the account is disabled; anyone else gets the
+    /// answer an unknown address gets, so the message can't be used to list who has an account.
+    /// </summary>
+    [Fact]
+    public async Task A_wrong_password_on_a_disabled_account_gets_the_ordinary_refusal()
+    {
+        await CreateAccount("disabled-guess@test.local", disabled: true);
+
+        var ex = await Assert.ThrowsAsync<SWException>(() => Login("disabled-guess@test.local", "wrong"));
+
+        Assert.Equal("Invalid username or password.", ex.Message);
+    }
+
     [Fact]
     public async Task An_account_that_has_no_password_cannot_be_signed_into()
     {
@@ -156,9 +171,37 @@ public class LoginTests(BitweenFixture fixture)
         // The point of the lockout: even the real password stops working while it holds.
         var ex = await Assert.ThrowsAsync<SWException>(() => Login("lockout@test.local", GoodPassword));
         Assert.Contains("locked", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
 
-        var stored = await Reload(account.Id);
-        Assert.NotNull(stored.LockoutEnd);
+    /// <summary>
+    /// Five wrong guesses used to lock the account for everyone, so anyone who knew an address
+    /// could keep its owner out indefinitely. Now they lock out the address that made them.
+    /// </summary>
+    [Fact]
+    public async Task Guessing_from_one_address_does_not_lock_out_the_owner_elsewhere()
+    {
+        await CreateAccount("targeted@test.local");
+
+        for (var attempt = 0; attempt < 5; attempt++)
+            await Assert.ThrowsAsync<SWException>(() => Login("targeted@test.local", "wrong", "198.51.100.7"));
+
+        await Assert.ThrowsAsync<SWException>(() => Login("targeted@test.local", GoodPassword, "198.51.100.7"));
+        Assert.NotNull(await Login("targeted@test.local", GoodPassword, "203.0.113.50"));
+    }
+
+    /// <summary>The account-wide backstop, for guessing spread over many addresses.</summary>
+    [Fact]
+    public async Task Guessing_spread_over_many_addresses_still_locks_the_account()
+    {
+        var account = await CreateAccount("spread@test.local");
+
+        for (var attempt = 0; attempt < 20; attempt++)
+            await Assert.ThrowsAsync<SWException>(() =>
+                Login("spread@test.local", "wrong", $"198.51.100.{attempt % 4 + 10}"));
+
+        var ex = await Assert.ThrowsAsync<SWException>(() => Login("spread@test.local", GoodPassword, "203.0.113.99"));
+        Assert.Contains("locked", ex.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.NotNull((await Reload(account.Id)).LockoutEnd);
     }
 
     [Fact]
@@ -177,5 +220,158 @@ public class LoginTests(BitweenFixture fixture)
         // has done nothing wrong.
         var stored = await Reload(account.Id);
         Assert.Equal(0, stored.FailedLoginCount);
+    }
+
+    private async Task<object> Refresh(string refreshToken)
+    {
+        await using var scope = fixture.CreateScope();
+        var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
+        accessor.HttpContext = new DefaultHttpContext();
+        var handler = ActivatorUtilities.CreateInstance<Resources.Accounts.Login>(scope.ServiceProvider);
+        return await handler.Handle(new UserLogin { RefreshToken = refreshToken });
+    }
+
+    private async Task<string> IssueRefreshToken(int accountId, TimeSpan age)
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var token = new RefreshToken(accountId, LoginMethod.EmailAndPassword);
+        db.Add(token);
+        await db.SaveChangesAsync();
+        var createdOn = DateTime.UtcNow - age;
+        await db.Set<RefreshToken>().Where(t => t.Id == token.Id)
+            .ExecuteUpdateAsync(u => u.SetProperty(t => t.CreatedOn, createdOn));
+        return token.Id;
+    }
+
+    [Fact]
+    public async Task A_recent_refresh_token_signs_in()
+    {
+        var account = await CreateAccount("refresh-fresh@test.local");
+        var token = await IssueRefreshToken(account.Id, TimeSpan.FromDays(1));
+
+        Assert.NotNull(await Refresh(token));
+    }
+
+    /// <summary>
+    /// The cookie expires after 30 days; the stored token has to as well, or one copied out of a
+    /// browser, or sent in the body by a legacy client, works forever.
+    /// </summary>
+    [Fact]
+    public async Task A_refresh_token_idle_for_more_than_30_days_is_refused()
+    {
+        var account = await CreateAccount("refresh-stale@test.local");
+        var token = await IssueRefreshToken(account.Id, TimeSpan.FromDays(31));
+
+        await Assert.ThrowsAsync<SWException>(() => Refresh(token));
+        await Assert.ThrowsAsync<SWException>(() => Refresh(token));
+    }
+
+    /// <summary>
+    /// Disabling refused new sign-ins but not the token already issued, which kept every permission
+    /// until it expired.
+    /// </summary>
+    [Fact]
+    public async Task A_disabled_account_is_granted_nothing_on_a_token_it_already_holds()
+    {
+        var account = await CreateAccount("disabled-token@test.local");
+        await using (var setup = fixture.CreateScope())
+        {
+            var db = setup.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            db.Set<AccountRoleLink>().Add(new AccountRoleLink(account.Id, Role.AdministratorId));
+            await db.SaveChangesAsync();
+            await db.Set<Account>().Where(a => a.Id == account.Id)
+                .ExecuteUpdateAsync(u => u.SetProperty(a => a.Disabled, true));
+        }
+
+        await using var scope = fixture.CreateScope();
+        var ctx = scope.As(account.Id);
+        Assert.Empty(await ctx.GetPermissions(scope.ServiceProvider.GetRequiredService<BitweenDbContext>()));
+    }
+
+    private async Task<object> LoginWithCookie(string email, string password, string refreshCookie)
+    {
+        await using var scope = fixture.CreateScope();
+        var accessor = scope.ServiceProvider.GetRequiredService<IHttpContextAccessor>();
+        accessor.HttpContext = new DefaultHttpContext();
+        accessor.HttpContext.Request.Headers.Cookie = $"refresh_token={refreshCookie}";
+        var handler = ActivatorUtilities.CreateInstance<Resources.Accounts.Login>(scope.ServiceProvider);
+        return await handler.Handle(new UserLogin { Username = email, Password = password });
+    }
+
+    private static string AccountIdIn(object loginResult)
+    {
+        var jwt = (string)loginResult.GetType().GetProperty("Jwt")!.GetValue(loginResult)!;
+        var token = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler().ReadJwtToken(jwt);
+        return token.Claims.First(c => c.Type is "nameid" or System.Security.Claims.ClaimTypes.NameIdentifier).Value;
+    }
+
+    /// <summary>
+    /// A sign-out whose request never completes leaves the refresh cookie in the browser. Signing in
+    /// as someone else then has to sign in as them - it used to prefer the cookie and hand back the
+    /// previous person's session.
+    /// </summary>
+    [Fact]
+    public async Task Signing_in_with_credentials_ignores_a_leftover_refresh_cookie()
+    {
+        var previous = await CreateAccount("leftover-previous@test.local");
+        var next = await CreateAccount("leftover-next@test.local");
+        var leftover = await IssueRefreshToken(previous.Id, TimeSpan.FromMinutes(1));
+
+        var result = await LoginWithCookie("leftover-next@test.local", GoodPassword, leftover);
+
+        Assert.Equal(next.Id.ToString(), AccountIdIn(result));
+
+        // And the previous session's token does not survive as a second way in.
+        await using var scope = fixture.CreateScope();
+        Assert.False(await scope.ServiceProvider.GetRequiredService<BitweenDbContext>()
+            .Set<RefreshToken>().AnyAsync(t => t.Id == leftover));
+    }
+
+    /// <summary>
+    /// Two requests carrying the same refresh token - a refresh racing a sign-out, or a page load
+    /// racing the one before it - used to both load it and both delete it, and the loser failed with
+    /// a 500. Within the grace after a token is replaced, a repeat is served, not refused, so a
+    /// browser whose copy of the new token was lost is not signed out.
+    /// </summary>
+    [Fact]
+    public async Task A_refresh_token_used_twice_at_once_does_not_fail()
+    {
+        var account = await CreateAccount("refresh-race@test.local");
+        var token = await IssueRefreshToken(account.Id, TimeSpan.FromMinutes(1));
+
+        var attempts = await Task.WhenAll(Enumerable.Range(0, 4).Select(async _ =>
+        {
+            try
+            {
+                await Refresh(token);
+                return "signed-in";
+            }
+            catch (SWException)
+            {
+                return "refused";
+            }
+        }));
+
+        Assert.All(attempts, a => Assert.Equal("signed-in", a));
+    }
+
+    /// <summary>Past the grace, a replaced token is spent for good.</summary>
+    [Fact]
+    public async Task A_replaced_refresh_token_is_refused_once_its_grace_has_passed()
+    {
+        var account = await CreateAccount("refresh-replaced@test.local");
+        var token = await IssueRefreshToken(account.Id, TimeSpan.FromMinutes(1));
+        await Refresh(token);
+
+        await using (var scope = fixture.CreateScope())
+        {
+            var longAgo = DateTime.UtcNow.AddMinutes(-5);
+            await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<RefreshToken>()
+                .Where(t => t.Id == token)
+                .ExecuteUpdateAsync(u => u.SetProperty(t => t.SupersededOn, longAgo));
+        }
+
+        await Assert.ThrowsAsync<SWException>(() => Refresh(token));
     }
 }

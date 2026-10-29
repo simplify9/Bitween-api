@@ -1,15 +1,18 @@
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, Database, Plus, Search } from "lucide-react";
+import { ArrowUpRight, Database, Plus } from "lucide-react";
 import { api, type DataSourceRow } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
 import { keys } from "../../api/queryKeys";
 import { ConnectionBadge } from "./ConnectionBadge";
 import { providerOf, useDataSourceProviders } from "./providers";
+import { ExceptionLine } from "../../components/ui/Exception";
+import { useListParams } from "../../lib/listParams";
+import { SearchBox } from "../../components/ui/SearchBox";
 
 const PAGE_SIZE = 25;
 
@@ -21,7 +24,7 @@ const PAGE_SIZE = 25;
  * only place the exclusivity of a broker connection becomes visible at all.
  */
 export function DataSourcesPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
@@ -36,20 +39,18 @@ export function DataSourcesPage() {
     refetchInterval: 10_000,
   });
 
-  const setParam = (key: string, value: string | null, resetOffset = true) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        if (resetOffset) next.delete("offset");
-        return next;
-      },
-      { replace: true },
-    );
 
   const rows = sources.data?.result ?? [];
   const total = sources.data?.total ?? 0;
+
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="data-sources.create">
+      <Button variant="primary" onClick={() => navigate("/data-sources/new")}>
+        <Plus className="size-4" /> New data source
+      </Button>
+    </Can>
+  );
 
   return (
     <div>
@@ -63,13 +64,13 @@ export function DataSourcesPage() {
               <p>
                 A data source holds a <strong>connection</strong> and nothing else. What Bitween
                 does with the messages belongs to the bus gateway pointing at it, which is why one
-                data source can feed many gateways — the same way one broker connection serves many
+                data source can feed many gateways - the same way one broker connection serves many
                 queues.
               </p>
               <p>
                 A resident adapter holds the connection open and hands each message over. Nothing is
                 acknowledged to the broker until Bitween has persisted it, so a crash means
-                redelivery rather than a lost message — and every message carries a deduplication
+                redelivery rather than a lost message - and every message carries a deduplication
                 key so the redelivery does not become a second exchange.
               </p>
               <p>
@@ -80,31 +81,17 @@ export function DataSourcesPage() {
             </>
           ),
         }}
-        actions={
-          <Can permission="data-sources.create">
-            <Button variant="primary" onClick={() => navigate("/data-sources/new")}>
-              <Plus className="size-4" /> New data source
-            </Button>
-          </Can>
-        }
+        actions={createAction}
       />
 
-      <div className="relative mb-4 max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setParam("q", e.target.value || null)}
-          placeholder="Search data sources"
-          aria-label="Search data sources"
-          className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-        />
-      </div>
+      <SearchBox value={searchText} onChange={setSearchText} label="Search data sources" className="mb-4 max-w-xs" />
 
       {sources.isPending ? (
         <LoadingBlock label="Loading data sources…" />
+      ) : sources.isError ? (
+        <LoadError error={sources.error} what="data sources" onRetry={() => void sources.refetch()} />
       ) : rows.length === 0 ? (
-        <EmptyState icon={<Database />} title={q ? "No data sources match" : "No data sources yet"}>
+        <EmptyState icon={<Database />} title={q ? "No data sources match" : "No data sources yet"} action={q ? undefined : createAction}>
           {q
             ? "Try a different search."
             : "A bus gateway with no data source reads Bitween's own internal bus. Add one here only to read a broker outside Bitween."}
@@ -120,14 +107,14 @@ export function DataSourcesPage() {
               offset={offset}
               limit={PAGE_SIZE}
               total={total}
-              onOffsetChange={(o) => setParam("offset", String(o), false)}
+              onOffsetChange={(o) => setParam("offset", String(o))}
             />
           }
           columns={[
             {
               header: "Name",
               cell: (d: DataSourceRow) => (
-                <span className={d.inactive ? "text-ink-400 line-through" : "font-medium text-ink-900"}>
+                <span className={d.inactive ? "text-ink-500 line-through" : "font-medium text-ink-900"}>
                   {d.name}
                 </span>
               ),
@@ -152,19 +139,17 @@ export function DataSourcesPage() {
                 <div className="flex flex-col gap-1">
                   <ConnectionBadge state={d.lastKnownState} failures={d.consecutiveFailures} />
                   {d.lastException && (
-                    <span className="max-w-80 truncate text-[11px] text-danger-700" title={d.lastException}>
-                      {d.lastException}
-                    </span>
+                    <ExceptionLine text={d.lastException} icon className="max-w-80 text-[12px] text-danger-700" />
                   )}
                 </div>
               ),
             },
             {
-              // A broker connection is exclusive, so which node holds it is not a detail —
+              // A broker connection is exclusive, so which node holds it is not a detail -
               // it is the answer to "why is this one quiet?".
               header: "Held by",
               cell: (d: DataSourceRow) => (
-                <span className="text-xs text-ink-600">{d.ownedByNode ?? "—"}</span>
+                <span className="text-xs text-ink-600">{d.ownedByNode ?? "-"}</span>
               ),
             },
             {

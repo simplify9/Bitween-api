@@ -1,0 +1,95 @@
+=== promoted-json
+hits: 
+gateway: 
+=== promoted-xml
+!System.Xml.XmlException: Data at the root level is invalid. Line 1, position 1.
+=== promoted-json-big
+hits: 
+gateway: 
+=== schema-json
+#/: ObjectExpected
+#/id: PropertyRequired
+=== schema-xml
+Not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== enriched
+(not an object, not enriched)
+=== enriched-scriban
+{
+  "id": null,
+  "price": null,
+  "priceText": "",
+  "priceFloat": null,
+  "orderedAt": null,
+  "orderedAtText": "",
+  "offset": null,
+  "ms": null,
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "name": null,
+  "firstItem": 1,
+  "lines": [],
+  "lineCount": 0,
+  "partner": null,
+  "partnerSince": "",
+  "partnerRate": null,
+  "region": null,
+  "orderId": null,
+  "upper": {
+    "name": null
+  }
+}
+=== scriban
+{
+  "id": null,
+  "price": null,
+  "priceText": "",
+  "priceFloat": null,
+  "orderedAt": null,
+  "orderedAtText": "",
+  "offset": null,
+  "ms": null,
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "name": null,
+  "firstItem": 1,
+  "lines": [],
+  "lineCount": 0,
+  "partner": null,
+  "partnerSince": "",
+  "partnerRate": null,
+  "region": null,
+  "orderId": null,
+  "upper": {
+    "name": null
+  }
+}
+=== rules-json
+{
+  "id": null,
+  "price": null,
+  "priceNumber": null,
+  "priceText": null,
+  "priceRounded": null,
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "negzerof": null,
+  "tenthTimesThree": null,
+  "orderedAt": null,
+  "orderedAtFormatted": null,
+  "offset": null,
+  "dmy": null,
+  "name": null,
+  "flag": null,
+  "fixed": 1.1,
+  "lines": []
+}
+content-type: application/json
+=== rules-xml
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== url
+!System.InvalidCastException: Unable to cast object of type 'System.Collections.Generic.List`1[System.Object]' to type 'System.Collections.Generic.IDictionary`2[System.String,System.Object]'.
+=== fill
+order---.json

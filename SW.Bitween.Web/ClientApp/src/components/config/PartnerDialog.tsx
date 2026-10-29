@@ -1,17 +1,12 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
-import { useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { Button, FormError, LoadingBlock } from "../ui/basics";
 import { Dialog } from "../ui/overlays";
 import { keys } from "../../api/queryKeys";
-import {
-  PartnerFields,
-  partnerChanges,
-  partnerDirty,
-  partnerDraftOf,
-  type PartnerDraft,
-} from "./PartnerFields";
+import { PartnerFields, type PartnerDraft } from "./PartnerFields";
+import { partnerChanges, partnerDirty, partnerDraftOf } from "./partnerDraft";
 
 /**
  * A partner, created or edited without leaving whatever you were doing.
@@ -20,8 +15,8 @@ import {
  * partner's own page does, so there is one definition of what a partner is.
  *
  * Creating does not close it. A key cannot be issued to a partner that doesn't
- * exist yet, so instead of refusing — or sending you to the partner's page, which
- * is the jump this replaces — it saves, hands the id back to the caller so the
+ * exist yet, so instead of refusing - or sending you to the partner's page, which
+ * is the jump this replaces - it saves, hands the id back to the caller so the
  * picker updates behind it, and reopens itself as an editor with API keys live.
  */
 export function PartnerDialog({
@@ -36,9 +31,14 @@ export function PartnerDialog({
   onSaved?: (id: number) => void;
 }) {
   const queryClient = useQueryClient();
-  const canEdit = useSessionCan("partners.edit");
-  /** Set once the partner exists — from the prop, or from the create that just ran. */
+  /** Set once the partner exists - from the prop, or from the create that just ran. */
   const [id, setId] = useState(partnerId);
+  // Filling in a new partner is creating it, which partners.create allows on its own: the server
+  // asks for nothing more. Keyed to edit alone, a role that may create partners opened this to
+  // find every field disabled.
+  const canCreate = useSessionCan("partners.create");
+  const canChange = useSessionCan("partners.edit");
+  const canEdit = id === null ? canCreate : canChange;
   const [justCreated, setJustCreated] = useState(false);
 
   const existing = useQuery({
@@ -102,7 +102,7 @@ export function PartnerDialog({
         <div className="space-y-4">
           {justCreated && (
             <p className="rounded-lg bg-ok-100 px-3 py-2 text-[13px] text-ok-600">
-              Created and selected. Add its API keys below, or close — nothing else is waiting on you.
+              Created and selected. Add its API keys below, or close - nothing else is waiting on you.
             </p>
           )}
 

@@ -1,18 +1,22 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, SlidersHorizontal } from "lucide-react";
+import { Plus, SlidersHorizontal } from "lucide-react";
 import { api, referencesGlobal } from "../../api";
 import { Can } from "../../auth/guards";
 import { SubscriptionMultiFilter } from "../../components/config/SubscriptionMultiFilter";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
 import { Table } from "../../components/ui/Table";
-import { UsedByCell, useSubscriptionsCache } from "../../components/config/shared";
+import { UsedByCell } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { suggestSlug } from "../../lib/identifiers";
 import { keys } from "../../api/queryKeys";
+import { useListParams } from "../../lib/listParams";
+import { NONE } from "../../lib/none";
+import { SearchBox } from "../../components/ui/SearchBox";
 
 function CreateValueSetDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
@@ -81,7 +85,7 @@ function CreateValueSetDialog({ onClose }: { onClose: () => void }) {
   );
 }
 
-/** ?subscriptions=3,5 — no id can be 0, so filter/join round-trip cleanly through this. */
+/** ?subscriptions=3,5 - no id can be 0, so filter/join round-trip cleanly through this. */
 const parseIds = (raw: string | null): number[] =>
   raw
     ? raw
@@ -91,25 +95,15 @@ const parseIds = (raw: string | null): number[] =>
     : [];
 
 export function GlobalValueSetsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
   const subscriptionIds = parseIds(searchParams.get("subscriptions"));
   const creating = searchParams.get("new") === "1";
 
   const sets = useQuery({ queryKey: keys.valueSets.list, queryFn: () => api.listValueSets() });
-  const subscriptions = useSubscriptionsCache().data ?? [];
+  const subscriptions = useSubscriptionsCache().data ?? NONE;
 
-  const setParam = (key: string, value: string | null) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        return next;
-      },
-      { replace: key === "q" },
-    );
 
   const filtered = useMemo(() => {
     const needle = q.trim().toLowerCase();
@@ -121,32 +115,45 @@ export function GlobalValueSetsPage() {
     });
   }, [sets.data, q, subscriptionIds, subscriptions]);
 
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="global-values.create">
+      <Button variant="primary" onClick={() => setParam("new", "1")}>
+        <Plus className="size-4" /> New value set
+      </Button>
+    </Can>
+  );
+
   return (
     <div>
       <PageHeader
         title="Global values"
-        description="Shared value sets any adapter can reference — change an endpoint here once instead of in every subscription."
-        actions={
-          <Can permission="global-values.create">
-            <Button variant="primary" onClick={() => setParam("new", "1")}>
-              <Plus className="size-4" /> New value set
-            </Button>
-          </Can>
-        }
+        description="Shared value sets any adapter can reference - change an endpoint here once instead of in every subscription."
+        actions={createAction}
+        help={{
+          title: "How global values work",
+          body: (
+            <>
+              <p>
+                A <strong>value set</strong> is a named group of values. An adapter setting refers to one
+                value as <code>{"{{globals.<id>.<value>}}"}</code>, so the value lives here rather than
+                being copied into each subscription.
+              </p>
+              <p>
+                The <strong>ID</strong> is what those references use, which is why it can't change after
+                the set is created. <strong>Values</strong> counts the entries in the set, and{" "}
+                <strong>Used by</strong> lists the subscriptions that reference it.
+              </p>
+              <p>
+                Filtering by subscription narrows the list to the sets those subscriptions reference.
+              </p>
+            </>
+          ),
+        }}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setParam("q", e.target.value || null)}
-            placeholder="Search value sets"
-            aria-label="Search value sets"
-            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-          />
-        </div>
+        <SearchBox value={searchText} onChange={setSearchText} label="Search value sets" />
         <div className="w-60">
           <SubscriptionMultiFilter
             subscriptions={subscriptions}
@@ -159,10 +166,12 @@ export function GlobalValueSetsPage() {
 
       {sets.isPending ? (
         <LoadingBlock label="Loading value sets…" />
+      ) : sets.isError ? (
+        <LoadError error={sets.error} what="value sets" onRetry={() => void sets.refetch()} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<SlidersHorizontal />}
-          title={q || subscriptionIds.length > 0 ? "No value sets match" : "No value sets yet"}
+          title={q || subscriptionIds.length > 0 ? "No value sets match" : "No value sets yet"} action={q || subscriptionIds.length > 0 ? undefined : createAction}
         >
           {q || subscriptionIds.length > 0
             ? "Try a different search or filter."
@@ -180,7 +189,7 @@ export function GlobalValueSetsPage() {
             {
               header: "Values",
               align: "right",
-              cell: (s) => <span className="tabular-nums text-ink-600">{Object.keys(s.values).length || "—"}</span>,
+              cell: (s) => <span className="tabular-nums text-ink-600">{Object.keys(s.values).length || "-"}</span>,
             },
             {
               header: "Used by",

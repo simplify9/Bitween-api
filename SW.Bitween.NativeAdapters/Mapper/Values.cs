@@ -8,7 +8,7 @@ namespace SW.Bitween.NativeAdapters.Mapper;
 /// <remarks>
 /// <para>
 /// Both of these used to be emitted into a Scriban template as generated code, because the old
-/// generator ran at save time when no value existed yet — so all it could do was write down
+/// generator ran at save time when no value existed yet - so all it could do was write down
 /// instructions to run later, in the only language available. A number cast came out as a
 /// 200-character nest of <c>object.typeof</c> ternaries that could not be tested on its own. Here
 /// they are ordinary methods, run at the moment the value exists.
@@ -28,7 +28,7 @@ public static class Values
     /// <remarks>
     /// An order reference of 42 must not become "42.0", and a quantity must not come out as "4E+01".
     /// Trailing zeros are dropped because decimal keeps the scale of the arithmetic that produced
-    /// the value — 116.00 from a multiply would otherwise reach the document with both zeros.
+    /// the value - 116.00 from a multiply would otherwise reach the document with both zeros.
     /// </remarks>
     public static string FormatNumber(decimal value)
     {
@@ -42,13 +42,13 @@ public static class Values
     /// <remarks>
     /// Null converts to null for every type: a missing source field is not a failure, it is an
     /// absent value, and the writer decides how to represent that. A conversion that <em>cannot</em>
-    /// be done — the string "abc" as a number — returns false so the caller can report which rule
+    /// be done - the string "abc" as a number - returns false so the caller can report which rule
     /// it was, rather than quietly substituting null.
     /// </remarks>
     public static bool TryCoerce(object? value, ValueType? type, out object? result)
     {
-        // Values written into the rules — a fixed value, a filter's comparand, a lookup table entry
-        // — are deserialised as `object`, so a whole number arrives as long and a fraction as
+        // Values written into the rules - a fixed value, a filter's comparand, a lookup table entry
+        // - are deserialised as `object`, so a whole number arrives as long and a fraction as
         // double. Reduce every CLR numeric to decimal first, or a rule holding 0 would fail to
         // convert to a number while a document holding 0 succeeded.
         value = NormaliseNumeric(value);
@@ -77,7 +77,7 @@ public static class Values
                     case bool b:
                         result = b ? 1m : 0m;
                         return true;
-                    case string s when decimal.TryParse(s, NumberStyles.Any, CultureInfo.InvariantCulture, out var parsed):
+                    case string s when TryParseNumber(s, out var parsed):
                         result = parsed;
                         return true;
                     default:
@@ -116,7 +116,7 @@ public static class Values
     /// Reduces any CLR numeric to <see cref="decimal"/>, leaving everything else alone.
     /// </summary>
     /// <remarks>
-    /// A value too large for decimal — reachable only through scientific notation — is left as the
+    /// A value too large for decimal - reachable only through scientific notation - is left as the
     /// double it was, so it fails a numeric conversion loudly rather than silently wrapping.
     /// </remarks>
     private static object? NormaliseNumeric(object? value) => value switch
@@ -134,7 +134,7 @@ public static class Values
     /// The spellings of true and false that appear in real documents.
     /// </summary>
     /// <remarks>
-    /// XML and CSV have no types, so a boolean arrives as whatever the sender writes — and
+    /// XML and CSV have no types, so a boolean arrives as whatever the sender writes - and
     /// <c>xs:boolean</c> itself permits both <c>true</c>/<c>false</c> and <c>1</c>/<c>0</c>.
     /// Anything outside this list is a failure rather than a guess.
     /// </remarks>
@@ -159,7 +159,7 @@ public static class Values
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Returns the node so the caller can tell a list apart from a value — a list rule needs the list, a
+    /// Returns the node so the caller can tell a list apart from a value - a list rule needs the list, a
     /// field needs the value. A path that does not exist gives null, which is an absent value and
     /// not an error: optional fields are ordinary.
     /// </para>
@@ -201,5 +201,31 @@ public static class Values
             current = current.GetOrAddObject(target[i]);
 
         current.Set(target[^1], value);
+    }
+
+    /// <summary>
+    /// A number written in invariant form: an optional sign, currency symbol or accounting
+    /// parentheses, and commas only where thousands separators belong.
+    /// </summary>
+    /// <remarks>
+    /// <c>NumberStyles.Any</c> ignores where a comma sits, so "1,5" - one and a half, as half the
+    /// world writes it - became fifteen with no error, and a partner got ten times the amount.
+    /// A comma now has to separate groups of three digits ahead of the decimal point; anything
+    /// else is not a number, and the mapping says so instead of guessing.
+    /// </remarks>
+    internal static bool TryParseNumber(string text, out decimal number)
+    {
+        number = 0;
+        if (text.Contains(','))
+        {
+            var integerPart = System.Text.RegularExpressions.Regex.Match(text, @"\d[\d,]*");
+            var afterInteger = text[(integerPart.Index + integerPart.Length)..];
+            if (!integerPart.Success ||
+                !System.Text.RegularExpressions.Regex.IsMatch(integerPart.Value, @"^\d{1,3}(,\d{3})+$") ||
+                afterInteger.Contains(','))
+                return false;
+        }
+
+        return decimal.TryParse(text, NumberStyles.Any, CultureInfo.InvariantCulture, out number);
     }
 }

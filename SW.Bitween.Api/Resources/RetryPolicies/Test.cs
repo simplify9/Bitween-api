@@ -21,7 +21,7 @@ public class Test(BitweenDbContext dbContext, RequestContext requestContext)
 
         if (request.ResultType == XchangeResultType.Success)
             throw new SWValidationException("INVALID_RESULT_TYPE",
-                "Choose Error or Bad result — a successful result is never retried.");
+                "Choose Error or Bad result - a successful result is never retried.");
 
         var policy = new CustomRetryPolicy { Groups = request.Groups ?? [] };
         // In-memory budget: a dry-run must not spend any real integration's total.
@@ -44,7 +44,7 @@ public class Test(BitweenDbContext dbContext, RequestContext requestContext)
 
             // Once blocked, every later attempt for this same message would be blocked
             // for the same reason (budgets never un-consume, and a Block action or "no
-            // match" is structural) — no value in simulating further.
+            // match" is structural) - no value in simulating further.
             if (!decision.ShouldRetry) break;
         }
 

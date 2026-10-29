@@ -1,17 +1,22 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, Check, Copy, Download, FileText, Play, RotateCcw } from "lucide-react";
+import { Download, FileText, Loader2, Play, RotateCcw } from "lucide-react";
 import { api, ApiRequestError, type ExchangeDocStage, type ExchangeRow } from "../../api";
-import { useSessionCan } from "../../auth/guards";
-import { Badge, Button } from "../../components/ui/basics";
+import { useSessionCan } from "../../auth/useSessionCan";
+import { Badge, Button, InlineNotice, ProblemText } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { HighlightedDocument } from "../../components/ui/HighlightedDocument";
+import { CopyButton } from "../../components/ui/CopyButton";
+import { ExceptionBlock } from "../../components/ui/Exception";
 import { formatDateTime, duration, timeUntil } from "../../lib/dates";
 import { formatDocument } from "../../lib/documentPreview";
-import { useSubscriptionsCache } from "../../components/config/shared";
-import { RetryDialog, journeyStages, type JourneyStage } from "./shared";
-import { RetryChain, hasRetryChain, newestAttempt, retryTreeQuery } from "./RetryChain";
+import { useSubscriptionsCache } from "../../components/config/lookups";
+import { RetryDialog, type JourneyStage } from "./shared";
+import { journeyStages } from "./journey";
+import { RetryChain } from "./RetryChain";
+import { ExplainFailure } from "./ExplainFailure";
+import { hasRetryChain, newestAttempt, retryTreeQuery } from "./retryTree";
 import { keys } from "../../api/queryKeys";
 
 const STAGE_TONES: Record<JourneyStage["state"], { ring: string; badge: ReactNode }> = {
@@ -19,42 +24,25 @@ const STAGE_TONES: Record<JourneyStage["state"], { ring: string; badge: ReactNod
   bad: { ring: "border-warn-100", badge: <Badge tone="warn">Bad response</Badge> },
   failed: { ring: "border-danger-200", badge: <Badge tone="danger">Failed</Badge> },
   skipped: { ring: "border-ink-100 border-dashed", badge: <Badge>Skipped</Badge> },
-  running: { ring: "border-ink-200", badge: <Badge tone="ink">Running</Badge> },
+  // Spinner and the focus blue, like the list's striped bar: underway, no outcome yet.
+  running: {
+    ring: "border-focus-400",
+    badge: (
+      <span className="inline-flex items-center gap-1 rounded-md bg-focus-100 px-2 py-0.5 text-xs font-medium whitespace-nowrap text-ink-800">
+        <Loader2 className="size-3 animate-spin text-focus-500" aria-hidden />
+        In progress
+      </span>
+    ),
+  },
   notReached: { ring: "border-ink-100", badge: <Badge>Not reached</Badge> },
 };
 
 const kb = (bytes: number) => (bytes < 1024 ? `${bytes} B` : `${(bytes / 1024).toFixed(1)} KB`);
 
-function CopyButton({
-  value,
-  label,
-  className = "rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700",
-}: {
-  value: string;
-  label: string;
-  /** Overridden by the document toolbar, which sits on a dark ground. */
-  className?: string;
-}) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <button
-      onClick={async () => {
-        await navigator.clipboard.writeText(value);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1400);
-      }}
-      title={`Copy ${label}`}
-      className={className}
-    >
-      {copied ? <Check className="size-3.5 text-ok-600" /> : <Copy className="size-3.5" />}
-    </button>
-  );
-}
-
 function MetaItem({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[11px] font-medium tracking-wide text-ink-400 uppercase">{label}</dt>
+      <dt className="text-[11px] font-medium tracking-wide text-ink-500 uppercase">{label}</dt>
       <dd className="mt-0.5 text-[13px] text-ink-800">{children}</dd>
     </div>
   );
@@ -75,14 +63,14 @@ const MAX_PREVIEW_CHARS = 256 * 1024;
  * Worth its own component because getting it wrong took the whole page with it:
  * the drawer sits in a `<td colSpan>` of an auto-layout table, so the cell sizes
  * to its content and one 4KB line of minified JSON set the width of every row on
- * the page. `overflow-auto` never stood a chance — there was no width for it to
+ * the page. `overflow-auto` never stood a chance - there was no width for it to
  * overflow. Wrapping is the fix, and laying the payload out is what makes the
  * wrapped result worth reading; `wrap-anywhere` rather than `break-words`
  * because only the former shrinks the cell's intrinsic width, which is the
  * number the table was sizing itself from.
  *
  * Copy and download always carry the payload exactly as it arrived, never the
- * laid-out version — what people paste into a ticket has to be the bytes.
+ * laid-out version - what people paste into a ticket has to be the bytes.
  */
 function DocumentPreview({
   name,
@@ -98,7 +86,7 @@ function DocumentPreview({
   loading: boolean;
   errored: boolean;
   /**
-   * The server's reason, when it gave one — above all a file the bucket's retention rule has
+   * The server's reason, when it gave one - above all a file the bucket's retention rule has
    * already deleted, which is expected rather than a fault and says so.
    */
   errorMessage?: string | null;
@@ -134,9 +122,9 @@ function DocumentPreview({
   return (
     <div className="overflow-hidden rounded-lg bg-ink-950">
       <div className="flex items-center gap-1.5 border-b border-white/10 px-3 py-1.5">
-        <FileText className="size-3 shrink-0 text-ink-500" aria-hidden />
+        <FileText className="size-3 shrink-0 text-ink-400" aria-hidden />
         <span className="truncate font-mono text-[11px] text-ink-300">{name}</span>
-        <span className="shrink-0 font-mono text-[11px] text-ink-500">· {kb(bytes)}</span>
+        <span className="shrink-0 font-mono text-[11px] text-ink-400">· {kb(bytes)}</span>
         {!loading && !errored && full !== "" && (
           <div className="ml-auto flex shrink-0 items-center gap-0.5">
             {formatted && (
@@ -153,13 +141,13 @@ function DocumentPreview({
               </button>
             )}
             <CopyButton value={full} label="document" className={dark} />
-            <button onClick={download} title="Download this document" className={dark}>
+            <button onClick={download} aria-label="Download this document" title="Download this document" className={dark}>
               <Download className="size-3.5" />
             </button>
           </div>
         )}
       </div>
-      {/* Coloured only where the document is known to be the format it looks like —
+      {/* Coloured only where the document is known to be the format it looks like -
           `formatted` exists because it parsed. Raw is the bytes as they arrived and
           gets no colour, which is the point of asking for it; so does a payload that
           would not parse, where colouring the parts a grammar still recognises would
@@ -172,7 +160,7 @@ function DocumentPreview({
       />
       {clipped && (
         <p className="border-t border-white/10 px-3 py-1.5 text-[11px] text-ink-400">
-          Showing the first 256 KB — download the document to read the rest.
+          Showing the first 256 KB - download the document to read the rest.
         </p>
       )}
     </div>
@@ -192,7 +180,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
   const stages = journeyStages(x);
   const canOperate = useSessionCan("exchanges.operate");
   const queryClient = useQueryClient();
-  // An aggregation's exchange is the roll-up — its payload is the list of links to
+  // An aggregation's exchange is the roll-up - its payload is the list of links to
   // everything it collected, so it is the one exchange worth offering that drill from.
   const isRollUp =
     useSubscriptionsCache().data?.find((i) => i.id === x.subscriptionId)?.type === "Aggregation";
@@ -222,7 +210,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
       !(error instanceof ApiRequestError && GONE_FOR_GOOD.has(error.code)) && failures < 3,
   });
 
-  // The same query the chain below reads, so asking here costs nothing extra — and only asked
+  // The same query the chain below reads, so asking here costs nothing extra - and only asked
   // for at all when the row says there is a chain to read.
   const { data: chain } = useQuery({ ...retryTreeQuery(x.id), enabled: hasRetryChain(x) });
   const newest = chain ? newestAttempt(chain, x.id) : null;
@@ -257,23 +245,29 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
   });
 
   return (
-    <div className="space-y-4 border-l-2 border-ink-100 py-1 pl-4">
-      {/* — journey — */}
-      <div className="flex flex-wrap items-stretch gap-1.5">
-        {stages.map((s, i) => {
+    <div className="space-y-4">
+      {/* - journey: one card per stage, each opening its document below - */}
+      <div>
+        <p className="mb-2 text-[11px] font-medium tracking-wide text-ink-500 uppercase">Journey and documents</p>
+        <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+        {stages.map((s) => {
           const tone = STAGE_TONES[s.state];
           const file = files[s.key];
           const active = !!file?.key && s.key === stage;
           return (
-            <div key={s.key} className="flex items-stretch gap-1.5">
-              {i > 0 && <ArrowRight className="size-3.5 self-center text-ink-300" aria-hidden />}
+            <div key={s.key} className="flex min-w-0 items-stretch">
               <button
                 disabled={!file?.key}
+                aria-pressed={active}
                 onClick={() => file?.key && setStage(s.key)}
                 title={file?.key ? `Show the ${s.key} document` : (s.note ?? "No document")}
-                className={`w-44 rounded-xl border bg-white px-3 py-2 text-left transition-colors ${tone.ring} ${
-                  file?.key ? "cursor-pointer hover:bg-ink-50" : "cursor-default opacity-80"
-                } ${active ? "ring-2 ring-crimson-100" : ""}`}
+                className={`w-full min-w-0 rounded-xl border bg-white px-3 py-2 text-left transition-colors ${tone.ring} ${
+                  file?.key
+                    ? "cursor-pointer hover:bg-ink-50"
+                    : s.state === "running"
+                      ? "cursor-default bg-focus-100/40"
+                      : "cursor-default bg-ink-50/50 opacity-80"
+                } ${active ? "border-crimson-300 ring-2 ring-crimson-100" : ""}`}
               >
                 <div className="flex items-center justify-between gap-2">
                   <span className="text-[13px] font-semibold text-ink-800">{s.label}</span>
@@ -284,19 +278,22 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
                     <>
                       <FileText className="size-3 shrink-0 text-ink-300" aria-hidden />
                       <span className="truncate font-mono">{file.name}</span>
-                      <span className="shrink-0 text-ink-400">· {kb(file.size)}</span>
+                      <span className="shrink-0 text-ink-500">· {kb(file.size)}</span>
                     </>
                   ) : (
-                    <span className="text-ink-400">{s.note ?? "No document"}</span>
+                    <span className={s.state === "running" ? "text-ink-700" : "text-ink-500"}>
+                      {s.state === "running" ? `${s.note}. Its document shows here when it finishes.` : (s.note ?? "No document")}
+                    </span>
                   )}
                 </div>
               </button>
             </div>
           );
         })}
+        </div>
       </div>
 
-      {/* — active stage document — */}
+      {/* - active stage document - */}
       {activeKey && (
         <DocumentPreview
           name={files[stage]?.name ?? "document"}
@@ -308,30 +305,34 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
         />
       )}
 
-      {/* — failure — */}
-      {x.exception && (
-        <div className="rounded-lg bg-danger-50 px-3 py-2.5">
-          <div className="mb-1 flex items-center justify-between">
-            <p className="text-[11px] font-medium tracking-wide text-danger-700 uppercase">Exception</p>
-            <CopyButton value={x.exception} label="exception" />
-          </div>
-          <pre className="max-h-40 overflow-auto font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
-            {x.exception}
-          </pre>
-        </div>
+      {/* - failure - */}
+      {x.exception && <ExceptionBlock text={x.exception} />}
+
+      {/* - delivered, with a file that could not be stored - */}
+      {x.warning && (
+        <InlineNotice>
+          <span className="block whitespace-pre-line">{x.warning}</span>
+          <span className="mt-1 block text-warn-700">
+            Nothing to retry: the partner has the document. Only Bitween's copy of the file is missing.
+          </span>
+        </InlineNotice>
       )}
 
-      {/* — the attempts this exchange belongs to, when it belongs to any — */}
+      {/* - the attempts this exchange belongs to, when it belongs to any - */}
       {hasRetryChain(x) && <RetryChain id={x.id} />}
 
-      {/* — metadata — */}
-      <dl className="grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+      {/* - metadata - */}
+      <dl className="grid grid-cols-2 gap-x-6 gap-y-3">
         {/* The id lives here rather than in the row: it identifies a record you
             have already found, so it earns its place next to the other
             copy-and-paste metadata, not in the scanning path. */}
         <MetaItem label="Exchange id">
-          <span className="inline-flex items-center gap-0.5">
-            <span className="font-mono text-xs break-all text-ink-700">{x.id}</span>
+          {/* One line, cut short with the whole id on hover and the copy button beside it: breaking it
+              anywhere left a lone character on a line of its own. */}
+          <span className="flex min-w-0 items-center gap-0.5">
+            <span className="min-w-0 truncate font-mono text-xs text-ink-700" title={x.id}>
+              {x.id}
+            </span>
             <CopyButton value={x.id} label="exchange id" />
           </span>
         </MetaItem>
@@ -340,7 +341,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
           {x.finishedOn ? (
             <>
               {formatDateTime(x.finishedOn)}
-              <span className="text-ink-400"> · {duration(x.startedOn, x.finishedOn)}</span>
+              <span className="text-ink-500"> · {duration(x.startedOn, x.finishedOn)}</span>
             </>
           ) : (
             "Still processing"
@@ -352,20 +353,20 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
               <Link
                 to={`/exchanges?correlationId=${encodeURIComponent(x.correlationId)}`}
                 title="Show every exchange with this correlation id"
-                className="font-mono text-xs break-all text-ink-700 hover:text-crimson-700 hover:underline"
+                className="font-mono text-xs break-all text-ink-700 hover:link"
               >
                 {x.correlationId}
               </Link>
               <CopyButton value={x.correlationId} label="correlation id" />
             </span>
           ) : (
-            <span className="text-ink-400">—</span>
+            <span className="text-ink-500">-</span>
           )}
         </MetaItem>
         <MetaItem label="Related">
           <Link
             to={`/exchanges?ids=${encodeURIComponent(x.id)}`}
-            className="text-[13px] font-medium text-ink-700 hover:text-crimson-700 hover:underline"
+            className="text-[13px] font-medium text-ink-700 hover:link"
           >
             Retries &amp; aggregation family
           </Link>
@@ -373,12 +374,12 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
         {isRollUp && (
           <MetaItem label="Rolled up">
             {/* The Id filter matches AggregationXchangeId as well as Id, so this one
-                link is already the list of everything collected into this exchange —
+                link is already the list of everything collected into this exchange -
                 what was missing was anything saying so from the roll-up's own side. */}
             <Link
               to={`/exchanges?ids=${encodeURIComponent(x.id)}`}
               title="Every exchange rolled up into this one, listed beside it."
-              className="text-[13px] font-medium text-ink-700 hover:text-crimson-700 hover:underline"
+              className="text-[13px] font-medium text-ink-700 hover:link"
             >
               The exchanges this collected
             </Link>
@@ -388,7 +389,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
           <MetaItem label="Aggregated into">
             <Link
               to={`/exchanges?ids=${encodeURIComponent(x.aggregationXchangeId)}`}
-              className="font-mono text-xs text-ink-700 hover:text-crimson-700 hover:underline"
+              className="font-mono text-xs text-ink-700 hover:link"
             >
               {x.aggregationXchangeId}
             </Link>
@@ -410,7 +411,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
             <Link
               to={`/exchanges?ids=${encodeURIComponent(x.sourceXchangeId)}`}
               title="The exchange whose delivery got the response this one runs on. Its input is the original document the source values were read from."
-              className="font-mono text-xs text-ink-700 hover:text-crimson-700 hover:underline"
+              className="font-mono text-xs text-ink-700 hover:link"
             >
               {x.sourceXchangeId}
             </Link>
@@ -420,11 +421,11 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
           <MetaItem label="Source values">
             <span
               className="flex flex-wrap gap-1"
-              title="Read from the original document (the input of the exchange above), by path, when this exchange was created — what {{source.…}} and Original mapping rules use"
+              title="Read from the original document (the input of the exchange above), by path, when this exchange was created - what {{source.…}} and Original mapping rules use"
             >
               {Object.entries(x.sourceValues).map(([k, v]) => (
                 <code key={k} className="rounded bg-ink-100 px-1.5 py-0.5 font-mono text-[11px] text-ink-700">
-                  {k}={v ?? "—"}
+                  {k}={v ?? "-"}
                 </code>
               ))}
             </span>
@@ -432,12 +433,12 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
         )}
       </dl>
 
-      {/* — actions — */}
+      {/* - actions - */}
       {canOperate && (
         <div className="flex flex-wrap items-center gap-2 border-t border-ink-100 pt-3">
           {startedId ? (
             <p className="text-[13px] text-ok-600">
-              ✓ Retry started{startedId !== "scheduled" && <> — new exchange is at the top of the list</>}
+              ✓ Retry started{startedId !== "scheduled" && <> - new exchange is at the top of the list</>}
             </p>
           ) : x.scheduledRetryOn ? (
             <>
@@ -462,7 +463,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
                 {newest && newest.id !== x.id && (
                   <Link
                     to={`/exchanges?ids=${encodeURIComponent(newest.id)}`}
-                    className="text-[13px] font-medium text-ink-700 hover:text-crimson-700 hover:underline"
+                    className="text-[13px] font-medium text-ink-700 hover:link"
                   >
                     Open the newest attempt to retry from there
                   </Link>
@@ -475,7 +476,14 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
               </Button>
             ))
           )}
-          {actionError && <p className="text-[13px] text-danger-700">{actionError}</p>}
+          {actionError && <ProblemText>{actionError}</ProblemText>}
+        </div>
+      )}
+
+      {/* Outside the operate gate: an explanation changes nothing, so seeing the exchange is enough. */}
+      {(x.status === "failed" || x.status === "badResponse") && (
+        <div className={`flex items-center gap-2 ${canOperate ? "" : "border-t border-ink-100 pt-3"}`}>
+          <ExplainFailure xchangeId={x.id} />
         </div>
       )}
 

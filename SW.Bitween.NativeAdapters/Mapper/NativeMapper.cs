@@ -8,7 +8,7 @@ namespace SW.Bitween.NativeAdapters.Mapper;
 /// <summary>Settings the mapper is configured with.</summary>
 /// <remarks>
 /// <see cref="MappingRules"/> is the whole mapping. There is no template setting, because nothing is
-/// generated — the rules are read and applied directly.
+/// generated - the rules are read and applied directly.
 /// </remarks>
 public class NativeMapperInput
 {
@@ -69,10 +69,17 @@ public class NativeMapper : INativeInfolinkMapper, IReceivesMappingContext
 
     public Task<XchangeFile> Handle(XchangeFile xchangeFile)
     {
-        var source = ResolveFormat(_rules.SourceFormat, "source", _rules.SourceCsv);
-        var target = ResolveFormat(_rules.TargetFormat, "target", _rules.TargetCsv);
+        var source = ResolveFormat(_rules.SourceFormat, "source", _rules.SourceOptions());
+        var target = ResolveFormat(_rules.TargetFormat, "target", _rules.TargetOptions());
 
-        var input = source.Read(xchangeFile.Data);
+        // The two formats the pipeline may have parsed already take the shared tree.
+        var shared = ParsedPayload.Of(xchangeFile);
+        var input = source switch
+        {
+            JsonFormat json => json.Read(xchangeFile.Data, shared),
+            XmlFormat xml => xml.Read(xchangeFile.Data, shared),
+            _ => source.Read(xchangeFile.Data),
+        };
         var output = DocumentMapper.Map(_rules, input, _context, source.SingleValueIsAList);
 
         return Task.FromResult(new XchangeFile(target.Write(output), xchangeFile.Filename)
@@ -81,13 +88,28 @@ public class NativeMapper : INativeInfolinkMapper, IReceivesMappingContext
         });
     }
 
-    private static MappingRules ReadRules(IDictionary<string, string> settings)
+    internal static readonly CompiledCache<MappingRules> Rules = new(CompiledTemplates.Capacity);
+
+    /// <summary>
+    /// The rules, kept by their text unless <c>Bitween:CacheCompiledTemplates</c> is off. Rules that
+    /// cannot be read are not kept, so they fail on every call as before.
+    /// </summary>
+    /// <remarks>
+    /// One instance is handed to every exchange of the subscription, concurrently. That is safe only
+    /// because nothing in the mapper writes to its rules; <c>CompiledCacheTests</c> holds it to that.
+    /// </remarks>
+    internal static MappingRules ReadRules(IDictionary<string, string> settings)
     {
         if (!settings.TryGetValue(nameof(NativeMapperInput.MappingRules), out var json) ||
             string.IsNullOrWhiteSpace(json))
             throw new InvalidOperationException(
                 "This mapper has no mapping rules configured. Open it in the mapping editor and save.");
 
+        return CompiledTemplates.Enabled ? Rules.GetOrAdd(json, DeserializeRules) : DeserializeRules(json);
+    }
+
+    private static MappingRules DeserializeRules(string json)
+    {
         MappingRules? rules;
         try
         {
@@ -115,7 +137,7 @@ public class NativeMapper : INativeInfolinkMapper, IReceivesMappingContext
     /// Reads the context the pipeline passed, or an empty one.
     /// </summary>
     /// <remarks>
-    /// Absent context is not an error — a mapping with no partner rules and no global rules needs
+    /// Absent context is not an error - a mapping with no partner rules and no global rules needs
     /// none, and a preview may run without one. A rule that then asks for a partner value gets null,
     /// which is the same answer it would get for a partner with no such property.
     /// </remarks>
@@ -136,8 +158,8 @@ public class NativeMapper : INativeInfolinkMapper, IReceivesMappingContext
         }
     }
 
-    private static IDocumentFormat ResolveFormat(string id, string role, CsvOptions? csv) =>
-        DocumentFormats.TryGet(id, out var format, csv)
+    private static IDocumentFormat ResolveFormat(string id, string role, FormatOptions options) =>
+        DocumentFormats.TryGet(id, out var format, options)
             ? format
             : throw new InvalidOperationException(DocumentFormats.Unsupported(id, role));
 }

@@ -10,7 +10,7 @@ namespace SW.Bitween.Services;
 /// key twice produces different ciphertext, and tampering fails the authentication tag rather
 /// than decrypting to garbage.
 /// <para>
-/// The passphrase comes from <see cref="BitweenOptions.SettingsEncryptionKey"/> — configuration
+/// The passphrase comes from <see cref="BitweenOptions.SettingsEncryptionKey"/> - configuration
 /// only, never the Settings table. When it isn't set, <see cref="IsConfigured"/> is false and
 /// secret settings stay out of the table entirely.
 /// </para>
@@ -55,7 +55,7 @@ public class SettingsProtector(BitweenOptions options)
     }
 
     /// <summary>
-    /// Reverses <see cref="Protect"/>. A value without the marker is returned untouched — that's
+    /// Reverses <see cref="Protect"/>. A value without the marker is returned untouched - that's
     /// how a hand-written row, or one stored before a passphrase existed, still reads back.
     /// Throws when the value was written under a different passphrase or has been altered.
     /// </summary>

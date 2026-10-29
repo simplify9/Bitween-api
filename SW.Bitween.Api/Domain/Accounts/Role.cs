@@ -23,7 +23,7 @@ public class Role : BaseEntity, IAudited
     {
     }
 
-    /// <summary>Seeding path for the built-in roles — fixed Id, grants computed at runtime.</summary>
+    /// <summary>Seeding path for the built-in roles - fixed Id, grants computed at runtime.</summary>
     public Role(int id, string name, string description)
     {
         Id = id;
@@ -43,7 +43,7 @@ public class Role : BaseEntity, IAudited
     public string Description { get; private set; }
 
     /// <summary>
-    /// Catalog keys, stored as one JSON column. Empty for built-in roles — see
+    /// Catalog keys, stored as one JSON column. Empty for built-in roles - see
     /// <see cref="GetEffectivePermissions"/>.
     /// </summary>
     public List<string> Permissions { get; private set; } = [];
@@ -61,7 +61,7 @@ public class Role : BaseEntity, IAudited
     /// <summary>
     /// What this role actually grants. Built-in roles derive their grants from the catalog at
     /// runtime instead of storing them, so adding a permission to the catalog reaches
-    /// Administrators — and the right groups — without a migration or a data fix-up.
+    /// Administrators - and the right groups - without a migration or a data fix-up.
     /// </summary>
     public List<string> GetEffectivePermissions() => IsSystem ? SystemPermissions(Id) : Permissions;
 

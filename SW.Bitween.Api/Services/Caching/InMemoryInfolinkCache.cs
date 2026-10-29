@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,9 +34,9 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
     /// Reads every cached set from the database and publishes it.
     /// </summary>
     /// <remarks>
-    /// The six reads take time, and <see cref="Revoke"/> runs on the bus consumer thread against
+    /// The seven reads take time, and <see cref="Revoke"/> runs on the bus consumer thread against
     /// this same singleton. A revoke landing between the reads and the writes is revoking the
-    /// snapshot those reads just took — the write it announces happened after they began — so
+    /// snapshot those reads just took - the write it announces happened after they began - so
     /// publishing it anyway would reinstate the staleness the revoke existed to clear, for the
     /// full ten minutes. Hence the generation check: read again rather than publish a snapshot
     /// that is already known to be behind.
@@ -54,13 +55,24 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
             using var scope = _ssf.CreateScope();
             var repo = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
             _logger.LogInformation("Loading documents and subscriptions to cache");
+            // With its retry policy, so a success can tell without a query whether there is a budget
+            // to give back (TryClearingRetryBudgetAfterSuccess).
             var cachedSubscriptions = await repo.Set<Subscription>().Include(s=>s.WorkGroup)
+                .Include(s => s.RetryPolicy)
                 .AsNoTracking().Where(i => !i.Inactive).ToArrayAsync();
             var cachedDocuments = await repo.Set<Document>().AsNoTracking().ToArrayAsync();
             var cachedNotifiers = await repo.Set<Notifier>().Where(i => !i.Inactive).AsNoTracking().ToArrayAsync();
+            var cachedChannels = await repo.Set<NotificationChannel>().AsNoTracking().ToArrayAsync();
             var cachedWorkGroups = await repo.Set<WorkGroup>().AsNoTracking().ToArrayAsync();
             var cachedGlobalValues = await repo.Set<GlobalAdapterValuesSet>().AsNoTracking().ToArrayAsync();
             var cachedBusGateways = await repo.Set<BusGateway>().Include(g => g.Routes).AsNoTracking().ToArrayAsync();
+            // Partners with their keys, and API gateways with the partners attached to them: every
+            // gateway call and every exchange with a partner read these from the database.
+            var cachedPartners = await repo.Set<Partner>().AsNoTracking().ToArrayAsync();
+            var cachedApiGateways = await repo.Set<ApiGateway>().Include(g => g.Partners).AsNoTracking().ToArrayAsync();
+            var partnersById = cachedPartners.ToDictionary(p => p.Id);
+            foreach (var attachment in cachedApiGateways.SelectMany(g => g.Partners ?? []))
+                attachment.Partner = partnersById.GetValueOrDefault(attachment.PartnerId);
 
             if (Volatile.Read(ref _generation) != generation && attempt < MaxLoadAttempts - 1)
             {
@@ -73,9 +85,12 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
 
             _cache.Set(nameof(Subscription), cachedSubscriptions, span);
             _cache.Set(nameof(Notifier), cachedNotifiers, span);
+            _cache.Set(nameof(NotificationChannel), cachedChannels, span);
             _cache.Set(nameof(WorkGroup), cachedWorkGroups, span);
             _cache.Set(nameof(GlobalAdapterValuesSet), cachedGlobalValues, span);
             _cache.Set(nameof(BusGateway), cachedBusGateways, span);
+            _cache.Set(nameof(Partner), partnersById, span);
+            _cache.Set(nameof(ApiGateway), cachedApiGateways, span);
             return;
         }
     }
@@ -91,7 +106,36 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
         return cachedSubscriptions.Where(sub => sub.DocumentId == documentId).ToArray();
     }
 
-    public async Task<BusGatewayRoute[]> ListBusGatewayRoutesByDocumentAsync(int documentId)
+    /// <summary>A cached set, loading every set first when it has expired or been revoked.</summary>
+    private async Task<T> Cached<T>(string name)
+    {
+        if (_cache.TryGetValue(name, out T cached)) return cached;
+        await Load();
+        return _cache.Get<T>(name);
+    }
+
+    public async Task<Document[]> ListDocumentsAsync() => await Cached<Document[]>(nameof(Document));
+
+    public async Task<Partner> PartnerByIdAsync(int partnerId) =>
+        (await Cached<Dictionary<int, Partner>>(nameof(Partner)))
+        .GetValueOrDefault(partnerId);
+
+    public async Task<Partner[]> ListPartnersAsync() =>
+        (await Cached<Dictionary<int, Partner>>(nameof(Partner))).Values.ToArray();
+
+    public async Task<ApiGateway> ApiGatewayByUrlNameAsync(string urlName)
+    {
+        var gateways = await Cached<ApiGateway[]>(nameof(ApiGateway));
+        // The exact name first, as the unique index answered it; then ignoring case, for rows saved
+        // before names had to be lowercase.
+        return gateways.FirstOrDefault(g => g.UrlName == urlName)
+               ?? gateways.FirstOrDefault(g => string.Equals(g.UrlName, urlName, StringComparison.OrdinalIgnoreCase));
+    }
+
+    public Task<BusGatewayRoute[]> ListBusGatewayRoutesByDocumentAsync(int documentId) =>
+        ListBusGatewayRoutesByDocumentAsync(documentId, null);
+
+    public async Task<BusGatewayRoute[]> ListBusGatewayRoutesByDocumentAsync(int documentId, IReadOnlySet<int> alsoSwitchedOff)
     {
         if (!_cache.TryGetValue(nameof(BusGateway), out BusGateway[] cachedBusGateways))
         {
@@ -103,7 +147,7 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
         // one means on the bus side: the message still publishes, this gateway just stops
         // being one of the places it lands.
         return cachedBusGateways
-            .Where(g => g.DocumentId == documentId && !g.Inactive)
+            .Where(g => g.DocumentId == documentId && (!g.Inactive || alsoSwitchedOff?.Contains(g.Id) == true))
             .SelectMany(g => g.Routes ?? Enumerable.Empty<BusGatewayRoute>())
             .ToArray();
     }
@@ -118,6 +162,17 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
         }
 
         return cachedNotifiers;
+    }
+
+    public async Task<NotificationChannel> NotificationChannelByIdAsync(int channelId)
+    {
+        if (!_cache.TryGetValue(nameof(NotificationChannel), out NotificationChannel[] cachedChannels))
+        {
+            await Load();
+            cachedChannels = _cache.Get<NotificationChannel[]>(nameof(NotificationChannel));
+        }
+
+        return cachedChannels.FirstOrDefault(c => c.Id == channelId);
     }
 
     public async Task<Subscription> SubscriptionByIdAsync(int subscriptionId)
@@ -158,7 +213,7 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
     public async Task BroadcastRevoke()
     {
         // This is a best-effort cache-refresh signal, not part of the write
-        // itself — a dozen command handlers across Subscriptions/WorkGroups/
+        // itself - a dozen command handlers across Subscriptions/WorkGroups/
         // BusGateways/Documents call this right after SaveChangesAsync, and an
         // unhandled failure here (e.g. the RabbitMQ connection being down)
         // must not turn an already-successful write into a 500 response.
@@ -235,9 +290,12 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
 
         _cache.Remove(nameof(Subscription));
         _cache.Remove(nameof(Notifier));
+        _cache.Remove(nameof(NotificationChannel));
         _cache.Remove(nameof(Document));
         _cache.Remove(nameof(WorkGroup));
         _cache.Remove(nameof(BusGateway));
+        _cache.Remove(nameof(Partner));
+        _cache.Remove(nameof(ApiGateway));
         // Load() caches this one too. Leaving it out here meant no write of any kind could
         // clear a global value: it sat for its full ten minutes regardless.
         _cache.Remove(nameof(GlobalAdapterValuesSet));

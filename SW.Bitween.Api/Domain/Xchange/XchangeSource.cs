@@ -8,7 +8,7 @@ namespace SW.Bitween.Domain
     /// </summary>
     /// <param name="XchangeId">The exchange whose delivery's response this one runs on.</param>
     /// <param name="Values">
-    /// Values read from the original document, by path. Null until they are read — a message off the
+    /// Values read from the original document, by path. Null until they are read - a message off the
     /// bus carries only the id, and each route reads what it uses.
     /// </param>
     public record XchangeSource(string XchangeId, IReadOnlyDictionary<string, string> Values = null);

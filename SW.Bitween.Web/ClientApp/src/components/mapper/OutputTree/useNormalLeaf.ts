@@ -2,14 +2,13 @@ import React, { useCallback, useState } from "react";
 import type { TreeNode } from "../../../lib/mapping/mappingPreview";
 import { getValueAtPath } from "../../../lib/mapping/mappingUtils";
 import type { FieldMapping, LookupDictionary, MappingMode } from "../../../lib/mapping/types";
+import { useMappingEditorDispatch, useMappingEditorState } from "../../../lib/mapping/mappingEditorHooks";
 import {
-  useMappingEditorDispatch,
-  useMappingEditorState,
   addFieldMapping,
   removeFieldMapping,
   selectMapping,
   updateFieldMapping,
-} from "../../../lib/mapping/MappingEditorContext";
+} from "../../../lib/mapping/mappingEditorActions";
 import { isFieldMappingPopulated } from "../../../lib/mapping/mappingTreeUtils";
 import { MODE_INITIAL_FIELDS } from "../../../lib/mapping/mappingModeDefaults";
 import type { GlobalValuesSetRow } from "../../../api";

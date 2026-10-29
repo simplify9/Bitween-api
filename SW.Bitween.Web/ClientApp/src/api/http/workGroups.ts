@@ -7,7 +7,7 @@ import {
   type WorkGroupRow,
   type Paged,
 } from "../types";
-import { get, post } from "./request";
+import { enrichment, get, post } from "./request";
 
 interface SearchyResponse<T> {
   result: T[];
@@ -17,9 +17,11 @@ interface RawWorkGroup {
   id: number;
   name: string;
   busMessageName: string;
-  options: { rabbitMqOptions: { prefetch: number | null; priority: number | null } | null } | null;
+  options: {
+    rabbitMqOptions: { prefetch: number | null; priority: number | null; concurrency?: number | null } | null;
+  } | null;
   processorNodeCount: number | null;
-  /** Counted by the backend — see WorkGroupModel.UsedByCount. */
+  /** Counted by the backend - see WorkGroupModel.UsedByCount. */
   usedByCount: number;
 }
 interface RawSubscriptionRef {
@@ -69,6 +71,7 @@ const toWorkGroup = (w: RawWorkGroup): WorkGroup => ({
       consumerSettings: {
         prefetch: w.options?.rabbitMqOptions?.prefetch ?? 0,
         priority: w.options?.rabbitMqOptions?.priority ?? 0,
+        concurrency: w.options?.rabbitMqOptions?.concurrency ?? null,
       },
     },
   },
@@ -77,7 +80,7 @@ const toWorkGroup = (w: RawWorkGroup): WorkGroup => ({
 
 // The backend's own default kicks in only when the caller omits the param
 // entirely (`request.Limit ??= 20`), so passing an explicit, generously large
-// one is how "everything" is asked for — there is no separate "unbounded"
+// one is how "everything" is asked for - there is no separate "unbounded"
 // value the way the shared Searchy endpoints have with size=0.
 const EVERYTHING = 1_000_000;
 
@@ -124,7 +127,9 @@ export const workGroupMethods = {
   },
 
   async getWorkGroup(id: number): Promise<WorkGroupDetail> {
-    const [rows, subs] = await Promise.all([fetchRows(), fetchSubscriptionsByWorkGroup(id)]);
+    // The subscriptions using it are context, from an area a role that can see work groups may not
+    // be allowed into; without them the page still has everything it edits.
+    const [rows, subs] = await Promise.all([fetchRows(), enrichment(fetchSubscriptionsByWorkGroup(id), [])]);
     const w = rows.find((x) => x.id === id);
     if (!w) throw new ApiRequestError("NOT_FOUND", "This work group no longer exists.");
     return {
@@ -138,37 +143,38 @@ export const workGroupMethods = {
     busMessageName: string;
     prefetch: number;
     priority: number;
+    concurrency: number | null;
   }): Promise<WorkGroup> {
+    const settings = { prefetch: input.prefetch, priority: input.priority, concurrency: input.concurrency };
     const created = await post<{ id: number }>("/workgroups", {
       name: input.name,
       busMessageName: input.busMessageName,
-      options: { rabbitMqOptions: { prefetch: input.prefetch, priority: input.priority } },
+      options: { rabbitMqOptions: settings },
     });
     return {
       id: created.id,
       name: input.name,
       busMessageName: input.busMessageName,
-      options: { rabbitMqOptions: { consumerSettings: { prefetch: input.prefetch, priority: input.priority } } },
+      options: { rabbitMqOptions: { consumerSettings: settings } },
       createdOn: "",
     };
   },
 
   async updateWorkGroup(
     id: number,
-    changes: { name: string; busMessageName: string; prefetch: number; priority: number },
+    changes: { name: string; busMessageName: string; prefetch: number; priority: number; concurrency: number | null },
   ): Promise<WorkGroup> {
+    const settings = { prefetch: changes.prefetch, priority: changes.priority, concurrency: changes.concurrency };
     await post(`/workgroups/${id}`, {
       name: changes.name,
       busMessageName: changes.busMessageName,
-      options: { rabbitMqOptions: { prefetch: changes.prefetch, priority: changes.priority } },
+      options: { rabbitMqOptions: settings },
     });
     return {
       id,
       name: changes.name,
       busMessageName: changes.busMessageName,
-      options: {
-        rabbitMqOptions: { consumerSettings: { prefetch: changes.prefetch, priority: changes.priority } },
-      },
+      options: { rabbitMqOptions: { consumerSettings: settings } },
       createdOn: "",
     };
   },

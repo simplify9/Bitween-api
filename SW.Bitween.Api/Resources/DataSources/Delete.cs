@@ -15,7 +15,7 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext) :
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.DataSources.Delete);
 
-        // The database refuses this anyway — the foreign key restricts — but a raw constraint
+        // The database refuses this anyway - the foreign key restricts - but a raw constraint
         // violation tells an operator nothing about which gateway is in the way.
         var gateways = await dbContext.Set<BusGateway>()
             .Where(gateway => gateway.DataSourceId == key)
@@ -29,7 +29,7 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext) :
                 string.Join(", ", gateways) +
                 ". Point them at the internal bus, or delete them, first.");
 
-        // Subscription.DataSourceId restricts too, and was the one left to the database — the
+        // Subscription.DataSourceId restricts too, and was the one left to the database - the
         // commoner case of the two, since a data source is normally read by an integration long
         // before any gateway feeds off it.
         var subscriptions = await dbContext.Set<Subscription>()

@@ -8,7 +8,7 @@ namespace SW.Bitween.Adapters.Db;
 // Every contract below is serialised camelCase, and it is declared per type rather than left to the
 // host's serializer settings: these objects cross a process boundary as JSON, and the reader on the
 // far side is Bitween's UI, which reads what the bus adapters already emit. Those are anonymous
-// objects, so they are camelCase by construction — a typed contract defaulting to PascalCase would
+// objects, so they are camelCase by construction - a typed contract defaulting to PascalCase would
 // have the data source screen reading `Ok` from one provider and `ok` from the next.
 
 // ---------------------------------------------------------------------------- capabilities
@@ -16,8 +16,8 @@ namespace SW.Bitween.Adapters.Db;
 /// <summary>
 /// What this engine, through this login, can actually be asked to do.
 ///
-/// Answered offline-ish — most of it is a constant per adapter, the rest is probed once at connect
-/// — and cached by the UI, so a screen can grey out what will not work instead of offering it and
+/// Answered offline-ish - most of it is a constant per adapter, the rest is probed once at connect
+/// - and cached by the UI, so a screen can grey out what will not work instead of offering it and
 /// failing at run time.
 ///
 /// The privilege list matters more than the feature list. "Oracle supports change notification" is
@@ -47,7 +47,7 @@ public class DbCapabilities
     /// <summary>COPY / SqlBulkCopy / LOAD DATA / array binding.</summary>
     public bool BulkCopy { get; set; }
 
-    /// <summary>MERGE, ON CONFLICT, ON DUPLICATE KEY — whatever the engine calls an upsert.</summary>
+    /// <summary>MERGE, ON CONFLICT, ON DUPLICATE KEY - whatever the engine calls an upsert.</summary>
     public bool Merge { get; set; }
 
     /// <summary>RETURNING / OUTPUT: can a write hand back the rows it wrote.</summary>
@@ -71,7 +71,7 @@ public class DbCapabilities
     public string[] ReceiveModes { get; set; } = Array.Empty<string>();
 
     /// <summary>
-    /// How this engine writes a bind placeholder — <c>:</c> or <c>@</c> — filled in by the base
+    /// How this engine writes a bind placeholder - <c>:</c> or <c>@</c> - filled in by the base
     /// from the adapter's own setting rather than declared per engine, so the two cannot disagree.
     ///
     /// Here because a caller that WRITES SQL needs it: the schema browser drafts a statement from
@@ -90,7 +90,7 @@ public class DbCapabilities
     /// </summary>
     public string LimitStyle { get; set; } = "limit";
 
-    /// <summary>Probed with the real credentials — what the engine allows AND this login has.</summary>
+    /// <summary>Probed with the real credentials - what the engine allows AND this login has.</summary>
     public List<string> Privileges { get; set; } = new();
 
     /// <summary>Anything else worth showing: NLS settings, edition, connection pool ceiling.</summary>
@@ -105,7 +105,7 @@ public class DiscoverRequest
     /// <summary>table | view | procedure | function | sequence | package. Null means tables.</summary>
     public string ObjectType { get; set; }
 
-    /// <summary>Null means every schema this login can see — which on Oracle is a great many.</summary>
+    /// <summary>Null means every schema this login can see - which on Oracle is a great many.</summary>
     public string Schema { get; set; }
 
     /// <summary>Case-insensitive contains. Not a LIKE pattern: no wildcards to get wrong.</summary>
@@ -145,7 +145,7 @@ public class DbObject
     /// <summary>Estimated, and null unless asked for.</summary>
     public long? RowCount { get; set; }
 
-    /// <summary>Empty unless IncludeColumns was set. Empty for a routine — see Parameters.</summary>
+    /// <summary>Empty unless IncludeColumns was set. Empty for a routine - see Parameters.</summary>
     public List<DbColumn> Columns { get; set; } = new();
 
     /// <summary>Routines only.</summary>
@@ -171,7 +171,7 @@ public class DbColumn
     public int? Scale { get; set; }
     public bool PrimaryKey { get; set; }
 
-    /// <summary>Identity, sequence-defaulted, GENERATED ALWAYS — anything the database fills in.</summary>
+    /// <summary>Identity, sequence-defaulted, GENERATED ALWAYS - anything the database fills in.</summary>
     public bool Generated { get; set; }
 
     public int Ordinal { get; set; }
@@ -205,7 +205,7 @@ public class StatementValidationResult
     public string Error { get; set; }
 
     /// <summary>
-    /// Set when it passed but not everything could be checked — a bare procedure name is accepted
+    /// Set when it passed but not everything could be checked - a bare procedure name is accepted
     /// without confirming the routine exists, because it is resolved when called.
     /// </summary>
     public string Note { get; set; }
@@ -218,7 +218,7 @@ public class StatementValidationResult
 ///
 /// <see cref="Name"/> is the normal path: statements are configured on the data source and the
 /// message supplies parameter values only. <see cref="Sql"/> is refused unless the data source
-/// explicitly allows ad-hoc SQL, because a mapper is a template evaluated over message content —
+/// explicitly allows ad-hoc SQL, because a mapper is a template evaluated over message content -
 /// if that can emit SQL text, every Xchange is an injection vector into the customer's database.
 /// </summary>
 [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
@@ -300,7 +300,7 @@ public class FetchRequest
 
 /// <summary>
 /// Staged on purpose. "It did not work" is not something an operator can act on; the failing stage
-/// names what to go and fix — a host name, a password, a grant, a missing table.
+/// names what to go and fix - a host name, a password, a grant, a missing table.
 /// </summary>
 [JsonObject(NamingStrategyType = typeof(CamelCaseNamingStrategy))]
 public class DbTestResult

@@ -35,22 +35,22 @@ public class BusSourceValuesTests(BitweenFixture fixture)
         var sourceId = await Publisher(message);
 
         // Nothing in the fixture consumes the bus, so a queue of the test's own catches the message.
-        using var connection = await Broker();
-        using var channel = connection.CreateModel();
-        var queue = channel.QueueDeclare().QueueName;
+        await using var connection = await Broker();
+        await using var channel = await connection.CreateChannelAsync();
+        var queue = (await channel.QueueDeclareAsync()).QueueName;
         await using (var scope = fixture.CreateScope())
-            channel.QueueBind(queue, scope.ServiceProvider.GetRequiredService<BusOptions>().ProcessExchange,
+            await channel.QueueBindAsync(queue, scope.ServiceProvider.GetRequiredService<BusOptions>().ProcessExchange,
                 message.ToLower());
 
         var xchangeId = await Create(sourceId, "{\"order\":{\"number\":\"1001\"}}");
         await Run(xchangeId);
 
-        var got = channel.BasicGet(queue, autoAck: true);
+        var got = await channel.BasicGetAsync(queue, autoAck: true);
         Assert.NotNull(got);
         // The body is what any other reader of the message has always had.
         Assert.Equal("{\"ack\":true}", Encoding.UTF8.GetString(got.Body.ToArray()));
         var values = JsonConvert.DeserializeObject<Dictionary<string, string>>(
-            Encoding.UTF8.GetString((byte[])got.BasicProperties.Headers[RequestContext.ValuesHeaderName]));
+            Encoding.UTF8.GetString((byte[])got.BasicProperties.Headers![RequestContext.ValuesHeaderName]!));
         // Only the id travels, however much a route reads, so it can't grow past what the bus takes.
         Assert.Equal(xchangeId, Assert.Single(values).Value);
         Assert.Equal(StartupValuesFiller.SourceXchangeBusValue, values.Single().Key);
@@ -205,7 +205,7 @@ public class BusSourceValuesTests(BitweenFixture fixture)
     {
         await using var scope = fixture.CreateScope();
         var url = scope.ServiceProvider.GetRequiredService<IConfiguration>().GetConnectionString("RabbitMQ");
-        return new ConnectionFactory { Uri = new Uri(url!) }.CreateConnection();
+        return await new ConnectionFactory { Uri = new Uri(url!) }.CreateConnectionAsync();
     }
 
     private static Dictionary<string, string> Props(params (string Key, string Value)[] pairs) =>

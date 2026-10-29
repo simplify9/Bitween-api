@@ -45,7 +45,7 @@ public class NativeSmtpHandlerTests
     [TestMethod]
     public void Fill_LeavesTemplateAloneForNonJsonPayload()
     {
-        // Normal for a pipeline handler shipping a flat file — there are no fields to substitute.
+        // Normal for a pipeline handler shipping a flat file - there are no fields to substitute.
         Assert.AreEqual("Nightly export", NativeSmtpHandler.Fill("Nightly export", "id,name\n1,alpha"));
     }
 
@@ -140,7 +140,7 @@ public class NativeSmtpHandlerTests
     public void Certificate_RevokedAlongsideAnUncheckableStatus_IsRefused()
     {
         // One chain entry can carry several flags at once, so the tolerated ones have to be masked
-        // out rather than compared — otherwise a revoked certificate rides in on the same entry.
+        // out rather than compared - otherwise a revoked certificate rides in on the same entry.
         Assert.IsFalse(NativeSmtpHandler.IsCertificateAcceptable(
             SslPolicyErrors.RemoteCertificateChainErrors,
             new[] { X509ChainStatusFlags.Revoked | X509ChainStatusFlags.RevocationStatusUnknown }));

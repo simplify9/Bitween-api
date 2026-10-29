@@ -7,7 +7,7 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Fixtures;
 
 /// <summary>
-/// A PostgreSQL for the adapter tests to point at — deliberately its own container rather than the
+/// A PostgreSQL for the adapter tests to point at - deliberately its own container rather than the
 /// one <see cref="BitweenFixture"/> runs for the application database.
 ///
 /// Sharing that one would work and would be faster, but it would mean the adapter's test schema
@@ -75,6 +75,10 @@ public class PostgreSqlDbFixture : IAsyncLifetime
             )");
 
         await ExecuteAsync(connection, "comment on table bitween_orders is 'Customer orders'");
+
+        // Empty until a test says otherwise: a mark statement dividing by its row count fails until
+        // then, which is how a marking that fails after the row was accepted is played.
+        await ExecuteAsync(connection, "create table flaky_marks (ok boolean)");
         await ExecuteAsync(connection, "create sequence bitween_order_seq start with 1000");
 
         for (var i = 1; i <= 25; i++)
@@ -83,7 +87,7 @@ public class PostgreSqlDbFixture : IAsyncLifetime
                 $"values ({i}, '{(i % 2 == 0 ? "acme" : "globex")}', {i * 10}.50)");
 
         // A set-returning function: PostgreSQL's answer to Oracle's REF CURSOR, and queried with
-        // SELECT rather than CALL — which is exactly the difference the capability list declares.
+        // SELECT rather than CALL - which is exactly the difference the capability list declares.
         await ExecuteAsync(connection, $@"
             create or replace function orders_by_customer(p_customer varchar)
             returns setof {Table}

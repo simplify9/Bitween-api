@@ -1,0 +1,16 @@
+{{- if or (gt (int .Values.replicaCount) 1) .Values.autoscaling.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ template "project.fullname" . }}
+  labels:
+    app: {{ template "project.name" . }}
+    chart: {{ template "project.chart" . }}
+    release: {{ .Release.Name }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      app: {{ template "project.name" . }}
+      release: {{ .Release.Name }}
+{{- end }}

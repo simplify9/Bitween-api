@@ -13,7 +13,7 @@ public class RemoveAccountModel(BitweenDbContext dbContext, RequestContext reque
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Users.Delete);
 
-        var account = await dbContext.Set<Account>().FindAsync(key);
+        var account = await Members.FindAsync(dbContext, key);
 
         if (account is null)
             throw new SWValidationException("ACCOUNT_NOT_FOUND", $"Account with {key} was not found");
@@ -22,6 +22,7 @@ public class RemoveAccountModel(BitweenDbContext dbContext, RequestContext reque
             throw new SWValidationException("CANNOT_REMOVE_SELF", "You can't remove your own account.");
 
         await Administrators.EnsureNotTheLast(dbContext, key);
+        await GrantLimits.EnsureCallerOutranks(dbContext, requestContext, key);
 
         dbContext.Remove(account);
         await dbContext.SaveChangesAsync();

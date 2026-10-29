@@ -3,6 +3,7 @@ using SW.Bitween.Model;
 using SW.PrimitiveTypes;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 
 namespace SW.Bitween.Domain;
@@ -75,8 +76,42 @@ public class Subscription : BaseEntity
     public WorkGroup WorkGroup { get; set; }
     public bool Temporary { get; private set; }
     public DateTime? PausedOn { get; private set; }
+
     /// <summary>
-    /// Which external system this subscription's adapters connect through — a database, typically.
+    /// Failed deliveries in a row that pause the subscription; null never does. Counted in
+    /// <see cref="ConsecutiveFailures"/>, which receivers and aggregations use for their runs.
+    /// </summary>
+    public int? AutoPauseAfterFailures { get; set; }
+
+    /// <summary>Paused by <see cref="AutoPauseAfterFailures"/> rather than by a person.</summary>
+    public bool PausedAutomatically { get; private set; }
+
+    /// <summary>How often an exchange should arrive; null expects nothing. Validated by <see cref="TrafficWindow"/>.</summary>
+    public ExpectTraffic ExpectTraffic { get; private set; }
+
+    /// <summary>
+    /// When <c>QuietSubscriptionsJob</c> found no exchange where <see cref="ExpectTraffic"/> wanted one;
+    /// null while traffic arrives. Written by the job alone, with a conditional update, so two nodes
+    /// can't both raise it.
+    /// </summary>
+    public DateTime? QuietSince { get; private set; }
+
+    /// <summary>Which finished exchanges are reported, and through which notification channel.</summary>
+    public List<SubscriptionNotification> Notifications { get; private set; } = [];
+
+    public void SetNotifications(IEnumerable<SubscriptionNotification> notifications)
+    {
+        Notifications = notifications?.ToList() ?? [];
+    }
+
+    public void SetExpectTraffic(ExpectTraffic expectTraffic)
+    {
+        ExpectTraffic = expectTraffic;
+        // Nothing is expected any more, so nothing can be missing; left set it would show for good.
+        if (expectTraffic == null) QuietSince = null;
+    }
+    /// <summary>
+    /// Which external system this subscription's adapters connect through - a database, typically.
     ///
     /// Null keeps every existing subscription exactly as it was: an adapter carries its own
     /// connection settings in its properties. Setting one moves that job to the data source, which
@@ -94,6 +129,21 @@ public class Subscription : BaseEntity
     public string ReceiverId { get; set; }
 
     public string MapperId { get; set; }
+
+    /// <summary>
+    /// Published versions this subscription is pinned to, one per adapter slot; null follows
+    /// whatever version is current - which is how every subscription behaved before versions.
+    /// </summary>
+    public string ReceiverVersion { get; set; }
+    public string ValidatorVersion { get; set; }
+    public string MapperVersion { get; set; }
+    public string HandlerVersion { get; set; }
+
+    /// <summary>What actually runs for a slot: the adapter id, or <c>{id}/{version}</c> when pinned.</summary>
+    public string ReceiverRef => SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(ReceiverId, ReceiverVersion);
+    public string ValidatorRef => SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(ValidatorId, ValidatorVersion);
+    public string MapperRef => SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(MapperId, MapperVersion);
+    public string HandlerRef => SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(HandlerId, HandlerVersion);
     public IReadOnlyDictionary<string, string> ValidatorProperties { get; private set; }
     public IReadOnlyDictionary<string, string> HandlerProperties { get; private set; }
     public IReadOnlyDictionary<string, string> MapperProperties { get; private set; }
@@ -102,6 +152,19 @@ public class Subscription : BaseEntity
 
     public IPropertyMatchSpecification MatchExpression { get; private set; }
     public bool IsRunning { get; set; }
+
+    /// <summary>
+    /// When the run that set <see cref="IsRunning"/> started. A process killed mid-run never clears
+    /// the flag, so without a time the subscription stayed "running" - and never ran - for good.
+    /// </summary>
+    public DateTime? RunningSince { get; private set; }
+
+    /// <summary>Lets the next scheduled run start: for a flag left behind by a run that died.</summary>
+    public void ClearRunning()
+    {
+        IsRunning = false;
+        RunningSince = null;
+    }
     public bool Inactive { get; set; }
     public int? ResponseSubscriptionId { get; set; }
     /// <summary>
@@ -183,7 +246,7 @@ public class Subscription : BaseEntity
 
     /// <summary>
     /// Assigns the subscription's retry policy. An inline <paramref name="customRetryPolicy"/>
-    /// always takes precedence over a referenced <paramref name="retryPolicyId"/> — the two are
+    /// always takes precedence over a referenced <paramref name="retryPolicyId"/> - the two are
     /// mutually exclusive, matching the resolution order used at evaluation time
     /// (<c>CustomRetryPolicy ?? RetryPolicy</c>). Setting a custom policy clears any referenced
     /// one and vice versa, so the two fields can never disagree.
@@ -205,11 +268,21 @@ public class Subscription : BaseEntity
     public void Pause()
     {
         PausedOn = DateTime.UtcNow;
+        PausedAutomatically = false;
     }
 
     public void UnPause()
     {
+        // Resuming after an automatic pause starts the count again; otherwise the next failure
+        // would pause it straight back.
+        if (PausedAutomatically)
+        {
+            ConsecutiveFailures = 0;
+            LastException = null;
+        }
+
         PausedOn = null;
+        PausedAutomatically = false;
         Events.Add(new SubscriptionUnpausedEvent
         {
             Id = Id

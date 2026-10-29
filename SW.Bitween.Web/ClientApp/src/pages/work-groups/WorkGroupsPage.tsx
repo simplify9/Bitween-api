@@ -1,36 +1,41 @@
 import { useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ArrowUpRight, Layers, Plus, Search } from "lucide-react";
+import { ArrowUpRight, Layers, Plus } from "lucide-react";
 import { api, type QueueHealthSnapshot, type WorkGroupRow } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { WorkGroupDialog } from "../../components/config/WorkGroupDialog";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, InlineNotice, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, InlineNotice, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table, type Column } from "../../components/ui/Table";
-import { UsedByCell, queueHealthTitle, useSubscriptionsCache } from "../../components/config/shared";
+import { UsedByCell } from "../../components/config/shared";
+import { queueHealthTitle } from "../../components/config/subscriptionLabels";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { keys } from "../../api/queryKeys";
 import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
 import { workGroupQueueName } from "../../lib/busMessageName";
+import { useListParams } from "../../lib/listParams";
+import { SearchBox } from "../../components/ui/SearchBox";
 
 /**
  * The live RabbitMQ numbers, as columns rather than a per-row drill-down.
- * One shared `queue-health` query feeds every row — the same cache entry the
+ * One shared `queue-health` query feeds every row - the same cache entry the
  * Queue health page uses, so this costs one poll, not one per group.
  */
 function liveColumns(snapshot: QueueHealthSnapshot | undefined): Column<WorkGroupRow>[] {
   const consumerFor = (g: WorkGroupRow) => snapshot?.consumers.find((c) => c.workGroupId === g.id);
   const num = (get: (g: WorkGroupRow) => number | undefined) => (g: WorkGroupRow) => {
     const v = get(g);
-    return <span className="tabular-nums text-ink-700">{v ?? "—"}</span>;
+    return <span className="tabular-nums text-ink-700">{v ?? "-"}</span>;
   };
   return [
     {
       header: "Health",
       cell: (g) => {
         const c = consumerFor(g);
-        if (!c) return <span className="text-ink-400">—</span>;
+        if (!c) return <span className="text-ink-500">-</span>;
         return c.health === "critical" ? (
           <Badge tone="danger" title={queueHealthTitle("critical")}>Critical</Badge>
         ) : c.health === "warning" ? (
@@ -53,7 +58,7 @@ function liveColumns(snapshot: QueueHealthSnapshot | undefined): Column<WorkGrou
 const PAGE_SIZE = 25;
 
 export function WorkGroupsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const q = searchParams.get("q") ?? "";
@@ -75,20 +80,22 @@ export function WorkGroupsPage() {
     enabled: canMonitor && rabbitMqConfigured,
   });
 
-  const setParam = (key: string, value: string | null, resetOffset = true) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        if (resetOffset) next.delete("offset");
-        return next;
-      },
-      { replace: true },
-    );
+
+  // Everything not in a work group shares one lane, so a partner that answers slowly there holds the
+  // processing slots the others are waiting for.
+  const ungrouped = subscriptions.filter((s) => s.workGroupId === null).length;
 
   const filtered = groups.data?.result ?? [];
   const total = groups.data?.total ?? 0;
+
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="workgroups.create">
+      <Button variant="primary" onClick={() => setCreating(true)}>
+        <Plus className="size-4" /> New work group
+      </Button>
+    </Can>
+  );
 
   return (
     <div>
@@ -101,46 +108,42 @@ export function WorkGroupsPage() {
             <>
               <p>
                 Every subscription runs in the default (ungrouped) lane unless assigned to a work
-                group. Groups get their own RabbitMQ queue — <strong>prefetch</strong> controls how
+                group. Groups get their own RabbitMQ queue - <strong>prefetch</strong> controls how
                 many messages a consumer pulls at once, <strong>priority</strong> decides which
                 group's queue is drained first when several are busy.
               </p>
-              <p>Changes to a group's settings apply live — no restart needed.</p>
+              <p>Changes to a group's settings apply live - no restart needed.</p>
             </>
           ),
         }}
-        actions={
-          <Can permission="workgroups.create">
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              <Plus className="size-4" /> New work group
-            </Button>
-          </Can>
-        }
+        actions={createAction}
       />
 
-      <div className="relative mb-4 max-w-xs">
-        <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-        <input
-          type="search"
-          value={q}
-          onChange={(e) => setParam("q", e.target.value || null)}
-          placeholder="Search work groups"
-          aria-label="Search work groups"
-          className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-        />
-      </div>
+      {ungrouped > 0 && (
+        <p className="mb-4 max-w-3xl text-[13px] text-ink-600">
+          <strong className="font-medium text-ink-900">
+            {ungrouped} subscription{ungrouped === 1 ? "" : "s"} share{ungrouped === 1 ? "s" : ""} the default lane.
+          </strong>{" "}
+          A partner there that answers slowly holds processing slots the others wait for; give its subscriptions a work
+          group of their own, with a small prefetch, so it only slows itself.
+        </p>
+      )}
+
+      <SearchBox value={searchText} onChange={setSearchText} label="Search work groups" className="mb-4 max-w-xs" />
 
       {canMonitor && !rabbitMqConfigured && (
         <InlineNotice>
           Live queue stats (Health, Nodes, Queued, …) need RabbitMQ management configured on the
-          backend — those columns will stay blank until then.
+          backend - those columns will stay blank until then.
         </InlineNotice>
       )}
 
       {groups.isPending ? (
         <LoadingBlock label="Loading work groups…" />
+      ) : groups.isError ? (
+        <LoadError error={groups.error} what="work groups" onRetry={() => void groups.refetch()} />
       ) : filtered.length === 0 ? (
-        <EmptyState icon={<Layers />} title={q ? "No work groups match" : "No work groups yet"}>
+        <EmptyState icon={<Layers />} title={q ? "No work groups match" : "No work groups yet"} action={q ? undefined : createAction}>
           {q ? "Try a different search." : "Create one to give a set of subscriptions their own queue."}
         </EmptyState>
       ) : (
@@ -154,7 +157,7 @@ export function WorkGroupsPage() {
               offset={offset}
               limit={PAGE_SIZE}
               total={total}
-              onOffsetChange={(o) => setParam("offset", String(o), false)}
+              onOffsetChange={(o) => setParam("offset", String(o))}
             />
           }
           columns={[
@@ -162,10 +165,10 @@ export function WorkGroupsPage() {
             {
               // The queue rather than the bare bus message name: nothing stops two groups
               // sharing both a name and a bus message name, and then neither column tells
-              // them apart. The queue carries the id, so it always does — and it is what
+              // them apart. The queue carries the id, so it always does - and it is what
               // these rows are called in RabbitMQ.
               header: "Queue",
-              headerTitle: "The group's queue in RabbitMQ — its id followed by its bus message name.",
+              headerTitle: "The group's queue in RabbitMQ - its id followed by its bus message name.",
               cell: (g) => <code className="font-mono text-xs text-ink-600">{workGroupQueueName(g)}</code>,
             },
             {
@@ -173,7 +176,7 @@ export function WorkGroupsPage() {
               wrap: true,
               cell: (g) => <UsedByCell items={subscriptions.filter((s) => s.workGroupId === g.id)} />,
             },
-            // `enabled: false` on the `live` query only stops it refetching — it doesn't clear a
+            // `enabled: false` on the `live` query only stops it refetching - it doesn't clear a
             // result already cached from before RabbitMQ management was disabled. Pass undefined
             // explicitly so the columns actually go blank rather than showing stale numbers.
             ...(canMonitor ? liveColumns(rabbitMqConfigured ? live.data : undefined) : []),
@@ -189,7 +192,7 @@ export function WorkGroupsPage() {
                   }}
                   aria-label={`Open ${g.name}`}
                   title="Open"
-                  className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                  className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
                 >
                   <ArrowUpRight className="size-4" />
                 </button>

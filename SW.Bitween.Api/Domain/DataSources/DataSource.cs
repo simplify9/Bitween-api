@@ -11,8 +11,8 @@ namespace SW.Bitween.Domain.DataSources;
 /// every gateway that exists today keeps working untouched. Setting one moves that gateway onto an
 /// external broker, served by a resident serverless adapter.
 ///
-/// The split matters: this holds the connection — endpoint, credentials, health — and the gateway
-/// holds the meaning — which Document, which routes, which filters. One data source can serve many
+/// The split matters: this holds the connection - endpoint, credentials, health - and the gateway
+/// holds the meaning - which Document, which routes, which filters. One data source can serve many
 /// gateways, exactly as one RabbitMQ connection serves many queues.
 /// </summary>
 public class DataSource : BaseEntity, IAudited
@@ -31,7 +31,7 @@ public class DataSource : BaseEntity, IAudited
     /// <summary>
     /// Connection settings handed to the adapter as startup values. Deliberately untyped: a
     /// provider must not be constrained to the subset of a broker's model that Bitween happens to
-    /// have modelled. Secrets are protected at rest — see <see cref="SecretProperties"/>.
+    /// have modelled. Secrets are protected at rest - see <see cref="SecretProperties"/>.
     /// </summary>
     public Dictionary<string, string> Properties { get; set; } = new();
 
@@ -43,7 +43,7 @@ public class DataSource : BaseEntity, IAudited
 
     /// <summary>
     /// How many nodes may run this source's adapter at once. Left <see cref="DataSourcePlacement.Auto"/>
-    /// it follows from <see cref="Kind"/>, which is right almost always — set it only to override.
+    /// it follows from <see cref="Kind"/>, which is right almost always - set it only to override.
     /// </summary>
     public DataSourcePlacement Placement { get; set; } = DataSourcePlacement.Auto;
 
@@ -52,8 +52,8 @@ public class DataSource : BaseEntity, IAudited
 
     /// <summary>
     /// How long a message's dedupe key is remembered. It has to exceed the widest redelivery
-    /// window this broker can actually produce — its message TTL, a dead-letter replay, someone
-    /// re-driving a queue by hand — because a key forgotten too early lets a redelivery through
+    /// window this broker can actually produce - its message TTL, a dead-letter replay, someone
+    /// re-driving a queue by hand - because a key forgotten too early lets a redelivery through
     /// as a fresh message. That number is a property of the customer's broker, not of Bitween,
     /// which is why it lives here rather than in configuration.
     ///
@@ -70,7 +70,7 @@ public class DataSource : BaseEntity, IAudited
 
     /// <summary>
     /// A hard ceiling in megabytes, enforced by the runtime rather than by the supervisor's
-    /// goodwill — it becomes the adapter process's GC heap hard limit, so an allocation past it
+    /// goodwill - it becomes the adapter process's GC heap hard limit, so an allocation past it
     /// fails inside the adapter instead of taking the node down with it. Zero leaves the host's
     /// own default in place.
     ///
@@ -81,12 +81,12 @@ public class DataSource : BaseEntity, IAudited
     public int HardMemoryLimitMb { get; set; }
 
     /// <summary>
-    /// Sustained CPU ceiling for the adapter process, as a percentage of the WHOLE node — the same
+    /// Sustained CPU ceiling for the adapter process, as a percentage of the WHOLE node - the same
     /// figure the heartbeat reports. Worth being exact about, because the intuitive reading is
     /// wrong in an expensive direction: one core pegged flat out on a sixteen-core node reads about
     /// 6%, so a ceiling set at "50%, surely that's half a core" would in fact allow eight.
     ///
-    /// Deliberately sustained rather than instantaneous — an adapter draining a backlog is supposed
+    /// Deliberately sustained rather than instantaneous - an adapter draining a backlog is supposed
     /// to work hard, and recycling it for that would be a bug wearing a limit's clothes. Zero
     /// leaves the host default in place.
     /// </summary>
@@ -120,7 +120,7 @@ public class DataSource : BaseEntity, IAudited
 }
 
 /// <summary>
-/// Broker today. The others are declared now because the adapter contract is identical for them —
+/// Broker today. The others are declared now because the adapter contract is identical for them -
 /// a relational or object-store source differs in whether it pushes or is polled, not in how it is
 /// configured, supervised or observed.
 /// </summary>
@@ -137,7 +137,7 @@ public enum DataSourceKind
 /// How many nodes may hold this connection.
 ///
 /// The distinction is not cosmetic and the default is not safe in both directions. A broker queue
-/// consumed by two nodes is duplicate processing — the failure the whole leased design exists to
+/// consumed by two nodes is duplicate processing - the failure the whole leased design exists to
 /// prevent. A database connection pool held by only one node is the opposite failure: every other
 /// node's Xchanges have nowhere to run, and the health page reports "not running here" as though
 /// that were normal.

@@ -13,7 +13,8 @@ namespace SW.Bitween.Resources.Subscriptions
         {
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.Operate);
 
-            var entity = await dbContext.FindAsync<Subscription>(key);
+            var entity = await dbContext.FindAsync<Subscription>(key)
+                         ?? throw new SWNotFoundException(key.ToString());
             entity.SetReceiveNow();
             await dbContext.SaveChangesAsync();
 

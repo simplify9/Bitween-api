@@ -36,7 +36,7 @@ export function Avatar({
     <span
       aria-hidden
       className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ${sizeClass} ${
-        dimmed ? "bg-ink-100 text-ink-400" : toneOf(name)
+        dimmed ? "bg-ink-100 text-ink-500" : toneOf(name)
       }`}
     >
       {initialsOf(name)}

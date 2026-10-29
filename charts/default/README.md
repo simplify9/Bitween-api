@@ -10,12 +10,12 @@ Two mutually exclusive routing modes, selected at deploy time:
 
 | Mode | How to select | Renders |
 |------|---------------|---------|
-| **ingress-nginx** (default) | nothing — this is the default | `Ingress` |
+| **ingress-nginx** (default) | nothing - this is the default | `Ingress` |
 | **Gateway API** | `--set gateway.enabled=true` | `HTTPRoute` (and the `Ingress` is suppressed) |
 
 `gateway.enabled` defaults to `false`, so the chart renders only the `Ingress`
 out of the box. Setting `gateway.enabled=true` flips routing to the Gateway API
-and automatically suppresses the `Ingress` — you do **not** need to also set
+and automatically suppresses the `Ingress` - you do **not** need to also set
 `ingress.enabled=false`.
 
 ### Behavior matrix
@@ -52,7 +52,7 @@ helm install bitween ./charts/default \
 The Gateway API requires the
 [Gateway API CRDs](https://gateway-api.sigs.k8s.io/) and a Gateway controller in
 the cluster, plus a `Gateway` for the `parentRefs` to attach to. The chart does
-**not** create the `Gateway` or any TLS `Certificate` — those are cluster/CI
+**not** create the `Gateway` or any TLS `Certificate` - those are cluster/CI
 concerns.
 
 ## Values
@@ -88,4 +88,6 @@ concerns.
 | `service.type` | `ClusterIP` | Service type. |
 | `service.port` | `80` | Service port (also the default `HTTPRoute` backend port). |
 | `serviceAccount.name` | `''` | Existing ServiceAccount the pod runs as, e.g. one bound to an Azure Workload Identity. Empty renders no `serviceAccountName`. The chart does not create it. |
+| `busDefaultConcurrency` | `''` | Parallel exchanges for the Ungrouped lane and the bus's other consumers. Empty takes `busDefaultQueuePrefetch`; `'1'` runs them one at a time, in order. Rendered as `Bitween__BusDefaultConcurrency` only when set. |
+| `terminationGracePeriodSeconds` | `60` | How long a stopping pod has before it is killed. Keep it above the app's 45 second shutdown, which lets running exchanges finish for up to 30 seconds. |
 | `podLabels` | `{}` | Extra labels on the pod template only, never the selector. Values render as strings, e.g. `--set 'podLabels.azure\.workload\.identity/use=true'`. `app`, `draft` and `release` are set by the chart and can't be overridden. |

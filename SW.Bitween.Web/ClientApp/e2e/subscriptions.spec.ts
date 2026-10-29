@@ -1,15 +1,17 @@
 import { test, expect } from "@playwright/test";
-import { pickOption } from "./helpers";
+import { pickOption, signInAsAdmin, SUBSCRIPTION_PAGE, moreAction } from "./helpers";
+import { SEED } from "./seed-data";
 
-const ADMIN_EMAIL = "admin@Bitween.systems";
-const ADMIN_PASSWORD = "Mtm@dmin!2";
+/**
+ * What the pickers and stage cards call the two HTTP adapters once one is chosen. Each adapter's
+ * manifest (SW.Bitween.NativeAdapters/HttpReceiver/adapter.json and its siblings) gives it a display name, and that is what is
+ * shown; the id with "Native" stripped is only the fallback for an adapter that has none.
+ */
+const RECEIVER_LABEL = "HTTP poll";
+const HANDLER_LABEL = "HTTP request";
 
 test.beforeEach(async ({ page }) => {
-  await page.goto("login");
-  await page.fill("#login-email", ADMIN_EMAIL);
-  await page.fill("#login-password", ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL((url) => !url.pathname.endsWith("/login"), { timeout: 15000 });
+  await signInAsAdmin(page);
 });
 
 test("scheduled job create, adapters, pause/resume, receive now, list, delete", async ({ page }) => {
@@ -19,13 +21,13 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   await page.fill("#nj-name", name);
 
   // The information type is a searchable picker, and the stages below it are cards that open
-  // in place — there is no wizard to "Continue" through any more.
-  await pickOption(page, "Information type", /Shipment order/);
-  await expect(page.getByRole("combobox", { name: "Information type" })).toHaveValue(/Shipment order/);
+  // in place - there is no wizard to "Continue" through any more.
+  await pickOption(page, "Information type", new RegExp(SEED.informationType));
+  await expect(page.getByRole("combobox", { name: "Information type" })).toHaveValue(new RegExp(SEED.informationType));
 
-  // Source — open by default. Receiver adapter plus its one required prop.
+  // Source - open by default. Receiver adapter plus its one required prop.
   await pickOption(page, "receiver adapter", "NativeHttpReceiver");
-  await expect(page.getByRole("combobox", { name: "receiver adapter" })).toHaveValue("HttpReceiver");
+  await expect(page.getByRole("combobox", { name: "receiver adapter" })).toHaveValue(RECEIVER_LABEL);
   await page.locator("#prop-Url").fill("https://example.com/feed");
   await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/feed");
 
@@ -33,51 +35,54 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   // keeps #prop-Url unambiguous below.
   await page.getByRole("button", { name: "Close this step" }).click();
 
-  // Delivery — handler adapter and its required prop (transformation stays "Passes through").
+  // Delivery - handler adapter and its required prop (transformation stays "Passes through").
   // Only one stage is open at a time, so #prop-Url is unambiguous here.
   await page.getByRole("button", { name: /^Delivery/ }).click();
   await pickOption(page, "handler adapter", "NativeHttpHandler");
-  await expect(page.getByRole("combobox", { name: "handler adapter" })).toHaveValue("HttpHandler");
+  await expect(page.getByRole("combobox", { name: "handler adapter" })).toHaveValue(HANDLER_LABEL);
   await page.locator("#prop-Url").fill("https://example.com/sink");
   await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/sink");
 
   // "Enable immediately" is checked by default.
   await page.getByRole("button", { name: "Create job" }).click();
 
-  await expect(page).toHaveURL(/\/subscriptions\/\d+$/);
+  await expect(page).toHaveURL(SUBSCRIPTION_PAGE);
   await expect(page.getByRole("heading", { name })).toBeVisible();
-  // A badge now, not a button — the switch that turns it off lives with Pause on the right.
+  // A badge, not a button - the running state is changed from the control on the right.
   await expect(page.getByText("Active", { exact: true }).first()).toBeVisible();
+  const state = page.getByRole("radiogroup", { name: "Running state" });
+  await expect(state.getByRole("radio", { name: "Running" })).toBeChecked();
 
-  // Disable / enable. Distinct from pause below: this one drops the work rather than holding it,
-  // and unlike the chip it replaced it applies on confirm instead of waiting for a save.
-  await page.getByRole("button", { name: "Disable", exact: true }).click();
+  // Off and back on. Distinct from Paused below: this one drops the work rather than holding
+  // it, and it applies on confirm instead of waiting for a save.
+  await state.getByRole("radio", { name: "Off" }).click();
   await page
-    .getByRole("dialog", { name: "Disable this subscription?" })
-    .getByRole("button", { name: "Disable" })
+    .getByRole("dialog", { name: "Turn this subscription off?" })
+    .getByRole("button", { name: "Turn off" })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(state.getByRole("radio", { name: "Off" })).toBeChecked();
   await expect(page.getByText("Disabled", { exact: true }).first()).toBeVisible();
 
-  await page.getByRole("button", { name: "Enable", exact: true }).click();
+  await state.getByRole("radio", { name: "Running" }).click();
   await page
-    .getByRole("dialog", { name: "Enable this subscription?" })
-    .getByRole("button", { name: "Enable" })
+    .getByRole("dialog", { name: "Turn this subscription on?" })
+    .getByRole("button", { name: "Turn on" })
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(state.getByRole("radio", { name: "Running" })).toBeChecked();
   await expect(page.getByText("Disabled", { exact: true })).toHaveCount(0);
 
-  // Pause / resume. `exact` because the history card's "Show what changed: …, PausedOn, …"
-  // button is also a substring match for "Pause" once there are edits to show.
-  await page.getByRole("button", { name: "Pause", exact: true }).click();
+  // Paused and resumed.
+  await state.getByRole("radio", { name: "Paused" }).click();
   await page.getByRole("dialog", { name: "Pause this subscription?" }).getByRole("button", { name: "Pause" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByText("Paused", { exact: true }).first()).toBeVisible();
+  await expect(state.getByRole("radio", { name: "Paused" })).toBeChecked();
 
-  await page.getByRole("button", { name: "Resume", exact: true }).click();
+  await state.getByRole("radio", { name: "Running" }).click();
   await page.getByRole("dialog", { name: "Resume this subscription?" }).getByRole("button", { name: "Resume" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByText("Paused", { exact: true })).toHaveCount(0);
+  await expect(state.getByRole("radio", { name: "Running" })).toBeChecked();
 
   // Receive now.
   await page.getByRole("button", { name: "Receive now" }).click();
@@ -89,13 +94,13 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   // summarises what it saved, so both the adapter and its property show without opening it.
   await page.reload();
   const source = page.getByRole("button", { name: /^Source/ });
-  await expect(source).toContainText("HttpReceiver");
+  await expect(source).toContainText(RECEIVER_LABEL);
   await expect(source).toContainText("https://example.com/feed");
   const delivery = page.getByRole("button", { name: /^Delivery/ });
-  await expect(delivery).toContainText("HttpHandler");
+  await expect(delivery).toContainText(HANDLER_LABEL);
   await expect(delivery).toContainText("https://example.com/sink");
 
-  // Narrow by type — the supported filter — so the row can't be paged out of sight. Deliberately
+  // Narrow by type - the supported filter - so the row can't be paged out of sight. Deliberately
   // not the search box: a multi-word term is encoded with "+" and the backend never decodes it,
   // so searching any name containing a space returns nothing (pre-existing, see notes).
   await page.goto("subscriptions?type=Receiving");
@@ -104,11 +109,11 @@ test("scheduled job create, adapters, pause/resume, receive now, list, delete", 
   await expect(row.getByText("undefined")).toHaveCount(0);
 
   // The name, not the row's centre. The whole row opens the subscription, but it also
-  // carries links of its own — information type, partner — and which one sits under the
+  // carries links of its own - information type, partner - and which one sits under the
   // centre depends on how wide the columns happen to be.
   await row.getByText(name).click();
-  await expect(page).toHaveURL(/\/subscriptions\/\d+$/);
-  await page.getByRole("button", { name: "Delete" }).click();
+  await expect(page).toHaveURL(SUBSCRIPTION_PAGE);
+  await moreAction(page, "Delete");
   await page.getByRole("button", { name: "Delete subscription" }).click();
   await expect(page).toHaveURL(/\/subscriptions$/);
   await expect(page.getByText(name)).toHaveCount(0);

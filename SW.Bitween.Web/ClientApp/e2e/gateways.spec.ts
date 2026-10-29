@@ -1,18 +1,12 @@
 import { test, expect } from "@playwright/test";
-import { pickOption } from "./helpers";
+import { pickOption, signInAsAdmin, moreAction } from "./helpers";
+import { SEED } from "./seed-data";
 
 /** A seeded partner, used for the attachment this test makes and then removes. */
-const PARTNER = "Acme Retail";
-
-const ADMIN_EMAIL = "admin@Bitween.systems";
-const ADMIN_PASSWORD = "Mtm@dmin!2";
+const PARTNER = SEED.partner;
 
 test.beforeEach(async ({ page }) => {
-  await page.goto("login");
-  await page.fill("#login-email", ADMIN_EMAIL);
-  await page.fill("#login-password", ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL((url) => !url.pathname.endsWith("/login"), { timeout: 15000 });
+  await signInAsAdmin(page);
 });
 
 test("API gateway: create, attach partner, create subscription detour, edit attachment, detach, delete", async ({
@@ -27,7 +21,7 @@ test("API gateway: create, attach partner, create subscription detour, edit atta
   await expect(page.getByRole("heading", { name })).toBeVisible();
 
   // Attach a partner, detouring to create the required GatewayApiCall subscription. The
-  // detour is a nested route off the attach page, and both pickers are comboboxes now —
+  // detour is a nested route off the attach page, and both pickers are comboboxes now -
   // there is no wizard to "Continue" through.
   await page.getByRole("button", { name: "Attach partner" }).click();
   await expect(page).toHaveURL(/\/api-gateways\/\d+\/attach$/);
@@ -40,8 +34,8 @@ test("API gateway: create, attach partner, create subscription detour, edit atta
   // The picked partner rides along as a query param through the detour.
   await expect(page).toHaveURL(/\/api-gateways\/\d+\/attach\/new-subscription/);
   await page.fill("#ngi-name", subscriptionName);
-  await pickOption(page, "Information type", /Shipment order/);
-  await expect(page.getByRole("combobox", { name: "Information type" })).toHaveValue(/Shipment order/);
+  await pickOption(page, "Information type", new RegExp(SEED.informationType));
+  await expect(page.getByRole("combobox", { name: "Information type" })).toHaveValue(new RegExp(SEED.informationType));
   await pickOption(page, "handler adapter", "NativeHttpHandler");
   await page.locator("#prop-Url").fill("https://example.com/sink");
   await expect(page.locator("#prop-Url")).toHaveValue("https://example.com/sink");
@@ -57,7 +51,7 @@ test("API gateway: create, attach partner, create subscription detour, edit atta
   await expect(page.getByText(PARTNER).first()).toBeVisible();
   await expect(page.getByText(subscriptionName).first()).toBeVisible();
 
-  // Edit the attachment — exercises the remove-then-add path (backend's
+  // Edit the attachment - exercises the remove-then-add path (backend's
   // updatepartner can't mutate a composite-key column in place).
   await page.getByRole("button", { name: `Edit attachment for ${PARTNER}` }).click();
   await expect(page).toHaveURL(/\/api-gateways\/\d+\/attachments\/\d+$/);
@@ -74,9 +68,9 @@ test("API gateway: create, attach partner, create subscription detour, edit atta
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText("No partners attached")).toBeVisible();
 
-  // Delete (no attachments left — exercises the plain path; cascade-delete
+  // Delete (no attachments left - exercises the plain path; cascade-delete
   // path is covered separately since seed data already has an attached gateway).
-  await page.getByRole("button", { name: "Delete" }).click();
+  await moreAction(page, "Delete");
   await page
     .getByRole("dialog", { name: "Delete this API gateway?" })
     .getByRole("button", { name: "Delete gateway" })
@@ -91,13 +85,13 @@ test("Bus gateway: create, add route with match expression, edit route, remove, 
   await page.goto("bus-gateways/new");
   await page.fill("#nbg-name", name);
   // Bus-enabled types only, and this one is the one no seeded gateway already listens for.
-  await pickOption(page, "Information type", /Delivery proof/);
-  await expect(page.getByRole("combobox", { name: "Information type" })).toHaveValue(/Delivery proof/);
+  await pickOption(page, "Information type", new RegExp(SEED.busInformationType));
+  await expect(page.getByRole("combobox", { name: "Information type" })).toHaveValue(new RegExp(SEED.busInformationType));
   await page.getByRole("button", { name: "Create gateway" }).click();
   await expect(page).toHaveURL(/\/bus-gateways\/\d+$/);
   await expect(page.getByRole("heading", { name })).toBeVisible();
 
-  // Routes are built on the gateway's own canvas now — no separate add-route page, and no
+  // Routes are built on the gateway's own canvas now - no separate add-route page, and no
   // wizard: the route, its subscription and that subscription's delivery are all edited in
   // place, and "Create route" saves the lot.
   // An empty gateway offers both "Add a route" in the header and "Add the first route"
@@ -105,7 +99,14 @@ test("Bus gateway: create, add route with match expression, edit route, remove, 
   await page.getByRole("button", { name: /^Add (a|the first) route/ }).first().click();
   await expect(page).toHaveURL(/\/bus-gateways\/\d+\?route=new/);
 
-  // No partner and no filter: an empty match expression means "matches everything".
+  // A new route opens on its own node, which is where its filter lives. Filters match on the
+  // information type's promoted properties, which the seed gives this type.
+  const { path } = SEED.busFilterProperty;
+  await page.getByRole("button", { name: "Add a filter" }).click();
+  await page.getByRole("combobox", { name: "Property" }).selectOption(path);
+  await page.getByRole("textbox", { name: "Values" }).fill("DHL");
+
+  // No partner: the route runs without {{partner.…}} values.
   const subscriptionName = `Playwright Bus Subscription ${Date.now()}`;
   await page.getByRole("button", { name: "New subscription" }).click();
   await page.fill("#bs-int-name", subscriptionName);
@@ -119,9 +120,24 @@ test("Bus gateway: create, add route with match expression, edit route, remove, 
   await page.getByRole("button", { name: "Create route" }).click();
   await expect(page).toHaveURL(/\/bus-gateways\/\d+\?.*route=\d+/);
 
-  // Reload to prove the route round-tripped, null match expression and all.
+  // Reload to prove the route round-tripped, filter and all. The route list names each route by
+  // its filter, so that is where the saved expression shows.
   await page.reload();
   await expect(page.getByText(subscriptionName).first()).toBeVisible();
+  await expect(page.getByText(`${path} is DHL`).first()).toBeVisible();
+
+  // Edit the route: widen the filter to a second value. This goes through the route update
+  // rather than the create, which is the path that has to carry the expression over intact.
+  await page.getByRole("button", { name: /^Matches when/ }).first().click();
+  await expect(page.getByRole("textbox", { name: "Values" })).toHaveValue("DHL");
+  await page.getByRole("textbox", { name: "Values" }).fill("DHL, UPS");
+  await expect(page.getByText(/Unsaved: the route \(filter\)/)).toBeVisible();
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText(/^Unsaved:/)).toHaveCount(0);
+
+  await page.reload();
+  await expect(page.getByText(`${path} is one of DHL, UPS`).first()).toBeVisible();
+  await expect(page.getByText(`${path} is DHL`, { exact: true })).toHaveCount(0);
 
   // Remove the route.
   await page.getByRole("button", { name: "Remove route" }).click();
@@ -131,11 +147,11 @@ test("Bus gateway: create, add route with match expression, edit route, remove, 
     .click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   // The route list and the main panel both say this, so name the panel's heading: it shows only
-  // when no route is selected, which is the thing actually worth proving here — that removing
+  // when no route is selected, which is the thing actually worth proving here - that removing
   // the last route doesn't leave the page still pointing at it.
-  await expect(page.getByRole("heading", { name: /^No routes —/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^No routes -/ })).toBeVisible();
 
-  await page.getByRole("button", { name: "Delete" }).click();
+  await moreAction(page, "Delete");
   await page
     .getByRole("dialog", { name: "Delete this bus gateway?" })
     .getByRole("button", { name: "Delete gateway" })

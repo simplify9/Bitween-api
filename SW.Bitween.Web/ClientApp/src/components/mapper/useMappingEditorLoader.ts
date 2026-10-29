@@ -1,15 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
-import {
-  useMappingEditorDispatch,
-  loadEditorContext,
-} from "../../lib/mapping/MappingEditorContext";
+import { useMappingEditorDispatch } from "../../lib/mapping/mappingEditorHooks";
+import { loadEditorContext } from "../../lib/mapping/mappingEditorActions";
 import { recordToKvps } from "./data";
 import { keys } from "../../api/queryKeys";
 
 // Handles the two data-loading effects: clear-on-id-change and populate-on-data-arrive.
-// Fully self-contained — callers get no return value.
+// Fully self-contained - callers get no return value.
 export function useMappingEditorLoader(subscriptionId: number): void {
   const dispatch = useMappingEditorDispatch();
   const { data: subscriptionData } = useQuery({
@@ -25,7 +23,7 @@ export function useMappingEditorLoader(subscriptionId: number): void {
     pendingIdRef.current = subscriptionId || null;
     dispatch(loadEditorContext({ subscriptionId: subscriptionId || 0, mapperProperties: [] }));
     setLoadedForId(null);
-  }, [subscriptionId]);
+  }, [subscriptionId, dispatch]);
 
   // Populate state once the correct data arrives
   useEffect(() => {
@@ -39,5 +37,5 @@ export function useMappingEditorLoader(subscriptionId: number): void {
       })
     );
     setLoadedForId(subscriptionId);
-  }, [subscriptionData]);
+  }, [subscriptionData, subscriptionId, dispatch]);
 }

@@ -1,0 +1,17 @@
+# The collector for METRICS=1 runs (see run.sh): Bitween's metrics in over OTLP, out for Prometheus,
+# where run.sh reads the runtime's CPU time and allocated bytes before and after the window.
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+
+exporters:
+  prometheus:
+    endpoint: 0.0.0.0:8889
+
+service:
+  pipelines:
+    metrics:
+      receivers: [otlp]
+      exporters: [prometheus]

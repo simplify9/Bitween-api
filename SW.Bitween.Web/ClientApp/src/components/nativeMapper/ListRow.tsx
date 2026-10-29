@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ChevronDown, ChevronRight, Repeat, Trash2 } from "lucide-react";
 import { listPaths, type DocumentNode } from "../../lib/nativeMapper/documentTree";
 import type { OutputListNode } from "../../lib/nativeMapper/outputTree";
-import { useRules, useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import {
   FILTER_OPERATORS,
   type FilterOperatorName,
@@ -14,7 +14,7 @@ import { RowInput, RowSelect } from "./rowControls";
  * The three states of a list's source, encoded for a select.
  *
  * A select hands back one string, and "" already means "the source document is
- * itself the list" — so "walks nothing" needs a value of its own rather than
+ * itself the list" - so "walks nothing" needs a value of its own rather than
  * being confused with it.
  */
 const NO_SOURCE_LIST = "none";
@@ -30,7 +30,7 @@ const decodeOver = (value: string) =>
  *
  * The header is one line like a field's, and what the list walks sits on it because
  * that is the thing you check when reading a mapping. The filter is behind the
- * chevron. What each entry holds is not a setting at all — it is the rows in the
+ * chevron. What each entry holds is not a setting at all - it is the rows in the
  * list, the same as everywhere else in the tree.
  */
 export function ListRow({
@@ -49,9 +49,12 @@ export function ListRow({
 }) {
   const { list, errorKey } = node;
   const dispatch = useRulesDispatch();
-  const { ruleErrors } = useRules();
+  const { ruleErrors, ai } = useRules();
 
   const error = ruleErrors[errorKey];
+  // As on a field row: what "Generate with AI" missed here, and whether it changed this list.
+  const missed = ai?.byRow[errorKey];
+  const flash = ai?.changed.includes(errorKey) ?? false;
   const listOptions = listPaths(scope);
 
   // Two separate things, which one chevron used to do at once: the left one folds
@@ -71,7 +74,7 @@ export function ListRow({
       onClick={(e) => {
         // `label` matters as much as `input`: a checkbox's text is a label that
         // forwards the click to its box, so treating it as the row's own click
-        // toggled the box and folded the panel away in the same tick — which read
+        // toggled the box and folded the panel away in the same tick - which read
         // as the box refusing to tick at all.
         if (
           (e.target as HTMLElement).closest(
@@ -81,8 +84,13 @@ export function ListRow({
           return;
         setDetail((d) => !d);
       }}
-      className={`rounded border ${
-        error ? "border-danger-300 bg-danger-50" : "border-warn-200 bg-warn-100/30"
+      data-error-key={errorKey}
+      className={`rounded border ${flash ? "ai-flash" : ""} ${
+        error
+          ? "border-danger-300 bg-danger-50"
+          : missed
+            ? "border-warn-400 bg-warn-100/60"
+            : "border-warn-200 bg-warn-100/30"
       }`}
     >
       <div className="flex items-center gap-1.5 px-1.5 py-0.5">
@@ -91,7 +99,7 @@ export function ListRow({
           onClick={onToggleCollapsed}
           aria-expanded={!collapsed}
           aria-label={`${collapsed ? "Expand" : "Collapse"} the list ${node.name || "at the root"}`}
-          className="flex-shrink-0 rounded p-0.5 text-ink-400 hover:bg-ink-100"
+          className="flex-shrink-0 rounded p-0.5 text-ink-500 hover:bg-ink-100"
         >
           {collapsed ? <ChevronRight size={13} /> : <ChevronDown size={13} />}
         </button>
@@ -130,7 +138,7 @@ export function ListRow({
           options={[
             // Not the same as choosing nothing: this list is exactly the entries
             // written into it, rather than one per entry of a source list.
-            { value: NO_SOURCE_LIST, label: "— just the entries below —" },
+            { value: NO_SOURCE_LIST, label: "- just the entries below -" },
             ...(list.over !== undefined && !listOptions.includes(list.over)
               ? [{ value: encodeOver(list.over), label: list.over || "choose a list…" }]
               : []),
@@ -167,7 +175,7 @@ export function ListRow({
           aria-label={`Settings for the list ${node.name || "at the root"}`}
           title="Skip some of the entries"
           className={`flex flex-shrink-0 items-center gap-0.5 rounded px-1 py-0.5 hover:bg-ink-100 ${
-            settings > 0 ? "text-crimson-600" : "text-ink-400 hover:text-ink-700"
+            settings > 0 ? "text-crimson-600" : "text-ink-500 hover:text-ink-700"
           }`}
         >
           {detail ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
@@ -238,6 +246,13 @@ export function ListRow({
           {error}
         </p>
       )}
+
+      {!error &&
+        missed?.map((difference) => (
+          <p key={difference} className="px-1.5 pb-1 font-mono text-[10px] text-warn-700">
+            {difference}
+          </p>
+        ))}
     </div>
   );
 }

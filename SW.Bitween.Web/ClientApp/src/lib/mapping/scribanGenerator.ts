@@ -1,4 +1,4 @@
-import { ArrayMapping, FieldMapping, FilterOperator, LookupDictionary, LookupEntry } from './types';
+import { ArrayMapping, FieldMapping, FilterOperator } from './types';
 
 /** Map of valuesSetId → (key → value) for enum lookups */
 export type ValuesSetMap = Record<string, Record<string, string>>;
@@ -24,7 +24,7 @@ function walkTypeMap(node: any, prefix: string): TypeMap {
     if (node.length === 0) return {};
     const first = node[0];
     if (typeof first !== 'object') {
-      // primitive array — record the element type at this prefix.
+      // primitive array - record the element type at this prefix.
       // Named arrays are called with prefix already containing "[*]" (e.g. "prices[*]").
       // Root primitive arrays are called with prefix="" → use "[*]" as key so the
       // generator's `itemPrefix` ("[*]") resolves the type correctly.
@@ -102,7 +102,7 @@ function renderFilter(alias: string, filter: ArrayMapping['filter']): string {
  * Partner property keys and global value-set ids/keys are free-form user text (spaces,
  * hyphens, leading digits, ...). Splicing them in as bare Scriban identifiers after `?.`
  * breaks: Scriban tokenizes hyphens as subtraction, and a leading digit is a hard parse
- * error. Index by string instead — that works for any content — and use `?? {}` at each
+ * error. Index by string instead - that works for any content - and use `?? {}` at each
  * hop so a missing partner/set doesn't throw (Scriban's `?.` only guards ONE hop, not a
  * chained `[...]` after it).
  */
@@ -137,7 +137,7 @@ function renderFieldValue(
   const src = mapping.source;
   if (!src) return 'null';
 
-  // inline dictionary lookup — user-defined key→value map (takes precedence over valuesSetId)
+  // inline dictionary lookup - user-defined key→value map (takes precedence over valuesSetId)
   if (mapping.lookupDictionary?.entries && mapping.lookupDictionary.entries.length > 0) {
     const path = alias ? `${alias}.${src}` : src.replace(/\[?\*\]?/g, '');
 
@@ -166,7 +166,7 @@ function renderFieldValue(
     return `{{ $__e = { ${entries} }; ($__e[${path}] ?? ${fb}) | json }}`;
   }
 
-  // enum / values-set lookup — bake the dictionary inline
+  // enum / values-set lookup - bake the dictionary inline
   if (mapping.valuesSetId) {
     const path = alias
       ? `${alias}.${src}`
@@ -181,7 +181,7 @@ function renderFieldValue(
     return `{{ ${path} | json }}{{# enum:${mapping.valuesSetId} #}}`;
   }
 
-  // transform expression — replace "value" with the actual path
+  // transform expression - replace "value" with the actual path
   if (mapping.transform) {
     const path = alias ? `${alias}.${src.split('.').pop()}` : src.replace(/\./g, '.');
     const transformedExpr = mapping.transform.replace(/\bvalue\b/g, path);
@@ -196,25 +196,17 @@ function renderFieldValue(
     return `{{ ${transformedExpr} | json }}`;
   }
 
-  // plain path — apply type cast when target type is known
+  // plain path - apply type cast when target type is known
   const path = alias
     ? `${alias}.${src}`
     : src.replace(/\[?\*\]?/g, '').replace(/^\.+/, ''); // strip [*] and any leading dot
 
   if (targetType) {
-    // same type — no cast needed
+    // same type - no cast needed
     if (sourceType === targetType) return `{{ ${path} | json }}`;
     return `{{ ${castExpr(path, targetType, sourceType)} | json }}`;
   }
   return `{{ ${path} | json }}`;
-}
-
-function indent(lines: string, spaces: number): string {
-  const pad = ' '.repeat(spaces);
-  return lines
-    .split('\n')
-    .map((l) => pad + l)
-    .join('\n');
 }
 
 /**
@@ -291,7 +283,7 @@ export function generateScriban(
     for (const m of validFields) { if (!emittedFields.has(m.target)) emitField(m); }
     for (const am of topLevelArrayMappings) { if (!emittedArrayIds.has(am.id)) emitArray(am); }
   } else {
-    // No outputJson available — original order: fields first, then arrays
+    // No outputJson available - original order: fields first, then arrays
     for (const m of validFields) emitField(m);
     for (const am of topLevelArrayMappings) emitArray(am);
   }
@@ -300,7 +292,7 @@ export function generateScriban(
   return rootLines.join('\n');
 }
 
-/** Recursively embed child AMs' fixedItems — skip keys already present inline. */
+/** Recursively embed child AMs' fixedItems - skip keys already present inline. */
 function enrichFixedItem(
   item: Record<string, unknown>,
   am: ArrayMapping,
@@ -343,7 +335,7 @@ function coerceFixedValue(v: unknown, targetType: 'string' | 'number' | 'boolean
     if (typeof v === 'boolean') return v ? 'true' : 'false'; // bool → string
     return String(v);
   }
-  return v; // unknown target type — keep as-is
+  return v; // unknown target type - keep as-is
 }
 
 /** Recursively emit a fixed-item value as Scriban-safe line(s), expanding {{expr}} references. */
@@ -382,7 +374,7 @@ function emitFixedValueLines(v: unknown, pad: string, typeMap?: TypeMap, fieldPa
       // then fall back to alias-stripped last-segment lookup for item-relative paths.
       let exprSourceType: 'string' | 'number' | 'boolean' | undefined;
       if (sourceTypeMap) {
-        // 1. Direct root path lookup — covers "customer.city", "order.status", etc.
+        // 1. Direct root path lookup - covers "customer.city", "order.status", etc.
         exprSourceType = sourceTypeMap[expr];
         // 2. Alias-relative: strip the leading "alias." if present, look up under item prefix
         if (!exprSourceType && sourceItemPrefix) {
@@ -393,7 +385,7 @@ function emitFixedValueLines(v: unknown, pad: string, typeMap?: TypeMap, fieldPa
           }
         }
       }
-      // Lookup dict expressions ($__e = ...) must not be wrapped with castExpr —
+      // Lookup dict expressions ($__e = ...) must not be wrapped with castExpr -
       // the assignment+semicolon syntax is invalid inside a parenthesised cast expression.
       const isLookup = expr.includes('$__e =');
       return targetType && !isLookup
@@ -403,7 +395,7 @@ function emitFixedValueLines(v: unknown, pad: string, typeMap?: TypeMap, fieldPa
     const targetType = fieldPath ? typeMap?.[fieldPath] : undefined;
     return [JSON.stringify(coerceFixedValue(v, targetType))];
   }
-  // Non-string primitives (number, boolean) — apply target type coercion if known
+  // Non-string primitives (number, boolean) - apply target type coercion if known
   const primitiveTargetType = fieldPath ? typeMap?.[fieldPath] : undefined;
   if (primitiveTargetType !== undefined) return [JSON.stringify(coerceFixedValue(v, primitiveTargetType))];
   return [JSON.stringify(v)];
@@ -426,7 +418,7 @@ function renderRootArrayMapping(
   const alias = am.alias || 'item';
   const source = am.source;
 
-  // Build the item type-map prefix — for root output we use the source path directly
+  // Build the item type-map prefix - for root output we use the source path directly
   // (e.g. "items[*]" when source is "items", or just "[*]" when input is a root array)
   const itemPrefix = source ? `${source}[*]` : '[*]';
 
@@ -537,7 +529,7 @@ function renderArrayMapping(
   const filterExpr = renderFilter(alias, am.filter ?? undefined);
 
   // Build the full item prefix for typeMap lookups, e.g. "labels[*]" or "orders[*].items[*]".
-  // Root-output AMs have target='' and no parent — they contribute no prefix segment so that
+  // Root-output AMs have target='' and no parent - they contribute no prefix segment so that
   // their children resolve to "lines[*]" rather than "[*].lines[*]".
   function resolvePrefix(id: string): string {
     const m = allAMs.find((a) => a.id === id);
@@ -557,7 +549,7 @@ function renderArrayMapping(
   };
   // Source item prefix for sourceTypeMap lookups (e.g. "order.products[*]" or "orders[*].items[*]").
   // Walk the actual inputJson to only insert [*] at segments that are genuinely arrays,
-  // not blindly after every dot — "order.products" should become "order.products[*]",
+  // not blindly after every dot - "order.products" should become "order.products[*]",
   // not "order[*].products[*]".
   const srcDotPath = buildFullSrcPath(am.id);
   let sourceArrayItemPrefix = '';
@@ -594,7 +586,7 @@ function renderArrayMapping(
     }
   }
 
-  // Build a set of ALL dot-paths that exist within an array item — used as fallback
+  // Build a set of ALL dot-paths that exist within an array item - used as fallback
   // for old mappings that predate the isRootSource flag.
   const itemPathSet = new Set<string>();
   if (inputJson && am.source) {
@@ -624,19 +616,19 @@ function renderArrayMapping(
   const lines: string[] = [];
   lines.push(`${pad}"${am.target}": [`);
 
-  // ── Primitive array (each element mapped individually — no loop) ────────────
+  // ── Primitive array (each element mapped individually - no loop) ────────────
   if (am.primitiveItems != null) {
     for (const item of am.primitiveItems) {
       const elemType = typeMap?.[itemPrefix];
       if (item.partnerPropKey) {
-        // Partner values are always strings — incompatible with number/boolean targets
+        // Partner values are always strings - incompatible with number/boolean targets
         if (elemType === 'number' || elemType === 'boolean') {
           lines.push(`${fieldPad}null,`);
         } else {
           lines.push(`${fieldPad}{{ ${partnerRef(item.partnerPropKey)} | json }},`);
         }
       } else if (item.globalSetId && item.globalKey) {
-        // Global set values are always strings — incompatible with number/boolean targets
+        // Global set values are always strings - incompatible with number/boolean targets
         if (elemType === 'number' || elemType === 'boolean') {
           lines.push(`${fieldPad}null,`);
         } else {
@@ -709,7 +701,7 @@ function renderArrayMapping(
     }
   }
   if (!am.source) {
-    // Fixed-items-only array — no loop needed
+    // Fixed-items-only array - no loop needed
     lines.push(`${pad}],`);
     return lines;
   }

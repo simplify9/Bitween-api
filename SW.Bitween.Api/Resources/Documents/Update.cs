@@ -55,24 +55,29 @@ namespace SW.Bitween.Resources.Documents
             await BusMessageTypeNames.EnsureFree(dbContext, model.BusMessageTypeName, key);
 
             PromotedPropertyValidation.Check(model.PromotedProperties, model.DocumentFormat);
+            // Checked against the format being saved, so switching a type from JSON to XML can't
+            // leave a JSON Schema on it.
+            var schema = model.ValidationSchema ?? entity.ValidationSchema;
+            await DocumentSchema.EnsureUsable(model.DocumentFormat, schema);
 
             var oldBusMessageTypeName = entity.BusMessageTypeName;
 
             // An absent list means none, the same as it does for retry policy groups.
-            // Left implicit it threw ArgumentNullException — a 500 for a request the
+            // Left implicit it threw ArgumentNullException - a 500 for a request the
             // API had simply never decided the meaning of.
             entity.SetDictionaries((model.PromotedProperties ?? []).ToDictionary());
-            // Name/Code have private setters — SetProperties only writes public-setter
+            // Name/Code have private setters - SetProperties only writes public-setter
             // properties, so it silently no-ops on these two (verified empirically).
             entity.SetName(model.Name);
             entity.SetCode(code);
             // The route key is what identifies the type; the body carries an Id too, and
             // SetProperties copies it straight onto the tracked entity. A caller that omits it
-            // sends 0, which EF rejects as an attempt to change a primary key — a 500 for a
+            // sends 0, which EF rejects as an attempt to change a primary key - a 500 for a
             // request that was perfectly well formed. Normalising it here makes the copy a no-op
             // whatever the body said.
             model.Id = key;
             dbContext.Entry(entity).SetProperties(model);
+            entity.SetValidationSchema(schema);
 
             await dbContext.SaveChangesAsync();
             await BitweenCache.BroadcastRevoke();

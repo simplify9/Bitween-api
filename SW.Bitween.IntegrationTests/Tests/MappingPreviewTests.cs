@@ -19,7 +19,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// </summary>
 /// <remarks>
 /// The last test here is the one that matters. The old mapper's preview built its own template and
-/// assembled its own partner values, and the two drifted — a mapping using a partner property on a
+/// assembled its own partner values, and the two drifted - a mapping using a partner property on a
 /// root-array payload previewed correctly and failed in production. Both paths now run the same
 /// three steps against the same context factory, and this pins that.
 /// </remarks>
@@ -49,7 +49,8 @@ public class MappingPreviewTests
         object rules, string document, int? partnerId = null)
     {
         await using var scope = _fixture.CreateScope();
-        var handler = new Preview(scope.ServiceProvider.GetRequiredService<MappingContextFactory>());
+        scope.Superuser();
+        var handler = ActivatorUtilities.CreateInstance<Preview>(scope.ServiceProvider);
 
         return await handler.Handle(new MappingPreviewRequest
         {
@@ -57,6 +58,53 @@ public class MappingPreviewTests
             SourceDocument = document,
             PartnerId = partnerId,
         });
+    }
+
+    /// <summary>
+    /// A workbook can't be pasted into the editor, so an Excel sample is cells copied from Excel,
+    /// tab-separated, and an Excel output is shown as rows the same way rather than as base64.
+    /// </summary>
+    [Fact]
+    public async Task An_excel_mapping_previews_a_pasted_sample_and_shows_its_rows()
+    {
+        var rules = new
+        {
+            version = 1,
+            sourceFormat = "excel",
+            targetFormat = "excel",
+            root = new
+            {
+                over = "",
+                fields = new object[] { new { target = new[] { "ref" }, from = new { kind = "Path", path = "Reference" } } },
+            },
+        };
+
+        var response = await PreviewAsync(rules, "Reference\tAmount\n041800\t12.5\n");
+
+        Assert.Null(response.Error);
+        Assert.Equal("ref\n041800\n", response.OutputDocument!.Replace("\r\n", "\n"));
+    }
+
+    [Fact]
+    public async Task A_fixed_width_mapping_previews()
+    {
+        var rules = new
+        {
+            version = 1,
+            sourceFormat = "fixedwidth",
+            targetFormat = "json",
+            sourceFixedWidth = new { columns = new object[] { new { name = "type", start = 1, length = 1 }, new { name = "reference", start = 2, length = 6 } } },
+            root = new
+            {
+                over = "",
+                fields = new object[] { new { target = new[] { "ref" }, from = new { kind = "Path", path = "reference" } } },
+            },
+        };
+
+        var response = await PreviewAsync(rules, "DSO-1  \n");
+
+        Assert.Null(response.Error);
+        Assert.Equal("SO-1", (string)JToken.Parse(response.OutputDocument!)[0]!["ref"]!);
     }
 
     [Fact]
@@ -95,7 +143,7 @@ public class MappingPreviewTests
     }
 
     /// <summary>
-    /// An unreadable document is a general error rather than a rule error — no rule is at fault, and
+    /// An unreadable document is a general error rather than a rule error - no rule is at fault, and
     /// the editor should say so above the document instead of marking rows.
     /// </summary>
     [Fact]
@@ -120,7 +168,8 @@ public class MappingPreviewTests
     public async Task Unreadable_rules_are_a_general_error()
     {
         await using var scope = _fixture.CreateScope();
-        var handler = new Preview(scope.ServiceProvider.GetRequiredService<MappingContextFactory>());
+        scope.Superuser();
+        var handler = ActivatorUtilities.CreateInstance<Preview>(scope.ServiceProvider);
 
         var response = await handler.Handle(new MappingPreviewRequest
         {
@@ -137,13 +186,13 @@ public class MappingPreviewTests
         // Named rather than a format that merely happens to be unsupported today: this test asked
         // for "csv" until delimited text landed, at which point it stopped testing anything and
         // failed on a null error message instead. Asserting the whole supported list is the half
-        // that has to be kept honest — the next format to arrive is meant to break this line, and
+        // that has to be kept honest - the next format to arrive is meant to break this line, and
         // it now says so out loud.
         var response = await PreviewAsync(new { version = 1, sourceFormat = "yaml" }, "{}");
 
         Assert.Contains("not a source format", response.Error);
         Assert.Equal(
-            "'yaml' is not a source format this mapper supports. Supported: csv, json, xml.",
+            "'yaml' is not a source format this mapper supports. Supported: csv, excel, fixedwidth, json, xml.",
             response.Error);
     }
 
@@ -169,7 +218,7 @@ public class MappingPreviewTests
 
     /// <summary>
     /// The writer's own tests prove it honours a delimiter and a header. This pins that the ones on
-    /// the rules are the ones it is handed — the preview builds its target format from them.
+    /// the rules are the ones it is handed - the preview builds its target format from them.
     /// </summary>
     [Fact]
     public async Task A_delimited_file_is_written_with_the_delimiter_and_header_the_rules_ask_for()
@@ -228,7 +277,46 @@ public class MappingPreviewTests
     }
 
     /// <summary>
-    /// The same rules, the same document, the same partner — through the preview endpoint and
+    /// The rules are the caller's own, so they can copy any value into the output. A value the
+    /// partner's owner declared secret comes back as the sentinel, not as the credential.
+    /// </summary>
+    [Fact]
+    public async Task A_partner_value_declared_secret_is_masked()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+
+        var partner = new Partner("Preview Secret Partner")
+        {
+            AdapterProperties = new Dictionary<string, string>
+            {
+                ["region-code"] = "JO",
+                ["api-key"] = "partner-secret-value",
+            },
+            SecretProperties = ["api-key"],
+        };
+        db.Set<Partner>().Add(partner);
+        await db.SaveChangesAsync();
+
+        var response = await PreviewAsync(new
+        {
+            version = 1,
+            fields = new object[]
+            {
+                new { target = new[] { "region" }, from = new { kind = "Partner", key = "region-code" } },
+                new { target = new[] { "key" }, from = new { kind = "Partner", key = "api-key" } },
+            },
+        }, "{}", partner.Id);
+
+        Assert.Null(response.Error);
+        var output = JObject.Parse(response.OutputDocument!);
+        Assert.Equal("JO", output["region"]?.ToString());
+        Assert.Equal(AdapterSecretProperties.Sentinel, output["key"]?.ToString());
+        Assert.DoesNotContain("partner-secret-value", response.OutputDocument);
+    }
+
+    /// <summary>
+    /// The same rules, the same document, the same partner - through the preview endpoint and
     /// through a real exchange. Byte for byte.
     /// </summary>
     /// <remarks>

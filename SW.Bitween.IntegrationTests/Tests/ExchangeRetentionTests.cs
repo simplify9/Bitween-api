@@ -26,7 +26,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// settings page shows before anyone changes either.
 /// </summary>
 /// <remarks>
-/// The collection shares one database, and the job removes every exchange older than its cutoff —
+/// The collection shares one database, and the job removes every exchange older than its cutoff -
 /// so the exchanges here are backdated far past anything another test would create, and the job runs
 /// with a cutoff only they fall behind.
 /// </remarks>
@@ -125,6 +125,29 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
 
         Assert.Null((string)archived["files"]!["input"]!["content"]);
         Assert.NotNull((string)archived["files"]!["input"]!["missing"]);
+    }
+
+    [Fact]
+    public async Task A_delivered_file_that_could_not_be_stored_is_archived_as_missing_with_the_warning()
+    {
+        var (_, subscription) = await Setup(("OrderNumber", "$.order"));
+        var old = await CreateExchange(subscription, "{\"order\":\"ORD-2101\"}",
+            new() { ["OrderNumber"] = "ORD-2101" }, succeeded: true, responseNotStored: "disk full");
+        var startedOn = await Backdate(old.Id, AncientDays);
+
+        await RunJob(archive: true);
+
+        await using var readScope = fixture.CreateScope();
+        Assert.False(await readScope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<Xchange>().AnyAsync(x => x.Id == old.Id));
+        var prefix = readScope.ServiceProvider.GetRequiredService<ExchangeArchive>().Prefix;
+        var archived = JObject.Parse(await Read(
+            $"{prefix}/{subscription.Id}/{startedOn:yyyy}/{startedOn:MM}/{startedOn:dd}/ORD-2101_{old.Id}.json"));
+
+        Assert.Equal("Succeeded", (string)archived["status"]);
+        Assert.Equal("Delivered; the response file could not be stored: disk full", (string)archived["result"]!["warning"]);
+        Assert.Null((string)archived["files"]!["response"]!["content"]);
+        Assert.Contains("disk full", (string)archived["files"]!["response"]!["missing"]);
+        Assert.Equal("{\"order\":\"ORD-2101\"}", (string)archived["files"]!["input"]!["content"]);
     }
 
     [Fact]
@@ -366,7 +389,7 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
         var links = JsonConvert.DeserializeObject<string[]>(
             await scope.ServiceProvider.GetRequiredService<XchangeService>().GetFile(rollUp, XchangeFileType.Input));
 
-        // Still a list of links, so handlers written for it are unaffected — just links Bitween
+        // Still a list of links, so handlers written for it are unaffected - just links Bitween
         // serves, since the storage URLs they replace don't open private files.
         var service = scope.ServiceProvider.GetRequiredService<XchangeService>();
         var fileLinks = scope.ServiceProvider.GetRequiredService<FileLinks>();
@@ -428,7 +451,7 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
         var service = scope.ServiceProvider.GetRequiredService<XchangeService>();
         var cloudFiles = scope.ServiceProvider.GetRequiredService<ICloudFilesService>();
         var sourceKey = service.FileKey(source, XchangeFileType.Input);
-        // What a roll-up held before: the storage URL of each collected file — next to anything else.
+        // What a roll-up held before: the storage URL of each collected file - next to anything else.
         string[] before =
         [
             cloudFiles.GetUrl(sourceKey),
@@ -486,7 +509,7 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
             Task.FromResult(open);
     }
 
-    // ———————————————————————————————————————————————————————————————— helpers
+    // ---------------------------------------------------------------- helpers
 
     private sealed class ListeningOn : IServer
     {
@@ -565,7 +588,7 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
     }
 
     private async Task<Xchange> CreateExchange(Subscription subscription, string payload,
-        Dictionary<string, string> promoted, bool succeeded)
+        Dictionary<string, string> promoted, bool succeeded, string responseNotStored = null)
     {
         await using var scope = fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
@@ -573,10 +596,17 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
         var xchange = await scope.ServiceProvider.GetRequiredService<XchangeService>()
             .CreateXchange(tracked, new XchangeFile(payload));
 
+        // Promoted properties are read when the exchange is created; these tests set their own.
+        foreach (var made in db.ChangeTracker.Entries<XchangePromotedProperties>().Where(e => e.Entity.Id == xchange.Id).ToList())
+            made.State = EntityState.Detached;
         var filtered = new FilterResult();
         foreach (var (name, value) in promoted) filtered.Properties[name] = value;
         db.Add(new XchangePromotedProperties(xchange.Id, filtered));
-        db.Add(new XchangeResult(xchange.Id, null, null, exception: succeeded ? null : "failed on purpose"));
+        var result = responseNotStored == null
+            ? new XchangeResult(xchange.Id, null, null, exception: succeeded ? null : "failed on purpose")
+            : new XchangeResult(xchange.Id, null, null, new XchangeFile("{\"ok\":true}"));
+        if (responseNotStored != null) result.FileNotStored(XchangeFileType.Response, responseNotStored);
+        db.Add(result);
         await db.SaveChangesAsync();
         return xchange;
     }

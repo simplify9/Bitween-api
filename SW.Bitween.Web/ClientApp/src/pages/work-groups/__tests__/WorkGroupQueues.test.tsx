@@ -68,7 +68,8 @@ describe("a work group's queues", () => {
   it("says its queues go with it, and counts what is still in them", async () => {
     const { user } = renderApp("/work-groups/7", { handlers });
 
-    await user.click(await screen.findByRole("button", { name: "Delete" }));
+    await user.click(await screen.findByRole("button", { name: "More actions" }));
+    await user.click(await screen.findByRole("menuitem", { name: "Delete" }));
 
     const dialog = within(screen.getByRole("dialog", { name: "Delete this work group?" }));
     expect(dialog.getByText(/and its queues will be gone for good/)).toBeVisible();

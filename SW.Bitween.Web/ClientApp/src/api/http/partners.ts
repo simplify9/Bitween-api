@@ -3,13 +3,13 @@ import { ApiRequestError, type Paged, type Partner, type PartnerDetail, type Par
 import { exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
 import { matchSummary } from "../../lib/match";
-import { get, post, request } from "./request";
+import { enrichment, get, post, request } from "./request";
 import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
 // The built-in SYSTEM partner (Partner.SystemId) can't be renamed or deleted.
 const SYSTEM_PARTNER_ID = 1;
 
-// ——— backend shapes (camelCase over the wire) ———
+// --- backend shapes (camelCase over the wire) ---
 interface SearchyResponse<T> {
   result: T[];
   totalCount: number;
@@ -31,6 +31,8 @@ interface RawPartnerDetail {
   adapterProperties: Record<string, string> | null;
   secretProperties: string[] | null;
   loginIdentity?: string | null;
+  /** By key name: when a gateway last let a call through with it. */
+  keysLastUsedOn?: Record<string, string> | null;
 }
 
 // GET masks keys as `<first-5>...(hidden)`; recover the visible prefix.
@@ -63,12 +65,12 @@ async function writePartner(
 ): Promise<Partner> {
   const name = patch.name ?? d.name;
   // Secrets read back as SECRET_SENTINEL, and sending the sentinel means "keep what is
-  // stored" — so a write that changes only the name carries the masks through untouched
+  // stored" - so a write that changes only the name carries the masks through untouched
   // and the stored values are never overwritten with dots.
   const adapterProperties = patch.adapterProperties ?? d.adapterProperties ?? {};
   const secretProperties = patch.secretProperties ?? d.secretProperties ?? [];
-  // Update copies every field it is sent, so leaving this out — as issuing or revoking a key
-  // does — would clear the identity and cut the partner off from every gateway taking tokens.
+  // Update copies every field it is sent, so leaving this out - as issuing or revoking a key
+  // does - would clear the identity and cut the partner off from every gateway taking tokens.
   const loginIdentity = patch.loginIdentity !== undefined ? patch.loginIdentity : (d.loginIdentity ?? null);
   const apiCredentials = mutate((d.apiCredentials ?? []).map((c) => ({ key: c.key, value: c.value })));
   await post(`/partners/${id}`, { name, adapterProperties, secretProperties, loginIdentity, apiCredentials });
@@ -89,7 +91,7 @@ export const partnerMethods = {
     return (res.result ?? []).map((p) => ({
       id: p.id,
       name: p.name,
-      // The list endpoint sends property names, never their values — they can be
+      // The list endpoint sends property names, never their values - they can be
       // secrets. Anything needing values must fetch the partner's detail.
       adapterProperties: {},
       secretProperties: [],
@@ -124,18 +126,20 @@ export const partnerMethods = {
     };
   },
 
-  /** Light single-field fetch for the mapper editor's test-partner selector — avoids getPartner's gateway/exchange lookups. */
+  /** Light single-field fetch for the mapper editor's test-partner selector - avoids getPartner's gateway/exchange lookups. */
   async getPartnerAdapterProperties(id: number): Promise<Record<string, string>> {
     const d = await requireDetail(id);
     return d.adapterProperties ?? {};
   },
 
   async getPartner(id: number): Promise<PartnerDetail> {
+    // Only the partner itself is required. The rest come from areas a role that can see partners
+    // may not be allowed into, and without them the page still has everything it edits.
     const [d, apiGateways, busGateways, recentExchanges] = await Promise.all([
       requireDetail(id),
-      gatewayMethods.listApiGateways(),
-      gatewayMethods.listBusGateways(),
-      exchangeMethods.searchExchanges({ partnerId: id, offset: 0, limit: 8 }),
+      enrichment(gatewayMethods.listApiGateways(), []),
+      enrichment(gatewayMethods.listBusGateways(), []),
+      enrichment(exchangeMethods.searchExchanges({ partnerIds: [id], offset: 0, limit: 8 }), { result: [], total: 0 }),
     ]);
     return {
       id,
@@ -149,6 +153,7 @@ export const partnerMethods = {
         name: c.key,
         keyPrefix: keyPrefixOf(c.value),
         createdOn: "",
+        lastUsedOn: d.keysLastUsedOn?.[c.key] ?? null,
       })),
       apiGateways: apiGateways
         .filter((g) => g.attachments.some((a) => a.partnerId === id))

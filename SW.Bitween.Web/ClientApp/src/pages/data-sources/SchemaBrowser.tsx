@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Database, Search, Table2 } from "lucide-react";
 import { keys } from "../../api/queryKeys";
-import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, FormError, LoadingBlock, ProblemText } from "../../components/ui/basics";
 import { Select, TextInput } from "../../components/ui/forms";
 import { Panel } from "../../components/ui/Panel";
 import {
@@ -25,8 +25,8 @@ const PAGE = 200;
  *
  * This replaces reading `Discover` as raw JSON, which worked in the sense that the answer was on
  * screen: 1,812 lines of it on the first real database we pointed it at. Nobody finds a column
- * that way. What an operator is doing here is one of two things — checking a name they half
- * remember, or writing a statement against a table they have never seen — and both need search,
+ * that way. What an operator is doing here is one of two things - checking a name they half
+ * remember, or writing a statement against a table they have never seen - and both need search,
  * grouping, and columns on demand.
  *
  * Three things are deliberately not done here:
@@ -37,14 +37,20 @@ const PAGE = 200;
  * - **No columns up front.** The adapter refuses to make that the default, and it is right: a
  *   thousand tables' columns is not a menu, it is a download. They arrive when a row is opened.
  * - **No writes.** Everything reaches the adapter through `Inspect`, whose allow-list holds only
- *   Describe, Discover and GetStats. Query and Execute are not on it, and must not be — a
+ *   Describe, Discover and GetStats. Query and Execute are not on it, and must not be - a
  *   View-level read must not become a way to run SQL on a customer's database.
  */
 export function SchemaBrowser({
   dataSourceId,
   onUseInStatement,
+  notStartedYet = false,
 }: {
   dataSourceId: number;
+  /**
+   * The connection has never run, so there is nobody to ask: said plainly instead of the red
+   * "not running" the server answers, which on a data source just created read as a fault.
+   */
+  notStartedYet?: boolean;
   /** Hands a generated statement to the statements panel. Absent when the user cannot create one. */
   onUseInStatement?: (draft: { name: string; sql: string; description: string }) => void;
 }) {
@@ -69,6 +75,7 @@ export function SchemaBrowser({
     queryFn: () => fetchCapabilities(dataSourceId),
     staleTime: 5 * 60_000,
     retry: false,
+    enabled: !notStartedYet,
   });
 
   const query = { objectType, schema, nameLike, skip: page * PAGE, take: PAGE };
@@ -80,6 +87,7 @@ export function SchemaBrowser({
     // connection that is serving traffic.
     staleTime: 60_000,
     retry: false,
+    enabled: !notStartedYet,
   });
 
   // Which tabs to show is the engine's answer, not a list this file keeps: Oracle has packages,
@@ -87,7 +95,7 @@ export function SchemaBrowser({
   const types = capabilities.data?.supportedObjects ?? ["table", "view"];
 
   // Only the schemas in the page, so this narrows what is on screen rather than pretending to
-  // know every schema in the database — the catalog is paged and this page may not hold them all.
+  // know every schema in the database - the catalog is paged and this page may not hold them all.
   const groups = useMemo(() => groupBySchema(objects.data?.objects ?? []), [objects.data]);
   const schemasHere = groups.map((g) => g.schema);
 
@@ -107,13 +115,13 @@ export function SchemaBrowser({
         <p className="mb-3 text-[12px] text-ink-500">
           {capabilities.data.engine} {capabilities.data.serverVersion}
           {!capabilities.data.schemaDiscovery &&
-            " — this engine does not report its catalog, so nothing will be listed."}
+            " - this engine does not report its catalog, so nothing will be listed."}
         </p>
       )}
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="relative min-w-56 flex-1">
-          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-400" />
+          <Search className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-ink-500" />
           <TextInput
             className="pl-8"
             value={search}
@@ -150,6 +158,11 @@ export function SchemaBrowser({
         />
       </div>
 
+      {notStartedYet && (
+        <p className="rounded-lg bg-ink-50 px-3 py-2 text-[13px] text-ink-600">
+          Once the connection has started, what the database holds is listed here.
+        </p>
+      )}
       {objects.isError && (
         <FormError>
           {objects.error instanceof Error
@@ -163,7 +176,7 @@ export function SchemaBrowser({
       {objects.data && rows.length === 0 && (
         <p className="py-3 text-[13px] text-ink-500">
           {nameLike
-            ? `Nothing here is called “${nameLike}”. The search matches anywhere in the name, and the database does the matching — so this is the whole catalog's answer, not just this page's.`
+            ? `Nothing here is called “${nameLike}”. The search matches anywhere in the name, and the database does the matching - so this is the whole catalog's answer, not just this page's.`
             : "This connection can see no objects of this type. That may be the schema it is pointed at, or what its role is granted."}
         </p>
       )}
@@ -173,7 +186,7 @@ export function SchemaBrowser({
           {groups.map((group) => (
             <div key={group.schema}>
               <div className="sticky top-0 z-10 flex items-center gap-2 border-b border-ink-100 bg-ink-50/95 px-3 py-1.5 backdrop-blur">
-                <Database className="size-3.5 text-ink-400" />
+                <Database className="size-3.5 text-ink-500" />
                 <span className="font-mono text-[12px] font-semibold text-ink-700">
                   {group.schema}
                 </span>
@@ -204,9 +217,9 @@ export function SchemaBrowser({
             Next
           </Button>
           <span className="text-[12px] text-ink-500">
-            {/* A count, not a total: the catalog is never counted, only paged — see the adapter's
-                "never SELECT COUNT(*)". Claiming "1–200 of 4,000" would be inventing the 4,000. */}
-            Showing {page * PAGE + 1}–{page * PAGE + rows.length}
+            {/* A count, not a total: the catalog is never counted, only paged - see the adapter's
+                "never SELECT COUNT(*)". Claiming "1-200 of 4,000" would be inventing the 4,000. */}
+            Showing {page * PAGE + 1}-{page * PAGE + rows.length}
             {hasMore ? ", and there are more" : ""}
           </span>
         </div>
@@ -227,7 +240,7 @@ const LABELS: Record<string, string> = {
 };
 
 /**
- * One object, closed. Opening it fetches that object alone — the only way to see columns without
+ * One object, closed. Opening it fetches that object alone - the only way to see columns without
  * asking for every table's at once.
  */
 function ObjectRow({
@@ -257,7 +270,7 @@ function ObjectRow({
   });
 
   // The listed object until its detail arrives, so the header does not flicker and "use this"
-  // still works on a row whose columns are still loading — it just writes `select *`.
+  // still works on a row whose columns are still loading - it just writes `select *`.
   const full = detail.data ?? object;
 
   return (
@@ -270,11 +283,11 @@ function ObjectRow({
           aria-expanded={open}
         >
           {open ? (
-            <ChevronDown className="size-3.5 shrink-0 text-ink-400" />
+            <ChevronDown className="size-3.5 shrink-0 text-ink-500" />
           ) : (
-            <ChevronRight className="size-3.5 shrink-0 text-ink-400" />
+            <ChevronRight className="size-3.5 shrink-0 text-ink-500" />
           )}
-          <Table2 className="size-3.5 shrink-0 text-ink-400" />
+          <Table2 className="size-3.5 shrink-0 text-ink-500" />
           <span className="truncate font-mono text-[13px] text-ink-900">{object.name}</span>
           {object.rowCount != null && (
             <Badge tone="neutral" title="An estimate from the catalog, not a counted total.">
@@ -308,9 +321,7 @@ function ObjectRow({
           {detail.isLoading && <span className="text-[12px] text-ink-500">Reading columns…</span>}
 
           {detail.isError && (
-            <span className="text-[12px] text-danger-700">
-              {detail.error instanceof Error ? detail.error.message : "Could not read this object."}
-            </span>
+            <ProblemText>{detail.error instanceof Error ? detail.error.message : "Could not read this object."}</ProblemText>
           )}
 
           {detail.data && detail.data.columns.length > 0 && (
@@ -323,13 +334,13 @@ function ObjectRow({
                     <td className="py-0.5 pr-3 font-mono text-ink-800">
                       {column.name}
                       {column.primaryKey && (
-                        <span className="ml-1 text-ink-400" title="Part of the primary key">
+                        <span className="ml-1 text-ink-500" title="Part of the primary key">
                           pk
                         </span>
                       )}
                     </td>
                     <td className="py-0.5 pr-3 font-mono text-ink-500">{column.dbType}</td>
-                    <td className="py-0.5 text-ink-400">
+                    <td className="py-0.5 text-ink-500">
                       {/* Generated is worth saying out loud: it is the reason an insert that
                           supplies this column is rejected. */}
                       {column.generated
@@ -350,10 +361,10 @@ function ObjectRow({
                 {detail.data.parameters.map((parameter, i) => (
                   <tr key={`${parameter.name}-${i}`}>
                     <td className="py-0.5 pr-3 font-mono text-ink-800">
-                      {parameter.name || <span className="text-ink-400">(unnamed)</span>}
+                      {parameter.name || <span className="text-ink-500">(unnamed)</span>}
                     </td>
                     <td className="py-0.5 pr-3 font-mono text-ink-500">{parameter.dbType}</td>
-                    <td className="py-0.5 text-ink-400">{parameter.direction}</td>
+                    <td className="py-0.5 text-ink-500">{parameter.direction}</td>
                   </tr>
                 ))}
               </tbody>
@@ -364,7 +375,7 @@ function ObjectRow({
             detail.data.columns.length === 0 &&
             detail.data.parameters.length === 0 && (
               <span className="text-[12px] text-ink-500">
-                Nothing to show — this object reports no columns or parameters.
+                Nothing to show - this object reports no columns or parameters.
               </span>
             )}
 

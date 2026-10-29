@@ -1,18 +1,18 @@
-import { Fragment } from "react";
-import { ChevronRight, type LucideIcon } from "lucide-react";
+import { Fragment, useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { ChevronRight, TriangleAlert, type LucideIcon } from "lucide-react";
 import { STAGES, type StageId } from "./stages";
 
 export type StageState =
   /** Configured. */
   | "set"
-  /** Deliberately empty — the stage is optional and does nothing. */
+  /** Deliberately empty - the stage is optional and does nothing. */
   | "none"
   /** Empty but required: the pipeline can't run like this. */
   | "missing";
 
 export interface StageFace {
   id: StageId;
-  /** What defines this stage right now — usually the chosen adapter. */
+  /** What defines this stage right now - usually the chosen adapter. */
   title: string;
   /** The concrete thing it points at: a bucket, a host, the next fire time. */
   detail?: string;
@@ -26,7 +26,7 @@ export interface StageFace {
    */
   fault?: { label: string; tone: "warn" | "danger"; title: string };
   /**
-   * This node explains itself rather than offering configuration — the Trigger
+   * This node explains itself rather than offering configuration - the Trigger
    * on a create page, where the attachment or route is made elsewhere. Drawn
    * dashed and flat so it doesn't promise a form it can't deliver.
    */
@@ -35,11 +35,11 @@ export interface StageFace {
 
 const titleTone: Record<StageState, string> = {
   set: "text-ink-800",
-  none: "text-ink-400",
+  none: "text-ink-500",
   missing: "text-danger-700",
 };
 
-/** The connector — a continuous track, so the row reads as flow and not as tabs. */
+/** The connector - a continuous track, so the row reads as flow and not as tabs. */
 export function Connector() {
   return (
     <span className="flex shrink-0 items-center self-center" aria-hidden>
@@ -100,7 +100,7 @@ export function StageNode({
         >
           <Icon className="size-4" aria-hidden />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-wide text-ink-400 uppercase">
+        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-wide text-ink-500 uppercase">
           {label}
         </span>
         <span className="flex shrink-0 items-center gap-1">
@@ -111,12 +111,11 @@ export function StageNode({
               aria-label="Unsaved changes"
             />
           )}
+          {/* An icon, not just a red dot: red is also the brand, so a problem never rests on color alone. */}
           {face.state === "missing" && (
-            <span
-              className="size-2 rounded-full bg-danger-600"
-              title="Required — not configured"
-              aria-label="Required — not configured"
-            />
+            <span title="Required - not configured" aria-label="Required - not configured" role="img">
+              <TriangleAlert className="size-3.5 text-danger-600" aria-hidden />
+            </span>
           )}
         </span>
       </div>
@@ -125,13 +124,13 @@ export function StageNode({
         {face.title}
       </p>
       {/*
-        Always rendered so every node keeps the same baseline — and with a
+        Always rendered so every node keeps the same baseline - and with a
         non-breaking space, not a plain one: `truncate` sets `white-space:
         nowrap`, which collapses an ordinary space away to nothing. The <p> then
         had no line box, and since a <button> centres its content, every node
         without a detail line sat 9px lower than its neighbours.
       */}
-      <p className="mt-1 truncate font-mono text-[11px] text-ink-400" title={face.detail}>
+      <p className="mt-1 truncate font-mono text-[11px] text-ink-500" title={face.detail}>
         {face.detail ?? " "}
       </p>
 
@@ -154,7 +153,7 @@ export function StageNode({
  *
  * The canvas is the point: on a plain page these nodes read as a row of buttons
  * above the "real" content, and the eye goes straight past them to the tables.
- * Given a surface of their own — grid, depth, room to breathe — they read as
+ * Given a surface of their own - grid, depth, room to breathe - they read as
  * the data path, which is what an operator is here to understand first.
  *
  * It is deliberately *not* a pannable canvas. The pipeline is a fixed line of
@@ -171,32 +170,76 @@ export function StageRail({
   selected: StageId | null;
   onSelect: (stage: StageId | null) => void;
 }) {
+  const scroller = useRef<HTMLDivElement>(null);
+  const edges = useScrollEdges(scroller);
   return (
-    <div
-      // Roomy while the pipeline is the subject; tighter once a stage is open,
-      // where it is a sticky header over a form that needs the screen.
-      className={`sticky top-0 z-20 mb-5 overflow-x-auto rounded-2xl border border-ink-200 bg-ink-50 px-6 transition-[padding] ${
-        selected === null ? "py-7" : "py-3.5"
-      }`}
-      style={{
-        backgroundImage: "radial-gradient(var(--color-ink-200) 1px, transparent 1px)",
-        backgroundSize: "16px 16px",
-      }}
-    >
-      <div className="flex min-w-max items-stretch justify-center">
-        {faces.map((face, i) => (
-          <Fragment key={face.id}>
-            {i > 0 && <Connector />}
-            <StageNode
-              face={face}
-              label={STAGES[face.id].label}
-              icon={STAGES[face.id].icon}
-              selected={selected === face.id}
-              onSelect={() => onSelect(selected === face.id ? null : face.id)}
-            />
-          </Fragment>
-        ))}
+    // The sticky box is the wrapper so the fades can sit over the scrolling rail without
+    // scrolling with it.
+    <div className="sticky top-0 z-20 mb-5">
+      <div
+        ref={scroller}
+        onScroll={edges.update}
+        // Roomy while the pipeline is the subject; tighter once a stage is open,
+        // where it is a sticky header over a form that needs the screen.
+        className={`overflow-x-auto rounded-2xl border border-ink-200 bg-ink-50 px-3 transition-[padding] sm:px-6 ${
+          selected === null ? "py-7" : "py-3.5"
+        }`}
+        style={{
+          backgroundImage: "radial-gradient(var(--color-ink-200) 1px, transparent 1px)",
+          backgroundSize: "16px 16px",
+        }}
+      >
+        <div className="flex min-w-max items-stretch justify-center">
+          {faces.map((face, i) => (
+            <Fragment key={face.id}>
+              {i > 0 && <Connector />}
+              <StageNode
+                face={face}
+                label={STAGES[face.id].label}
+                icon={STAGES[face.id].icon}
+                selected={selected === face.id}
+                onSelect={() => onSelect(selected === face.id ? null : face.id)}
+              />
+            </Fragment>
+          ))}
+        </div>
       </div>
+      {/* On a phone the rail is wider than the screen, and a node cut clean at the edge looked
+          like the whole pipeline. A fade on the side that has more says there is more. */}
+      {edges.start && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-y-px left-px w-10 rounded-l-2xl bg-linear-to-r from-ink-50 to-transparent"
+        />
+      )}
+      {edges.end && (
+        <span
+          aria-hidden
+          className="pointer-events-none absolute inset-y-px right-px w-10 rounded-r-2xl bg-linear-to-l from-ink-50 to-transparent"
+        />
+      )}
     </div>
   );
+}
+
+/** Whether a sideways-scrolling box has more to show before and after what is in view. */
+function useScrollEdges(ref: RefObject<HTMLDivElement | null>) {
+  const [state, setState] = useState({ start: false, end: false });
+  const update = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    // A pixel of slack: fractional widths leave scrollLeft a hair short of the end.
+    const start = el.scrollLeft > 1;
+    const end = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setState((s) => (s.start === start && s.end === end ? s : { start, end }));
+  }, [ref]);
+  useEffect(() => {
+    update();
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [ref, update]);
+  return { ...state, update };
 }

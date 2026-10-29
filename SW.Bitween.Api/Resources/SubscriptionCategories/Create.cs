@@ -26,7 +26,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext)
     }
 
     /// <summary>
-    /// The code is uniquely indexed, so a repeat was already refused — as a constraint violation
+    /// The code is uniquely indexed, so a repeat was already refused - as a constraint violation
     /// surfacing as a bare 500, which says nothing about the code being taken.
     /// </summary>
     internal static async Task EnsureCodeIsFree(BitweenDbContext dbContext, string code, int? existingId = null)

@@ -19,7 +19,7 @@ public class Config(BitweenOptions BitweenOptions, ThemeOptions themeOptions) : 
     /// This endpoint answers before anyone signs in, because the sign-in page brands itself from
     /// it. A penetration test followed the default <c>GithubLink</c> from here to our public
     /// repository, and from there to the sample signing key and the default administrator password
-    /// — the whole chain started with a link nobody had configured.
+    /// - the whole chain started with a link nobody had configured.
     /// <para>
     /// Withheld only at the default: a deployment that sets its own link is publishing its own
     /// address and gets it back untouched. So the footer keeps working wherever it was meant to,
@@ -41,12 +41,22 @@ public class Config(BitweenOptions BitweenOptions, ThemeOptions themeOptions) : 
             BitweenOptions.MsalRedirectUri,
             BitweenOptions.MsalTenantId,
             BitweenOptions.DisableEmailPasswordLogin,
+            // Whether to offer the button, and its name; the provider's address stays on the server,
+            // which starts the sign-in.
+            OidcEnabled = !string.IsNullOrWhiteSpace(BitweenOptions.OidcAuthority) && !string.IsNullOrWhiteSpace(BitweenOptions.OidcClientId),
+            OidcDisplayName = string.IsNullOrWhiteSpace(BitweenOptions.OidcDisplayName) ? null : BitweenOptions.OidcDisplayName.Trim(),
+            // Whether Bitween can email members: the Team page offers invites by email, and the
+            // sign-in page "Forgot password?", only when it can.
+            MailServerConfigured = BitweenOptions.MailServer.IsSet,
+            PasswordResetAvailable = Services.AccountMail.ResetAvailableFor(BitweenOptions),
+            // Whether AI features are offered: the mapping editor's Generate with AI, so far.
+            AiConfigured = BitweenOptions.Ai.IsSet,
             IsRabbitMqManagementConfigured = !string.IsNullOrWhiteSpace(BitweenOptions.RabbitMqManagementUrl)
                                              && !string.IsNullOrWhiteSpace(BitweenOptions.RabbitMqManagementUsername)
                                              && !string.IsNullOrWhiteSpace(BitweenOptions.RabbitMqManagementPassword),
             Theme = ThemeWithout(withheld),
-            // The product defaults, so the sign-in page — which has no session and can't read the
-            // settings list — can tell a brand value someone chose from one nobody has touched.
+            // The product defaults, so the sign-in page - which has no session and can't read the
+            // settings list - can tell a brand value someone chose from one nobody has touched.
             ThemeDefaults = SettingsService.DefaultsUnder("Theme.")
                 .Where(kv => !withheld.Contains(Pascalize(kv.Key)))
                 .ToDictionary(kv => kv.Key, kv => kv.Value)
@@ -58,8 +68,8 @@ public class Config(BitweenOptions BitweenOptions, ThemeOptions themeOptions) : 
     /// </summary>
     /// <remarks>
     /// Built by reflection rather than written out property by property: a hand-written projection
-    /// silently drops whatever is added to <see cref="ThemeOptions"/> next, and the symptom — one
-    /// brand value that will not apply — looks nothing like its cause.
+    /// silently drops whatever is added to <see cref="ThemeOptions"/> next, and the symptom - one
+    /// brand value that will not apply - looks nothing like its cause.
     /// </remarks>
     private Dictionary<string, object?> ThemeWithout(IReadOnlySet<string> withheld) =>
         typeof(ThemeOptions).GetProperties()

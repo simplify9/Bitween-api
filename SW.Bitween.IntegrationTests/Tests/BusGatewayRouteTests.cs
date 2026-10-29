@@ -13,13 +13,13 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// Wiring up a bus gateway's routes — the configuration side of what
+/// Wiring up a bus gateway's routes - the configuration side of what
 /// <see cref="GatewayRoutingTests"/> exercises at run time.
 /// </summary>
 /// <remarks>
 /// A bus gateway is bound to one information type and every route under it inherits that binding.
 /// The rules here exist because the alternative is a route that saves cleanly and then never fires
-/// — its integration reads a payload shaped like something else, matches nothing, and reports no
+/// - its integration reads a payload shaped like something else, matches nothing, and reports no
 /// error at any point.
 /// </remarks>
 [Collection("Bitween")]
@@ -103,7 +103,7 @@ public class BusGatewayRouteTests(BitweenFixture fixture)
         await using (var scope = fixture.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-            // Right information type, wrong trigger — this one is started by its own schedule.
+            // Right information type, wrong trigger - this one is started by its own schedule.
             var receiving = new Subscription(Unique("Scheduled"), documentId);
             db.Set<Subscription>().Add(receiving);
             await db.SaveChangesAsync();
@@ -138,7 +138,7 @@ public class BusGatewayRouteTests(BitweenFixture fixture)
         await AddRoute(gatewayId, new BusGatewayRouteCreate
         {
             // DocumentId is deliberately wrong here. A bus gateway is bound to one information
-            // type and imposes it, so the caller's answer is not consulted — which is also why
+            // type and imposes it, so the caller's answer is not consulted - which is also why
             // the mismatch this could otherwise cause is not reachable through this door.
             NewIntegration = new InlineIntegrationCreate { Name = integrationName, DocumentId = 999_999 },
         });
@@ -174,7 +174,7 @@ public class BusGatewayRouteTests(BitweenFixture fixture)
             await handler.Handle(gatewayId, model);
         }
 
-        // The information type check has to hold on the edit path too — otherwise every rule
+        // The information type check has to hold on the edit path too - otherwise every rule
         // above is one save-and-edit away from being bypassed.
         await Assert.ThrowsAsync<SWException>(() => Update(new BusGatewayRouteUpdate
             { RouteId = routeId, SubscriptionId = mismatched }));

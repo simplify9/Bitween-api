@@ -128,7 +128,7 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
 
         var result = await Deliver(chain);
 
-        // It used to throw here — the lookup returns null for a disabled subscription — which
+        // It used to throw here - the lookup returns null for a disabled subscription - which
         // recorded a delivery that had succeeded as failed, and its retry delivered it again.
         Assert.True(result.Success, result.Exception);
         Assert.Null(result.Exception);
@@ -165,6 +165,52 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
         Assert.DoesNotContain(await UpdateFailures(sourceId, internalId), f => f.PropertyName == "ResponseSubscriptionId");
         Assert.Contains(await UpdateFailures(sourceId, otherInternalId), f => f.PropertyName == "ResponseSubscriptionId");
     }
+
+    /// <summary>
+    /// A mirror's copy recreates prod's setup as a new save, so a legacy target prod keeps would be
+    /// refused. Only the copy's own calls, while the copy is open and on a Bitween marked as a
+    /// mirror, keep it; anyone else on the same staging meets prod's rule.
+    /// </summary>
+    [Fact]
+    public async Task A_mirror_copy_recreates_a_legacy_target_and_nobody_else_can()
+    {
+        var (docId, internalId, _) = await Targets();
+        var key = Services.Mirror.MirrorCopyGate.OpenKey();
+        try
+        {
+            Assert.DoesNotContain(await CreateFailures(docId, internalId, Gate(mirror: true, key)), f => f.PropertyName == "ResponseSubscriptionId");
+            Assert.Contains(await CreateFailures(docId, internalId, Gate(mirror: true, key: null)), f => f.PropertyName == "ResponseSubscriptionId");
+            Assert.Contains(await CreateFailures(docId, internalId, Gate(mirror: false, key)), f => f.PropertyName == "ResponseSubscriptionId");
+            Assert.Contains(await CreateFailures(docId, internalId, Gate(mirror: true, "not-a-key-the-copy-opened")), f => f.PropertyName == "ResponseSubscriptionId");
+        }
+        finally
+        {
+            Services.Mirror.MirrorCopyGate.CloseKey(key);
+        }
+        // Once the copy is over, its key opens nothing.
+        Assert.Contains(await CreateFailures(docId, internalId, Gate(mirror: true, key)), f => f.PropertyName == "ResponseSubscriptionId");
+    }
+
+    private static Services.Mirror.MirrorCopyGate Gate(bool mirror, string key)
+    {
+        var request = new DefaultHttpContext();
+        if (key != null) request.Request.Headers[Services.Mirror.MirrorCopyGate.Header] = key;
+        var options = new BitweenOptions();
+        options.Mirror.Target = mirror;
+        return new Services.Mirror.MirrorCopyGate(new OwnRequest(request), options);
+    }
+
+    /// <summary>
+    /// A request of its own. HttpContextAccessor keeps one for the whole async flow, so setting one
+    /// here would replace the request the update validator reads its subscription's id from.
+    /// </summary>
+    private sealed class OwnRequest(HttpContext context) : IHttpContextAccessor
+    {
+        public HttpContext HttpContext { get; set; } = context;
+    }
+
+    /// <summary>A person's save: no copy's key, as every request on a staging carries.</summary>
+    private static Services.Mirror.MirrorCopyGate NoCopy() => Gate(mirror: true, key: null);
 
     [Fact]
     public async Task Response_subscriptions_cannot_hand_on_to_each_other_in_a_loop()
@@ -604,13 +650,14 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
     // The validators are private nested classes the request pipeline finds by scanning, so calling
     // a handler directly never runs them. Built by reflection, the way AccountCreateValidatorTests does.
 
-    private async Task<IList<FluentValidation.Results.ValidationFailure>> CreateFailures(int docId, int responseSubscriptionId)
+    private async Task<IList<FluentValidation.Results.ValidationFailure>> CreateFailures(int docId, int responseSubscriptionId,
+        Services.Mirror.MirrorCopyGate gate = null)
     {
         await using var scope = fixture.CreateScope();
         var validator = (IValidator<SubscriptionCreate>)Activator.CreateInstance(
             typeof(Resources.Subscriptions.Create).GetNestedType("Validate", BindingFlags.NonPublic)!,
             scope.ServiceProvider.GetRequiredService<BitweenDbContext>(),
-            scope.ServiceProvider.GetRequiredService<AdapterRequirements>())!;
+            scope.ServiceProvider.GetRequiredService<AdapterRequirements>(), gate ?? NoCopy())!;
 
         var result = await validator.ValidateAsync(new SubscriptionCreate
         {
@@ -632,7 +679,7 @@ public class ResponseSubscriptionTests(BitweenFixture fixture)
         var validator = (IValidator<SubscriptionUpdate>)Activator.CreateInstance(
             typeof(Resources.Subscriptions.Update).GetNestedType("Validate", BindingFlags.NonPublic)!,
             scope.ServiceProvider.GetRequiredService<BitweenDbContext>(), http,
-            scope.ServiceProvider.GetRequiredService<AdapterRequirements>())!;
+            scope.ServiceProvider.GetRequiredService<AdapterRequirements>(), NoCopy())!;
 
         var result = await validator.ValidateAsync(new SubscriptionUpdate
         {

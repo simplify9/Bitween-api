@@ -1,5 +1,5 @@
 import type { AdapterInfo, SubscriptionType } from "../../../api";
-import { AGGREGATION_TARGET_DETAIL } from "../../../components/config/AggregationFields";
+import { AGGREGATION_TARGET_DETAIL } from "../../../components/config/aggregationTargets";
 import { schedulesSummary } from "../../../lib/schedules";
 import { formatDateTime } from "../../../lib/dates";
 import type { StageFace } from "./StageRail";
@@ -14,7 +14,7 @@ const labelOf = (catalog: { data: AdapterInfo[] | undefined }, id: string | null
  * Whether a chosen adapter still has a required property empty.
  *
  * Both create pages gate on this, and it is not cosmetic: creating is two calls
- * — a bare subscription, then the pipeline — so a rejected pipeline leaves an
+ * - a bare subscription, then the pipeline - so a rejected pipeline leaves an
  * empty subscription behind. Catching what the backend would reject keeps the
  * common path from orphaning one. See backend gap 27.
  */
@@ -38,12 +38,12 @@ export interface FaceInput {
   type: SubscriptionType;
   draft: Draft;
   catalogs: AdapterCatalogs;
-  /** Absent while creating — nothing is saved yet, so no node is "unsaved". */
+  /** Absent while creating - nothing is saved yet, so no node is "unsaved". */
   saved?: Draft;
   entryPoints?: EntryPoint[];
   /** Bitween's own next-fire computation, for the Schedule node's detail line. */
   nextRunOn?: string | null;
-  /** Only ever set on the Schedule node — see `StageFace.fault`. */
+  /** Only ever set on the Schedule node - see `StageFace.fault`. */
   fault?: StageFace["fault"];
   /** Names for the "feed the response into" target, and for the aggregation's source. */
   subscriptionNames?: { id: number; name: string }[];
@@ -78,7 +78,7 @@ export function faceOf(stageId: StageId, input: FaceInput): StageFace {
           title: d.matchExpression ? "Message filter" : "Every document",
           state: d.matchExpression ? "set" : "none",
         };
-      if (type === "ApiCall") return { id: stageId, dirty, title: "Called by id", state: "none" };
+      if (type === "ApiCall") return { id: stageId, dirty, title: "Direct, called by id", state: "none" };
       if (type === "Response")
         return {
           id: stageId,
@@ -115,7 +115,7 @@ export function faceOf(stageId: StageId, input: FaceInput): StageFace {
       };
     case "aggregation": {
       // The source is what the node is *for*, so it is the title even though the only
-      // editable half is which file gets collected — an aggregation without a source is
+      // editable half is which file gets collected - an aggregation without a source is
       // not a thing the backend will create.
       const source = subscriptionNames?.find((x) => x.id === aggregationForId)?.name;
       return {

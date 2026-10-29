@@ -38,6 +38,17 @@ public class SubscriptionSchedulerService(IScheduleRepository scheduleRepo)
             await Schedule(sub.Type, sub.Id, s);
     }
 
+    // Removes every schedule of a subscription, for one being deleted: its triggers would otherwise
+    // stay in Quartz and fire a job for a subscription that no longer exists.
+    public async Task UnscheduleAll(Subscription sub)
+    {
+        if (sub.Type != SubscriptionType.Receiving && sub.Type != SubscriptionType.Aggregation)
+            return;
+
+        foreach (var s in sub.Schedules)
+            await TryUnschedule(sub.Type, sub.Id, s);
+    }
+
     // Triggers a one-time immediate execution outside the normal cron cadence.
     public async Task RunNow(Subscription sub)
     {
@@ -84,7 +95,7 @@ public class SubscriptionSchedulerService(IScheduleRepository scheduleRepo)
         }
         catch (SWValidationException)
         {
-            // Schedule didn't exist in Quartz — nothing to remove.
+            // Schedule didn't exist in Quartz - nothing to remove.
         }
     }
 }

@@ -1,14 +1,13 @@
 import { expect, request, type APIRequestContext, type Locator, type Page } from "@playwright/test";
-import { ADMIN_EMAIL, ADMIN_PASSWORD, pickOption } from "./helpers";
+import { ADMIN_EMAIL, ADMIN_PASSWORD, API, pickOption, SUBSCRIPTION_PAGE } from "./helpers";
+import { SEED } from "./seed-data";
 
 /**
  * Driving the new mapping editor.
  *
  * Shared by both mapper specs so a change to the editor's chrome is one edit here
- * rather than one per test — the specs then read as the mapping they are about.
+ * rather than one per test - the specs then read as the mapping they are about.
  */
-
-const API = "https://localhost:7155/api";
 
 /** A source document with a value, a number, and a list with one entry to filter out. */
 export const SAMPLE = JSON.stringify(
@@ -32,7 +31,7 @@ export async function createSubscription(page: Page): Promise<string> {
 
   await page.goto("scheduled-jobs/new");
   await page.fill("#nj-name", name);
-  await pickOption(page, "Information type", /Shipment order/);
+  await pickOption(page, "Information type", SEED.informationType);
 
   await pickOption(page, "receiver adapter", "NativeHttpReceiver");
   await page.locator("#prop-Url").fill("https://example.com/feed");
@@ -43,9 +42,9 @@ export async function createSubscription(page: Page): Promise<string> {
   await page.locator("#prop-Url").fill("https://example.com/post");
 
   await page.getByRole("button", { name: /^(Create|Save)/ }).last().click();
-  await page.waitForURL(/\/subscriptions\/\d+/, { timeout: 15000 });
+  await page.waitForURL(SUBSCRIPTION_PAGE, { timeout: 15000 });
 
-  return page.url().match(/\/subscriptions\/(\d+)/)![1];
+  return page.url().match(/\/(\d+)$/)![1];
 }
 
 export async function openMapper(page: Page, subscriptionId: string) {
@@ -57,7 +56,7 @@ export async function openMapper(page: Page, subscriptionId: string) {
  * Runs `set` with the format panel open, and closes it afterwards.
  *
  * What the mapping reads and writes sits behind a summary chip rather than in the
- * toolbar row, so a test that changes a format has to open the panel first — and the
+ * toolbar row, so a test that changes a format has to open the panel first - and the
  * panel covers the rules underneath, so it has to be closed before touching them.
  */
 export async function withFormats(page: Page, set: () => Promise<unknown>) {
@@ -137,7 +136,7 @@ async function adminApi(): Promise<APIRequestContext> {
     data: { Username: ADMIN_EMAIL, Password: ADMIN_PASSWORD },
   });
   // Without this the token becomes the string "undefined", and every later call fails
-  // as "could not read subscription <id>" — which blames the subscription, not the login.
+  // as "could not read subscription <id>" - which blames the subscription, not the login.
   if (!login.ok())
     throw new Error(`could not sign in as ${ADMIN_EMAIL}: ${login.status()} ${await login.text()}`);
   token = (await login.json()).jwt;

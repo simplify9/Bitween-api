@@ -2,37 +2,79 @@
 
 Adapters do the work at each stage of a subscription. Bitween has four kinds.
 
-| Kind | Stage | Contract |
+| Kind | Stage | Methods |
 |---|---|---|
-| Receiver | Pulls items for a scheduled job | `IInfolinkReceiver`: `Initialize`, `ListFiles`, `GetFile(id)`, `DeleteFile(id)`, `Finalize` |
-| Validator | Checks API input before an exchange is created | `IInfolinkValidator`: `Validate(file)` returns success or a list of errors |
-| Mapper | Transforms the input | `IInfolinkHandler`: `Handle(file)` returns the output |
-| Handler | Delivers and returns an optional response | `IInfolinkHandler`: `Handle(file)` returns the response |
+| Receiver | Pulls items for a scheduled job | `Initialize`, `ListFiles`, `GetFile(id)`, `DeleteFile(id)`, `Finalize` |
+| Validator | Checks API input before an exchange is created | `Validate(file)` returns success or a list of errors |
+| Mapper | Transforms the input | `Handle(file)` returns the output |
+| Handler | Delivers and returns an optional response | `Handle(file)` returns the response |
 
-The contracts come from `SimplyWorks.PrimitiveTypes`. The payload is an `XchangeFile` with text `Data`, a `Filename`, a `ContentType` and a `BadData` flag. Notifiers and retry alerts reuse handler adapters.
+What Bitween calls and passes is the [adapter contract](adapter-contract.md). In .NET its interfaces are `IBitweenReceiver`, `IBitweenValidator`, `IBitweenMapper` and `IBitweenHandler` from `SimplyWorks.Bitween.Adapters`. Adapters written against the older `IInfolinkReceiver`, `IInfolinkValidator` and `IInfolinkHandler` from `SimplyWorks.PrimitiveTypes`, with `XchangeFile`, are called the same way. The payload has text `Data`, a `Filename`, a `ContentType` and a `BadData` flag. Notification channels reuse handler adapters, built in or custom, for subscription notifications and alerts.
 
 ## Native and custom adapters
 
 - **Native adapters** are compiled into Bitween and run in process. Their ids start with `Native`, such as `NativeHttpHandler`.
-- **Custom adapters** are separate .NET console programs that `SimplyWorks.Serverless` downloads from object storage. A *classic* custom adapter runs as a new process for each call. A *resident* one runs as a long-lived process that keeps its connections open.
+- **Custom adapters** are separate programs, written in .NET, Python, JavaScript or TypeScript, that `SimplyWorks.Serverless` downloads from object storage and runs. A *classic* custom adapter runs as a new process for each call. A *resident* one runs as a long-lived process that keeps its connections open.
 - **Data source adapters** are resident adapters for brokers (`bitween.bus.rabbitmq`, `bitween.bus.sqs`) and databases (`bitween.db.postgresql`, `bitween.db.mysql`, `bitween.db.sqlserver`, `bitween.db.oracle`). A subscription binds them to a data source. See [Data sources](data-sources.md), [External brokers](external-brokers.md) and [Databases](databases.md).
 
-An id starting with `native`, ignoring case, is a native adapter. For any other id, Bitween reads the package's metadata and runs it as resident or classic. Resident adapters only run on nodes with `Bitween:BusProvidersEnabled`.
+An id starting with `native`, ignoring case, is a native adapter. For any other id, Bitween reads the package's metadata and runs it as resident or classic. Resident adapters only run on nodes with `Bitween:BusProvidersEnabled`. Classic adapters run on every node, including Python and Node ones.
 
 ## Properties
 
 Each adapter declares its properties. The UI shows which are required, which are secret, and each one's description and default.
 
-- **Tokens.** Values can contain `{{partner.KEY}}` and `{{globals.SET.KEY}}`. Bitween substitutes them ignoring case, global values first, when an exchange is created. Unresolved tokens stay as written. Receivers only get global values, and notifier properties get neither. A response or bus gateway subscription's handler can also use `{{source.PATH}}`, a value from the original document; see [Response routing](exchange-pipeline.md#6-response-routing).
-- **Secrets.** Secret values are never sent to the browser. The API returns `__private__` instead, and sending `__private__` back keeps the stored value. If Bitween cannot describe an adapter, it masks every property. A property is secret only if its adapter says so: `[Secure]` on a native adapter, `isPrivate: true` in `Runner.Expect` on a published one. Anything else is returned as stored. A secret property's default is never sent either, but the adapter still applies it when the value is left empty.
+- **Tokens.** Values can contain `{{partner.KEY}}` and `{{globals.SET.KEY}}`. Bitween substitutes them ignoring case, global values first, when an exchange is created. Unresolved tokens stay as written, so a value set can't be deleted while a subscription or notification channel references it. Receivers only get global values. Notification channels get both on each send, with the partner of the exchange being reported, and legacy notifiers get neither. A response or bus gateway subscription's handler can also use `{{source.PATH}}`, a value from the original document; see [Response routing](exchange-pipeline.md#6-response-routing).
+- **Connections.** `{{connections.NAME.accessToken}}` is an OAuth2 access token Bitween keeps fresh, and `{{connections.NAME.authorization}}` is `Bearer` and the token, for a header. Unlike the tokens above, they are filled in as the adapter starts, for every adapter and every kind (handlers, mappers, validators, receivers, notification channels and legacy notifiers), so a token is never stored on an exchange. See [Connections](#connections).
+- **Secrets.** Secret values are never sent to the browser. The API returns `__private__` instead, and sending `__private__` back keeps the stored value. If Bitween cannot describe an adapter, it masks every property. A property is secret only if its adapter says so: `[Secure]` on a native adapter, and on a published one `isPrivate: true` in `Runner.Expect` (.NET), `secret=True` in `sw.expect` (Python) or `secret: true` in `expect` (JavaScript and TypeScript), which `bitween adapter build` writes into the manifest. Anything else is returned as stored. A secret property's default is never sent either, but the adapter still applies it when the value is left empty.
 - **Required properties** are checked when a subscription is saved. A blank value counts as missing.
 - **`xchangeid`** is added to mapper and handler properties at run time.
 - A value that does not convert to the property's type, such as `BatchSize=abc`, silently falls back to the default.
-- The admin UI loads every adapter of a kind, with its properties, in one call. Descriptions of custom adapters are cached on each node, so a newly uploaded version can show its old properties for a while.
+- The admin UI loads every adapter of a kind, with its properties, in one call. A published adapter is described from its manifest when the manifest lists its properties. Otherwise a .NET adapter is started and asked; an adapter in another runtime never is, and a manifest that lists none means it has none.
+- Descriptions of custom adapters are cached on each node. Publishing, promoting or withdrawing a version through Bitween tells every node to forget the adapter, over the bus. A version published straight to storage shows its old properties for up to a minute.
+
+## Connections
+
+A connection is an OAuth2 client whose tokens Bitween asks for, renews and rotates, so that an adapter, built in or published, in any language, needs no OAuth code of its own. They are on the **Connections** page, with the global values permissions.
+
+| How it gets tokens | For |
+|---|---|
+| **Approve once** (authorization code) | Someone chooses **Authorize**, approves access at the provider, and comes back to `/oauth-callback`. The refresh token that brings keeps the connection going. Salesforce, Zoho, Shopify and Dynamics apps. |
+| **Client ID and secret** (client credentials) | Nobody approves anything. ServiceNow and most partner APIs. |
+| **Service user** (password grant) | A service user's name and password, for providers that still allow it. |
+
+Register `https://<bitween host>/oauth-callback` as the redirect URI at the provider. The token and authorize
+URLs are https; plain http is accepted only to this machine itself (`localhost`, `127.0.0.1`), to try a
+connection or a [kit](cli.md#kits) against a provider played locally. The approval uses PKCE and a state checked against an encrypted cookie. **Extra approval parameters** are added to the approval page's address, as `access_type=offline&prompt=consent`, which Google needs before it gives a refresh token; others want a scope such as `offline_access` or `refresh_token`. A connection approved without one says so, and needs approving again when its token expires.
+
+Write `{{connections.NAME.accessToken}}` in any setting: the HTTP handler's `LoginPassword` with `AuthType` `Bearer`, or the `Token` of `s9.openapi` with `Auth` `bearer`. As the adapter starts:
+
+- a token good for at least two more minutes is used as it is; otherwise it is renewed first, with the refresh token or the client's credentials;
+- of several nodes or calls needing a renewal at once, one renews and the others wait for its token, because a provider that rotates refresh tokens honours only the first renewal;
+- a new refresh token the provider sends is kept, and the old one forgotten.
+
+When a token can't be had, the adapter call fails with the reason, so retry policies and alerts work as for any failure, and the connection shows it. A provider that refuses the refresh token (`invalid_grant`) leaves the connection **Needs authorizing**. **Test** renews now and shows the result.
+
+The client secret, the password and both tokens are encrypted at rest when `Bitween:SettingsEncryptionKey` is set, and masked in the API as `__private__`; a secret sent back as `__private__` is kept. Changing the client, its token or authorize URL, its scopes or its user forgets the tokens it has. A connection settings refer to (a subscription's, a notification channel's, a notifier's, a retry policy's, a partner's or a global value set's) can't be deleted or renamed. Adding, changing and authorizing a connection are in the audit trail, with the secrets left out; renewing a token isn't.
+
+Data source settings can't use connections: a data source's adapter runs for a long time, and a token handed to it when it starts would expire.
 
 ## Rebex license
 
-The FTP/SFTP adapters and the Rebex POP3 receiver use the commercial Rebex library. They are hidden from the adapter pickers until a key is saved in the **Rebex license key** setting, which takes effect without a restart.
+The Rebex FTP/SFTP adapters and the Rebex POP3 receiver use the commercial Rebex library. They are hidden from the adapter pickers until a key is saved in the **Rebex license key** setting, which takes effect without a restart. Each has open-source counterparts that need no license: the SFTP adapters and the FTP / FTPS adapters below, and `NativePop3Receiver`.
+
+### Moved to the marketplace
+
+The Rebex adapters are no longer offered for new work. They are packages in the [marketplace](#installing-from-the-marketplace) now, with the same properties plus a `LicenseKey`:
+
+| Built in | Marketplace package |
+|---|---|
+| `NativeRebexFtpReceiver` | `s9.rebex.ftp.receiver` |
+| `NativeRebexFtpUploadHandler` | `s9.rebex.ftp.upload` |
+| `NativeRebexPop3Receiver` | `s9.rebex.pop3.receiver` |
+
+A package doesn't read the **Rebex license key** setting, so keep the key in a global value set and write `{{globals.<set>.<key>}}` in its `LicenseKey` property.
+
+Nothing that uses a built-in one changes: it keeps running, and its editor keeps it. Each stays in the pickers, with a licence key saved, while any subscription names it, active or not, and for the upload handler a notification channel, a notifier or a retry alert counts too. Once nothing does, it is no longer listed, and there is no picking it again.
 
 ## Handlers
 
@@ -66,8 +108,31 @@ Sends the payload to an HTTP endpoint.
 | Reply status | Result |
 |---|---|
 | 2xx or 3xx | Success. The body becomes the response file. |
-| 4xx | Bad response. The body is kept and flagged, and retry policies see it as a `BadResult`. |
-| 5xx, or below 200 | The exchange fails with the status and body, so retry policies see it as an `Error`. |
+| 4xx other than 408 and 429 | Bad response. The body is kept and flagged, and retry policies see it as a `BadResult`. |
+| 5xx, 408, 429, or below 200 | The exchange fails with the status and body, so retry policies see it as an `Error`. A `Retry-After` the partner sent is in the error text, and Bitween's next retry waits at least that long ([details](retries-and-alerts.md#when-an-adapter-says-when-to-try-again)). |
+
+#### When a destination keeps failing
+
+Each Bitween process keeps a circuit breaker per destination: scheme, host and port, so `https://erp.example/orders` and `https://erp.example/invoices` share one, and every subscription calling that destination shares it too. It is there so one partner that stops answering does not take every place in the processing queue for its whole timeout while flows to healthy partners wait behind it.
+
+| Counts as a failure | Doesn't count |
+|---|---|
+| No answer within `TimeoutSeconds` | 2xx and 3xx, which reset the count |
+| Connection refused, reset or dropped | 4xx other than 429: the partner rejected this message, and other messages may be fine. These reset the count, as the partner answered. |
+| 429 | 501: the endpoint will never do what was asked, and waiting won't change that |
+| 500, 502, 503, 504 and any other 5xx but 501 | A failure before anything is sent, such as a URL template that doesn't render, or a sign-in (`Login`, `OAuth2`) that is refused |
+
+After `Bitween:CircuitBreakerFailures` failures in a row (5 by default) within `Bitween:CircuitBreakerWindowSeconds` (60), the circuit opens. For `Bitween:CircuitBreakerOpenSeconds` (60) every delivery to that destination fails at once, without signing in or sending anything, with:
+
+```
+503: ServiceUnavailable: circuit open for https://erp.example (5 failures in a row; trying again after 10:15:30Z)
+```
+
+The exception is a `CircuitOpenException`. The `503:` prefix is the one the handler uses for a real 503, so a retry policy that retries 503 retries these too; see [Retries and alerts](retries-and-alerts.md#when-a-destination-is-paused). After the cool-down one delivery is let through to try. If it succeeds, the circuit closes and deliveries flow again; if it fails, the circuit opens for another cool-down. While that trial is under way, other deliveries still fail at once. A 500 from one message the partner can't handle counts like any other, but takes a run of them with no success between to open the circuit.
+
+The circuit opening is logged as a warning, with the destination and the time it will try again, and closing as information. The `bitween.circuits.opened` counter, tagged with the destination, is exported with Bitween's other metrics.
+
+Each replica learns on its own, from its own calls, and forgets on restart. `Bitween:CircuitBreakerFailures` set to `0` switches the breaker off. See [Configuration](configuration.md).
 
 ### NativeSmtpHandler
 
@@ -84,8 +149,11 @@ Sends an email built from the payload.
 | `To` *(required)*, `Cc`, `Bcc` | | Comma-separated addresses. |
 | `Subject` *(required)*, `Body` *(required)* | | Scriban templates over the payload, with the same syntax as the legacy JSON mapper. They are rendered only when the payload is JSON, otherwise sent as written. |
 | `IsHtml` | `true` | |
+| `CertificateThumbprint` | | The relay certificate's SHA-256 thumbprint, in hex. When set, exactly that certificate is trusted, a self-signed one included, and any other is refused before anything is sent. |
 
-Server certificates must be valid. A chain whose only problem is that revocation could not be checked is accepted. The response file holds the rendered subject.
+Connecting, which covers reaching the relay, its greeting and the TLS handshake, may take 30 seconds. A relay that expects TLS from the first byte on a port other than 465 never greets a client that starts plainly, so it fails there, saying so. Without a pinned thumbprint, server certificates must be valid. A chain whose only problem is that revocation could not be checked is accepted. The response file holds the rendered subject.
+
+A relay that keeps failing is paused as the HTTP handler pauses a partner ([When a destination keeps failing](#when-a-destination-keeps-failing)), keyed by `smtp://{Host}:{Port}`. Timeouts, dropped connections and a 421 reply count. A refused recipient, a bad template or a refused sign-in don't.
 
 ### NativeS3UploadHandler
 
@@ -98,6 +166,7 @@ Writes the payload to an S3-compatible bucket.
 | `FileName` | | Full object key. When empty, the key is `{FolderName}/{yyyyMMddHHmmss}_{guid}.{FileExtension}`. |
 | `FileExtension` | | |
 | `ContentType` | `text/plain` | |
+| `DataEncoding` | `utf8` | `base64` decodes the payload into bytes before uploading, for a binary file such as an Excel workbook the mapper wrote. |
 
 The response file holds the object key.
 
@@ -110,12 +179,47 @@ Writes the payload to an Azure Blob container.
 | `ConnectionString` *(required, secret)*, `ContainerName` *(required)* | |
 | `FileName` | Blob name. When empty, a timestamp and GUID name is generated. |
 | `FileExtension` | |
+| `DataEncoding` | `utf8` by default. `base64` decodes the payload into bytes before uploading, for a binary file such as an Excel workbook. |
 
 Existing blobs are overwritten. The response file holds the blob name.
 
+### NativeSftpUploadHandler and NativeFtpUploadHandler
+
+Upload the payload as a file, with open-source clients and no license: `NativeSftpUploadHandler` over SFTP (SSH.NET), `NativeFtpUploadHandler` over FTP or FTPS (FluentFTP). The file is named after the exchange file, or a UTC timestamp when it has no name, and a name from the message can't climb out of `TargetPath`.
+
+A server that keeps failing is paused as the HTTP handler pauses a partner ([When a destination keeps failing](#when-a-destination-keeps-failing)), keyed by `sftp://{Host}:{Port}` or `ftp://{Host}:{Port}`. Timeouts and refused, reset or dropped connections count. A refused sign-in, a missing directory or a refused write don't. The receivers, and the Rebex, S3 and Azure Blob adapters, have no breaker.
+
+| Property | Default | Notes |
+|---|---|---|
+| `Host` *(required)*, `Username` *(required)* | | |
+| `TargetPath` | | Remote directory. |
+| `FileName` | | The file's name, in place of the message's own. For a JSON message it can use the message's fields, as `order-{{ orderId }}.json`, so each message gets its own file. Only the last path segment is kept. Empty keeps the message's name, or the time when it has none. Messages through a gateway are all named `{urlName}.json`, so without this each upload replaces the one before. |
+| `FileNamePrefix` | | Prepended as `{prefix}_`. |
+| `DataEncoding` | `utf8` | `base64` decodes the payload into bytes before uploading. |
+
+SFTP connection properties, shared with `NativeSftpReceiver`:
+
+| Property | Default | Notes |
+|---|---|---|
+| `Port` | 22 | |
+| `Password` *(secret)* | | Signs in, or is the private key's passphrase when a key is set. |
+| `PrivateKey` *(secret)* | | Signs in with this key instead, PEM or OpenSSH format. A PEM key pasted onto one line is re-wrapped. |
+| `HostKeyFingerprint` | | The server's `SHA256:...` host-key fingerprint. When set, any other key is refused before credentials are sent. |
+| `TimeoutSeconds` | 60 | How long to wait for the server at each step: connecting, opening the SFTP session, each request. A server that never answers fails the run instead of holding it, and a place in the processing queue, indefinitely. |
+
+FTP connection properties, shared with `NativeFtpReceiver`:
+
+| Property | Default | Notes |
+|---|---|---|
+| `Port` | 21, or 990 for implicit FTPS | |
+| `Password` *(required, secret)* | | |
+| `Encryption` | `none` | `none` for plain FTP, `explicit` for FTPS with AUTH TLS, `implicit` for FTPS that is TLS from the start. |
+| `CertificateThumbprint` | | The server certificate's SHA-256 thumbprint, in hex (colons and case don't matter). When set, exactly that certificate is trusted, a self-signed one included, and any other is refused before credentials are sent. When empty, the certificate must be valid. |
+| `PassiveMode` | `true` | Turn off for active mode. |
+
 ### NativeRebexFtpUploadHandler
 
-Uploads the payload over SFTP or FTP. Needs a Rebex license.
+Uploads over SFTP or plain FTP with Rebex, shown as "(Rebex)". Needs a Rebex license, and is [offered only while in use](#moved-to-the-marketplace): new work uses `s9.rebex.ftp.upload`. Its `Protocol` property picks the protocol, where the open-source adapters are split by protocol instead: `sftp` and `sftpssh` map to `NativeSftpUploadHandler`, `ftp` to `NativeFtpUploadHandler` with `Encryption` `none`. Every other property has the same name.
 
 | Property | Default | Notes |
 |---|---|---|
@@ -125,6 +229,7 @@ Uploads the payload over SFTP or FTP. Needs a Rebex license.
 | `Password` *(secret)* | | Required for `sftp` and `ftp`. The key passphrase for `sftpssh`. |
 | `PrivateKey` *(secret)* | | Required for `sftpssh`. A PEM key pasted onto one line is re-wrapped. |
 | `TargetPath` | | Remote directory. |
+| `FileName` | | The file's name, in place of the message's own. For a JSON message it can use the message's fields, as `order-{{ orderId }}.json`, so each message gets its own file. Only the last path segment is kept. Empty keeps the message's name, or the time when it has none. Messages through a gateway are all named `{urlName}.json`, so without this each upload replaces the one before. |
 | `FileNamePrefix` | | Prepended as `{prefix}_`. |
 | `DataEncoding` | `utf8` | `base64` decodes the payload into bytes before uploading. |
 
@@ -141,8 +246,11 @@ Calls an HTTP endpoint once per run and turns the JSON reply into items. Its pro
 | Property | Notes |
 |---|---|
 | `ArrayPath` | JSON path to the array of items. Without it, a root array is split into items and any other reply is a single item. |
+| `NextLinkPath` | For an API that pages its results: the path to the next page's address in each reply, such as `next`, `links.next` or `@odata.nextLink`. It can be relative. Pages are followed until it is empty or missing, and only on the `Url`'s own server: a link elsewhere fails the run rather than be sent the credentials. |
+| `PageParameter` | For an API that numbers its pages: the query parameter that does it, such as `page`. Pages are asked for from `PageStart` (1) up, until one has no items. |
+| `MaxPages` | The most pages one run reads with either, 20 by default. The next run starts from the first page again. |
 
-The reply must be JSON, and a status of 400 or above fails the run. There is no pagination, items have no file name, and nothing is removed at the source.
+The reply must be JSON, and a status of 400 or above fails the run. Without `NextLinkPath` or `PageParameter` it makes one request per run, as before. Items have no file name, and nothing is removed at the source.
 
 ### NativeS3Receiver
 
@@ -161,9 +269,9 @@ The reply must be JSON, and a status of 400 or above fails the run. There is no 
 | `FolderName` | Prefix, with a `/` added. |
 | `BatchSize`, `ResponseEncoding`, `DeleteMovesFileTo` | As for S3. A blob that is already gone is skipped. |
 
-### NativeRebexFtpReceiver
+### NativeSftpReceiver, NativeFtpReceiver and NativeRebexFtpReceiver
 
-Reads files over SFTP or FTP. Needs a Rebex license. The connection properties match the FTP upload handler's.
+Read files over SFTP (`NativeSftpReceiver`), FTP or FTPS (`NativeFtpReceiver`), with open-source clients and no license, or over SFTP or plain FTP with Rebex (`NativeRebexFtpReceiver`, shown as "(Rebex)", needs a license, and is [offered only while in use](#moved-to-the-marketplace)). The connection properties are the upload handlers' for the same protocol.
 
 | Property | Default | Notes |
 |---|---|---|
@@ -171,14 +279,18 @@ Reads files over SFTP or FTP. Needs a Rebex license. The connection properties m
 | `BatchSize`, `ResponseEncoding` | | |
 | `DeleteMovesFileTo` | | When set, processed files are moved into this directory. Otherwise they are deleted. |
 | `CheckFileExistence` | `true` | Skip the delete quietly when the file is already gone. |
+| `MinimumFileAgeSeconds` | 0 | A file changed more recently than this is left for the next run, so one still being uploaded isn't taken half-written. |
 
 ### NativePop3Receiver and NativeRebexPop3Receiver
 
-Read email from a POP3 mailbox over implicit TLS on port 995. `NativePop3Receiver` uses MailKit. `NativeRebexPop3Receiver` uses Rebex and needs a license.
+Read email from a POP3 mailbox. `NativePop3Receiver` uses MailKit. `NativeRebexPop3Receiver` uses Rebex, needs a license, connects over implicit TLS on port 995 only, and is [offered only while in use](#moved-to-the-marketplace).
 
 | Property | Notes |
 |---|---|
 | `Host`, `Username`, `Password` *(secret)* | Required. |
+| `Encryption` | `NativePop3Receiver`: `implicit` (TLS from the first byte, the default) or `explicit` (STLS). The password is never sent unencrypted. |
+| `Port` | `NativePop3Receiver`: 995 with implicit TLS and 110 with explicit, unless set. |
+| `CertificateThumbprint` | `NativePop3Receiver`: the server certificate's SHA-256 thumbprint, in hex. When set, exactly that certificate is trusted, a self-signed one included, and any other is refused before the password is sent. When empty, the certificate must be valid. |
 | `BatchSize`, `ResponseEncoding` | |
 
 Each email becomes one item, named after its subject. When an email has attachments, only the first attachment is used. Otherwise its text body is used. Processed emails are deleted when the session closes.
@@ -194,7 +306,13 @@ See [Mapping](mapping.md). Bitween has no native validators.
 
 ## Custom adapters
 
-A custom adapter is a .NET console application that references `SimplyWorks.Serverless.Sdk`. This is the repository's sample handler.
+What Bitween calls on an adapter of each kind, and what it passes, is the [adapter contract](adapter-contract.md). A custom adapter can be written in .NET, Python, JavaScript or TypeScript. The [bitween CLI](cli.md) writes a new one of each kind, builds it into a package, checks it against the contract and publishes it.
+
+### Custom adapters in .NET
+
+A .NET adapter is a console application that references `SimplyWorks.Serverless.Sdk`, and `SimplyWorks.Bitween.Adapters` for the contract's interfaces. `bitween adapter init AcmeOrders --kind handler` (`--lang dotnet` is the default) writes one targeting .NET 10, declared with `[AdapterKind("handler")]` and `[AdapterContract("bitween", 1)]` and implementing `IBitweenHandler`.
+
+Adapters written before `SimplyWorks.Bitween.Adapters` existed use the `SimplyWorks.PrimitiveTypes` interfaces and keep working. This is the repository's sample handler, written that way.
 
 ```csharp
 using SW.PrimitiveTypes;
@@ -223,8 +341,8 @@ class Handler : IInfolinkHandler
 
 - Declare properties in the constructor with `Runner.Expect`. Overloads take a default value, whether the property is private, and a description.
 - Read values with `Runner.StartupValueOf(name)`.
-- A validator implements `IInfolinkValidator` and returns `new InfolinkValidatorResult(errors)`, where no errors means valid.
-- A receiver implements `IInfolinkReceiver`.
+- A validator implements `IBitweenValidator` and returns a `ValidationResult`, adding each failure with `AddError(code, message)`; no errors means valid. With `SimplyWorks.PrimitiveTypes` it implements `IInfolinkValidator` and returns `new InfolinkValidatorResult(errors)`.
+- A receiver implements `IBitweenReceiver`, or `IInfolinkReceiver`.
 - `Runner.CorrelationId` holds the exchange's correlation id. `AdapterLogger` forwards log lines to Bitween.
 
 | Sample project | Shows |
@@ -235,17 +353,323 @@ class Handler : IInfolinkHandler
 | `SW.Bitween.SampleConfigurableAdapter` | A test double that can delay, fail or return fixed data |
 | `SW.Bitween.SampleResidentHandler` | A handler built as a resident adapter |
 
-### Installing a custom adapter
+### Custom adapters in Python
 
-Custom adapter ids follow the pattern `infolink6.{kind}.{name}`, where kind is `handlers`, `receivers`, `mappers` or `validators`. The adapter picker lists packages stored under these keys.
+A custom adapter can also be written in Python 3.12 or later, with `sw-serverless` and the
+Bitween kinds in `simplyworks-bitween` (this repository's `sdk/python`). Subclass a kind and
+implement its methods; settings are declared with `sw.expect` as `Runner.Expect` declares them in
+.NET.
+
+```python
+import sw_serverless as sw
+from simplyworks_bitween import ExchangeFile, Handler
+
+
+class Orders(Handler):
+    def __init__(self):
+        sw.expect("Url", description="Where orders go")
+        sw.expect("ApiKey", secret=True)
+
+    def handle(self, file: ExchangeFile) -> ExchangeFile:
+        # A partner's rejection is returned with bad_data=True, not raised.
+        return ExchangeFile(data=file.data, filename=file.filename)
+
+
+if __name__ == "__main__":
+    sw.run(Orders)
+```
+
+| Kind | Implement |
+|---|---|
+| `Handler` | `handle(file)`, returning an `ExchangeFile` |
+| `Mapper` | `map(file)`, returning an `ExchangeFile` |
+| `Validator` | `validate(file)`, returning a `ValidationResult` |
+| `Receiver` | `list_files()`, `get_file(file_id)`, `delete_file(file_id)`, and optionally `initialize()` and `finalize()` |
+
+The [bitween CLI](cli.md) does the rest:
+
+```sh
+bitween adapter init AcmeOrders --lang python --kind handler
+cd AcmeOrders
+bitween adapter build                          # the package, with the SDKs and requirements.txt vendored
+bitween adapter test --settings settings.json  # the Bitween contract checks
+bitween login https://bitween.example.com      # once
+bitween adapter publish bin/serverless/acme.orders-0.1.0.zip
+```
+
+A Python adapter is published to its versions and the catalog only, never to
+`{Bitween:AdapterPath}/{id}`, so a host older than SW-Serverless 10.1 never sees it. An id that already
+has a .NET package there can't be reused for a Python or Node adapter. Bitween runs it with `python3`,
+which the Docker image includes (Ubuntu 24.04's Python 3.12). Requirements are vendored into the package
+with pip; one with native code is vendored for `linux-x64` and `linux-arm64` unless `adapter.json` lists
+other `platforms`.
+
+Python and Node adapters connect to Bitween over a Unix domain socket, so they run only on Linux and
+macOS hosts. They run through SW-Serverless's resident adapter host, which Bitween starts on every
+node, whether or not `Bitween:BusProvidersEnabled` is on.
+
+### Custom adapters in JavaScript or TypeScript
+
+The same, on Node 22 or later, with `@simplyworks/sw-serverless` and `@simplyworks/bitween`
+(`sdk/node`). Extend a kind and implement its methods, named as in Python but in camelCase:
+`handle`, `map`, `validate`, and `listFiles`, `getFile`, `deleteFile`.
+
+```ts
+import { expect, run, valueOf } from "@simplyworks/sw-serverless";
+import { ExchangeFile, Handler } from "@simplyworks/bitween";
+
+class Orders extends Handler {
+  constructor() {
+    super();
+    expect("Url", { description: "Where orders go" });
+  }
+
+  handle(file: ExchangeFile): ExchangeFile {
+    return new ExchangeFile({ data: file.data, filename: file.filename });
+  }
+}
+
+run(Orders);
+```
+
+`bitween adapter init AcmeOrders --lang typescript --kind handler` (or `--lang node` for JavaScript) starts
+one. `bitween adapter build` needs no TypeScript compiler: Node strips the types, so only syntax that
+strips cleanly is allowed - no enums, namespaces or parameter properties. Dependencies in `package.json`
+are installed into the package with npm; one with native code has to be built on the platform the adapter
+runs on. Bitween runs it with `node`, which the Docker image includes (the Node 22 binary, without npm).
+It runs on the same hosts and nodes as a Python adapter.
+
+### Publishing a custom adapter
+
+Build the adapter with `bitween adapter build`, then publish the package:
+
+```sh
+bitween login https://bitween.example.com
+bitween adapter publish bin/serverless/acme.orders-1.0.0.zip            # a new version, not current yet
+bitween adapter promote acme.orders 1.0.0                               # make it the one that runs
+bitween adapter versions acme.orders
+```
+
+Publishing through Bitween needs `adapter-source.operate`, so an author needs a Bitween account rather
+than the storage's keys, and every version is in the audit trail. Bitween checks the package's manifest
+and settles its version; it does not run the contract checks, so run `bitween adapter test` first. With
+`-p` and the storage flags, the CLI publishes straight to storage instead, as `sw-serverless publish`
+does - for CI that holds the keys.
+
+What is published, and where:
 
 ```
-{Bitween:AdapterPath}/infolink6.{kind}.{name}
-{Bitween:AdapterPath}/infolink6.{kind}.{name}/{major.minor.patch}
+{Bitween:AdapterPath}/{id}                       the current package, for hosts older than versions (.NET only)
+{Bitween:AdapterPath}-versions/{id}/{version}    every version
+{Bitween:AdapterPath}-catalog/{id}.json          versions, the current one, and each one's manifest
 ```
 
-A trailing semantic version segment is treated as a version of the adapter. A package is a zip of the published console application. The integration tests upload packages with `EntryAssembly` and `Hash` metadata for the serverless runner. How the runner chooses among versions is decided inside `SimplyWorks.Serverless` and is not visible in this repository.
+A version is published without being made current unless `--current` is given, so subscriptions keep
+running what they ran until it is promoted, or until a subscription pins it. Making an older version
+current again is how a release is rolled back. A withdrawn version stays listed but can't be pinned
+or made current; subscriptions already pinned to it keep running it.
+
+On the **Adapters** page, someone with `adapter-source.operate` can do the same from the browser:
+**Upload package** publishes a `.zip` built by `bitween adapter build` (any language, with the version
+taken from the package or bumped, and made current only when ticked), and each version that isn't
+current has **Make current** and **Withdraw**.
+
+The adapter's kinds come from its manifest - `bitween adapter build` writes them from what the code
+declares - so an adapter can be named anything. Packages published before manifests are found by the
+older convention, `infolink6.{kind}s.{name}`, and by the `Kind` metadata they were published with.
+
+An adapter in another runtime than .NET, and a .NET version published without being made current,
+has no package at `{Bitween:AdapterPath}/{id}`. The picker finds it in the catalog instead, under the
+kinds its manifest declares, while it has a version that has not been withdrawn.
+
+A manifest can name the oldest Bitween the adapter works with, in `compatibility.applications.bitween`
+(manifests written before SimplyWorks.Serverless 10.2 used `compatibility.minBitweenVersion`, which is
+still read). Saving a subscription that changes a stage to such an adapter, or pins such a version, on
+an older Bitween is refused with `ADAPTER_NEEDS_NEWER_BITWEEN`. A Bitween's own version is
+[`Bitween:Version`](configuration.md#bitween-section), shown under **Settings, About**.
 
 A custom adapter may run for `Bitween:ServerlessCommandTimeout` seconds, 300 by default.
+
+The **Adapters** page names what each custom adapter runs on (.NET, Python, Node.js or a native
+binary), from its current version's manifest, with a Runtime column in its Versions table and a runtime
+filter once more than one is in use. Beside a subscription's adapter, the runtime of the version it
+runs is named, and the version picker names each version's runtime when they differ, since pinning
+one can move a step to another runtime.
+
+### Installing from the marketplace
+
+The **Marketplace** tab on the **Adapters** page lists the connectors a Bitween Registry offers, and
+installs them. It is on by default, with Simplify9's registry and its signing keys, and reaches the
+registry only when someone opens the tab or installs, and once a day, when something was installed
+from it, to [check for updates and revocations](#updates-and-revocations). **Settings, Marketplace** turns it off, for a
+Bitween that must not reach the internet, or points it at another registry or a mirror: its **Registry
+address** and its **signing keys**, the registry's Ed25519 public keys, base64 or PEM, separated by commas
+or new lines.
+
+Browsing needs `subscriptions.view`; installing needs `adapter-source.operate`. Installing a version:
+
+1. reads it from the registry, and refuses one that isn't published there, one from a Community publisher
+   unless **Allow Community connectors** is on, a paid one without a [licence](#paid-connectors-and-licences)
+   (`REGISTRY_LICENCE`), and one that needs a newer Bitween (`ADAPTER_NEEDS_NEWER_BITWEEN`);
+2. refuses an id this Bitween already has from anywhere but a registry (`REGISTRY_ID_TAKEN`), so a
+   registry package never takes the place of an adapter published here, and a version it already has
+   (`REGISTRY_INSTALLED`);
+3. reads the registry's revocation list, which must be signed by a trusted key, and refuses a revoked
+   version (`REGISTRY_REVOKED`);
+4. downloads the package and checks that its SHA-256 is the one signed, that the registry's
+   countersignature verifies with one of the trusted keys, and that the publisher's signature verifies with
+   the key the registry vouched for (`REGISTRY_SIGNATURE`);
+5. publishes it as **Upload package** does, made current only when **Make it current** is ticked, and
+   records the registry in its catalog entry.
+
+Every check fails closed: a registry that can't be reached, or a list that doesn't verify, refuses the
+install. Once installed, a connector runs from this Bitween's own storage like any published adapter, and
+never needs the registry again; pinning, **Make current** and **Withdraw** work as for any other. Each
+install is in the audit trail as an `AdapterRelease` with the action `installed`.
+
+#### Installing from a bundle
+
+A Bitween that must not reach the internet installs from a bundle instead: the zip `bitween registry bundle`
+downloads on a machine that can, with the packages named, both signatures on each, the registry's keys, its
+revocation list and the licences the downloader is entitled to. **Install from bundle** on the Marketplace
+tab (`adapter-source.operate`) takes the zip, with the marketplace on or off, and runs every check above on
+each package against the signing keys in **Settings**, never the keys the bundle carries: published, allowed
+here, not revoked by the bundled list, the bytes those signed, both signatures. Licences in the bundle are
+kept, so a paid connector installs when one covers it. Each package is installed, skipped (already here) or
+refused on its own, and the answer says which and why; the catalog entry records the registry the bundle
+came from. The API is `POST /api/marketplace/bundle?current=true` with the zip as the body.
+
+A card says **Installed** when this Bitween has the registry's newest version, and **Update available**
+when it has an older one. Nothing is updated by itself. Besides the search and the publisher, the tab
+filters by type (connectors or kits), category, runtime and price.
+
+#### Paid connectors and licences
+
+Free connectors need nothing more than the above. A paid connector, marked so on its card, installs and
+runs only on a licence from the registry, and seeing a publisher's private connectors needs the same
+registration. Under **Settings, Marketplace**, **Register** takes a one-time registration code from
+Simplify9 (or from your customer page on the registry) and a name for this Bitween; the registry answers
+with an instance id and a token, kept as the settings **Registered as** and **Instance token** (a secret,
+so it needs `Bitween:SettingsEncryptionKey`). From then on every call to the registry carries the token.
+Clearing the two settings unregisters.
+
+A licence is a document the registry signs with the same keys that countersign packages: the customer,
+the instances it names (one, or any), the packages it covers (ids, or a namespace such as `s9.*`), when it
+starts and ends, and days of grace. Bitween fetches them at registration, with **Refresh**, and once a day
+with the update check, keeps the ones that verify with the trusted keys, drops and reports the rest, and
+stores them in its own database, so every node reads the same and nothing is asked of the registry when a
+connector runs. The panel lists each licence as **Live**, **In grace**, **Not yet** or **Expired**, and the
+Marketplace tab says the same on each paid card.
+
+Installing a paid connector fetches the licences first and refuses without one that is live or in grace.
+Running one checks the stored licences on every call, at no cost: a connector whose licence is past its
+grace fails with `ADAPTER_LICENCE_EXPIRED`, a failure the subscription's retry policy retries, so the calls
+go through once the licence is renewed. Nothing else on the instance is affected, and a free connector,
+or one not installed from the registry, is never asked.
+
+**Send usage reports**, off unless turned on, sends the registry once a day, with the update check, one
+line per connector installed from it: the package id and version, how many subscriptions name it, and
+yesterday's calls and failures from the adapter metrics. No payloads, no partner or subscription names,
+no hostnames. **Show yesterday's report** on the panel says exactly what would go before it is turned on,
+and **Send it now** sends it. The report is `/api/marketplace/usage` with `send` true or false
+(`settings.edit`); registering is `/api/marketplace/register`, the licences held are
+`/api/marketplace/licences` (`subscriptions.view`), and `/api/marketplace/refreshlicences` fetches them
+now (`adapter-source.operate`).
+
+A card marked **Kit** is connectors plus the configuration that makes them useful (see [Kits](cli.md#kits)).
+Opening it shows the kit's parameters as a form, with secrets as password fields and defaults filled in, and
+**Install as**, a name for a second installation of the same kit. **Show plan** says what it would make,
+changing nothing; **Install** then installs its connectors at the versions it names and applies its
+configuration. The kit's package is checked as a connector's is, every step above, before anything is read
+from it. It installs as you: Bitween runs the same planner as `bitween kit install` against its own API
+with your session, so it can make only what you could make yourself, and each change is in the audit
+trail under your name, with an `install-kit` operator action for the whole. Installing a kit as an adapter
+is refused (`REGISTRY_KIT`).
+
+#### Updates and revocations
+
+Once a day, on whichever node gets there first, Bitween asks the registry about every adapter installed
+from it: is there a newer version, with its release notes, and has an installed version been revoked.
+**Check now** on the **Installed** tab asks at once (`adapter-source.operate`). What it finds is kept in the
+database, so every node shows the same and the pages that show it never wait on the registry:
+
+- the **Installed** tab says when the registry was last asked and how many adapters have a newer or a
+  revoked version; a row shows **v1.2.0 available** and, when its current version is revoked, **Revoked**,
+  with the registry's reason on hover; its versions mark each revoked one and list the newer ones with
+  their notes;
+- a subscription whose receiver, validator, mapper or handler runs a revoked version, pinned or following
+  current, says so at the top of its page, with the reason.
+
+Revocations are read only from the registry's signed list, checked against the trusted keys as installing
+does. A list that doesn't verify, or a registry that can't be reached, changes nothing: the last good
+check's flags stay, and the tab says why the check didn't finish. A revoked version keeps running; what to
+do about it, pin another version or make one current, is yours to decide.
+
+The data source providers (Oracle, PostgreSQL, MySQL, SQL Server, RabbitMQ and Amazon SQS) are on the
+marketplace too, published by Simplify9 under their own ids, such as `bitween.db.oracle`, which data
+sources refer to. They are the one exception to `REGISTRY_ID_TAKEN`: one installed by hand from a CLI
+release was Simplify9's as well, so the registry's version upgrades it. `scripts/publish-providers-to-registry.sh`
+builds all six with a release's version and publishes them for review.
+
+Simplify9's own connectors, from the Bitween-Connectors repository, include:
+
+| Package | |
+|---|---|
+| `s9.openapi` | A handler that calls one operation of a REST API, found in its OpenAPI 3.0 or Swagger 2 description, checking the body against the operation's schema before sending. Bearer (a [connection](#connections) works), Basic, API key or OAuth2 client credentials. A `Retry-After` the API sends is [waited out](retries-and-alerts.md#when-an-adapter-says-when-to-try-again). |
+| `s9.openapi.receiver` | A receiver that takes records in from a list operation: every page (Link header, next address, cursor, page number or offset), each record one exchange, and only what changed since the last run, by a [bookmark](adapter-contract.md#receivers-that-keep-a-bookmark). |
+| `s9.soap` | A handler that calls a SOAP 1.1 or 1.2 web service, with HTTP Basic or a WS-Security UsernameToken. A Client or Sender fault is a bad response; a Server or Receiver fault fails the delivery, so a retry policy retries it. |
+| `s9.rebex.ftp.receiver`, `s9.rebex.ftp.upload`, `s9.rebex.pop3.receiver` | The [Rebex adapters](#moved-to-the-marketplace) that were built in. |
+
+And kits on those connectors: `s9.salesforce.contacts`, `s9.zoho.contacts` (any Zoho data centre) and
+`s9.servicenow.incidents`, each one job both ways between that system and yours.
+
+### Writing an adapter in Bitween
+
+Python, JavaScript and TypeScript adapters can be written in Bitween itself, without the CLI.
+
+- **New adapter** on the Adapters page starts one from the template `bitween adapter init` writes. **Edit** on a
+  published Python or Node version starts a draft from the source that version carries.
+- A draft is saved in Bitween's database. The editor shows its files; **Save and check** builds it on the
+  server and runs the Bitween contract checks `bitween adapter test` runs. **Try** calls a command with the
+  settings and input given. Settings typed in the editor are sent with each call and never stored.
+- **Publish** builds and checks it again and publishes a new version. A version published from the editor
+  is not current: subscriptions keep running what they ran until **Make current** is used, on the
+  editor's Publish tab or on any version in the Versions table, or until a subscription pins it.
+  Making an older version current is how a release is rolled back.
+
+By default the editor builds adapters that need only the SDK; one whose `requirements.txt` or
+`package.json` names other packages is refused, with the CLI as the way to build it. With
+`Bitween:AdapterEditorDependencies` on, the server fetches them from PyPI and npm, or from the mirrors
+`PIP_INDEX_URL` and `NPM_CONFIG_REGISTRY` name. Only plain names and versions are accepted: no URLs,
+paths, git sources or pip options, wheels only for Python, and no install scripts for Node, so nothing a
+package brings runs while it is built. A `package-lock.json` in the draft is ignored, since it can name
+any source.
+
+Building, checking and trying run the draft's code on the Bitween server, at most two at a time. Each
+call may take 30 seconds, and a run may use 256 MB and keep one core busy
+(`Bitween:AdapterEditorMemoryMb`, `Bitween:AdapterEditorCpuCores`); past either it is stopped and the
+editor says which limit it hit. A draft holds at most 200 files and 2 MB. Python and Node versions that
+carry their source can be opened in the editor; .NET versions are built with the CLI.
+
+Two members can have a draft open at once. A save made after someone else saved is refused, naming who
+and when, and the editor offers to load their version or to save over it.
+
+| Permission | Allows |
+|---|---|
+| `adapter-source.view` | Reading a published version's source and comparing versions |
+| `adapter-source.edit` | Drafts: starting, editing, deleting, checking and trying them |
+| `adapter-source.operate` | Publishing a version from a draft or as a package through the API (`bitween adapter publish`), making any published version current, and withdrawing one |
+
+All three are Administration permissions: administrators have them, and a custom role can be granted
+them. Drafts are in the audit trail, each save recorded by a hash of its files, and so is every version
+published, made current or withdrawn through Bitween (`AdapterRelease`).
+
+### Reading an adapter's source
+
+A package built with `bitween adapter build` (or SW-Serverless's `sw-serverless build`) carries the adapter's source under `source/`, and its manifest lists each file with its SHA-256. On the **Adapters** page, a version that carries source has a **View** link in the Versions table. It opens the version's files; **Compare with** shows which files another version added, removed or changed, and a diff of each.
+
+Each file is read from the package in storage and checked against the hash in its manifest. A file that does not match is not shown. A file larger than 1 MB, or that isn't UTF-8 text, is listed but its content is not shown. Versions published before packages carried source, or with `--no-source`, have no link.
+
+Reading source needs the `adapter-source.view` permission, which only administrators have unless a custom role grants it. Every file read is recorded in the audit trail.
 
 To write a native adapter instead, see [Development](development.md#adding-a-native-adapter).

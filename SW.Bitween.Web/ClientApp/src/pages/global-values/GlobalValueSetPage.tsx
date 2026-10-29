@@ -3,32 +3,36 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { api, referencesGlobal } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
-import { ConfirmDialog } from "../../components/ui/overlays";
-import { KeyValueEditor, toRecord, toRows, type KvRow } from "../../components/ui/KeyValueEditor";
+import { EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
+import { KeyValueEditor, type KvRow } from "../../components/ui/KeyValueEditor";
+import { toRecord, toRows } from "../../components/ui/keyValueRows";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
-import {
-  SUBSCRIPTION_TYPE_LABELS,
-  SubscriptionMiniList,
-  useSubscriptionsCache,
-} from "../../components/config/shared";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
+import { SubscriptionMiniList, TypeBadge } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
+import { usePageTitle } from "../../lib/pageTitle";
 
 export function GlobalValueSetPage() {
   const { id = "" } = useParams();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("global-values.edit");
+  const canDelete = useSessionCan("global-values.delete");
 
   const set = useQuery({
     queryKey: keys.valueSets.detail(id),
     queryFn: () => api.getValueSet(id),
     retry: false,
   });
+  usePageTitle(set.data?.name);
   const subscriptions = useSubscriptionsCache();
 
   const [name, setName] = useState("");
@@ -75,11 +79,15 @@ export function GlobalValueSetPage() {
     },
   });
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+
   if (set.isPending) return <LoadingBlock label="Loading value set…" />;
+  if (set.isError && !isNotFound(set.error))
+    return <LoadError error={set.error} what="this value set" onRetry={() => void set.refetch()} />;
   if (set.isError)
     return (
       <EmptyState title="This value set no longer exists">
-        <Link to="/global-values" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/global-values" className="font-medium link">
           Back to global values
         </Link>
       </EmptyState>
@@ -89,6 +97,7 @@ export function GlobalValueSetPage() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/global-values" label="Global values" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -100,11 +109,17 @@ export function GlobalValueSetPage() {
             </code>
           </h1>
         </div>
-        <Can permission="global-values.delete">
-          <Button variant="danger" onClick={() => setDeleting(true)}>
-            <Trash2 className="size-4" /> Delete
-          </Button>
-        </Can>
+        <MoreActionsMenu
+          actions={[
+            {
+              label: "Delete",
+              icon: <Trash2 className="size-4" />,
+              danger: true,
+              onSelect: () => setDeleting(true),
+              hidden: !canDelete,
+            },
+          ]}
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -132,7 +147,7 @@ export function GlobalValueSetPage() {
                 return (
                   <SubscriptionMiniList
                     items={users}
-                    emptyText="Not referenced by any subscription — safe to change or remove."
+                    emptyText="Not referenced by any subscription - safe to change or remove."
                   />
                 );
               }}
@@ -149,7 +164,7 @@ export function GlobalValueSetPage() {
               rows={s.usedBy}
               rowKey={(u) => u.subscriptionSetup.id}
               search={{ text: (u) => u.subscriptionSetup.name, noun: "subscriptions" }}
-              empty="Not referenced anywhere yet — safe to delete."
+              empty="Not referenced anywhere yet - safe to delete."
               columns={[
                 {
                   header: "Subscription",
@@ -157,7 +172,7 @@ export function GlobalValueSetPage() {
                   cell: (u) => (
                     <Link
                       to={`/subscriptions/${u.subscriptionSetup.id}`}
-                      className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                      className="block font-medium text-ink-800 hover:link"
                     >
                       {u.subscriptionSetup.name}
                     </Link>
@@ -165,7 +180,7 @@ export function GlobalValueSetPage() {
                 },
                 {
                   header: "Type",
-                  cell: (u) => <Badge>{SUBSCRIPTION_TYPE_LABELS[u.subscriptionSetup.type]}</Badge>,
+                  cell: (u) => <TypeBadge type={u.subscriptionSetup.type} />,
                 },
                 {
                   header: "References",
@@ -197,8 +212,10 @@ export function GlobalValueSetPage() {
       )}
 
       {deleting && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this value set?"
+          name={s.name}
+          blockers={[counted(s.usedBy.length, "subscription referencing it", "subscriptions referencing it")]}
           body={
             <>
               <strong className="font-medium text-ink-800">{s.name}</strong> and all its values will
@@ -209,7 +226,7 @@ export function GlobalValueSetPage() {
           onConfirm={async () => {
             await api.deleteValueSet(id);
             void queryClient.invalidateQueries({ queryKey: keys.valueSets.all });
-            navigate("/global-values", { replace: true });
+            leave(() => navigate("/global-values", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
         />

@@ -15,8 +15,8 @@ namespace SW.Bitween.Adapters.Db.PostgreSql;
 /// <summary>
 /// Bitween's PostgreSQL data source provider.
 ///
-/// Everything generic — the command surface, paging, the statement allow-list, the polling receiver
-/// — lives in <see cref="DbResidentAdapterBase"/>. What is here is the part that is genuinely
+/// Everything generic - the command surface, paging, the statement allow-list, the polling receiver
+/// - lives in <see cref="DbResidentAdapterBase"/>. What is here is the part that is genuinely
 /// PostgreSQL: the connection string, the system catalogs, and what a role is actually allowed to
 /// do.
 /// </summary>
@@ -103,7 +103,7 @@ public class PostgreSqlDbAdapter(IOptions<PostgreSqlOptions> options, ILogger<Po
         ProcedureOutParameters = true,
 
         // A PROCEDURE called with CALL cannot hand back a result set the way Oracle's REF CURSOR
-        // does. A set-returning FUNCTION can, and it is queried with SELECT — so it goes through
+        // does. A set-returning FUNCTION can, and it is queried with SELECT - so it goes through
         // Query, not Call. Stated false because that is the honest answer for Call.
         ProcedureResultSets = false,
         MultipleResultSets = true,
@@ -112,7 +112,7 @@ public class PostgreSqlDbAdapter(IOptions<PostgreSqlOptions> options, ILogger<Po
         Transactions = true,
         IsolationLevels = ["ReadCommitted", "RepeatableRead", "Serializable"],
 
-        // COPY exists and is excellent, but BulkLoad is not implemented for it yet — so this stays
+        // COPY exists and is excellent, but BulkLoad is not implemented for it yet - so this stays
         // false rather than advertising a path that would fall back to row-by-row inserts silently.
         BulkCopy = false,
         Merge = true,
@@ -131,8 +131,8 @@ public class PostgreSqlDbAdapter(IOptions<PostgreSqlOptions> options, ILogger<Po
     };
 
     /// <summary>
-    /// MERGE arrived in PostgreSQL 15. Claiming it against 13 or 14 — both still widely run, and
-    /// both supported until 2025 and 2026 — would have somebody write a statement the server
+    /// MERGE arrived in PostgreSQL 15. Claiming it against 13 or 14 - both still widely run, and
+    /// both supported until 2025 and 2026 - would have somebody write a statement the server
     /// cannot parse, and find out on the first message rather than here.
     /// </summary>
     protected override void AdjustForVersion(DbCapabilities described) => Narrow(described);
@@ -151,7 +151,7 @@ public class PostgreSqlDbAdapter(IOptions<PostgreSqlOptions> options, ILogger<Po
 
     /// <summary>
     /// What this ROLE may do, asked of the server rather than assumed. Role attributes and database
-    /// privileges are separate things in PostgreSQL and both matter — REPLICATION in particular,
+    /// privileges are separate things in PostgreSQL and both matter - REPLICATION in particular,
     /// because it is the gate on log-based CDC if that ever becomes a provider.
     /// </summary>
     protected override async Task<List<string>> ProbePrivilegesAsync(DbConnection connection,
@@ -186,7 +186,7 @@ public class PostgreSqlDbAdapter(IOptions<PostgreSqlOptions> options, ILogger<Po
         }
         catch (Exception ex)
         {
-            // A role that cannot read pg_roles is unusual but not broken — it just cannot tell us
+            // A role that cannot read pg_roles is unusual but not broken - it just cannot tell us
             // what it can do. Saying so beats failing the connection test over it.
             Logger.LogDebug(ex, "Could not read pg_roles.");
             privileges.Add($"(could not be read: {ex.Message})");
@@ -279,7 +279,7 @@ public class PostgreSqlDbAdapter(IOptions<PostgreSqlOptions> options, ILogger<Po
                     Comment = reader.IsDBNull(3) ? null : reader.GetString(3),
 
                     // reltuples, so it is as fresh as the last ANALYZE. It is -1 on a table that
-                    // has never been analysed, and that is UNKNOWN rather than empty — clamping it
+                    // has never been analysed, and that is UNKNOWN rather than empty - clamping it
                     // to zero said "no rows" about a table that may hold millions. Reported as an
                     // estimate everywhere it surfaces; the alternative is COUNT(*) on a stranger's
                     // table, which a menu should not do.
@@ -411,15 +411,15 @@ public class PostgreSqlDbAdapter(IOptions<PostgreSqlOptions> options, ILogger<Po
                 Comment = reader.IsDBNull(5) ? null : reader.GetString(5)
             };
 
-            // pg_get_function_arguments returns the signature as PostgreSQL would write it —
-            // "p_customer text, OUT total numeric" — which is both the authoritative answer and
+            // pg_get_function_arguments returns the signature as PostgreSQL would write it -
+            // "p_customer text, OUT total numeric" - which is both the authoritative answer and
             // already in the form somebody would type. Parsed rather than reassembled from
             // pg_proc's parallel arrays, which is where this goes wrong for defaults and variadics.
             foreach (var parsed in ParseArguments(reader.IsDBNull(3) ? "" : reader.GetString(3)))
                 routine.Parameters.Add(parsed);
 
             // A set-returning function is the PostgreSQL answer to Oracle's REF CURSOR, and it is
-            // queried with SELECT rather than CALL — worth saying so where a caller will see it.
+            // queried with SELECT rather than CALL - worth saying so where a caller will see it.
             var result = reader.IsDBNull(4) ? "" : reader.GetString(4);
             if (result.StartsWith("SETOF ", StringComparison.OrdinalIgnoreCase) ||
                 result.StartsWith("TABLE(", StringComparison.OrdinalIgnoreCase))
@@ -438,7 +438,7 @@ public class PostgreSqlDbAdapter(IOptions<PostgreSqlOptions> options, ILogger<Po
     }
 
     /// <summary>
-    /// Splits the signature PostgreSQL prints, at top-level commas only — a type like
+    /// Splits the signature PostgreSQL prints, at top-level commas only - a type like
     /// <c>numeric(10,2)</c> carries a comma of its own, and splitting on every one of them produces
     /// two nonsense arguments.
     /// </summary>
@@ -539,7 +539,7 @@ public class PostgreSqlDbAdapter(IOptions<PostgreSqlOptions> options, ILogger<Po
     }
 
     /// <summary>
-    /// What a value of this column arrives as in a result row. Coarse on purpose — it tells a mapper
+    /// What a value of this column arrives as in a result row. Coarse on purpose - it tells a mapper
     /// author whether to expect a string or a number, and is not trying to be a type system.
     /// </summary>
     static string ClrTypeOf(string dbType)

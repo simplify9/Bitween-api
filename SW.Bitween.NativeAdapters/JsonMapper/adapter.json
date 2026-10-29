@@ -1,0 +1,33 @@
+{
+  "manifestVersion": 1,
+  "id": "nativejsonmapper",
+  "displayName": "JSON mapper",
+  "summary": "Transforms JSON with a JSON mapping template.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "mapping",
+    "transform",
+    "json"
+  ],
+  "categories": [
+    "Transformation"
+  ],
+  "kinds": [
+    "mapper"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "ScribanTemplate",
+      "type": "text",
+      "required": true,
+      "default": "{}"
+    }
+  ]
+}

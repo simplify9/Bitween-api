@@ -8,7 +8,7 @@ namespace SW.Bitween.Services.Cluster;
 /// Exclusive ownership of one named resource across the cluster.
 ///
 /// Deliberately an abstraction over ONE implementation. The mechanism today is a RabbitMQ
-/// exclusive queue, because the internal bus is RabbitMQ everywhere Bitween runs — but the day
+/// exclusive queue, because the internal bus is RabbitMQ everywhere Bitween runs - but the day
 /// that stops being true, the supervisor should not have to change. What must not happen is two
 /// implementations maintained at once; the interface exists so the second can replace the first,
 /// not sit beside it.
@@ -33,8 +33,8 @@ public interface IResourceLease : IAsyncDisposable
     /// <summary>
     /// The fencing token: monotonic, and issued by the database rather than by the lock.
     ///
-    /// The lock alone is not enough. A node can be paused long enough — a stop-the-world GC, a
-    /// network partition that heals — for its exclusive queue to be released and claimed by
+    /// The lock alone is not enough. A node can be paused long enough - a stop-the-world GC, a
+    /// network partition that heals - for its exclusive queue to be released and claimed by
     /// another node while it still believes it holds ownership. RabbitMQ has no monotonic counter
     /// to detect that, so the database supplies one: acquiring bumps the term, and a holder whose
     /// term is no longer the current one has been superseded and must stop immediately.

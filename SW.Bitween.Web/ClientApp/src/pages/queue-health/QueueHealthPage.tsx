@@ -1,24 +1,29 @@
 import { useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, OctagonAlert, Trash2, Unplug } from "lucide-react";
+import { AlertTriangle, Eye, OctagonAlert, RotateCcw, Trash2, Unplug } from "lucide-react";
 import {
   api,
   type ConsumerHealth,
+  type DeadLetterRow,
   type QueueLane,
   type QueueSeverity,
   type UnattendedDeleteResult,
   type UnattendedQueue,
 } from "../../api";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
-import { queueHealthTitle } from "../../components/config/shared";
+import { Badge, Button, EmptyState, LoadingBlock, ProblemText } from "../../components/ui/basics";
+import { queueHealthTitle } from "../../components/config/subscriptionLabels";
 import { Panel } from "../../components/ui/Panel";
-import { ConfirmDialog } from "../../components/ui/overlays";
-import { useSessionCan } from "../../auth/guards";
+import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { timeAgo } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
 import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
+import { ExceptionBlock } from "../../components/ui/Exception";
+import { BackgroundWorkPanel } from "./BackgroundWork";
+import { CardList, type RowCardSpec } from "../../components/ui/RowCard";
+import { usePhone } from "../../lib/useMediaQuery";
 
 const POLL_MS = 5_000;
 
@@ -38,7 +43,7 @@ const LANES: Record<QueueLane, { label: string; blurb: string; role: string }> =
   },
   Work: {
     label: "Work",
-    blurb: "One per work group. This is where subscriptions actually run — filter, mapping, delivery.",
+    blurb: "One per work group. This is where subscriptions actually run - filter, mapping, delivery.",
     role: "runs the subscriptions in this group",
   },
   Notifications: {
@@ -59,8 +64,8 @@ const LANES: Record<QueueLane, { label: string; blurb: string; role: string }> =
 };
 
 /**
- * Ungrouped is a lane, not a group — the one every subscription without a work group
- * shares — so it doesn't get the group wording.
+ * Ungrouped is a lane, not a group - the one every subscription without a work group
+ * shares - so it doesn't get the group wording.
  */
 const roleOf = (c: ConsumerHealth): string => {
   if (c.title === "Ungrouped") {
@@ -84,6 +89,53 @@ function HealthBadge({ health }: { health: QueueSeverity }) {
   return <Badge tone="ok" title={queueHealthTitle("healthy")}>Healthy</Badge>;
 }
 
+function LaneName({ c }: { c: ConsumerHealth }) {
+  const to = linkFor(c);
+  return to !== null ? (
+    <Link to={to} className="font-medium text-ink-800 hover:link">
+      {c.title}
+    </Link>
+  ) : (
+    <span className="font-medium text-ink-800">{c.title}</span>
+  );
+}
+
+function LaneBadges({ c }: { c: ConsumerHealth }) {
+  return (
+    <>
+      <HealthBadge health={c.health} />
+      {c.isBackpressured && (
+        <Badge
+          tone="warn"
+          title="Queue depth has passed its configured threshold - messages are arriving faster than they're being consumed."
+        >
+          Backpressure
+        </Badge>
+      )}
+    </>
+  );
+}
+
+/**
+ * A lane as a card on a phone. Twelve columns at 390px squeezed every queue name one syllable
+ * to a line; a card gives the name the whole width and keeps the counts people check when paged:
+ * how much is waiting, running, retrying and dead.
+ */
+const laneCard = (c: ConsumerHealth): RowCardSpec => ({
+  title: <LaneName c={c} />,
+  status: <LaneBadges c={c} />,
+  subtitle: roleOf(c),
+  technical: c.queueName,
+  facts: [
+    { label: "Queued", value: c.queueCount },
+    { label: "In flight", value: c.processingCount },
+    { label: "Retrying", value: c.retryCount, tone: c.retryCount > 0 ? "warn" : undefined },
+    { label: "Dead", value: c.failedCount, tone: c.failedCount > 0 ? "danger" : undefined },
+    { label: "Nodes", value: c.totalNodes, tone: "muted" },
+    { label: "Prefetch", value: c.prefetch, tone: "muted" },
+  ],
+});
+
 function StatTile({ label, value, sub }: { label: string; value: ReactNode; sub?: ReactNode }) {
   return (
     <div className="rounded-xl border border-ink-200 bg-white px-4 py-3">
@@ -101,6 +153,7 @@ function StatTile({ label, value, sub }: { label: string; value: ReactNode; sub?
  */
 export function QueueHealthPage() {
   const rabbitMqConfigured = useRabbitMqManagementConfigured();
+  const phone = usePhone();
   const { data, isLoading, isError, dataUpdatedAt } = useQuery({
     queryKey: keys.queueHealth,
     queryFn: () => api.getQueueHealth(),
@@ -128,7 +181,7 @@ export function QueueHealthPage() {
     return (
       <EmptyState title="Couldn't load queue statistics">
         Something went wrong reaching the RabbitMQ management API. It'll keep retrying in the
-        background — try refreshing the page.
+        background - try refreshing the page.
       </EmptyState>
     );
 
@@ -138,7 +191,7 @@ export function QueueHealthPage() {
 
   // Same order inside every lane, so Work and Notifications line up row for row and
   // you can read one group's pair across the two sections. Anything that resolved to
-  // nothing sinks to the bottom of its lane — Ungrouped, and any unresolved name.
+  // nothing sinks to the bottom of its lane - Ungrouped, and any unresolved name.
   const sortsLast = (c: ConsumerHealth) => (c.workGroupId === null && c.informationTypeId === null ? 1 : 0);
   const byLane = new Map<QueueLane, ConsumerHealth[]>(
     LANE_ORDER.map((lane) => [
@@ -154,6 +207,31 @@ export function QueueHealthPage() {
       <PageHeader
         title="Queue health"
         description="Live throughput and backlog for every queue this instance consumes."
+        help={{
+          title: "What this page shows",
+          body: (
+            <>
+              <p>
+                Live figures from RabbitMQ, refreshed every few seconds. Queues are grouped into{" "}
+                <strong>lanes</strong> in the order a message travels: a <strong>front door</strong> per
+                information type on the bus turns arriving messages into exchanges, a{" "}
+                <strong>work</strong> lane per work group runs the subscriptions, and a{" "}
+                <strong>notifications</strong> lane per work group checks notifiers against the results.
+              </p>
+              <p>
+                <strong>Queued</strong> is waiting, <strong>In flight</strong> is being processed,{" "}
+                <strong>Retrying</strong> is waiting for another attempt, and <strong>Dead</strong> has used
+                up its retries. <strong>Backpressure</strong> means a queue's depth has passed its configured
+                threshold.
+              </p>
+              <p>
+                <strong>Nobody is reading these</strong>, when it appears, lists queues RabbitMQ still has
+                that nothing here consumes, such as ones left behind when a work group was deleted or
+                renamed. They show up nowhere else on the page.
+              </p>
+            </>
+          ),
+        }}
         actions={
           <span className="flex items-center gap-1.5 text-[13px] text-ink-500">
             <span className="inline-block size-1.5 animate-pulse rounded-full bg-ok-600" aria-hidden />
@@ -162,7 +240,7 @@ export function QueueHealthPage() {
         }
       />
 
-      {/* — summary — */}
+      {/* - summary - */}
       <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 xl:grid-cols-6">
         <StatTile
           label="Lanes"
@@ -186,7 +264,9 @@ export function QueueHealthPage() {
           value={summary.totalDeadLetterBacklog}
           sub={
             summary.totalDeadLetterBacklog > 0 ? (
-              <span className="font-medium text-danger-700">need attention</span>
+              <ProblemText plain className="font-medium">
+                need attention
+              </ProblemText>
             ) : (
               "empty"
             )
@@ -196,7 +276,7 @@ export function QueueHealthPage() {
         <StatTile label="Acknowledged" value={`${summary.totalAckRate}/s`} sub="across all queues" />
       </div>
 
-      {/* — active alerts — */}
+      {/* - active alerts - */}
       {alerts.length > 0 && (
         <div className="mb-4 space-y-1.5">
           {alerts.map((a) => (
@@ -214,23 +294,35 @@ export function QueueHealthPage() {
               <div className="min-w-0">
                 <p className="text-sm font-medium text-ink-900">{a.title}</p>
                 <p className="text-[13px] text-ink-600">{a.detail}</p>
-                <code className="font-mono text-[11px] text-ink-400">{a.queueName}</code>
+                <code className="font-mono text-[11px] text-ink-500">{a.queueName}</code>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {/* — lanes — */}
+      {/* - lanes - */}
       <Panel
         title="Lanes"
         description="Every queue this instance consumes, grouped by what it is for."
         className="mb-4"
       >
+        {phone ? (
+          <div className="-mx-1 space-y-3">
+            {LANE_ORDER.filter((lane) => byLane.get(lane)?.length).map((lane) => (
+              <section key={lane} aria-label={LANES[lane].label}>
+                <h3 className="rounded-md bg-ink-50/60 px-2 py-1.5 text-[11px] font-semibold tracking-wide text-ink-500 uppercase">
+                  {LANES[lane].label}
+                </h3>
+                <CardList bare rows={byLane.get(lane)!} rowKey={(c) => c.queueName} card={laneCard} />
+              </section>
+            ))}
+          </div>
+        ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                 <th className="py-2 pr-2">Lane</th>
                 <th className="px-2 py-2">Queue</th>
                 <th className="px-2 py-2 text-right">Nodes</th>
@@ -239,6 +331,9 @@ export function QueueHealthPage() {
                 <th className="px-2 py-2 text-right">Retrying</th>
                 <th className="px-2 py-2 text-right">Dead</th>
                 <th className="px-2 py-2 text-right">Prefetch</th>
+                <th className="px-2 py-2 text-right" title="Parallel exchanges: how many run at once on each node">
+                  Parallel
+                </th>
                 <th className="px-2 py-2 text-right">In/s</th>
                 <th className="px-2 py-2 text-right">Ack/s</th>
                 <th className="px-2 py-2">Health</th>
@@ -247,7 +342,7 @@ export function QueueHealthPage() {
             <tbody className="tabular-nums">
               {LANE_ORDER.filter((lane) => byLane.get(lane)?.length).flatMap((lane) => [
                 <tr key={`h-${lane}`} className="border-b border-ink-100 bg-ink-50/60">
-                  <td colSpan={11} className="px-2 py-1.5">
+                  <td colSpan={12} className="px-2 py-1.5">
                     <span className="text-[11px] font-semibold tracking-wide text-ink-500 uppercase">
                       {LANES[lane].label}
                     </span>
@@ -259,17 +354,8 @@ export function QueueHealthPage() {
                   // repeats across every work-group lane.
                   <tr key={c.queueName} className="border-b border-ink-50 last:border-0">
                     <td className="py-2 pr-2">
-                      {linkFor(c) !== null ? (
-                        <Link
-                          to={linkFor(c)!}
-                          className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
-                        >
-                          {c.title}
-                        </Link>
-                      ) : (
-                        <span className="font-medium text-ink-800">{c.title}</span>
-                      )}
-                      <span className="block text-xs text-ink-400">{roleOf(c)}</span>
+                      <LaneName c={c} />
+                      <span className="block text-xs text-ink-500">{roleOf(c)}</span>
                     </td>
                     <td className="px-2 py-2">
                       <code className="font-mono text-xs wrap-anywhere text-ink-500">{c.queueName}</code>
@@ -284,19 +370,12 @@ export function QueueHealthPage() {
                       {c.failedCount}
                     </td>
                     <td className="px-2 py-2 text-right text-ink-500">{c.prefetch}</td>
+                    <td className="px-2 py-2 text-right text-ink-500">{c.concurrency}</td>
                     <td className="px-2 py-2 text-right text-ink-700">{c.incomingRate}</td>
                     <td className="px-2 py-2 text-right text-ink-700">{c.ackRate}</td>
                     <td className="px-2 py-2">
                       <span className="inline-flex items-center gap-1">
-                        <HealthBadge health={c.health} />
-                        {c.isBackpressured && (
-                          <Badge
-                            tone="warn"
-                            title="Queue depth has passed its configured threshold — messages are arriving faster than they're being consumed."
-                          >
-                            Backpressure
-                          </Badge>
-                        )}
+                        <LaneBadges c={c} />
                       </span>
                     </td>
                   </tr>
@@ -305,12 +384,13 @@ export function QueueHealthPage() {
             </tbody>
           </table>
         </div>
+        )}
       </Panel>
 
-      {/* — queues nothing declares — */}
+      {/* - queues nothing declares - */}
       {unattended.length > 0 && <UnattendedPanel unattended={unattended} />}
 
-      {/* — backlogs — */}
+      {/* - backlogs - */}
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title="Retry backlog" description="Messages queued for another attempt.">
           {retryBacklog.length === 0 ? (
@@ -321,7 +401,7 @@ export function QueueHealthPage() {
                 <li key={r.queueName} className="flex items-center gap-2.5 text-sm">
                   <span className="min-w-0 flex-1">
                     <span className="font-medium text-ink-800">{r.title}</span>
-                    <code className="block truncate font-mono text-[11px] text-ink-400">{r.queueName}</code>
+                    <code className="block truncate font-mono text-[11px] text-ink-500">{r.queueName}</code>
                   </span>
                   <span className="text-xs text-ink-500">
                     in {r.incomingRate}/s · ack {r.ackRate}/s
@@ -339,26 +419,15 @@ export function QueueHealthPage() {
           ) : (
             <ul className="space-y-3">
               {deadLetters.map((d) => (
-                <li key={d.queueName} className="text-sm">
-                  <div className="flex items-center gap-2.5">
-                    <span className="min-w-0 flex-1">
-                      <span className="font-medium text-ink-800">{d.title}</span>
-                      <code className="block truncate font-mono text-[11px] text-ink-400">{d.queueName}</code>
-                    </span>
-                    {d.lastFailedAt && <span className="text-xs text-ink-400">{timeAgo(d.lastFailedAt)}</span>}
-                    <Badge tone="danger">{d.count} dead</Badge>
-                  </div>
-                  {d.lastExceptionMessage && (
-                    <p className="mt-1 rounded-md bg-danger-50 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed text-danger-800">
-                      {d.lastExceptionType && <span className="font-semibold">{d.lastExceptionType}: </span>}
-                      {d.lastExceptionMessage}
-                    </p>
-                  )}
-                </li>
+                <DeadLetterItem key={d.queueName} row={d} />
               ))}
             </ul>
           )}
         </Panel>
+      </div>
+
+      <div className="mt-5">
+        <BackgroundWorkPanel />
       </div>
     </div>
   );
@@ -439,7 +508,7 @@ function UnattendedPanel({ unattended }: { unattended: UnattendedQueue[] }) {
               <ul className="mt-1 space-y-0.5">
                 {outcome.skipped.map((s) => (
                   <li key={s.queueName}>
-                    <code className="font-mono text-xs">{s.queueName}</code> — {s.reason}
+                    <code className="font-mono text-xs">{s.queueName}</code> - {s.reason}
                   </li>
                 ))}
               </ul>
@@ -458,7 +527,7 @@ function UnattendedPanel({ unattended }: { unattended: UnattendedQueue[] }) {
             {selectedMessages > 0 && (
               <span className="text-warn-700">
                 {" "}
-                — holding {selectedMessages} {selectedMessages === 1 ? "message" : "messages"}
+                - holding {selectedMessages} {selectedMessages === 1 ? "message" : "messages"}
               </span>
             )}
           </span>
@@ -479,7 +548,7 @@ function UnattendedPanel({ unattended }: { unattended: UnattendedQueue[] }) {
       <div className="max-h-80 overflow-auto">
         <table className="w-full text-left text-sm">
           <thead className="sticky top-0 bg-white">
-            <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+            <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
               {canOperate && (
                 <th className="w-7 py-2">
                   <input
@@ -521,7 +590,7 @@ function UnattendedPanel({ unattended }: { unattended: UnattendedQueue[] }) {
                 )}
                 <td className="py-1.5 pr-3">
                   <code className="font-mono text-xs text-ink-600">{q.queueName}</code>
-                  {q.queues > 1 && <span className="ml-1.5 text-[11px] text-ink-400">+{q.queues - 1}</span>}
+                  {q.queues > 1 && <span className="ml-1.5 text-[11px] text-ink-500">+{q.queues - 1}</span>}
                   {q.consumers > 0 && (
                     <Badge
                       className="ml-2"
@@ -531,13 +600,13 @@ function UnattendedPanel({ unattended }: { unattended: UnattendedQueue[] }) {
                     </Badge>
                   )}
                 </td>
-                <td className={`px-2 py-1.5 text-right ${q.messages > 0 ? "font-medium text-warn-700" : "text-ink-400"}`}>
+                <td className={`px-2 py-1.5 text-right ${q.messages > 0 ? "font-medium text-warn-700" : "text-ink-500"}`}>
                   {q.messages}
                 </td>
-                <td className={`px-2 py-1.5 text-right ${q.retryMessages > 0 ? "font-medium text-warn-700" : "text-ink-400"}`}>
+                <td className={`px-2 py-1.5 text-right ${q.retryMessages > 0 ? "font-medium text-warn-700" : "text-ink-500"}`}>
                   {q.retryMessages}
                 </td>
-                <td className={`px-2 py-1.5 text-right ${q.deadMessages > 0 ? "font-medium text-danger-700" : "text-ink-400"}`}>
+                <td className={`px-2 py-1.5 text-right ${q.deadMessages > 0 ? "font-medium text-danger-700" : "text-ink-500"}`}>
                   {q.deadMessages}
                 </td>
               </tr>
@@ -564,10 +633,10 @@ function UnattendedPanel({ unattended }: { unattended: UnattendedQueue[] }) {
                 will be deleted from RabbitMQ.
               </p>
               {selectedMessages > 0 ? (
-                <p className="font-medium text-danger-700">
+                <ProblemText className="font-medium">
                   {selectedMessages === 1 ? "They still hold 1 message" : `They still hold ${selectedMessages} messages`} (
                   {messageBreakdown(totals)}), which will be deleted with them.
-                </p>
+                </ProblemText>
               ) : (
                 <p>{selected.length === 1 ? "They're empty." : "They're all empty."}</p>
               )}
@@ -583,5 +652,132 @@ function UnattendedPanel({ unattended }: { unattended: UnattendedQueue[] }) {
         />
       )}
     </Panel>
+  );
+}
+
+/**
+ * One consumer's dead letters: what the bus last failed on, what is sitting there, and sending it
+ * back to be tried again. Reading the messages takes the right to see exchanges as well, since the
+ * bodies are the messages themselves.
+ */
+function DeadLetterItem({ row: d }: { row: DeadLetterRow }) {
+  const queryClient = useQueryClient();
+  const canMonitor = useSessionCan("monitoring.view");
+  const canSeeExchanges = useSessionCan("exchanges.view");
+  const canBrowse = canMonitor && canSeeExchanges;
+  const canRequeue = useSessionCan("monitoring.operate");
+  const [browsing, setBrowsing] = useState(false);
+  const [requeueing, setRequeueing] = useState(false);
+  const [requeued, setRequeued] = useState<number | null>(null);
+
+  return (
+    <li className="text-sm">
+      <div className="flex items-center gap-2.5">
+        <span className="min-w-0 flex-1">
+          <span className="font-medium text-ink-800">{d.title}</span>
+          <code className="block truncate font-mono text-[11px] text-ink-500">{d.queueName}</code>
+        </span>
+        {d.lastFailedAt && <span className="text-xs text-ink-500">{timeAgo(d.lastFailedAt)}</span>}
+        <Badge tone="danger">{d.count} dead</Badge>
+      </div>
+      {d.lastExceptionMessage && (
+        <p className="mt-1 rounded-md bg-danger-50 px-2.5 py-1.5 font-mono text-[11px] leading-relaxed text-danger-800">
+          {d.lastExceptionType && <span className="font-semibold">{d.lastExceptionType}: </span>}
+          {d.lastExceptionMessage}
+        </p>
+      )}
+      {(canBrowse || canRequeue) && d.count > 0 && (
+        <div className="mt-1.5 flex items-center gap-2">
+          {canBrowse && (
+            <Button size="sm" onClick={() => setBrowsing(true)}>
+              <Eye className="size-3.5" /> Show messages
+            </Button>
+          )}
+          {canRequeue && (
+            <Button size="sm" onClick={() => setRequeueing(true)}>
+              <RotateCcw className="size-3.5" /> Send back
+            </Button>
+          )}
+          {requeued !== null && (
+            <span role="status" className="text-xs text-ink-600">
+              {requeued === 1 ? "1 message sent back." : `${requeued} messages sent back.`}
+            </span>
+          )}
+        </div>
+      )}
+
+      {browsing && <DeadLetterMessages row={d} onClose={() => setBrowsing(false)} />}
+      {requeueing && (
+        <ConfirmDialog
+          title={d.count === 1 ? "Send this message back?" : `Send ${d.count} messages back?`}
+          body={
+            <div className="space-y-2">
+              <p>
+                {d.count === 1 ? "It goes" : "They go"} back to{" "}
+                <span className="font-medium text-ink-900">{d.title}</span>, oldest first, and{" "}
+                {d.count === 1 ? "is" : "are"} tried again with a fresh set of retries.
+              </p>
+              <p>
+                If what made {d.count === 1 ? "it" : "them"} fail hasn't been fixed,{" "}
+                {d.count === 1 ? "it" : "they"} will end up here again.
+              </p>
+            </div>
+          }
+          confirmLabel="Send back"
+          confirmVariant="primary"
+          onConfirm={async () => {
+            setRequeued(await api.requeueDeadLetters(d.queueName));
+            await queryClient.invalidateQueries({ queryKey: keys.queueHealth });
+          }}
+          onClose={() => setRequeueing(false)}
+        />
+      )}
+    </li>
+  );
+}
+
+function DeadLetterMessages({ row, onClose }: { row: DeadLetterRow; onClose: () => void }) {
+  const messages = useQuery({
+    queryKey: [...keys.queueHealth, "dead-letters", row.queueName],
+    queryFn: () => api.browseDeadLetters(row.queueName),
+  });
+
+  return (
+    <Dialog title={`Dead letters - ${row.title}`} onClose={onClose} wide>
+      {messages.isPending ? (
+        <LoadingBlock label="Reading the queue…" />
+      ) : messages.isError ? (
+        <p role="alert">
+          <ProblemText>{messages.error.message}</ProblemText>
+        </p>
+      ) : messages.data.length === 0 ? (
+        <EmptyState title="Empty">Nothing is waiting in this queue now.</EmptyState>
+      ) : (
+        <div className="space-y-4">
+          <p className="text-[13px] text-ink-600">
+            The oldest {messages.data.length} of {row.count}, read without taking them off the queue.
+          </p>
+          <ol className="space-y-3">
+            {messages.data.map((m) => (
+              <li key={m.position} className="rounded-xl border border-ink-200 p-3">
+                <div className="mb-1.5 flex flex-wrap items-center gap-x-3 text-xs text-ink-500">
+                  <span className="font-medium text-ink-800">#{m.position}</span>
+                  {m.correlationId && <span>Correlation {m.correlationId}</span>}
+                </div>
+                {m.lastException && (
+                  <div className="mb-2">
+                    <ExceptionBlock text={m.lastException} title="Why it was dead-lettered" />
+                  </div>
+                )}
+                <pre className="max-h-64 overflow-auto rounded-md bg-ink-50 p-2.5 font-mono text-[11.5px] text-ink-800">
+                  {m.body}
+                </pre>
+                {m.bodyCut && <p className="mt-1 text-xs text-ink-500">Only the start of a long message is shown.</p>}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </Dialog>
   );
 }

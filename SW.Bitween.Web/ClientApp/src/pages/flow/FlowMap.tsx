@@ -82,7 +82,7 @@ export function FlowMap({ layout }: { layout: FlowLayout }) {
           return (
             <li key={e.id}>
               {from} {verb} {to}
-              {e.loop ? " — closing a loop" : ""}
+              {e.loop ? " - closing a loop" : ""}
             </li>
           );
         })}
@@ -103,18 +103,18 @@ function NodeCard({
 }) {
   const { label, icon: Icon } = KINDS[node.kind];
   const message = node.kind === "message";
-  // Everything the card had to truncate, in full — the code and the detail line
+  // Everything the card had to truncate, in full - the code and the detail line
   // are exactly what gets cut at 216px.
   const summary = [`${label}: ${node.title}`, node.code, node.detail].filter(Boolean).join(" · ");
-  // The loop icon and the warning dot are otherwise unexplained to a mouse user —
+  // The loop icon and the warning dot are otherwise unexplained to a mouse user -
   // only a screen reader gets their `aria-label`, since a card can be hovered
   // anywhere and this is the one title the browser will show either way.
   const extra = [
-    onLoop && "on a loop — a message from here eventually feeds back into itself",
+    onLoop && "on a loop - a message from here eventually feeds back into itself",
     node.warning,
   ]
     .filter(Boolean)
-    .join(" — ");
+    .join(" - ");
   const border = onLoop
     ? "border-danger-300 bg-danger-50"
     : node.warning
@@ -126,7 +126,7 @@ function NodeCard({
   return (
     <Link
       to={node.href}
-      title={extra ? `${summary} — ${extra}` : summary}
+      title={extra ? `${summary} - ${extra}` : summary}
       style={{ left: node.x, top: node.y, width: NODE_W, height: NODE_H }}
       className={`absolute flex flex-col justify-center overflow-hidden rounded-xl border px-3.5 py-3 shadow-sm transition-shadow hover:shadow-md ${border}`}
     >
@@ -138,7 +138,7 @@ function NodeCard({
         >
           <Icon className="size-3.5" aria-hidden />
         </span>
-        <span className="min-w-0 flex-1 truncate text-[10px] font-semibold tracking-wide text-ink-400 uppercase">
+        <span className="min-w-0 flex-1 truncate text-[10px] font-semibold tracking-wide text-ink-500 uppercase">
           {label}
         </span>
         {onLoop ? (
@@ -149,10 +149,10 @@ function NodeCard({
       </div>
 
       <p className="mt-2 truncate text-[14px] font-semibold text-ink-800">{node.title}</p>
-      <p className="mt-0.5 truncate text-[11px] text-ink-400">
+      <p className="mt-0.5 truncate text-[11px] text-ink-500">
         {node.code && <code className="font-mono">{node.code}</code>}
         {node.code && node.detail && " · "}
-        {/* A message with no publisher isn't broken — most traffic starts outside. */}
+        {/* A message with no publisher isn't broken - most traffic starts outside. */}
         {message && entryPoint ? "published from outside" : node.detail}
       </p>
     </Link>

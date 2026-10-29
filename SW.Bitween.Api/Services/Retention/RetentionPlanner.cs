@@ -11,7 +11,7 @@ using SW.Bitween.Model;
 namespace SW.Bitween;
 
 /// <summary>
-/// Works out what the retention settings do — as they stand, or as someone is about to change them — so
+/// Works out what the retention settings do - as they stand, or as someone is about to change them - so
 /// the settings page can say it before anything is saved: how long files and exchanges are kept, what
 /// the next run removes, and which exchanges are left without their files.
 /// </summary>

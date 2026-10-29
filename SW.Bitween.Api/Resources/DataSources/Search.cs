@@ -50,7 +50,7 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext) :
         query = query.AsNoTracking();
 
         // Properties are deliberately absent from the list: it is a table of connections, and
-        // sending every credential — even masked — to render a row is not worth the exposure.
+        // sending every credential - even masked - to render a row is not worth the exposure.
 
         if (lookup)
             return await query.Search(searchyRequest.Conditions)

@@ -75,6 +75,10 @@ public class RetryPolicyEvaluator(IRetryPolicy policy, IRetryGroupBudget groupBu
         if (budget.MaxAttemptsTotal is { } maxAttemptsTotal)
         {
             var claim = await groupBudget.TryConsume(group.Id, maxAttemptsTotal);
+            if (!claim.Granted && budget.WhenExhausted == RetryExhaustedAction.Hold)
+                return RetryDecision.Hold(
+                    $"Group total cap reached ({maxAttemptsTotal}) for group '{group.Name}'; held until " +
+                    "the subscription next succeeds", group, claim.JustExhausted);
             if (!claim.Granted)
                 return RetryDecision.Block(
                     $"Group total cap reached ({maxAttemptsTotal}) for group '{group.Name}'", group,
@@ -119,13 +123,13 @@ public class RetryDecision
 
     /// <summary>
     /// The group that matched this failure, or <c>null</c> when none did. Set on blocked
-    /// decisions too — internal callers (attempt tracking, exhaustion alerts) need to know which
+    /// decisions too - internal callers (attempt tracking, exhaustion alerts) need to know which
     /// group refused a failure, not only which group allowed one.
     /// </summary>
     public RetryGroup? MatchedGroup { get; private init; }
 
     /// <summary>
-    /// Name of the <see cref="RetryGroup"/> that allowed a retry, or <c>null</c> when blocked —
+    /// Name of the <see cref="RetryGroup"/> that allowed a retry, or <c>null</c> when blocked -
     /// including when a group matched but refused. A refusal by a matched group and a failure no
     /// group was ever configured to catch should look the same to a caller that only cares whether
     /// something is retrying, which is what <see cref="MatchedGroup"/> is for instead.
@@ -139,7 +143,22 @@ public class RetryDecision
     /// </summary>
     public bool BudgetJustExhausted { get; private init; }
 
-    /// <summary>Creates an Allow decision — a retry will be scheduled after <paramref name="delay"/>.</summary>
+    /// <summary>
+    /// <c>true</c> when the failure is kept to be retried once the group's spent total is lifted,
+    /// rather than dropped. <see cref="ShouldRetry"/> is <c>false</c>: nothing is scheduled to run.
+    /// </summary>
+    public bool Held { get; private init; }
+
+    /// <summary>Creates a Hold decision - the failure waits for the group's total to be lifted.</summary>
+    public static RetryDecision Hold(string reason, RetryGroup group, bool budgetJustExhausted) => new()
+    {
+        Held = true,
+        Reason = reason,
+        MatchedGroup = group,
+        BudgetJustExhausted = budgetJustExhausted
+    };
+
+    /// <summary>Creates an Allow decision - a retry will be scheduled after <paramref name="delay"/>.</summary>
     public static RetryDecision Allow(TimeSpan delay, RetryGroup group) => new()
     {
         ShouldRetry = true,
@@ -148,7 +167,7 @@ public class RetryDecision
         Reason = $"Allowed by group '{group.Name}'"
     };
 
-    /// <summary>Creates a Block decision — no retry will be scheduled.</summary>
+    /// <summary>Creates a Block decision - no retry will be scheduled.</summary>
     public static RetryDecision Block(string reason, RetryGroup? group = null,
         bool budgetJustExhausted = false) => new()
     {

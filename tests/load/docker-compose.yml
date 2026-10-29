@@ -1,0 +1,169 @@
+# Load-test stack for Bitween: one Bitween node built from this repository, PostgreSQL 16 with
+# pg_stat_statements, RabbitMQ, S3-compatible storage (SeaweedFS) and a partner endpoint that
+# answers at once. k6 runs on the same network (profile "k6"), so nothing is installed locally.
+#
+#   docker compose up -d --build        start the stack
+#   ./run.sh                            start, seed, load, report (see README.md)
+#   docker compose down -v              stop and forget everything
+#
+# Every secret here is a throwaway value for a local, disposable stack.
+
+name: bitween-load
+
+x-bitween-password: &admin-password "LoadTest-Admin-2026!"
+
+services:
+  postgres:
+    image: postgres:16.6
+    environment:
+      POSTGRES_DB: bitween
+      POSTGRES_USER: bitween
+      POSTGRES_PASSWORD: bitween
+    command:
+      - postgres
+      - -c
+      - shared_preload_libraries=pg_stat_statements
+      - -c
+      - pg_stat_statements.track=all
+      - -c
+      - pg_stat_statements.max=10000
+      - -c
+      - track_io_timing=on
+      - -c
+      - max_connections=300
+    healthcheck:
+      # Over TCP: during init the image runs a server on the unix socket only, then restarts it.
+      test: ["CMD-SHELL", "pg_isready -q -h 127.0.0.1 -U bitween -d bitween"]
+      interval: 2s
+      timeout: 3s
+      retries: 60
+
+  rabbitmq:
+    image: rabbitmq:3.13.7-management
+    healthcheck:
+      # A plain TCP check. rabbitmq-diagnostics runs as root and, when it wins the race at first
+      # start, creates the Erlang cookie the broker then cannot read (".erlang.cookie: eacces").
+      test: ["CMD", "bash", "-c", "exec 3<>/dev/tcp/127.0.0.1/5672"]
+      interval: 3s
+      timeout: 10s
+      retries: 60
+
+  # S3-compatible storage. MinIO no longer publishes images to Docker Hub, so SeaweedFS stands in.
+  # Bitween creates its bucket itself at startup.
+  s3:
+    image: chrislusf/seaweedfs:3.80
+    # The metrics port gives run.sh the S3 requests per exchange (SeaweedFS_s3_request_total).
+    command: server -dir=/data -s3 -s3.port=8333 -s3.config=/etc/seaweedfs/s3.json -master.volumeSizeLimitMB=256 -volume.max=0 -metricsPort=9324
+    volumes:
+      - ./s3.json:/etc/seaweedfs/s3.json:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8333/status || wget -q -S -O /dev/null http://127.0.0.1:8333/ 2>&1 | grep -q 'HTTP/'"]
+      interval: 3s
+      timeout: 5s
+      retries: 60
+
+  # What the subscription's HTTP handler delivers to.
+  partner:
+    image: nginx:1.27.4-alpine
+    volumes:
+      - ./partner.nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+  # The same partner after a fixed delay (PARTNER_DELAY_MS, default 100), for a run that measures
+  # a sync call against a partner that takes a known time. run.sh points the seed at it when
+  # PARTNER_DELAY_MS is set.
+  slow-partner:
+    image: python:3.12.8-alpine
+    command: ["python3", "-u", "/partner.py"]
+    environment:
+      PARTNER_DELAY_MS: "${PARTNER_DELAY_MS:-100}"
+    volumes:
+      - ./partner.py:/partner.py:ro
+
+  bitween:
+    build:
+      context: ../..
+      # The repository's own Dockerfile. run.sh points this at a copy in .build/ only when the
+      # checkout has a NuGet.config (the repository has none; a developer may keep one naming
+      # local package folders, which do not exist inside the build), so the copy can carry an
+      # ignore file that leaves it out.
+      dockerfile: ${BITWEEN_DOCKERFILE:-Dockerfile}
+    # BITWEEN_IMAGE runs an image built elsewhere, such as a commit to compare against (NO_BUILD=1).
+    image: ${BITWEEN_IMAGE:-bitween-load:local}
+    depends_on:
+      postgres: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+      s3: { condition: service_healthy }
+      partner: { condition: service_started }
+      slow-partner: { condition: service_started }
+    ports:
+      - "${BITWEEN_PORT:-8090}:8080"
+    environment:
+      Bitween__DatabaseType: PgSql
+      ConnectionStrings__BitweenDb: "Host=postgres;Port=5432;Database=bitween;Username=bitween;Password=bitween;Maximum Pool Size=100"
+      ConnectionStrings__RabbitMQ: "amqp://guest:guest@rabbitmq:5672/"
+      Bitween__RabbitMqManagementUrl: "http://rabbitmq:15672"
+      Bitween__RabbitMqManagementUsername: guest
+      Bitween__RabbitMqManagementPassword: guest
+      Bitween__StorageProvider: S3
+      CloudFiles__ServiceUrl: "http://s3:8333"
+      CloudFiles__AccessKeyId: loadtest
+      CloudFiles__SecretAccessKey: loadtest-secret-key
+      CloudFiles__BucketName: bitween-load
+      CloudFiles__Region: us-east-1
+      Token__Key: "load-test-signing-key-0123456789abcdefghijklmnopqrstuvwxyz"
+      Token__Issuer: bitween-load
+      Token__Audience: bitween-load
+      Bitween__SettingsEncryptionKey: "load-test-settings-encryption-key-0123456789"
+      Bitween__InitialAdminPassword: *admin-password
+      # The production limits are per client address; k6 is one address sending hundreds a minute.
+      Bitween__RateLimits__RequestsPerMinute: "10000000"
+      Bitween__RateLimits__SignInPerMinute: "1000"
+      # No calls out to the public adapter registry from a load test.
+      Bitween__RegistryEnabled: "false"
+      # Finding 6's switches, on unless set; a build without them ignores them.
+      Bitween__SharedPayloadParse: "${SHARED_PAYLOAD_PARSE:-true}"
+      Bitween__CacheCompiledTemplates: "${CACHE_COMPILED_TEMPLATES:-true}"
+      # METRICS=1 points these at the collector, for CPU and allocated bytes per exchange. Empty, as
+      # by default, Bitween exports nothing.
+      OTEL_EXPORTER_OTLP_ENDPOINT: "${OTEL_ENDPOINT:-}"
+      OTEL_METRIC_EXPORT_INTERVAL: "1000"
+    healthcheck:
+      # The image has python3 (for adapters) but no curl.
+      test: ["CMD", "python3", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health/ready', timeout=4).status == 200 else 1)"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+      start_period: 20s
+
+  # Bitween's runtime counters (CPU time, bytes allocated), received over OTLP and served for
+  # Prometheus on the host's port 8889. Started by run.sh only with METRICS=1 (profile "metrics").
+  # The counters it serves are the runtime's own (the System.Runtime meter).
+  otel:
+    image: ${OTEL_COLLECTOR_IMAGE:-otel/opentelemetry-collector-contrib:0.162.0}
+    profiles: ["metrics"]
+    command: ["--config=/etc/otel.yaml"]
+    volumes:
+      - ./otel-collector.yaml:/etc/otel.yaml:ro
+    ports:
+      - "${OTEL_PROMETHEUS_PORT:-8889}:8889"
+
+  # The load generator. Not started by "up"; run.sh starts it with "docker compose run".
+  k6:
+    image: grafana/k6:0.57.0
+    profiles: ["k6"]
+    depends_on:
+      bitween: { condition: service_healthy }
+    volumes:
+      - ./:/scripts
+    working_dir: /scripts
+    environment:
+      BITWEEN_URL: "http://bitween:8080"
+      # Go collects k6's garbage before its heap passes this, rather than when it has doubled: with
+      # 1 MB orders and calls queueing, each virtual user leaves a body behind per call, and k6
+      # outgrew an 8 GB VM long before Bitween did.
+      GOMEMLIMIT: "${K6_GOMEMLIMIT:-1536MiB}"
+      PARTNER_URL: "${PARTNER_URL:-http://partner:8080/orders}"
+      PAYLOAD_KB: "${PAYLOAD_KB:-}"
+      MAPPER: "${MAPPER:-}"
+      ADMIN_EMAIL: admin@Bitween.systems
+      ADMIN_PASSWORD: *admin-password

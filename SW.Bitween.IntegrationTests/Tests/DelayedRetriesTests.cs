@@ -137,7 +137,7 @@ public class DelayedRetriesTests(BitweenFixture fixture)
         var ctx = scope.Superuser();
         var (_, _, xchange) = await CreateSubscriptionWithXchange(db, xs, "Run Now Doc");
 
-        // Scheduled an hour from now — RunNow must still execute it immediately.
+        // Scheduled an hour from now - RunNow must still execute it immediately.
         db.Set<DelayedRetry>().Add(new DelayedRetry { Id = xchange.Id, On = DateTime.UtcNow.AddHours(1) });
         await db.SaveChangesAsync();
 

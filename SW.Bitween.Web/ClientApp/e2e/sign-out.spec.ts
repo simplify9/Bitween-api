@@ -4,12 +4,12 @@ import { ADMIN_EMAIL, ADMIN_PASSWORD } from "./helpers";
 /**
  * Signing out, in the one way that needs a real browser: two tabs.
  *
- * The session lives in four places — a row in the database, the HttpOnly refresh
- * cookie, the Jwt in localStorage, and React's own copy. Only the last one decides
+ * The session lives in four places - a row in the database, the HttpOnly refresh
+ * cookie, each tab's in-memory Jwt, and React's own copy. Only the last one decides
  * what you see, and each tab has its own. The other ways a sign-out used to leave
  * the app on screen are in src/auth/__tests__/SignOut.test.tsx; this one depends on
- * the browser delivering a `storage` event from one tab to another, which jsdom
- * cannot do.
+ * the browser delivering a BroadcastChannel message from one tab to another, which
+ * jsdom cannot do.
  */
 
 const submitCredentials = async (page: Page) => {
@@ -35,13 +35,13 @@ const shell = (page: Page) => page.getByRole("button", { name: "Account menu" })
 test("signing out in one tab ends the session in the other", async ({ page, context }) => {
   await signIn(page);
   const other = await context.newPage();
-  await other.goto("https://localhost:7155/partners");
+  await other.goto("partners");
   await other.waitForTimeout(2000);
   expect(await shell(other).count()).toBe(1);
 
   await signOut(page);
   await page.waitForURL(/\/login/, { timeout: 5000 });
   // Both credentials are shared by every tab, so the session really has ended here
-  // too — this tab just never used to find out until someone pressed refresh.
+  // too - this tab just never used to find out until someone pressed refresh.
   await other.waitForURL(/\/login/, { timeout: 8000 });
 });

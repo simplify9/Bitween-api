@@ -36,8 +36,8 @@ public class TeamGuardTests(BitweenFixture fixture)
 
     /// <summary>
     /// The collection shares one database, and other tests leave administrators in it. So the
-    /// "only administrator" state is made inside a transaction — everyone else disabled, which the
-    /// guard doesn't count — and rolled back afterwards, so no other test ever sees it.
+    /// "only administrator" state is made inside a transaction - everyone else disabled, which the
+    /// guard doesn't count - and rolled back afterwards, so no other test ever sees it.
     /// </summary>
     [Fact]
     public async Task The_last_administrator_cannot_lose_the_role_be_disabled_or_be_removed()

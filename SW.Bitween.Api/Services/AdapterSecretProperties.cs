@@ -8,14 +8,14 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween;
 
 /// <summary>
-/// Keeps adapter secrets — an api key, a mail password — out of responses, and puts them back when
+/// Keeps adapter secrets - an api key, a mail password - out of responses, and puts them back when
 /// an unchanged one is saved again.
 /// </summary>
 /// <remarks>
 /// <para>
 /// An adapter marks a startup value <c>[Secure]</c>, which is what <see cref="StartupValue.Private"/>
 /// reports. <see cref="Mask"/> replaces those values with <see cref="Sentinel"/> on the way out, and
-/// <see cref="Merge"/> reads the sentinel on the way back in as "keep what is stored" — so a form
+/// <see cref="Merge"/> reads the sentinel on the way back in as "keep what is stored" - so a form
 /// that only changed the subject line does not overwrite the password with a row of dots.
 /// </para>
 /// <para>
@@ -55,8 +55,13 @@ public class AdapterSecretProperties(AdapterStartupValues startupValues)
             return properties.ToDictionary(kv => kv.Key, _ => Sentinel);
         }
 
+        // Adapters read their settings ignoring case, so a secret saved as "password" is still the
+        // adapter's Password, and has to be hidden like it.
+        var byName = new Dictionary<string, StartupValue>(StringComparer.OrdinalIgnoreCase);
+        foreach (var (name, value) in described) byName.TryAdd(name, value);
+
         return properties.ToDictionary(kv => kv.Key, kv =>
-            described.TryGetValue(kv.Key, out var startupValue)
+            byName.TryGetValue(kv.Key, out var startupValue)
             && startupValue.Private
             && !string.IsNullOrEmpty(kv.Value)
                 ? Sentinel
@@ -68,7 +73,7 @@ public class AdapterSecretProperties(AdapterStartupValues startupValues)
     /// secrets nobody can ask an adapter about.
     /// </summary>
     /// <remarks>
-    /// A partner property or a global value is not a startup value of any one adapter — it is
+    /// A partner property or a global value is not a startup value of any one adapter - it is
     /// referenced as <c>{{partner.KEY}}</c> by however many adapters point at it, so there is no
     /// single adapter to describe. The owner names its own secrets instead, exactly as a data
     /// source does. Unlike <c>DataSources.Secrets</c> this does not also guess from the key's name:
@@ -112,10 +117,62 @@ public class AdapterSecretProperties(AdapterStartupValues startupValues)
     }
 
     /// <summary>
+    /// Whether a sentinel may still mean "keep what is stored". Not once the adapter is a different
+    /// one, or a property saying where it connects has changed: a secret kept across that goes to
+    /// wherever the editor pointed it - their own server, say - without their ever having seen it.
+    /// Re-entering it then proves they know it.
+    /// </summary>
+    public static bool MayKeepStoredSecrets(string storedAdapterId, string newAdapterId,
+        IReadOnlyDictionary<string, string> stored, IEnumerable<KeyValuePair<string, string>> incoming)
+    {
+        if (!string.Equals(storedAdapterId ?? "", newAdapterId ?? "", StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var before = stored ?? new Dictionary<string, string>();
+        // The same name twice in different case: the check below would see only one of them, and
+        // the adapter, which reads names ignoring case, could connect with the other. "host" set to
+        // a new server beside "Host" sent as the sentinel would carry the stored password there.
+        var named = (incoming ?? []).Where(kv => kv.Key != null).ToList();
+        if (named.Select(kv => kv.Key).Distinct(StringComparer.OrdinalIgnoreCase).Count() != named.Count)
+            return false;
+
+        var after = named
+            .GroupBy(kv => kv.Key, StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.Last().Value, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var key in before.Keys.Concat(after.Keys).Where(IsDestination).Distinct(StringComparer.OrdinalIgnoreCase))
+        {
+            before.TryGetValue(key, out var was);
+            after.TryGetValue(key, out var now);
+            if (now == Sentinel) continue;
+            if (!string.Equals(was ?? "", now ?? "", StringComparison.Ordinal)) return false;
+        }
+
+        return true;
+    }
+
+    private static readonly string[] DestinationWords =
+        ["url", "uri", "host", "server", "endpoint", "address", "domain", "port", "connectionstring"];
+
+    /// <summary>A property that says where an adapter connects, judged by its name.</summary>
+    public static bool IsDestination(string key) =>
+        key != null && DestinationWords.Any(w => key.Replace("_", "").Replace("-", "")
+            .Contains(w, StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>
+    /// <see cref="Merge(IReadOnlyDictionary{string,string},IReadOnlyDictionary{string,string})"/>,
+    /// except that when <paramref name="keepStored"/> is false a sentinel restores nothing - the
+    /// secret has to be entered again.
+    /// </summary>
+    public static Dictionary<string, string> Merge(IReadOnlyDictionary<string, string> stored,
+        IReadOnlyDictionary<string, string> incoming, bool keepStored) =>
+        Merge(keepStored ? stored : null, incoming);
+
+    /// <summary>
     /// <see cref="Mask"/> applied to the dictionary the caller already holds.
     /// </summary>
     /// <remarks>
-    /// <see cref="RetryGroup"/> is an immutable value object — every property is <c>init</c> — so a
+    /// <see cref="RetryGroup"/> is an immutable value object - every property is <c>init</c> - so a
     /// group's properties cannot be swapped for a masked copy. Editing the dictionary in place is
     /// the way to reach them without either loosening that contract or rebuilding each group
     /// property by property, which would silently drop whatever property is added to it next.

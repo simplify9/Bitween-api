@@ -1,0 +1,1 @@
+{"id":"N-1","order":{"lines":[{"sku":"S1","qty":2,"price":1.10,"tags":["a","b"],"meta":{"x":true,"y":null}},{"sku":"S2","qty":0,"price":0}],"customer":{"name":"Acme Retail","address":{"city":"Riyadh"}}},"matrix":[[1,2],[3,[4,5]]],"flag":false}

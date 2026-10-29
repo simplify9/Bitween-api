@@ -14,7 +14,7 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// A promoted value far longer than anything meant to be promoted — a path that picked up a notes
+/// A promoted value far longer than anything meant to be promoted - a path that picked up a notes
 /// field, say. Its save used to fail after the delivery, so the bus retried the exchange and
 /// delivered it again, and the exchange never got a result.
 /// </summary>

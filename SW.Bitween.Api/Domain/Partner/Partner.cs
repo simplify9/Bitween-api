@@ -36,7 +36,7 @@ namespace SW.Bitween.Domain
         /// Names within <see cref="AdapterProperties"/> whose values are never returned by the API
         /// in clear. Opt-in and freely reversible: a partner property is ordinary text until
         /// someone marks it, which is why the list lives here rather than being inferred from the
-        /// key's name — inferring would have hidden values that were readable yesterday.
+        /// key's name - inferring would have hidden values that were readable yesterday.
         /// </summary>
         public List<string> SecretProperties { get; set; } = new();
 

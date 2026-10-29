@@ -37,7 +37,7 @@ namespace SW.Bitween.Resources.ApiGateways
 
             if (model.NewIntegration != null)
             {
-                // Staged, not saved — the attachment takes its foreign key from the subscription EF
+                // Staged, not saved - the attachment takes its foreign key from the subscription EF
                 // is tracking, so the pair lands on the one SaveChangesAsync below or not at all.
                 // Nothing to check for a duplicate against: an integration that does not exist yet
                 // cannot already be attached.
@@ -74,7 +74,7 @@ namespace SW.Bitween.Resources.ApiGateways
             dbContext.Add(partnerLink);
             await dbContext.SaveChangesAsync();
             // Attaching an existing integration changes nothing the cache holds, but staging a new
-            // one above creates a Subscription — and unconditional is what AddRoute does.
+            // one above creates a Subscription - and unconditional is what AddRoute does.
             await cache.BroadcastRevoke();
 
             return null;

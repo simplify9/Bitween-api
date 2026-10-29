@@ -3,20 +3,19 @@ import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { api } from "../../api";
-import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
 import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { Panel } from "../../components/ui/Panel";
-import {
-  AdapterConfig,
-  useAdapterCatalog,
-} from "../../components/config/AdapterConfig";
+import { AdapterConfig } from "../../components/config/AdapterConfig";
+import { useAdapterCatalog } from "../../components/config/adapterCatalog";
 import { InfoTypePicker } from "../../components/config/pickers";
 import { DataSourceBinding } from "../subscriptions/studio/DataSourceBinding";
 import { LaneAndRetry } from "../subscriptions/studio/LaneAndRetry";
 import { useBindsToDataSource } from "../data-sources/providers";
 import NativeMapperEditor from "../../components/nativeMapper/NativeMapperEditor";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
-import { useSubscriptionsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { STAGES, stagesFor, type StageId } from "../subscriptions/studio/stages";
 import { StageRail } from "../subscriptions/studio/StageRail";
 import { EntryPointsTable } from "../subscriptions/studio/Overview";
@@ -25,7 +24,10 @@ import { ResponseFields } from "../subscriptions/studio/ResponseFields";
 import type { Draft as StudioDraft } from "../subscriptions/studio/model";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
-import { useResponseDetour } from "../../lib/responseDetour";
+import { useDetour } from "../../lib/detour";
+import { useCrumbTitle } from "../../lib/pageTitle";
+import { notificationSlot, notificationsIncomplete, withPickedChannel } from "../../lib/notificationChannels";
+import { NotificationsPanel } from "../subscriptions/studio/NotificationsPanel";
 
 /** Local draft state with the patch-and-clear shape the form bodies already use. */
 function useDraft<T extends object>(initial: T) {
@@ -49,6 +51,7 @@ type Draft = Pick<
   | "workGroupId"
   | "retryPolicyId"
   | "dataSourceId"
+  | "notifications"
 > & { informationTypeId: number | null };
 
 const EMPTY: Draft = {
@@ -68,6 +71,7 @@ const EMPTY: Draft = {
   workGroupId: null,
   retryPolicyId: null,
   dataSourceId: null,
+  notifications: [],
 };
 
 const STAGES_HERE = stagesFor("GatewayApiCall");
@@ -75,7 +79,7 @@ const STAGES_HERE = stagesFor("GatewayApiCall");
 /**
  * Creating the subscription a partner attachment points at.
  *
- * A dialog here used to ask only for a name, a type and a delivery — the least an
+ * A dialog here used to ask only for a name, a type and a delivery - the least an
  * attachment can't exist without. That made it a worse copy of the subscription's
  * own page for anyone who wanted more. This is that same page's pipeline instead,
  * routed rather than saved-then-configured: nothing points at the subscription
@@ -84,8 +88,8 @@ const STAGES_HERE = stagesFor("GatewayApiCall");
  * already picked.
  *
  * It offers every setting the subscription's own page does, because the create call
- * has always accepted them all. What it used to leave out — the lane, the retry
- * policy, the connection, the mapping — was the whole reason a new subscription had
+ * has always accepted them all. What it used to leave out - the lane, the retry
+ * policy, the connection, the mapping - was the whole reason a new subscription had
  * to be opened a second time to finish it.
  */
 export function NewGatewaySubscriptionPage() {
@@ -97,10 +101,11 @@ export function NewGatewaySubscriptionPage() {
   const queryClient = useQueryClient();
   // Back from creating a response subscription: the subscription as it was left, with that one
   // picked. `?partnerId=` survives the trip, since the way back is this page's own URL.
-  const detour = useResponseDetour<Draft>();
-  const returned = detour.kept !== null || detour.pickedResponse !== null;
+  const detour = useDetour<Draft>();
+  // Back from the response trip specifically; a channel trip comes back to the Notifications card.
+  const returned = detour.pickedResponse !== null || (detour.kept !== null && detour.slot === null);
   const [stage, setStage] = useState<StageId | null>(returned ? "response" : "delivery");
-  /** The visual mapper, over the page — there is no subscription page to send you to yet. */
+  /** The visual mapper, over the page - there is no subscription page to send you to yet. */
   const [mapping, setMapping] = useState(false);
 
   const gateway = useQuery({
@@ -113,9 +118,14 @@ export function NewGatewaySubscriptionPage() {
   const mappers = useAdapterCatalog("mapper");
   const handlers = useAdapterCatalog("handler");
 
+  // EMPTY first: a draft kept by an older page has no notifications to spread over it.
+  const kept = { ...EMPTY, ...detour.kept };
   const [draft, update] = useDraft<Draft>({
-    ...(detour.kept ?? EMPTY),
+    ...kept,
     ...(detour.pickedResponse !== null ? { responseSubscriptionId: detour.pickedResponse } : {}),
+    ...(detour.pickedChannel !== null
+      ? { notifications: withPickedChannel(kept.notifications, detour.slot, detour.pickedChannel) }
+      : {}),
   });
   const bindsToDataSource = useBindsToDataSource();
 
@@ -132,6 +142,7 @@ export function NewGatewaySubscriptionPage() {
   // A restored draft already has the name it was left with.
   const touched = useRef(detour.kept !== null);
   const gatewayName = gateway.data?.name;
+  useCrumbTitle("apiGateway", gatewayName);
   useEffect(() => {
     if (touched.current || !gatewayName) return;
     update({ name: gatewayName });
@@ -163,6 +174,7 @@ export function NewGatewaySubscriptionPage() {
         workGroupId: draft.workGroupId,
         retryPolicyId: draft.retryPolicyId,
         dataSourceId: draft.dataSourceId,
+        notifications: draft.notifications,
         enabled: draft.enabled,
       }),
     onSuccess: (created) => {
@@ -172,10 +184,12 @@ export function NewGatewaySubscriptionPage() {
   });
 
   if (gateway.isPending) return <LoadingBlock label="Loading gateway…" />;
+  if (gateway.isError && !isNotFound(gateway.error))
+    return <LoadError error={gateway.error} what="this API gateway" onRetry={() => void gateway.refetch()} />;
   if (gateway.isError)
     return (
       <EmptyState title="This API gateway no longer exists">
-        <Link to="/api-gateways" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/api-gateways" className="font-medium link">
           Back to API gateways
         </Link>
       </EmptyState>
@@ -187,6 +201,15 @@ export function NewGatewaySubscriptionPage() {
   // set (there is no receiver, schedule or filter on this type) are simply empty.
   const studioDraft: StudioDraft = {
     ...draft,
+    // Set on the subscription once it exists, not while creating it.
+    autoPauseAfterFailures: null,
+    expectTraffic: null,
+    categoryId: null,
+    // A new subscription follows the current version of each adapter.
+    receiverVersion: null,
+    validatorVersion: null,
+    mapperVersion: null,
+    handlerVersion: null,
     // Aggregation only, and this page never creates one.
     aggregationTarget: "Input",
     receiverId: null,
@@ -206,7 +229,7 @@ export function NewGatewaySubscriptionPage() {
     });
     // Nothing can be wired up before the subscription exists, so the "missing"
     // reading faceOf gives a saved-but-unattached subscription would just be
-    // noise here — dashed and flat instead, like every other node this page
+    // noise here - dashed and flat instead, like every other node this page
     // can't offer real configuration for.
     return stageId === "trigger" ? { ...face, readOnly: true, state: "none" as const } : face;
   });
@@ -216,6 +239,7 @@ export function NewGatewaySubscriptionPage() {
     draft.informationTypeId === null && "the information type it carries",
     draft.handlerId === null && "a delivery",
     adapterIncomplete(handlers, draft.handlerId, draft.handlerProperties) && "its required delivery fields",
+    notificationsIncomplete(draft.notifications) && "a channel and an outcome on every notification",
   ].filter((m): m is string => typeof m === "string");
 
   const renderStage = (stageId: StageId) => {
@@ -226,7 +250,7 @@ export function NewGatewaySubscriptionPage() {
           <Panel title={label} description={description}>
             <EntryPointsTable
               rows={[]}
-              empty="Not wired into any gateway yet — attach it to a partner once it's created."
+              empty="Not wired into any gateway yet - attach it to a partner once it's created."
             />
           </Panel>
         );
@@ -239,7 +263,7 @@ export function NewGatewaySubscriptionPage() {
               properties={draft.validatorProperties}
               onChange={(validatorId, validatorProperties) => update({ validatorId, validatorProperties })}
               disabled={false}
-              noneLabel="None — accepts everything"
+              noneLabel="None - accepts everything"
             />
           </Panel>
         );
@@ -252,7 +276,7 @@ export function NewGatewaySubscriptionPage() {
               properties={draft.mapperProperties}
               onChange={(mapperId, mapperProperties) => update({ mapperId, mapperProperties })}
               disabled={false}
-              noneLabel="None — the document passes through unchanged"
+              noneLabel="None - the document passes through unchanged"
               onOpenMapperEditor={() => setMapping(true)}
             />
             {bindsToDataSource(draft.mapperId, "mapper") && (
@@ -319,13 +343,13 @@ export function NewGatewaySubscriptionPage() {
 
   return (
     <div className="pb-10">
-      <BackLink to={`/api-gateways/${gatewayId}/attach`} label="Attaching a partner" />
+      <BackLink to={`/api-gateways/${gatewayId}/attach`} label="Attaching a partner" keep />
 
       <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">
         New subscription for {g.name}
       </h1>
       <p className="mt-1 mb-5 text-sm text-ink-500">
-        Everything it needs, in one go — nothing here has to wait until after it is created.
+        Everything it needs, in one go - nothing here has to wait until after it is created.
       </p>
 
       <div className="mb-5 flex flex-wrap gap-5">
@@ -360,7 +384,7 @@ export function NewGatewaySubscriptionPage() {
 
       {/* The two settings that belong to no stage, in the strip the subscription's own
           page keeps them in. Offered here because the API has always accepted them on a
-          create — leaving them out is what made a new subscription need a second visit. */}
+          create - leaving them out is what made a new subscription need a second visit. */}
       <div className="mb-5 flex flex-wrap items-start gap-x-10 gap-y-4 border-y border-ink-200 px-1 py-4">
         <LaneAndRetry
           workGroupId={draft.workGroupId}
@@ -382,12 +406,22 @@ export function NewGatewaySubscriptionPage() {
             onClick={() => setStage(null)}
             aria-label="Close this step"
             title="Close"
-            className="absolute top-2.5 right-3 rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+            className="absolute top-2.5 right-3 rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
           >
             <X className="size-4" />
           </button>
         </div>
       )}
+
+      <div className="mt-5">
+        <NotificationsPanel
+          value={draft.notifications}
+          onChange={(notifications) => update({ notifications })}
+          canEdit
+          onNewChannel={(index) => detour.newChannel(draft, notificationSlot(index))}
+          onEditChannel={(channelId) => detour.openChannel(draft, channelId)}
+        />
+      </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3">
         <Checkbox

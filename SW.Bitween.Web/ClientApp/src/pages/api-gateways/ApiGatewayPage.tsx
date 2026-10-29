@@ -1,23 +1,38 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pause, Pencil, Play, Plus, Search, Trash2 } from "lucide-react";
-import { api, type ApiGatewayAttachment, type GatewayAuthentication } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { api, type ApiGatewayAttachment, type GatewayAuthentication, type GatewayFailureAnswer } from "../../api";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { finishUrlName, toUrlName, urlNameProblem } from "../../lib/identifiers";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
 import { Field, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu, RunStateControl, type RunStateOption } from "../../components/layout/HeaderActions";
 import { CopyField } from "../../components/ui/CopyField";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { Pagination } from "../../components/ui/Pagination";
-import { useSubscriptionsCache, useWiredSubscriptionColumns } from "../../components/config/shared";
+import { useSubscriptionsCache, useWiredSubscriptionColumns } from "../../components/config/lookups";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { GatewayRejections } from "./GatewayRejections";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
+import { splitErrors } from "../../lib/fieldErrors";
+import { GATEWAY_ERRORS } from "./gatewayErrors";
+import { usePageTitle } from "../../lib/pageTitle";
 
 const ATTACHMENTS_PAGE_SIZE = 10;
+
+// No Paused for a gateway: switched off, it refuses calls rather than holding them.
+const gatewayRunStates: RunStateOption<"running" | "off">[] = [
+  { value: "running", label: "Running", caption: "Running: accepts partner calls and hands them on." },
+  { value: "off", label: "Off", caption: "Off: partners get a 503. Nothing they send is kept." },
+];
 
 /**
  * The same key opens the gateway from any of three places, so a partner uses whichever their
@@ -43,6 +58,12 @@ const keyUsage = (header: string) => [
     tip: "For tools that only ask for a username and password. The username is the key's name and the password is the key. Doesn't work for a key whose name has a colon in it.",
     value: "username: <the key's name>\npassword: <key>",
   },
+];
+
+// What a sync caller is told when the delivery behind its call fails.
+const FAILURE_ANSWERS = [
+  { value: "Accurate", label: "What happens next (202, 422 or 502)" },
+  { value: "Legacy", label: "400, as before" },
 ];
 
 const AUTH_METHODS = [
@@ -91,8 +112,9 @@ export function ApiGatewayPage() {
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const canEdit = useSessionCan("api-gateways.edit");
+  const canDelete = useSessionCan("api-gateways.delete");
   const wiredColumns = useWiredSubscriptionColumns<ApiGatewayAttachment>((a) => a.subscriptionId);
-  // Where each attached subscription's response goes — not on the attachment rows themselves.
+  // Where each attached subscription's response goes - not on the attachment rows themselves.
   const cachedSetups = useSubscriptionsCache().data;
   const setups = useMemo(() => cachedSetups ?? [], [cachedSetups]);
   const setupById = useMemo(() => new Map(setups.map((s) => [s.id, s])), [setups]);
@@ -102,6 +124,7 @@ export function ApiGatewayPage() {
     queryFn: () => api.getApiGateway(gatewayId),
     retry: false,
   });
+  usePageTitle(gateway.data?.name);
 
   const attachmentsQuery = searchParams.get("aq") ?? "";
   const attachmentsOffset = searchParams.get("aoffset") ? Number(searchParams.get("aoffset")) : 0;
@@ -130,6 +153,7 @@ export function ApiGatewayPage() {
 
   const [name, setName] = useState("");
   const [urlName, setUrlName] = useState("");
+  const [failureAnswer, setFailureAnswer] = useState<GatewayFailureAnswer>("Legacy");
   const [auth, setAuth] = useState<GatewayAuthentication>({
     method: "PartnerKey",
     keyHeader: "",
@@ -148,6 +172,7 @@ export function ApiGatewayPage() {
       setName(gateway.data.name);
       setUrlName(gateway.data.urlName);
       setAuth(gateway.data.authentication);
+      setFailureAnswer(gateway.data.failureAnswer ?? "Legacy");
       setLoaded(true);
     }
   }, [gateway.data, loaded]);
@@ -157,8 +182,9 @@ export function ApiGatewayPage() {
       !!gateway.data &&
       (name !== gateway.data.name ||
         urlName !== gateway.data.urlName ||
+        failureAnswer !== (gateway.data.failureAnswer ?? "Legacy") ||
         JSON.stringify(trimmedAuth(auth)) !== JSON.stringify(trimmedAuth(gateway.data.authentication))),
-    [gateway.data, name, urlName, auth],
+    [gateway.data, name, urlName, auth, failureAnswer],
   );
 
   const save = useMutation({
@@ -166,10 +192,11 @@ export function ApiGatewayPage() {
       api.updateApiGateway(gatewayId, {
         name,
         urlName: finishUrlName(urlName),
-        // Round-tripped, never edited here — Update replaces the record, so leaving it
+        // Round-tripped, never edited here - Update replaces the record, so leaving it
         // out would reactivate a deactivated gateway on an unrelated rename.
         inactive: gateway.data?.inactive ?? false,
         authentication: trimmedAuth(auth),
+        failureAnswer,
       }),
     onSuccess: async () => {
       // Awaited before the draft is re-synced, or the re-sync would seed from stale data.
@@ -178,11 +205,15 @@ export function ApiGatewayPage() {
     },
   });
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+
   if (gateway.isPending) return <LoadingBlock label="Loading API gateway…" />;
+  if (gateway.isError && !isNotFound(gateway.error))
+    return <LoadError error={gateway.error} what="this API gateway" onRetry={() => void gateway.refetch()} />;
   if (gateway.isError)
     return (
       <EmptyState title="This API gateway no longer exists">
-        <Link to="/api-gateways" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/api-gateways" className="font-medium link">
           Back to API gateways
         </Link>
       </EmptyState>
@@ -190,6 +221,7 @@ export function ApiGatewayPage() {
 
   const g = gateway.data;
   const urlProblem = urlNameProblem(urlName);
+  const refused = splitErrors(save.error, GATEWAY_ERRORS);
   const authProblem = authProblems(auth);
   const urlChanged = finishUrlName(urlName) !== g.urlName;
   const methodChanged = auth.method !== g.authentication.method;
@@ -209,6 +241,7 @@ export function ApiGatewayPage() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/api-gateways" label="API gateways" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -218,25 +251,25 @@ export function ApiGatewayPage() {
             {g.inactive && <Badge tone="warn">Deactivated</Badge>}
           </h1>
         </div>
-        <div className="flex shrink-0 gap-2">
-          {canEdit && (
-            <Button
-              onClick={() => setConfirmingActive(true)}
-              title={
-                g.inactive
-                  ? "Start accepting partner calls again."
-                  : "Refuse partner calls without deleting the gateway or its attachments."
-              }
-            >
-              {g.inactive ? <Play className="size-4" /> : <Pause className="size-4" />}
-              {g.inactive ? "Activate" : "Deactivate"}
-            </Button>
-          )}
-          <Can permission="api-gateways.delete">
-            <Button variant="danger" onClick={() => setDeleting(true)}>
-              <Trash2 className="size-4" /> Delete
-            </Button>
-          </Can>
+        <div className="flex shrink-0 items-start gap-2">
+          <RunStateControl
+            label="Running state"
+            options={gatewayRunStates}
+            value={g.inactive ? "off" : "running"}
+            onChange={() => setConfirmingActive(true)}
+            disabled={!canEdit}
+          />
+          <MoreActionsMenu
+            actions={[
+              {
+                label: "Delete",
+                icon: <Trash2 className="size-4" />,
+                danger: true,
+                onSelect: () => setDeleting(true),
+                hidden: !canDelete,
+              },
+            ]}
+          />
         </div>
       </div>
 
@@ -245,7 +278,7 @@ export function ApiGatewayPage() {
       <div className="space-y-5">
         <Panel title="Endpoint" description="Where partners send their documents.">
           <div className="grid gap-4 md:grid-cols-3">
-            <Field label="URL name" htmlFor="ag-url" error={urlProblem ?? undefined}>
+            <Field label="URL name" htmlFor="ag-url" error={urlProblem ?? refused.byField.url}>
               <TextInput
                 id="ag-url"
                 value={urlName}
@@ -254,8 +287,26 @@ export function ApiGatewayPage() {
                 onChange={(e) => setUrlName(toUrlName(e.target.value))}
               />
             </Field>
-            <CopyField value={`/api/gateway/${urlName}/sync`} label="Synchronous — waits for the result" />
-            <CopyField value={`/api/gateway/${urlName}/async`} label="Asynchronous — returns the exchange id" />
+            <CopyField value={`/api/gateway/${urlName}/sync`} label="Synchronous - waits for the result" />
+            <CopyField value={`/api/gateway/${urlName}/async`} label="Asynchronous - returns the exchange id" />
+          </div>
+        </Panel>
+
+        <Panel
+          title="When a delivery fails"
+          description="What a partner calling /sync is told when the delivery behind its call fails. 400 tells it the request was wrong, even when the destination was down and Bitween will deliver it later."
+        >
+          <div className="grid gap-4 md:grid-cols-3">
+            <Field label="Sync callers are told" htmlFor="ag-failure-answer">
+              <Select
+                id="ag-failure-answer"
+                value={failureAnswer}
+                disabled={!canEdit}
+                options={FAILURE_ANSWERS}
+                title="202 with the exchange id when a retry is scheduled (don't send it again), 422 when the message couldn't be mapped, 502 when the delivery failed and won't be retried. 400 is what every gateway answered before; partners may be written against it."
+                onChange={(e) => setFailureAnswer(e.target.value as GatewayFailureAnswer)}
+              />
+            </Field>
           </div>
         </Panel>
 
@@ -276,15 +327,26 @@ export function ApiGatewayPage() {
             </Field>
             {auth.method === "PartnerKey" && (
               <Field label="Key header" htmlFor="ag-key-header" error={authProblem.keyHeader}>
-                <TextInput
-                  id="ag-key-header"
-                  value={auth.keyHeader}
-                  disabled={!canEdit}
-                  className="font-mono"
-                  placeholder={g.defaultKeyHeader}
-                  title={`The header partners send their key in. Leave empty to use the system-wide one (${g.defaultKeyHeader}), set in Settings under API behavior. partnerkey always works too.`}
-                  onChange={(e) => setAuth({ ...auth, keyHeader: e.target.value })}
-                />
+                {/* Empty means "the system-wide one", which is a real header partners send, not
+                    a missing setting: it is drawn as a value, with a "default" tag, rather than
+                    in placeholder grey, which read as nothing set. Kept empty underneath so the
+                    gateway still follows a later change to the system-wide header. */}
+                <div className="relative">
+                  <TextInput
+                    id="ag-key-header"
+                    value={auth.keyHeader}
+                    disabled={!canEdit}
+                    className={`font-mono ${auth.keyHeader ? "" : "pr-20 placeholder:text-ink-800"}`}
+                    placeholder={g.defaultKeyHeader}
+                    title={`The header partners send their key in. Leave empty to use the system-wide one (${g.defaultKeyHeader}), set in Settings under API behavior. partnerkey always works too.`}
+                    onChange={(e) => setAuth({ ...auth, keyHeader: e.target.value })}
+                  />
+                  {!auth.keyHeader && (
+                    <span className="pointer-events-none absolute top-1/2 right-2.5 -translate-y-1/2 rounded bg-ink-100 px-1.5 py-0.5 text-[11px] text-ink-600">
+                      default
+                    </span>
+                  )}
+                </div>
               </Field>
             )}
             {auth.method === "Jwt" && (
@@ -328,11 +390,11 @@ export function ApiGatewayPage() {
 
           {/*
             The URLs alone are not enough to make a call, and how to prove who is calling
-            appears nowhere else in the product — it is only in the C# that checks it.
+            appears nowhere else in the product - it is only in the C# that checks it.
             Without this, handing a partner the endpoint still leaves them guessing.
           */}
           <div className="mt-4 border-t border-ink-100 pt-4">
-            <p className="mb-2 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+            <p className="mb-2 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
               How a partner calls it
               {/* It previews the draft, so an admin copying it before saving would hand out a
                   call the gateway doesn't take yet. */}
@@ -341,7 +403,7 @@ export function ApiGatewayPage() {
                   className="ml-2 tracking-normal text-warn-700 normal-case"
                   title="Partners can't call it this way until you save."
                 >
-                  — with your unsaved changes
+                  - with your unsaved changes
                 </span>
               )}
             </p>
@@ -355,8 +417,8 @@ export function ApiGatewayPage() {
                   className="mt-2 divide-y divide-ink-100 rounded-lg border border-ink-200"
                 >
                   {[
-                    { label: "iss", tip: "Who issued the token: the login server above.", value: auth.issuer.trim() || "—" },
-                    { label: "aud", tip: "Who the token is for: the audience above.", value: auth.audience.trim() || "—" },
+                    { label: "iss", tip: "Who issued the token: the login server above.", value: auth.issuer.trim() || "-" },
+                    { label: "aud", tip: "Who the token is for: the audience above.", value: auth.audience.trim() || "-" },
                     {
                       label: claim,
                       tip: "Who is calling: must equal the login server identity on one attached partner's page.",
@@ -374,9 +436,9 @@ export function ApiGatewayPage() {
                 </dl>
                 <p className="mt-2 text-[12px] text-ink-500">
                   The token's <code className="rounded bg-ink-100 px-1 py-0.5 font-mono text-[11px]">{claim}</code>{" "}
-                  is what identifies the caller — it decides which attached partner the exchange runs as. Each
+                  is what identifies the caller - it decides which attached partner the exchange runs as. Each
                   partner's identity is set on its{" "}
-                  <Link to="/partners" className="font-medium text-crimson-700 hover:underline">
+                  <Link to="/partners" className="font-medium link">
                     partner page
                   </Link>
                   . API keys are refused.
@@ -403,9 +465,9 @@ export function ApiGatewayPage() {
                   ))}
                 </dl>
                 <p className="mt-2 text-[12px] text-ink-500">
-                  The key is what identifies the caller — it decides which attached partner the exchange
+                  The key is what identifies the caller - it decides which attached partner the exchange
                   runs as, so each partner sends its own. Keys are issued on a{" "}
-                  <Link to="/partners" className="font-medium text-crimson-700 hover:underline">
+                  <Link to="/partners" className="font-medium link">
                     partner's page
                   </Link>
                   , and only shown once when created.
@@ -431,14 +493,14 @@ export function ApiGatewayPage() {
           }
         >
           <div className="relative mb-3 max-w-xs">
-            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
+            <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-500" />
             <input
               type="search"
               value={attachmentsQuery}
               onChange={(e) => setAttachmentsParam("aq", e.target.value || null)}
               placeholder="Search attached partners"
               aria-label="Search attached partners"
-              className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+              className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
             />
           </div>
           {attachments.isPending ? (
@@ -450,7 +512,7 @@ export function ApiGatewayPage() {
               empty={
                 attachmentsQuery
                   ? "No attached partners match."
-                  : "No partners attached — the gateway answers 401 to everyone. Attach a partner to bring it to life."
+                  : "No partners attached - the gateway answers 401 to everyone. Attach a partner to bring it to life."
               }
               columns={[
                 {
@@ -458,13 +520,13 @@ export function ApiGatewayPage() {
                   // Both name columns wrap rather than shrink to fit. Every column here but
                   // "Last error" was shrink-to-content, so all the slack in a full-width panel
                   // pooled in that one column and left the other six bunched against each other
-                  // down the left-hand side — which is what read as cramped, more than the
+                  // down the left-hand side - which is what read as cramped, more than the
                   // padding did. `wrap` is what the width strategy says a name should use anyway.
                   wrap: true,
                   cell: (a) => (
                     <Link
                       to={`/partners/${a.partnerId}`}
-                      className="font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                      className="font-medium text-ink-800 hover:link"
                     >
                       {a.partnerName}
                     </Link>
@@ -493,7 +555,7 @@ export function ApiGatewayPage() {
                   cell: (a) => (
                     <Link
                       to={`/subscriptions/${a.subscriptionId}`}
-                      className="text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                      className="text-[13px] text-ink-700 hover:link"
                     >
                       {a.subscriptionName}
                     </Link>
@@ -506,22 +568,22 @@ export function ApiGatewayPage() {
                   wrap: true,
                   cell: (a) => {
                     const s = setupById.get(a.subscriptionId);
-                    if (!s) return <span className="text-ink-400">—</span>;
+                    if (!s) return <span className="text-ink-500">-</span>;
                     if (s.handlerId === null)
                       return (
-                        <span className="text-[13px] text-ink-400" title="It delivers nothing, so there is no response.">
+                        <span className="text-[13px] text-ink-500" title="It delivers nothing, so there is no response.">
                           Nothing delivered
                         </span>
                       );
                     const target = setups.find((x) => x.id === s.responseSubscriptionId);
                     if (!target && !s.responseMessageTypeName)
-                      return <span className="text-[13px] text-ink-400">Recorded only</span>;
+                      return <span className="text-[13px] text-ink-500">Recorded only</span>;
                     return (
                       <span className="block space-y-0.5">
                         {s.responseSubscriptionId !== null && (
                           <Link
                             to={`/subscriptions/${s.responseSubscriptionId}`}
-                            className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+                            className="block text-[13px] text-ink-700 hover:link"
                           >
                             {target?.name ?? `Subscription ${s.responseSubscriptionId}`}
                           </Link>
@@ -548,14 +610,14 @@ export function ApiGatewayPage() {
                         <button
                           onClick={() => navigate(`/api-gateways/${gatewayId}/attachments/${a.partnerId}`)}
                           aria-label={`Edit attachment for ${a.partnerName}`}
-                          className="rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                          className="rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
                         >
                           <Pencil className="size-3.5" />
                         </button>
                         <button
                           onClick={() => setRemoving({ partnerId: a.partnerId, partnerName: a.partnerName })}
                           aria-label={`Detach ${a.partnerName}`}
-                          className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
+                          className="rounded-md p-1.5 text-ink-500 hover:bg-danger-50 hover:text-danger-700"
                         >
                           <Trash2 className="size-3.5" />
                         </button>
@@ -576,6 +638,7 @@ export function ApiGatewayPage() {
           </div>
         </Panel>
 
+        <GatewayRejections gatewayId={gatewayId} />
         <HistoryCard entityName="ApiGateway" entityKey={id} />
       </div>
 
@@ -583,7 +646,7 @@ export function ApiGatewayPage() {
         <UnsavedBar
           busy={save.isPending}
           error={
-            urlProblem ?? authProblem.keyHeader ?? authProblem.issuer ?? authProblem.audience ?? save.error?.message
+            urlProblem ?? authProblem.keyHeader ?? authProblem.issuer ?? authProblem.audience ?? refused.rest
           }
           onSave={() => {
             if (urlProblem || authProblem.keyHeader || authProblem.issuer || authProblem.audience) return;
@@ -663,13 +726,13 @@ export function ApiGatewayPage() {
 
       {confirmingActive && (
         <ConfirmDialog
-          title={g.inactive ? `Activate ${g.name}?` : `Deactivate ${g.name}?`}
+          title={g.inactive ? `Turn ${g.name} on?` : `Turn ${g.name} off?`}
           body={
             g.inactive
               ? "Partners can call it again immediately. Nothing they sent while it was off was kept."
               : `Partners calling /api/gateway/${g.urlName} get a 503 until it is activated again. Its ${g.attachments.length} attachment${g.attachments.length === 1 ? "" : "s"} stay as they are.`
           }
-          confirmLabel={g.inactive ? "Activate" : "Deactivate"}
+          confirmLabel={g.inactive ? "Turn on" : "Turn off"}
           onConfirm={async () => {
             await api.updateApiGateway(gatewayId, {
               name: g.name,
@@ -683,8 +746,10 @@ export function ApiGatewayPage() {
       )}
 
       {deleting && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this API gateway?"
+          name={g.name}
+          impact={[counted(g.attachments.length, "partner attachment")]}
           body={
             <>
               <strong className="font-medium text-ink-800">{g.name}</strong> and its partner
@@ -697,7 +762,7 @@ export function ApiGatewayPage() {
             await api.deleteApiGateway(gatewayId);
             void queryClient.invalidateQueries({ queryKey: keys.apiGateways.all });
             void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
-            navigate("/api-gateways", { replace: true });
+            leave(() => navigate("/api-gateways", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
         />

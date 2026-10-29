@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, type WorkGroup } from "../../api";
-import { useSessionCan } from "../../auth/guards";
-import { Button, FormError, LoadingBlock } from "../ui/basics";
+import { api } from "../../api";
+import { useSessionCan } from "../../auth/useSessionCan";
+import { Button, FormError, LoadingBlock, ProblemText } from "../ui/basics";
 import { Field, TextInput } from "../ui/forms";
 import { ConfirmDialog, Dialog } from "../ui/overlays";
 import { suggestSlug } from "../../lib/identifiers";
 import { keys } from "../../api/queryKeys";
-import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
+import { workGroupDraftOf, useQueuedMessages, renamesQueues } from "./workGroupDraft";
 
 /**
  * A work group's editable settings, as one component.
@@ -21,14 +21,9 @@ export interface WorkGroupDraft {
   busMessageName: string;
   prefetch: number;
   priority: number;
+  /** Parallel exchanges per node; null takes the prefetch. */
+  concurrency: number | null;
 }
-
-export const workGroupDraftOf = (g: WorkGroup): WorkGroupDraft => ({
-  name: g.name,
-  busMessageName: g.busMessageName,
-  prefetch: g.options.rabbitMqOptions.consumerSettings.prefetch,
-  priority: g.options.rabbitMqOptions.consumerSettings.priority,
-});
 
 export function WorkGroupFields({
   draft,
@@ -89,7 +84,7 @@ export function WorkGroupFields({
           />
         </Field>
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid gap-4 sm:grid-cols-3">
         <Field label="Prefetch" htmlFor={`${idPrefix}-prefetch`} hint="Messages pulled per consumer at once.">
           <TextInput
             id={`${idPrefix}-prefetch`}
@@ -98,6 +93,23 @@ export function WorkGroupFields({
             value={draft.prefetch}
             disabled={!canEdit}
             onChange={(e) => set("prefetch", Math.max(1, Number(e.target.value)))}
+          />
+        </Field>
+        <Field
+          label="Parallel exchanges"
+          htmlFor={`${idPrefix}-concurrency`}
+          hint="Run at once on each node, up to the prefetch. 1 keeps their order and limits a partner to one call at a time per node. Empty takes the prefetch."
+        >
+          <TextInput
+            id={`${idPrefix}-concurrency`}
+            type="number"
+            min={1}
+            value={draft.concurrency ?? ""}
+            placeholder={`${draft.prefetch}`}
+            disabled={!canEdit}
+            onChange={(e) =>
+              set("concurrency", e.target.value === "" ? null : Math.max(1, Number(e.target.value)))
+            }
           />
         </Field>
         <Field label="Priority" htmlFor={`${idPrefix}-priority`} hint="Higher runs before lower.">
@@ -116,43 +128,20 @@ export function WorkGroupFields({
 }
 
 /**
- * Messages still in a group's queues — both of its lanes, retries and dead letters included —
- * from the same live snapshot Queue health polls. `null` when it can't be known: no right to see
- * queue health, RabbitMQ management not configured, or not loaded yet.
- */
-export function useQueuedMessages(groupId: number | null): number | null {
-  const canMonitor = useSessionCan("monitoring.view");
-  const rabbitMqConfigured = useRabbitMqManagementConfigured();
-  const { data } = useQuery({
-    queryKey: keys.queueHealth,
-    queryFn: () => api.getQueueHealth(),
-    enabled: groupId !== null && canMonitor && rabbitMqConfigured,
-  });
-  if (groupId === null || !data) return null;
-  return data.consumers
-    .filter((c) => c.workGroupId === groupId)
-    .reduce((n, c) => n + c.queueCount + c.retryCount + c.failedCount, 0);
-}
-
-/**
  * The messages that go with a group's current queues, which are deleted along with the group or
  * when its bus message name changes.
  */
 export function QueuedMessagesWarning({ groupId }: { groupId: number }) {
   const queued = useQueuedMessages(groupId);
   if (queued === 0) return null;
+  const caveat = "The exchanges behind them stay in Bitween and can be retried from Exchanges.";
+  if (queued === null) return <p>Any messages still in them are deleted too. {caveat}</p>;
   return (
-    <p className={queued === null ? undefined : "font-medium text-danger-700"}>
-      {queued === null
-        ? "Any messages still in them are deleted too."
-        : `${queued === 1 ? "1 message is" : `${queued} messages are`} still in them and will be deleted.`}{" "}
-      The exchanges behind them stay in Bitween and can be retried from Exchanges.
-    </p>
+    <ProblemText className="font-medium">
+      {queued === 1 ? "1 message is" : `${queued} messages are`} still in them and will be deleted. {caveat}
+    </ProblemText>
   );
 }
-
-/** Whether a new bus message name means new queues. Case alone doesn't: queue names are lowercase. */
-export const renamesQueues = (from: string, to: string): boolean => from.toLowerCase() !== to.toLowerCase();
 
 /** Asked before saving a new bus message name, which moves the group to new queues. */
 export function BusRenameConfirm({
@@ -186,9 +175,9 @@ export function BusRenameConfirm({
   );
 }
 
-const EMPTY: WorkGroupDraft = { name: "", busMessageName: "", prefetch: 10, priority: 5 };
+const EMPTY: WorkGroupDraft = { name: "", busMessageName: "", prefetch: 10, priority: 5, concurrency: null };
 
-/** A work group, created or edited in place — reached from a subscription's lane picker. */
+/** A work group, created or edited in place - reached from a subscription's lane picker. */
 export function WorkGroupDialog({
   groupId,
   onClose,
@@ -200,7 +189,10 @@ export function WorkGroupDialog({
   onSaved?: (id: number) => void;
 }) {
   const queryClient = useQueryClient();
-  const canEdit = useSessionCan("workgroups.edit");
+  // A new group is filled in to create it, which workgroups.create allows on its own.
+  const canCreate = useSessionCan("workgroups.create");
+  const canChange = useSessionCan("workgroups.edit");
+  const canEdit = groupId === null ? canCreate : canChange;
   const [draft, setDraft] = useState<WorkGroupDraft | null>(groupId === null ? EMPTY : null);
   const [confirmingRename, setConfirmingRename] = useState(false);
 

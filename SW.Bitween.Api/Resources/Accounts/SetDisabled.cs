@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
 using System;
 using System.Threading.Tasks;
 using SW.Bitween.Domain.Accounts;
@@ -8,7 +10,7 @@ namespace SW.Bitween.Resources.Accounts;
 
 /// <summary>
 /// Suspends or restores an account. A disabled account keeps its roles and history but can't sign
-/// in — see the Disabled check in the login handler.
+/// in - see the Disabled check in the login handler.
 /// </summary>
 [HandlerName("setDisabled")]
 public class SetDisabled(BitweenDbContext dbContext, RequestContext requestContext)
@@ -18,9 +20,11 @@ public class SetDisabled(BitweenDbContext dbContext, RequestContext requestConte
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Users.Edit);
 
-        var account = await dbContext.Set<Account>().FindAsync(key);
+        var account = await Members.FindAsync(dbContext, key);
         if (account is null)
             throw new SWValidationException("ACCOUNT_NOT_FOUND", $"No account exists with the id {key}");
+
+        await GrantLimits.EnsureCallerOutranks(dbContext, requestContext, key);
 
         if (request.Disabled)
         {
@@ -32,6 +36,13 @@ public class SetDisabled(BitweenDbContext dbContext, RequestContext requestConte
 
         account.SetDisabled(request.Disabled);
         await dbContext.SaveChangesAsync();
+
+        // A refresh token re-issues a Jwt without asking for the password, so a disabled account's
+        // sessions have to go with it - the same reasoning as SetPassword.
+        if (request.Disabled)
+            await dbContext.Set<RefreshToken>()
+                .Where(t => t.AccountId == account.Id)
+                .ExecuteDeleteAsync();
 
         return null;
     }

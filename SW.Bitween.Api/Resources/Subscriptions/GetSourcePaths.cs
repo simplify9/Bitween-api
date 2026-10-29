@@ -43,7 +43,7 @@ public class GetSourcePaths(BitweenDbContext dbContext, RequestContext requestCo
         }
         catch (SWValidationException)
         {
-            // Its file is gone — deleted by retention, most likely. Nothing to offer, which is
+            // Its file is gone - deleted by retention, most likely. Nothing to offer, which is
             // what the editor shows for a subscription that hasn't run yet.
         }
 

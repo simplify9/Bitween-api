@@ -4,11 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, Check, ChevronDown, Eraser, Eye, EyeOff, Link2, Redo2, Undo2 } from "lucide-react";
 import { api } from "../../api";
 import { keys } from "../../api/queryKeys";
-import {
-  RulesEditorProvider,
-  useRules,
-  useRulesDispatch,
-} from "../../lib/nativeMapper/RulesEditorContext";
+import { RulesEditorProvider } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import {
   coverageByPath,
   parseSample,
@@ -20,8 +17,13 @@ import {
   CSV_DELIMITERS,
   DOCUMENT_FORMATS,
   defaultCsvOptions,
+  defaultExcelOptions,
+  defaultFixedWidthOptions,
+  sideOptions,
   type CsvOptions,
   type DocumentFormatId,
+  type ExcelOptions,
+  type FixedWidthOptions,
 } from "../../lib/nativeMapper/types";
 import { Button, FormError } from "../ui/basics";
 import { ConnectionLines, type Connection } from "../ui/ConnectionLines";
@@ -29,6 +31,7 @@ import { ConfirmDialog } from "../ui/overlays";
 import { Popover } from "../ui/Popover";
 import { Select } from "../ui/forms";
 import { BuildFromSample } from "./BuildFromSample";
+import { GenerateWithAi } from "./GenerateWithAi";
 import { OutputPanel } from "./OutputPanel";
 import { PreviewPanel } from "./PreviewPanel";
 import { SourcePanel } from "./SourcePanel";
@@ -44,7 +47,7 @@ import {
 
 /**
  * @param target What the editor reads and writes. Omitted, it takes the subscription in
- * the route — which is how the `/subscriptions/:id/mapper` page has always opened it.
+ * the route - which is how the `/subscriptions/:id/mapper` page has always opened it.
  * A create page passes a draft instead, so a mapping can be built before the
  * subscription it belongs to exists.
  * @param onClose Where "Back" goes. Omitted, it returns to the subscription's page; a
@@ -100,8 +103,8 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
   useMappingShortcuts(requestSave);
 
   const sample = useMemo(
-    () => parseSample(sourceSample, rules.sourceFormat, "source", rules.sourceCsv),
-    [sourceSample, rules.sourceFormat, rules.sourceCsv],
+    () => parseSample(sourceSample, rules.sourceFormat, "source", rules.sourceCsv, sideOptions(rules, "source")),
+    [sourceSample, rules],
   );
   const sourcePaths = useMemo(() => readablePaths(sample.root), [sample.root]);
 
@@ -123,7 +126,7 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
    * One curve per rule that reads a field of the document.
    *
    * A rule inside a list reads a path relative to its entry, and the source panel
-   * only lists what is readable at the top level — so those have no source row to
+   * only lists what is readable at the top level - so those have no source row to
    * join and simply draw nothing, rather than joining the wrong one.
    */
   const connections = useMemo(() => {
@@ -191,6 +194,8 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
           <ToolbarDivider />
 
           <BuildFromSample />
+
+          <GenerateWithAi partnerId={testPartnerId ?? partnerId} />
 
           <ToolbarButton
             label="Match the source fields"
@@ -301,7 +306,7 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
               ? "Paste a sample document to see the fields you can map."
               : selectedId
                 ? "Drag a source field onto a rule, or click one to fill the selected rule."
-                : "Drag a source field onto a rule — or select a rule first, then click a field."}
+                : "Drag a source field onto a rule - or select a rule first, then click a field."}
           </p>
         </div>
 
@@ -338,7 +343,7 @@ function ToolbarDivider() {
  *
  * In a panel rather than in the toolbar because it is configuration, not an action:
  * it is the densest part of the toolbar and the part changed least often, and its
- * CSV controls only exist while a side is CSV — so in the row it moved everything
+ * CSV controls only exist while a side is CSV - so in the row it moved everything
  * after it sideways each time a format changed.
  */
 function FormatSettings() {
@@ -351,8 +356,9 @@ function FormatSettings() {
   return (
     <Popover
       label="What this mapping reads and writes"
-      width="w-80"
-      // The toolbar is fixed, so the chip never scrolls away from its panel — and the
+      // A fixed-width layout is a table of columns, which needs the room.
+      width={rules.sourceFormat === "fixedwidth" || rules.targetFormat === "fixedwidth" ? "w-[32rem]" : "w-80"}
+      // The toolbar is fixed, so the chip never scrolls away from its panel - and the
       // preview pane below re-renders on every server preview, which would otherwise
       // close this mid-edit.
       closeOnScroll={false}
@@ -366,7 +372,7 @@ function FormatSettings() {
             →
           </span>
           {name(rules.targetFormat)}
-          <ChevronDown size={12} aria-hidden className="text-ink-400" />
+          <ChevronDown size={12} aria-hidden className="text-ink-500" />
         </span>
       }
     >
@@ -383,6 +389,20 @@ function FormatSettings() {
             onChange={(options) => dispatch({ type: "SET_CSV_OPTIONS", side: "source", options })}
           />
         )}
+        {rules.sourceFormat === "fixedwidth" && (
+          <FixedWidthControls
+            side="source"
+            options={rules.sourceFixedWidth ?? defaultFixedWidthOptions()}
+            onChange={(options) => dispatch({ type: "SET_FIXED_WIDTH_OPTIONS", side: "source", options })}
+          />
+        )}
+        {rules.sourceFormat === "excel" && (
+          <ExcelControls
+            side="source"
+            options={rules.sourceExcel ?? defaultExcelOptions()}
+            onChange={(options) => dispatch({ type: "SET_EXCEL_OPTIONS", side: "source", options })}
+          />
+        )}
 
         <hr className="border-ink-100" />
 
@@ -396,6 +416,20 @@ function FormatSettings() {
             side="target"
             options={rules.targetCsv ?? defaultCsvOptions()}
             onChange={(options) => dispatch({ type: "SET_CSV_OPTIONS", side: "target", options })}
+          />
+        )}
+        {rules.targetFormat === "fixedwidth" && (
+          <FixedWidthControls
+            side="target"
+            options={rules.targetFixedWidth ?? defaultFixedWidthOptions()}
+            onChange={(options) => dispatch({ type: "SET_FIXED_WIDTH_OPTIONS", side: "target", options })}
+          />
+        )}
+        {rules.targetFormat === "excel" && (
+          <ExcelControls
+            side="target"
+            options={rules.targetExcel ?? defaultExcelOptions()}
+            onChange={(options) => dispatch({ type: "SET_EXCEL_OPTIONS", side: "target", options })}
           />
         )}
       </div>
@@ -494,7 +528,7 @@ function TestPartnerSelect({
  *
  * Asked rather than sniffed. A guessed delimiter is right until the first field that
  * legitimately contains a comma, and a guessed header is right until a file whose first
- * data row happens to look like labels — both of which are found in production rather
+ * data row happens to look like labels - both of which are found in production rather
  * than here. One client alone sends comma, semicolon and pipe, two of the three with no
  * header at all, so neither of these has a safe default to fall back on.
  */
@@ -562,7 +596,7 @@ function CsvControls({
   );
 }
 
-/** A label on the left, its control on the right — the shape every row in the panel takes. */
+/** A label on the left, its control on the right - the shape every row in the panel takes. */
 function SettingRow({
   label,
   title,
@@ -601,3 +635,153 @@ function FormatSelect({
     </SettingRow>
   );
 }
+
+/**
+ * A fixed-width layout: each column's name, where it starts (the line's first character is 1)
+ * and how long it is, as the partner's specification gives them. Nothing is inferred from the
+ * sample, because nothing in a fixed-width file says where one field ends.
+ */
+function FixedWidthControls({
+  side,
+  options,
+  onChange,
+}: {
+  side: "source" | "target";
+  options: FixedWidthOptions;
+  onChange: (options: FixedWidthOptions) => void;
+}) {
+  const columns = options.columns;
+  const set = (at: number, change: Partial<FixedWidthOptions["columns"][number]>) =>
+    onChange({ ...options, columns: columns.map((c, i) => (i === at ? { ...c, ...change } : c)) });
+  const add = () => {
+    const last = columns[columns.length - 1];
+    onChange({
+      ...options,
+      columns: [...columns, { name: "", start: last ? last.start + last.length : 1, length: 10, align: "left", pad: " " }],
+    });
+  };
+  // 0 while a box is being retyped, rather than snapping back to 1 under the cursor; the server
+  // refuses a start or length below 1 with a message, which the preview shows.
+  const number = (text: string) => Math.max(0, Math.floor(Number(text) || 0));
+  const input = "h-7 rounded-md border border-ink-200 px-1.5 text-xs";
+
+  return (
+    <div className="space-y-1.5 pl-3">
+      <table className="w-full text-[11px] text-ink-600">
+        <thead className="text-left text-ink-500">
+          <tr>
+            <th className="font-medium">Column</th>
+            <th className="w-14 font-medium">Start</th>
+            <th className="w-14 font-medium">Length</th>
+            {side === "target" && <th className="w-20 font-medium">Align</th>}
+            {side === "target" && <th className="w-10 font-medium">Pad</th>}
+            <th className="w-6" />
+          </tr>
+        </thead>
+        <tbody>
+          {columns.map((c, at) => (
+            <tr key={at}>
+              <td className="pr-1">
+                <input aria-label={`${side} column ${at + 1} name`} className={`${input} w-full`} value={c.name}
+                  onChange={(e) => set(at, { name: e.target.value })} />
+              </td>
+              <td className="pr-1">
+                <input aria-label={`${side} column ${at + 1} start`} type="number" min={1} className={`${input} w-full`}
+                  value={c.start} onChange={(e) => set(at, { start: number(e.target.value) })} />
+              </td>
+              <td className="pr-1">
+                <input aria-label={`${side} column ${at + 1} length`} type="number" min={1} className={`${input} w-full`}
+                  value={c.length} onChange={(e) => set(at, { length: number(e.target.value) })} />
+              </td>
+              {side === "target" && (
+                <td className="pr-1">
+                  <select aria-label={`${side} column ${at + 1} align`} className={`${input} w-full`} value={c.align ?? "left"}
+                    onChange={(e) => set(at, { align: e.target.value as "left" | "right" })}>
+                    <option value="left">Left</option>
+                    <option value="right">Right</option>
+                  </select>
+                </td>
+              )}
+              {side === "target" && (
+                <td className="pr-1">
+                  <input aria-label={`${side} column ${at + 1} pad`} maxLength={1} className={`${input} w-full`}
+                    value={c.pad === " " ? "" : (c.pad ?? "")} placeholder="␣"
+                    onChange={(e) => set(at, { pad: e.target.value || " " })} />
+                </td>
+              )}
+              <td>
+                <button type="button" aria-label={`remove ${side} column ${at + 1}`} className="text-ink-400 hover:text-danger-700"
+                  onClick={() => onChange({ ...options, columns: columns.filter((_, i) => i !== at) })}>
+                  ×
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div className="flex items-center gap-3">
+        <button type="button" className="text-[11px] font-medium link" onClick={add}>
+          + Column
+        </button>
+        {side === "source" && (
+          <>
+            <label className="flex items-center gap-1 text-[11px] text-ink-500" title="Lines at the top that aren't records, such as a title">
+              skip
+              <input aria-label="source lines to skip" type="number" min={0} className={`${input} w-12`} value={options.skipLines ?? 0}
+                onChange={(e) => onChange({ ...options, skipLines: Math.max(0, Math.floor(Number(e.target.value) || 0)) })} />
+              lines
+            </label>
+            <label className="flex items-center gap-1.5 text-[11px] text-ink-500" title="Take the padding off each value read">
+              <input type="checkbox" aria-label="trim source values" checked={options.trim !== false}
+                onChange={(e) => onChange({ ...options, trim: e.target.checked })} className="size-3.5 rounded border-ink-300" />
+              trim
+            </label>
+          </>
+        )}
+      </div>
+      {side === "target" && (
+        <p className="text-[11px] text-ink-500">A value longer than its column fails the exchange rather than being cut.</p>
+      )}
+    </div>
+  );
+}
+
+/**
+ * An Excel workbook's sheet and header. A workbook is binary, so it travels as base64: the
+ * receiver's ResponseEncoding, or the upload handler's DataEncoding, has to be base64. The sample
+ * here is cells pasted from Excel, which arrive as tab-separated text.
+ */
+function ExcelControls({
+  side,
+  options,
+  onChange,
+}: {
+  side: "source" | "target";
+  options: ExcelOptions;
+  onChange: (options: ExcelOptions) => void;
+}) {
+  return (
+    <div className="space-y-1.5 pl-3">
+      <SettingRow label="Sheet" title={side === "source" ? "The sheet to read; the first one when empty" : "The sheet's name; Sheet1 when empty"}>
+        <input
+          aria-label={`${side} sheet`}
+          className="h-8 w-40 rounded-md border border-ink-200 px-2 text-xs"
+          placeholder={side === "source" ? "First sheet" : "Sheet1"}
+          value={options.sheet ?? ""}
+          onChange={(e) => onChange({ ...options, sheet: e.target.value })}
+        />
+      </SettingRow>
+      <label className="flex items-center gap-1.5 text-[11px] text-ink-500">
+        <input type="checkbox" aria-label={`${side} header row`} checked={options.hasHeader}
+          onChange={(e) => onChange({ ...options, hasHeader: e.target.checked })} className="size-3.5 rounded border-ink-300" />
+        header
+      </label>
+      <p className="text-[11px] text-ink-500">
+        {side === "source"
+          ? "Paste a few rows copied from Excel as the sample. The workbook itself arrives as base64: set the receiver's ResponseEncoding to base64."
+          : "The workbook is written as base64: set the upload handler's DataEncoding to base64 to write the file."}
+      </p>
+    </div>
+  );
+}
+

@@ -89,7 +89,7 @@ function backend(subjects: Raw[]) {
         retiredOn: null,
       }),
     ),
-    // What a subscription's overview shows below the rail — none of it matters here.
+    // What a subscription's overview shows below the rail - none of it matters here.
     http.post(apiPath("/subscriptions/:id/retryusage"), () => HttpResponse.json([])),
     // Nothing has delivered yet, so a response subscription has no paths to offer.
     http.get(apiPath("/subscriptions/sourcepaths"), ({ request }) =>
@@ -101,7 +101,7 @@ function backend(subjects: Raw[]) {
       }),
     ),
     http.get(apiPath("/audit"), () => HttpResponse.json(noRows)),
-    // The adapters don't matter to either node — only that the delivering one has a handler.
+    // The adapters don't matter to either node - only that the delivering one has a handler.
     ...["/adapters/Catalog", "/datasources/Providers"].map((p) => http.get(apiPath(p), () => HttpResponse.json([]))),
     ...["/apigateways", "/busgateways", "/xchanges", "/documents", "/partners", "/workgroups", "/retrypolicies"].map(
       (p) => http.get(apiPath(p), () => HttpResponse.json(noRows)),
@@ -203,7 +203,7 @@ describe("following a response chain", () => {
 
     await user.click(await screen.findByRole("button", { name: "Open" }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/subscriptions/20"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/response-subscriptions/20"));
     // A fresh page, not the one just left with its id swapped.
     expect(await screen.findByRole("textbox", { name: "Name" })).toHaveValue("Store shipment labels");
     expect(screen.queryByText("Unsaved changes")).not.toBeInTheDocument();
@@ -223,7 +223,7 @@ describe("following a response chain", () => {
     const dialog = await screen.findByRole("dialog", { name: "Save your changes first?" });
     await user.click(within(dialog).getByRole("button", { name: "Save and open" }));
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/subscriptions/20"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/response-subscriptions/20"));
     expect(saves).toHaveLength(1);
     expect(saves[0].name).toBe("Renamed first");
   });

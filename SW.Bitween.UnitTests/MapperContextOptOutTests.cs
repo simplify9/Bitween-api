@@ -67,7 +67,7 @@ public class MapperContextOptOutTests
     }
 
     /// <summary>
-    /// A serverless mapper is an id no native mapper answers to. It must keep the enrichment — the
+    /// A serverless mapper is an id no native mapper answers to. It must keep the enrichment - the
     /// external adapter reads <c>__partner__</c> out of the payload like any other template.
     /// </summary>
     [TestMethod]

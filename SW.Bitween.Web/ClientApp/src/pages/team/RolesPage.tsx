@@ -5,7 +5,7 @@ import { api } from "../../api";
 import { allKeysIn, usePermissionCatalog } from "../../api/permissions";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { keys } from "../../api/queryKeys";
 
 export function RolesPage() {
@@ -16,7 +16,24 @@ export function RolesPage() {
   const header = (
     <PageHeader
       title="Roles"
-      description="A role is a reusable set of permissions. Open one to see — and shape — exactly what its members can do."
+      description="A role is a reusable set of permissions. Open one to see - and shape - exactly what its members can do."
+      help={{
+        title: "How roles work",
+        body: (
+          <>
+            <p>
+              Members are given <strong>roles</strong>, and what they can see and do comes from the
+              permissions in those roles. Each row shows how many members hold the role, and how many of
+              all the permissions it grants.
+            </p>
+            <p>
+              A <strong>Built-in</strong> role always holds every permission, so there is always someone who
+              can manage the instance. It can't be edited or deleted, but you can{" "}
+              <strong>Duplicate</strong> it as a starting point for your own.
+            </p>
+          </>
+        ),
+      }}
       actions={
         <Can permission="roles.create">
           <Button variant="primary" onClick={() => navigate("/team/roles/new")}>
@@ -32,6 +49,14 @@ export function RolesPage() {
       <div>
         {header}
         <LoadingBlock label="Loading roles…" />
+      </div>
+    );
+
+  if (roles.isError)
+    return (
+      <div>
+        {header}
+        <LoadError error={roles.error} what="roles" onRetry={() => void roles.refetch()} />
       </div>
     );
 

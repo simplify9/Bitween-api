@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { useMappingEditorDispatch, redo, undo } from "../../lib/mapping/MappingEditorContext";
+import { useMappingEditorDispatch } from "../../lib/mapping/mappingEditorHooks";
+import { redo, undo } from "../../lib/mapping/mappingEditorActions";
 
 // Registers Ctrl/Cmd+Z (undo), Ctrl/Cmd+Y / Ctrl/Cmd+Shift+Z (redo),
 // and Ctrl/Cmd+S (save) global keyboard shortcuts.
@@ -24,5 +25,5 @@ export function useKeyboardShortcuts(onSave: () => void): void {
     };
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [onSave]);
+  }, [onSave, dispatch]);
 }

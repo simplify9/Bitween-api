@@ -4,7 +4,7 @@ namespace SW.Bitween.Adapters.Db.Oracle;
 
 /// <summary>
 /// Every setting here arrives as a DataSource property, bound by name, and the form an operator
-/// fills in is generated from these attributes — so a field added here appears in Bitween with no
+/// fills in is generated from these attributes - so a field added here appears in Bitween with no
 /// front-end change.
 ///
 /// Oracle is the awkward one to configure, and the hints carry that weight deliberately: service
@@ -24,13 +24,13 @@ public class OracleOptions : DbOptionsBase
     public int Port { get; set; } = 1521;
 
     [AdapterSetting(Hint =
-        "The SERVICE name — what `lsnrctl services` lists, e.g. FREEPDB1 or ORCLPDB1. This is what a "
+        "The SERVICE name - what `lsnrctl services` lists, e.g. FREEPDB1 or ORCLPDB1. This is what a "
         + "modern Oracle wants. Leave empty only if you are connecting by SID instead.")]
     public string ServiceName { get; set; }
 
     [AdapterSetting(Hint =
         "The SID, for an older instance that has no service name. Set exactly one of ServiceName "
-        + "and Sid — a connection naming both is rejected rather than silently preferring one.")]
+        + "and Sid - a connection naming both is rejected rather than silently preferring one.")]
     public string Sid { get; set; }
 
     [AdapterSetting(Hint =

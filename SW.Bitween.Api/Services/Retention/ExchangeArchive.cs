@@ -23,8 +23,8 @@ namespace SW.Bitween;
 /// <para>
 /// Files go to <c>{archive prefix}/{subscription id}/yyyy/MM/dd/{first promoted value}_{exchange id}.json</c>,
 /// dated by when the exchange started. The first promoted property of the exchange's information type
-/// leads the name so an exchange can be found by it; the id keeps two with the same value — the
-/// attempts of one retry chain — from overwriting each other. Rewriting the same exchange produces the
+/// leads the name so an exchange can be found by it; the id keeps two with the same value - the
+/// attempts of one retry chain - from overwriting each other. Rewriting the same exchange produces the
 /// same key, so a run that stopped part-way can simply run again.
 /// </para>
 /// <para>
@@ -54,7 +54,7 @@ public class ExchangeArchive(BitweenDbContext dbContext, XchangeService xchangeS
     public string Prefix => PrefixFor(options.DocumentPrefix);
 
     /// <summary>
-    /// Out of the temp folders on purpose — the bucket's rule for <c>temp30/</c> would otherwise delete
+    /// Out of the temp folders on purpose - the bucket's rule for <c>temp30/</c> would otherwise delete
     /// the archive along with the files it keeps. The rest of the prefix stays, so deployments that share
     /// a bucket under different prefixes keep separate archives.
     /// </summary>
@@ -157,6 +157,7 @@ public class ExchangeArchive(BitweenDbContext dbContext, XchangeService xchangeS
                                 result.ResponseBad,
                                 result.ResponseXchangeId,
                                 result.RetryBlockedReason,
+                                result.Warning,
                                 result.RetryGroupId,
                                 result.AttemptNumber
                             },
@@ -178,11 +179,13 @@ public class ExchangeArchive(BitweenDbContext dbContext, XchangeService xchangeS
                             Output = result == null
                                 ? null
                                 : await ReadFile(xchange, XchangeFileType.Output, result.OutputName,
-                                    result.OutputSize, result.OutputContentType, rules),
+                                    result.OutputSize, result.OutputContentType, rules,
+                                    result.NotStoredReason(XchangeFileType.Output)),
                             Response = result == null
                                 ? null
                                 : await ReadFile(xchange, XchangeFileType.Response, result.ResponseName,
-                                    result.ResponseSize, result.ResponseContentType, rules)
+                                    result.ResponseSize, result.ResponseContentType, rules,
+                                    result.NotStoredReason(XchangeFileType.Response))
                         },
                         ArchivedOn = DateTime.UtcNow
                     };
@@ -240,11 +243,22 @@ public class ExchangeArchive(BitweenDbContext dbContext, XchangeService xchangeS
     /// <summary>
     /// One of the exchange's files as it goes into the archive. A file the bucket has already deleted is
     /// recorded as missing, with the reason, rather than stopping the archive: its details are still worth
-    /// keeping. Any other storage failure does stop it.
+    /// keeping. Any other storage failure does stop it. So is one that couldn't be stored after its delivery
+    /// (<paramref name="notStored"/>), which storage never had.
     /// </summary>
     private async Task<object> ReadFile(Xchange xchange, XchangeFileType type, string name, int size,
-        string contentType, StorageRules rules)
+        string contentType, StorageRules rules, string notStored = null)
     {
+        if (notStored != null)
+            return new
+            {
+                Name = name,
+                ContentType = contentType,
+                Size = size,
+                Content = (string)null,
+                Missing = $"Delivered, but could not be stored when the exchange ran: {notStored}"
+            };
+
         if (size == 0) return null;
 
         var key = xchangeService.FileKey(xchange, type);

@@ -1,46 +1,12 @@
 import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { api, type RetryTree, type RetryTreeNode } from "../../api";
-import { keys } from "../../api/queryKeys";
+import { type RetryTree, type RetryTreeNode } from "../../api";
 import { Badge } from "../../components/ui/basics";
-import { PromotedProps, namesSomething } from "../../components/config/shared";
+import { PromotedProps } from "../../components/config/shared";
+import { namesSomething } from "../../components/config/subscriptionLabels";
 import { timeAgo, timeUntil } from "../../lib/dates";
 import { StatusBadge } from "./shared";
-
-/**
- * The whole chain is worth asking for only when the row says there is something in it. Both
- * facts come back with every exchange row, so an exchange that was never retried and is not
- * itself a retry — most of them — costs no request at all.
- */
-export const hasRetryChain = (x: { retryFor: string | null; hasRetry: boolean }) =>
-  x.retryFor !== null || x.hasRetry;
-
-export const retryTreeQuery = (id: string) => ({
-  queryKey: keys.exchanges.retryTree(id),
-  queryFn: () => api.getRetryTree(id),
-  /**
-   * A chain is settled history above the exchange asked about and only ever grows below it, so
-   * a held copy cannot be wrong about what it shows — at worst it is missing an attempt someone
-   * has just started, which invalidating on retry covers.
-   */
-  staleTime: 60_000,
-});
-
-/** The end of the chain below `fromId` — the attempt a retry would actually run. */
-export function newestAttempt(tree: RetryTree, fromId: string): RetryTreeNode | null {
-  let current = tree.attempts.find((a) => a.id === fromId) ?? null;
-  if (!current) return null;
-
-  for (;;) {
-    // Newest first, so a chain that forked before one-retry-per-exchange was enforced resolves
-    // the same way the backend resolves it.
-    const children = tree.attempts
-      .filter((a) => a.retryFor === current!.id)
-      .sort((a, b) => b.startedOn.localeCompare(a.startedOn));
-    if (children.length === 0) return current;
-    current = children[0];
-  }
-}
+import { retryTreeQuery } from "./retryTree";
 
 const childrenOf = (tree: RetryTree, id: string | null) =>
   tree.attempts
@@ -66,7 +32,7 @@ function Attempt({
     <>
       <li
         // The whole row opens the attempt, the way a row of the exchange list opens its own
-        // drawer — the identity on the right can no longer be a link itself, since promoted
+        // drawer - the identity on the right can no longer be a link itself, since promoted
         // properties bring a panel of their own and a button cannot sit inside a link.
         onClick={isCurrent ? undefined : () => navigate(`/exchanges?ids=${encodeURIComponent(node.id)}`)}
         className={`flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1.5 ${
@@ -78,8 +44,8 @@ function Attempt({
             properties can open a panel of their own, and a button inside a link is neither. */}
         {isCurrent ? (
           <span
-            className="w-[68px] shrink-0 text-[11px] font-medium tracking-wide text-ink-400 uppercase"
-            title={`The ${ordinal(depth + 1)} attempt at this work — the one you are looking at`}
+            className="w-[68px] shrink-0 text-[11px] font-medium tracking-wide text-ink-500 uppercase"
+            title={`The ${ordinal(depth + 1)} attempt at this work - the one you are looking at`}
           >
             Attempt {depth + 1}
           </span>
@@ -87,7 +53,7 @@ function Attempt({
           <Link
             to={`/exchanges?ids=${encodeURIComponent(node.id)}`}
             title={`Open the ${ordinal(depth + 1)} attempt at this work`}
-            className="w-[68px] shrink-0 text-[11px] font-medium tracking-wide text-ink-500 uppercase hover:text-crimson-700 hover:underline"
+            className="w-[68px] shrink-0 text-[11px] font-medium tracking-wide text-ink-500 uppercase hover:link"
           >
             Attempt {depth + 1}
           </Link>
@@ -97,7 +63,7 @@ function Attempt({
           tone="neutral"
           title={
             node.retryFor === null
-              ? "The original run — nobody retried anything to produce this"
+              ? "The original run - nobody retried anything to produce this"
               : node.manualRetry
                 ? "Someone pressed Retry for this attempt"
                 : "A retry policy scheduled this attempt"
@@ -111,7 +77,7 @@ function Attempt({
         {children.length > 1 && (
           <Badge
             tone="warn"
-            title="This exchange was retried more than once, which happened before an exchange was limited to a single retry. Each of those retries begins its own branch below — which is why an attempt number can appear twice."
+            title="This exchange was retried more than once, which happened before an exchange was limited to a single retry. Each of those retries begins its own branch below - which is why an attempt number can appear twice."
           >
             {children.length} retries from here
           </Badge>
@@ -125,7 +91,7 @@ function Attempt({
           {timeAgo(node.startedOn)}
         </span>
 
-        {/* Named the way the exchange list names a row — the promoted properties are what
+        {/* Named the way the exchange list names a row - the promoted properties are what
             someone recognises an exchange by, and the id falls back in when there are none. */}
         <span className="ml-auto flex items-center gap-2">
           {namesSomething(node.promotedProperties) ? (
@@ -161,9 +127,9 @@ export function RetryChain({ id }: { id: string }) {
   const { data: tree, isLoading } = useQuery(retryTreeQuery(id));
 
   // A line rather than a spinner block: this sits inside an already-rendered drawer, and it is
-  // usually filled in before anyone looks at it — the row is prefetched on hover.
+  // usually filled in before anyone looks at it - the row is prefetched on hover.
   if (isLoading)
-    return <p className="text-[13px] text-ink-400">Loading the retry chain…</p>;
+    return <p className="text-[13px] text-ink-500">Loading the retry chain…</p>;
   if (!tree || tree.attempts.length < 2) return null;
 
   const root = tree.attempts.find((a) => a.id === tree.rootId) ?? tree.attempts[0];
@@ -171,7 +137,7 @@ export function RetryChain({ id }: { id: string }) {
   return (
     <section className="rounded-lg border border-ink-200 bg-white p-3">
       <h4
-        className="mb-1.5 text-[11px] font-medium tracking-wide text-ink-400 uppercase"
+        className="mb-1.5 text-[11px] font-medium tracking-wide text-ink-500 uppercase"
         title="Every attempt at this work. An exchange is retried at most once, so retrying continues from the newest attempt rather than starting again from an old one."
       >
         Retry chain · {tree.attempts.length} attempts
@@ -181,7 +147,7 @@ export function RetryChain({ id }: { id: string }) {
       </ul>
       {tree.truncated && (
         <p className="mt-1.5 text-[13px] text-ink-500">
-          Only the attempts nearest this one are shown — the chain is longer than this view walks.
+          Only the attempts nearest this one are shown - the chain is longer than this view walks.
         </p>
       )}
     </section>

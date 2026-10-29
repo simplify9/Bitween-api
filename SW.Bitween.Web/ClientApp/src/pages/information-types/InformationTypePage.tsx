@@ -3,9 +3,12 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Archive, Trash2, Undo2 } from "lucide-react";
 import { api } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
-import { ConfirmDialog } from "../../components/ui/overlays";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock, ProblemText } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import { CodeBadge, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
 import { HistoryCard } from "../../components/config/HistoryCard";
@@ -13,16 +16,22 @@ import { ExchangesList, SetupList } from "../../components/config/shared";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
 import { formatDate } from "../../lib/dates";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import {
   BusTypeRenameConfirm,
   InformationTypeFields,
   InformationTypeMessagesWarning,
+  type InformationTypeDraft,
+} from "../../components/config/InformationTypeFields";
+import {
   renamesBusQueue,
   informationTypeChanges,
   informationTypeDirty,
   informationTypeDraftOf,
-  type InformationTypeDraft,
-} from "../../components/config/InformationTypeFields";
+} from "../../components/config/informationTypeDraft";
+import { splitErrors } from "../../lib/fieldErrors";
+import { INFORMATION_TYPE_ERRORS } from "../../components/config/informationTypeErrors";
+import { usePageTitle } from "../../lib/pageTitle";
 
 export function InformationTypePage() {
   const { id = "" } = useParams();
@@ -30,12 +39,14 @@ export function InformationTypePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("documents.edit");
+  const canDelete = useSessionCan("documents.delete");
 
   const type = useQuery({
     queryKey: keys.informationTypes.detail(typeId),
     queryFn: () => api.getInformationType(typeId),
     retry: false,
   });
+  usePageTitle(type.data?.name);
 
   const [draft, setDraft] = useState<InformationTypeDraft | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -70,11 +81,16 @@ export function InformationTypePage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.informationTypes.all }),
   });
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+  const refused = splitErrors(save.error, INFORMATION_TYPE_ERRORS);
+
   if (type.isPending) return <LoadingBlock label="Loading information type…" />;
+  if (type.isError && !isNotFound(type.error))
+    return <LoadError error={type.error} what="this information type" onRetry={() => void type.refetch()} />;
   if (type.isError)
     return (
       <EmptyState title="This information type no longer exists">
-        <Link to="/information-types" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/information-types" className="font-medium link">
           Back to information types
         </Link>
       </EmptyState>
@@ -84,6 +100,7 @@ export function InformationTypePage() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/information-types" label="Information types" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -94,7 +111,7 @@ export function InformationTypePage() {
             {t.isSystem && (
               <Badge
                 tone="ink"
-                title="Seeded by Bitween and used by aggregation itself — it can't be retired or deleted."
+                title="Seeded by Bitween and used by aggregation itself - it can't be retired or deleted."
               >
                 Built-in
               </Badge>
@@ -134,19 +151,25 @@ export function InformationTypePage() {
                   )}
                 </Button>
               </Can>
-              <Can permission="documents.delete">
-                <Button variant="danger" onClick={() => setDeleting(true)}>
-                  <Trash2 className="size-4" /> Delete
-                </Button>
-              </Can>
+              <MoreActionsMenu
+                actions={[
+                  {
+                    label: "Delete",
+                    icon: <Trash2 className="size-4" />,
+                    danger: true,
+                    onSelect: () => setDeleting(true),
+                    hidden: !canDelete,
+                  },
+                ]}
+              />
             </div>
             {/*
-              Retire refuses for reasons the user can act on — a subscription still carrying the
-              type, say — and without this the refusal reached the network tab and nowhere else.
+              Retire refuses for reasons the user can act on - a subscription still carrying the
+              type, say - and without this the refusal reached the network tab and nowhere else.
             */}
             {retire.error && (
-              <p className="max-w-md text-right text-[13px] text-danger-700">
-                {retire.error.message}
+              <p className="max-w-md text-right">
+                <ProblemText className="text-left">{retire.error.message}</ProblemText>
               </p>
             )}
           </div>
@@ -156,7 +179,13 @@ export function InformationTypePage() {
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="min-w-0">
           {draft && (
-            <InformationTypeFields draft={draft} onChange={setDraft} canEdit={canEdit} saved={t} />
+            <InformationTypeFields
+              draft={draft}
+              onChange={setDraft}
+              canEdit={canEdit}
+              saved={t}
+              errors={refused.byField}
+            />
           )}
         </div>
 
@@ -178,7 +207,7 @@ export function InformationTypePage() {
                         cell: (g) => (
                           <Link
                             to={`/bus-gateways/${g.gatewayId}`}
-                            className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                            className="block font-medium text-ink-800 hover:link"
                           >
                             {g.gatewayName}
                           </Link>
@@ -204,7 +233,7 @@ export function InformationTypePage() {
       {canEdit && dirty && (
         <UnsavedBar
           busy={save.isPending}
-          error={save.error?.message}
+          error={refused.rest}
           onSave={() =>
             draft && renamesBusQueue(t.busMessageTypeName, draft) ? setConfirmingRename(true) : save.mutate()
           }
@@ -213,13 +242,21 @@ export function InformationTypePage() {
       )}
 
       {deleting && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this information type?"
+          name={t.code ?? t.name}
+          blockers={[
+            counted(t.subscriptionSetups.length, "subscription carrying it", "subscriptions carrying it"),
+            counted(t.busGateways.length, "bus gateway listening for it", "bus gateways listening for it"),
+          ]}
+          // Only the latest few are loaded, so this is not a count: any history at all is what
+          // the delete takes with it.
+          impact={[{ label: "Every exchange recorded against it, and their payloads", count: t.recentExchanges.length }]}
           body={
             <div className="space-y-2">
               <p>
                 <strong className="font-medium text-ink-800">{t.code ?? t.name}</strong> and its promoted
-                properties will be gone for good — <strong className="font-medium text-ink-800">along with
+                properties will be gone for good - <strong className="font-medium text-ink-800">along with
                 every exchange recorded against it</strong>, and their payloads. A type still carried by a
                 subscription, or listened for by a bus gateway, can't be deleted.
               </p>
@@ -235,7 +272,7 @@ export function InformationTypePage() {
           onConfirm={async () => {
             await api.deleteInformationType(typeId);
             void queryClient.invalidateQueries({ queryKey: keys.informationTypes.all });
-            navigate("/information-types", { replace: true });
+            leave(() => navigate("/information-types", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
         />

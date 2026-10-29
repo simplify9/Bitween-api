@@ -3,7 +3,7 @@ import { CircleHelp, X } from "lucide-react";
 
 /**
  * Every page opens with the same frame: what this page is, one line of
- * plain-words help, and the page's primary actions — so clients can
+ * plain-words help, and the page's primary actions - so clients can
  * find their feet without a demo.
  */
 export function PageHeader({
@@ -31,7 +31,7 @@ export function PageHeader({
                 onClick={() => setHelpOpen((o) => !o)}
                 aria-expanded={helpOpen}
                 aria-label={`How ${title.toLowerCase()} works`}
-                className="rounded-full p-0.5 text-ink-300 hover:text-crimson-600"
+                className="touch-target relative rounded-full p-0.5 text-ink-300 hover:text-crimson-600"
               >
                 <CircleHelp className="size-4.5" />
               </button>
@@ -47,7 +47,7 @@ export function PageHeader({
           <button
             onClick={() => setHelpOpen(false)}
             aria-label="Close help"
-            className="absolute top-2.5 right-2.5 rounded-md p-1 text-ink-400 hover:text-ink-700"
+            className="touch-target absolute top-2.5 right-2.5 rounded-md p-1 text-ink-500 hover:text-ink-700"
           >
             <X className="size-4" />
           </button>

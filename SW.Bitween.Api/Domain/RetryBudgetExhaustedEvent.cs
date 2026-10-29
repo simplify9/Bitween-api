@@ -33,7 +33,7 @@ public class RetryBudgetExhaustedEvent : BaseDomainEvent
 
     /// <summary>
     /// The ceiling that was reached. Not paired with an "used" count, because at exhaustion the two
-    /// are the same number — except when the ceiling was lowered below what had already been spent,
+    /// are the same number - except when the ceiling was lowered below what had already been spent,
     /// where the ceiling is still the meaningful figure.
     /// </summary>
     public int MaxAttemptsTotal { get; set; }

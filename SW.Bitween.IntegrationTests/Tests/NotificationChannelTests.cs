@@ -1,0 +1,853 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
+using Newtonsoft.Json;
+using SW.Bitween.Domain;
+using SW.Bitween.IntegrationTests.Adapters;
+using SW.Bitween.IntegrationTests.Fixtures;
+using SW.Bitween.Model;
+using SW.PrimitiveTypes;
+using Xunit;
+
+namespace SW.Bitween.IntegrationTests.Tests;
+
+/// <summary>
+/// Notification channels: where notifications and alerts go, set up once in Settings and picked by
+/// each place that notifies.
+/// </summary>
+[Collection("Bitween")]
+public class NotificationChannelTests(BitweenFixture fixture)
+{
+    private const string Sentinel = AdapterSecretProperties.Sentinel;
+
+    private static int _seq;
+    private static string Unique(string prefix) => $"{prefix}-{Interlocked.Increment(ref _seq)}";
+
+    /// <summary>The legacy SMTP adapter's settings: enough to save, nothing is sent here.</summary>
+    private static Dictionary<string, string> Smtp(string password = "", bool useTls = true,
+        string host = "smtp.example.com") => new()
+    {
+        ["Host"] = host,
+        ["Port"] = "587",
+        ["UseTls"] = useTls ? "true" : "false",
+        ["Password"] = password,
+        ["From"] = "bitween@example.com",
+        ["To"] = "ops@example.com",
+        ["Subject"] = "{{ SubscriptionName }} finished",
+        ["Body"] = "Exchange {{ Id }}"
+    };
+
+    private async Task<int> Create(string name, Dictionary<string, string> properties,
+        string handlerId = "NativeSmtpHandler")
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        return (int)await ActivatorUtilities.CreateInstance<Resources.NotificationChannels.Create>(scope.ServiceProvider)
+            .Handle(new NotificationChannelCreate { Name = name, HandlerId = handlerId, HandlerProperties = properties });
+    }
+
+    private async Task Update(int id, NotificationChannelUpdate model)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        await ActivatorUtilities.CreateInstance<Resources.NotificationChannels.Update>(scope.ServiceProvider)
+            .Handle(id, model);
+    }
+
+    private async Task<NotificationChannelGet> Get(int id)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        return (NotificationChannelGet)await ActivatorUtilities
+            .CreateInstance<Resources.NotificationChannels.Get>(scope.ServiceProvider).Handle(id);
+    }
+
+    private async Task Delete(int id)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        await ActivatorUtilities.CreateInstance<Resources.NotificationChannels.Delete>(scope.ServiceProvider)
+            .Handle(id);
+    }
+
+    private async Task<NotificationChannel> Stored(int id)
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        return await db.Set<NotificationChannel>().AsNoTracking().SingleOrDefaultAsync(c => c.Id == id);
+    }
+
+    private async Task<string> RawHandlerProperties(int id)
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        return await db.Database
+            .SqlQueryRaw<string>(
+                "SELECT handler_properties::text AS \"Value\" FROM infolink.notification_channel WHERE id = {0}", id)
+            .SingleAsync();
+    }
+
+    /// <summary>
+    /// The adapter reads its settings ignoring case, so a password saved as "password" is still its
+    /// Password, and is hidden like one; and a request naming the host twice in different case can't
+    /// carry the stored password to a new server.
+    /// </summary>
+    [Fact]
+    public async Task A_secret_is_hidden_and_protected_whatever_the_case_of_its_name()
+    {
+        var name = Unique("Lower-case password");
+        var properties = Smtp();
+        properties.Remove("Password");
+        properties["password"] = "hunter2";
+        var id = await Create(name, properties);
+
+        Assert.Equal(Sentinel, (await Get(id)).HandlerProperties["password"]);
+
+        // Refused, or saved without the password: either way it never sits beside the new host.
+        var attack = new Dictionary<string, string>(StringComparer.Ordinal) { ["host"] = "attacker.example", ["Host"] = Sentinel, ["password"] = Sentinel };
+        foreach (var (key, value) in Smtp().Where(kv => kv.Key is not ("Host" or "Password"))) attack[key] = value;
+        try
+        {
+            await Update(id, new NotificationChannelUpdate { Name = name, HandlerId = "NativeSmtpHandler", HandlerProperties = attack });
+        }
+        catch (SWValidationException)
+        {
+        }
+
+        var stored = (await Stored(id)).HandlerProperties;
+        Assert.False(stored.Values.Contains("attacker.example") && stored.Values.Contains("hunter2"),
+            "the stored password was carried to a new host");
+        await Delete(id);
+    }
+
+    [Fact]
+    public async Task A_channel_password_is_hidden_on_read_and_kept_when_saved_back()
+    {
+        var name = Unique("Hidden password");
+        var id = await Create(name, Smtp("hunter2"));
+
+        var loaded = await Get(id);
+        Assert.Equal(Sentinel, loaded.HandlerProperties["Password"]);
+        Assert.Equal("smtp.example.com", loaded.HandlerProperties["Host"]);
+
+        // What the page does when someone edits the subject: the password comes back as the
+        // sentinel, and must not be stored as one.
+        loaded.HandlerProperties["Subject"] = "Edited";
+        await Update(id, new NotificationChannelUpdate
+        {
+            Name = name, HandlerId = loaded.HandlerId, HandlerProperties = loaded.HandlerProperties
+        });
+
+        var stored = await Stored(id);
+        Assert.Equal("hunter2", stored.HandlerProperties["Password"]);
+        Assert.Equal("Edited", stored.HandlerProperties["Subject"]);
+    }
+
+    [Fact]
+    public async Task Switching_the_adapter_drops_a_hidden_password_instead_of_handing_it_over()
+    {
+        var name = Unique("Switched adapter");
+        var id = await Create(name, Smtp("hunter2"));
+
+        // Keeping the sentinel while switching to an adapter that posts wherever the caller likes
+        // would send the stored password there, without the caller ever having seen it.
+        await Update(id, new NotificationChannelUpdate
+        {
+            Name = name,
+            HandlerId = "NativeHttpHandler",
+            HandlerProperties = new() { ["LoginPassword"] = Sentinel, ["Password"] = Sentinel, ["Url"] = "https://example.com" }
+        });
+
+        var stored = await Stored(id);
+        Assert.False(stored.HandlerProperties.ContainsKey("Password"));
+        Assert.False(stored.HandlerProperties.ContainsKey("LoginPassword"));
+        Assert.Equal("https://example.com", stored.HandlerProperties["Url"]);
+    }
+
+    [Fact]
+    public async Task Pointing_the_mail_server_elsewhere_drops_a_hidden_password()
+    {
+        var name = Unique("Moved server");
+        var id = await Create(name, Smtp("hunter2"));
+
+        var moved = (await Get(id)).HandlerProperties;
+        moved["Host"] = "mail.attacker.example";
+
+        // Same adapter, but a new destination: the stored password is not carried over to it.
+        await Update(id, new NotificationChannelUpdate
+        {
+            Name = name, HandlerId = "NativeSmtpHandler", HandlerProperties = moved
+        });
+        Assert.False((await Stored(id)).HandlerProperties.ContainsKey("Password"));
+
+        // It has to be typed again, which proves whoever moved it knows it.
+        moved["Password"] = "typed-again";
+        await Update(id, new NotificationChannelUpdate
+        {
+            Name = name, HandlerId = "NativeSmtpHandler", HandlerProperties = moved
+        });
+        var stored = await Stored(id);
+        Assert.Equal("mail.attacker.example", stored.HandlerProperties["Host"]);
+        Assert.Equal("typed-again", stored.HandlerProperties["Password"]);
+    }
+
+    [Fact]
+    public async Task A_mail_channel_with_a_password_and_no_encryption_is_refused()
+    {
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() =>
+            Create(Unique("Cleartext"), Smtp("hunter2", useTls: false)));
+        Assert.Contains("CHANNEL_PASSWORD_WITHOUT_TLS", ex.Message);
+
+        // Encryption off is fine on its own: only the password must not travel in clear.
+        await Create(Unique("No password"), Smtp(useTls: false));
+    }
+
+    [Fact]
+    public async Task A_channel_missing_a_setting_its_adapter_needs_is_refused()
+    {
+        var properties = Smtp();
+        properties.Remove("To");
+
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() => Create(Unique("Nobody to tell"), properties));
+        Assert.Contains("CHANNEL_SETTINGS_MISSING", ex.Message);
+        Assert.Contains("To", ex.Message);
+    }
+
+    [Fact]
+    public async Task Two_channels_cannot_share_a_name()
+    {
+        var name = Unique("Taken");
+        await Create(name, Smtp());
+
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() => Create(name, Smtp()));
+        Assert.Contains("NOTIFICATION_CHANNEL_NAME_TAKEN", ex.Message);
+    }
+
+    [Fact]
+    public async Task A_channel_that_does_not_exist_is_not_found_rather_than_a_server_error()
+    {
+        const int missing = 999_999;
+
+        await Assert.ThrowsAsync<SWNotFoundException>(() => Get(missing));
+        await Assert.ThrowsAsync<SWNotFoundException>(() => Update(missing, new NotificationChannelUpdate
+        {
+            Name = Unique("Nowhere"), HandlerId = "NativeSmtpHandler", HandlerProperties = Smtp()
+        }));
+        await Assert.ThrowsAsync<SWNotFoundException>(() => Delete(missing));
+    }
+
+    [Fact]
+    public async Task A_deleted_channel_is_gone()
+    {
+        var id = await Create(Unique("Short-lived"), Smtp());
+
+        await Delete(id);
+
+        Assert.Null(await Stored(id));
+    }
+
+    [Fact]
+    public async Task A_channel_password_is_stored_encrypted_and_read_back_plain()
+    {
+        SecretColumnCipher.Configure("integration test passphrase");
+        int? id = null;
+        try
+        {
+            id = await Create(Unique("Encrypted"), Smtp("hunter2-at-rest"));
+
+            Assert.DoesNotContain("hunter2-at-rest", await RawHandlerProperties(id.Value));
+            Assert.Equal("hunter2-at-rest", (await Stored(id.Value)).HandlerProperties["Password"]);
+        }
+        finally
+        {
+            // Unreadable once the key is gone, and the cache loads every channel, so it can't stay.
+            if (id != null)
+            {
+                await using var scope = fixture.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<NotificationChannel>()
+                    .Where(c => c.Id == id).ExecuteDeleteAsync();
+            }
+            SecretColumnCipher.Configure(null);
+        }
+    }
+
+    [Fact]
+    public async Task A_channel_saved_before_a_key_was_set_is_encrypted_by_the_pass()
+    {
+        var id = await Create(Unique("Saved in clear"), Smtp("hunter2-before-key"));
+        Assert.Contains("hunter2-before-key", await RawHandlerProperties(id));
+
+        SecretColumnCipher.Configure("integration test passphrase");
+        try
+        {
+            await ActivatorUtilities.CreateInstance<SecretColumnEncryptionPass>(fixture.App.Services)
+                .RunAsync(CancellationToken.None);
+
+            Assert.DoesNotContain("hunter2-before-key", await RawHandlerProperties(id));
+            Assert.Equal("hunter2-before-key", (await Stored(id)).HandlerProperties["Password"]);
+        }
+        finally
+        {
+            // Everything the pass encrypted would be unreadable to the rest of the collection, so it
+            // is written back in clear, as SecretColumnEncryptionTests does.
+            var decrypt = ActivatorUtilities.CreateInstance<SecretColumnEncryptionPass>(fixture.App.Services);
+            SecretColumnCipher.Configure(null, previousPassphrase: "integration test passphrase");
+            await decrypt.RunAsync(CancellationToken.None);
+            SecretColumnCipher.Configure(null);
+        }
+    }
+
+    [Fact]
+    public async Task A_channel_in_use_names_its_users_and_cannot_be_deleted()
+    {
+        var channelId = await Create(Unique("In use"), Smtp());
+        var subscriptionId = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = channelId, OnFailure = true });
+
+        var use = Assert.Single((await Get(channelId)).UsedBy);
+        Assert.Equal(subscriptionId, use.SubscriptionId);
+
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() => Delete(channelId));
+        Assert.Contains("NOTIFICATION_CHANNEL_IN_USE", ex.Message);
+        Assert.NotNull(await Stored(channelId));
+    }
+
+    [Fact]
+    public async Task Notifications_are_saved_and_a_save_that_leaves_them_out_keeps_them()
+    {
+        var channelId = await RecordingChannel(Token("saved"));
+        var subscriptionId = await NotifyingSubscription();
+
+        await SaveNotifications(subscriptionId, [new SubscriptionNotification { ChannelId = channelId, OnFailure = true }]);
+        var row = Assert.Single((await ReadSubscription(subscriptionId)).Notifications!);
+        Assert.Equal(channelId, row.ChannelId);
+        Assert.True(row.OnFailure);
+
+        // An older client, or a script, that has never heard of them.
+        await SaveNotifications(subscriptionId, null);
+        Assert.Single((await ReadSubscription(subscriptionId)).Notifications!);
+
+        await SaveNotifications(subscriptionId, []);
+        Assert.Empty((await ReadSubscription(subscriptionId)).Notifications!);
+
+        // Going quiet is not about any one exchange, so it can be a row's only tick.
+        await SaveNotifications(subscriptionId, [new SubscriptionNotification { ChannelId = channelId, OnQuiet = true }]);
+        Assert.True(Assert.Single((await ReadSubscription(subscriptionId)).Notifications!).OnQuiet);
+    }
+
+    [Fact]
+    public async Task A_subscription_refuses_notifications_that_could_never_send()
+    {
+        var channelId = await RecordingChannel(Token("checks"));
+        var subscriptionId = await NotifyingSubscription();
+
+        async Task<string> Refused(params SubscriptionNotification[] rows) =>
+            (await Assert.ThrowsAsync<SWValidationException>(() => SaveNotifications(subscriptionId, rows))).Message;
+
+        Assert.Contains("NOTIFICATION_NO_OUTCOME", await Refused(new SubscriptionNotification { ChannelId = channelId }));
+        Assert.Contains("NOTIFICATION_CHANNEL_REPEATED", await Refused(
+            new SubscriptionNotification { ChannelId = channelId, OnFailure = true },
+            new SubscriptionNotification { ChannelId = channelId, OnSuccess = true }));
+        Assert.Contains("NOTIFICATION_CHANNEL_NOT_FOUND", await Refused(
+            new SubscriptionNotification { ChannelId = 999_999, OnFailure = true }));
+    }
+
+    [Fact]
+    public async Task A_failure_goes_to_the_channel_ticked_for_failures_and_a_success_to_the_one_ticked_for_successes()
+    {
+        var failures = Token("failures");
+        var successes = Token("successes");
+        var subscriptionId = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = await RecordingChannel(failures), OnFailure = true },
+            new SubscriptionNotification { ChannelId = await RecordingChannel(successes), OnSuccess = true });
+
+        await ProcessResult(await FinishedExchange(subscriptionId, failed: true));
+        await ProcessResult(await FinishedExchange(subscriptionId, failed: false));
+
+        Assert.Equal(1, NativeTestResponder.Deliveries.GetValueOrDefault(failures));
+        Assert.Equal(1, NativeTestResponder.Deliveries.GetValueOrDefault(successes));
+
+        var sent = JsonConvert.DeserializeObject<XchangeResultNotification>(
+            NativeTestResponder.Received[failures].Single());
+        Assert.False(sent.Success);
+        Assert.Contains("the partner is down", sent.Exception);
+    }
+
+    /// <summary>An outage is one message through a channel, as it is through a notifier.</summary>
+    [Fact]
+    public async Task A_burst_of_failures_sends_one_message_through_a_channel_and_counts_the_rest()
+    {
+        var token = Token("burst");
+        var channelId = await RecordingChannel(token);
+        var subscriptionId = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = channelId, OnFailure = true });
+
+        for (var i = 0; i < 4; i++) await ProcessResult(await FinishedExchange(subscriptionId, failed: true));
+
+        Assert.Equal(1, NativeTestResponder.Deliveries.GetValueOrDefault(token));
+        var rows = await Sends(channelId);
+        Assert.Equal(1, rows.Count(n => n.Success));
+        Assert.Equal(3, rows.Count(n => n.Suppressed));
+    }
+
+    /// <summary>
+    /// A retry or auto-pause alert about an exchange can go through the same channel as the
+    /// subscription's own failure message. It is a different message: it neither stands in for that
+    /// one nor opens the quiet window for the failures after it.
+    /// </summary>
+    [Fact]
+    public async Task An_alert_through_the_same_channel_neither_replaces_nor_holds_back_the_failure_message()
+    {
+        var token = Token("alerted");
+        var channelId = await RecordingChannel(token);
+        var subscriptionId = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = channelId, OnFailure = true });
+        var first = await FinishedExchange(subscriptionId, failed: true);
+
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            db.Add(XchangeNotification.ForRetryBudgetAlert(first, channelId, null));
+            db.Add(XchangeNotification.ForAutoPauseAlert(first, channelId, null));
+            await db.SaveChangesAsync();
+        }
+
+        await ProcessResult(first);
+
+        Assert.Equal(1, NativeTestResponder.Deliveries.GetValueOrDefault(token));
+        var rows = await Sends(channelId);
+        Assert.Single(rows, n => n.Success && n.NotifierName != XchangeNotification.RetryBudgetAlertName &&
+                                 n.NotifierName != XchangeNotification.AutoPauseAlertName);
+        Assert.DoesNotContain(rows, n => n.Suppressed);
+    }
+
+    [Fact]
+    public async Task A_repeat_of_the_result_event_sends_once_through_a_channel()
+    {
+        var token = Token("repeat");
+        var subscriptionId = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = await RecordingChannel(token), OnFailure = true });
+        var id = await FinishedExchange(subscriptionId, failed: true);
+
+        await ProcessResult(id);
+        await ProcessResult(id);
+
+        Assert.Equal(1, NativeTestResponder.Deliveries.GetValueOrDefault(token));
+    }
+
+    [Fact]
+    public async Task A_send_the_adapter_keeps_refusing_is_tried_three_times_then_recorded_as_failed()
+    {
+        var token = Token("refused");
+        // The responder counts the message, then fails on a "Bad" that isn't true or false.
+        var channelId = await RecordingChannel(token, new Dictionary<string, string> { ["Bad"] = "neither" });
+        var subscriptionId = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = channelId, OnFailure = true });
+
+        await ProcessResult(await FinishedExchange(subscriptionId, failed: true));
+
+        Assert.Equal(3, NativeTestResponder.Deliveries.GetValueOrDefault(token));
+        var row = Assert.Single(await Sends(channelId));
+        Assert.False(row.Success);
+        Assert.Contains("FormatException", row.Exception);
+    }
+
+    [Fact]
+    public async Task The_test_button_sends_through_the_channel_and_says_whether_it_went()
+    {
+        var subject = "{{ SubscriptionName }} from " + Unique("test button");
+        var working = await Create(Unique("Testable"), MailHog(subject));
+        var broken = MailHog(subject);
+        // Nothing listens on port 1, so the connection is refused at once.
+        broken["Port"] = "1";
+        var refused = await Create(Unique("Untestable"), broken);
+
+        var sent = await TestChannel(working);
+        Assert.True(sent.Sent);
+        Assert.Null(sent.Error);
+        // A template written against the notification's fields is part of what is tested.
+        Assert.Single(await Mailed(subject.Replace("{{ SubscriptionName }}", "Test notification")));
+
+        var failed = await TestChannel(refused);
+        Assert.False(failed.Sent);
+        Assert.False(string.IsNullOrWhiteSpace(failed.Error));
+        // The reason alone, not a stack trace, because it is shown to whoever pressed the button.
+        Assert.DoesNotContain("   at ", failed.Error);
+
+        // Nothing to record it against, so the history stays clean.
+        Assert.Empty(await Sends(working));
+        Assert.Empty(await Sends(refused));
+    }
+
+    [Fact]
+    public async Task A_failure_reaches_an_email_channel_as_a_message_bitween_writes()
+    {
+        var channelId = await Create(Unique("Email channel"),
+            new Dictionary<string, string> { ["To"] = "ops@example.com" }, "NativeEmailMessageHandler");
+        var subscriptionId = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = channelId, OnFailure = true });
+        var subscriptionName = (await ReadSubscription(subscriptionId)).Name;
+        var xchangeId = await FinishedExchange(subscriptionId, failed: true, exception: "<b>Timed out</b> after 30s");
+
+        await ProcessResult(xchangeId);
+
+        var mail = Assert.Single(await Mailed($"{subscriptionName} failed"));
+        Assert.Equal("bitween@example.com", mail.From.Mailboxes.Single().Address);
+        Assert.Equal("ops@example.com", mail.To.Mailboxes.Single().Address);
+        // The error is text from somewhere else, so it is shown, not obeyed.
+        Assert.Contains("&lt;b&gt;Timed out&lt;/b&gt;", mail.HtmlBody);
+        Assert.Contains($"https://bitween.test/exchanges?ids={xchangeId}", mail.HtmlBody);
+        Assert.Contains("Timed out", mail.TextBody);
+    }
+
+    [Fact]
+    public async Task Global_values_and_the_partners_own_properties_are_filled_into_a_channel()
+    {
+        var setId = Unique("mail-values");
+        var subject = Unique("Filled subject");
+        var partnerContact = $"{Unique("contact")}@example.com";
+        Partner partner;
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            db.Add(new GlobalAdapterValuesSet { Id = setId, Name = setId, Values = new() { ["team"] = "team@example.com" } });
+            partner = new Partner(Unique("Notified partner"))
+            {
+                AdapterProperties = new Dictionary<string, string> { ["CONTACT"] = partnerContact }
+            };
+            db.Add(partner);
+            await db.SaveChangesAsync();
+            scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+        }
+
+        // One channel, written once: the shared address from a global value set, and whoever the
+        // reported exchange's partner names as its contact.
+        var properties = MailHog(subject);
+        properties["To"] = "{{partner.CONTACT}}";
+        properties["Cc"] = $"{{{{globals.{setId}.team}}}}";
+        var channel = await Stored(await Create(Unique("Filled channel"), properties));
+
+        await using (var scope = fixture.CreateScope())
+        {
+            var error = await scope.ServiceProvider.GetRequiredService<NotificationChannelSender>()
+                .Send(channel, new XchangeResultNotification { Id = "x", SubscriptionName = "Orders" }, "x", null, partner);
+            Assert.Null(error);
+        }
+
+        var mail = Assert.Single(await Mailed(subject));
+        Assert.Equal(partnerContact, mail.To.Mailboxes.Single().Address);
+        Assert.Equal("team@example.com", mail.Cc.Mailboxes.Single().Address);
+    }
+
+    [Fact]
+    public async Task An_email_channel_without_anyone_to_send_to_is_refused()
+    {
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() =>
+            Create(Unique("Nobody"), [], "NativeEmailMessageHandler"));
+        Assert.Contains("CHANNEL_SETTINGS_MISSING", ex.Message);
+        Assert.Contains("To", ex.Message);
+    }
+
+    [Fact]
+    public async Task A_chat_webhook_has_to_be_https()
+    {
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() => Create(Unique("Plain webhook"),
+            new Dictionary<string, string> { ["WebhookUrl"] = "http://hooks.slack.test/x" }, "NativeSlackMessageHandler"));
+        Assert.Contains("CHANNEL_WEBHOOK_NOT_HTTPS", ex.Message);
+    }
+
+    [Fact]
+    public async Task Retry_alerts_with_their_own_handler_are_moved_onto_one_shared_channel()
+    {
+        await ForgetTheRetryAlertMove();
+        var recipient = $"{Unique("moved")}@example.com";
+        var props = new Dictionary<string, string> { ["To"] = recipient, ["Host"] = "relay" };
+
+        int policyId;
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            // Written the way rows saved before channels look: a handler on the policy and the same
+            // one on a group, in a different key order.
+            var policy = new RetryPolicy
+            {
+                Name = Unique("Legacy alert policy"),
+                AlertHandlerId = "NativeSmtpHandler",
+                AlertHandlerProperties = props,
+                Groups =
+                [
+                    new RetryGroup
+                    {
+                        Name = "Timeout",
+                        AppliesTo = [XchangeResultType.Error],
+                        Matchers = [new ContainsMatcher { Value = "timeout" }],
+                        AlertMode = RetryAlertMode.Send,
+                        AlertHandlerId = "NativeSmtpHandler",
+                        AlertHandlerProperties = new Dictionary<string, string> { ["Host"] = "relay", ["To"] = recipient }
+                    }
+                ]
+            };
+            db.Add(policy);
+            await db.SaveChangesAsync();
+            policyId = policy.Id;
+
+            Assert.True(await RetryAlertChannelConversion.Run(db, NullLogger.Instance) >= 2);
+        }
+
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var policy = await db.Set<RetryPolicy>().AsNoTracking().SingleAsync(p => p.Id == policyId);
+
+            Assert.Null(policy.AlertHandlerId);
+            Assert.Null(policy.Groups[0].AlertHandlerId);
+
+            // The same handler with the same settings is one channel, whatever the key order.
+            Assert.NotNull(policy.AlertChannelId);
+            Assert.Equal(policy.AlertChannelId, policy.Groups[0].AlertChannelId);
+
+            var channel = await db.Set<NotificationChannel>().AsNoTracking()
+                .SingleAsync(c => c.Id == policy.AlertChannelId);
+            Assert.Equal("NativeSmtpHandler", channel.HandlerId);
+            Assert.Equal(recipient, channel.HandlerProperties["To"]);
+
+            // And the alert still goes somewhere.
+            Assert.Equal(channel.Id, RetryAlertResolver.Resolve(null, policy.Groups[0], policy)!.ChannelId);
+
+            // Done once per database: the next boot only looks the record up.
+            Assert.Equal(0, await RetryAlertChannelConversion.Run(db, NullLogger.Instance));
+        }
+    }
+
+    /// <summary>
+    /// A subscription's inline policy and a per-subscription override move too. A handler left on a
+    /// level that didn't send, or a blank one, was never used: it is cleared, and makes no channel.
+    /// </summary>
+    [Fact]
+    public async Task Inline_policies_and_overrides_are_moved_and_unused_handlers_make_no_channel()
+    {
+        await ForgetTheRetryAlertMove();
+        var tag = Unique("moved-inline");
+        Dictionary<string, string> Hook(string name) => new() { ["Url"] = $"https://hooks.example/{tag}/{name}" };
+        RetryGroup Group(string name, RetryAlertMode mode, string handler, string hook) => new()
+        {
+            Name = name, AppliesTo = [XchangeResultType.Error], Matchers = [new ContainsMatcher { Value = name }],
+            AlertMode = mode, AlertHandlerId = handler, AlertHandlerProperties = hook == null ? null : Hook(hook),
+        };
+
+        int subscriptionId;
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var document = new Document(null, Unique("Inline move doc"), DocumentFormat.Json);
+            var partner = new Partner(Unique("Inline move partner"));
+            var shared = new RetryPolicy { Name = Unique("Shared for overrides"), Groups = [Group("shared", RetryAlertMode.Inherit, null, null)] };
+            db.AddRange(document, partner, shared);
+            await db.SaveChangesAsync();
+
+            var subscription = new Subscription(Unique("Inline move"), document.Id, SubscriptionType.Internal, partner.Id);
+            subscription.SetRetryPolicy(null, new CustomRetryPolicy
+            {
+                Groups = [Group("sends", RetryAlertMode.Send, "NativeHttpHandler", "inline"), Group("stale", RetryAlertMode.Inherit, "NativeHttpHandler", "stale")]
+            });
+            db.Add(subscription);
+            await db.SaveChangesAsync();
+            subscriptionId = subscription.Id;
+
+            db.AddRange(
+                new RetryAlertOverride { SubscriptionId = subscriptionId, GroupId = shared.Groups[0].Id, AlertMode = RetryAlertMode.Send, AlertHandlerId = "NativeHttpHandler", AlertHandlerProperties = Hook("override") },
+                new RetryAlertOverride { SubscriptionId = subscriptionId, GroupId = Guid.NewGuid(), AlertMode = RetryAlertMode.Silent, AlertHandlerId = " " });
+            await db.SaveChangesAsync();
+
+            Assert.True(await RetryAlertChannelConversion.Run(db, NullLogger.Instance) >= 2);
+        }
+
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var inline = (await db.Set<Subscription>().AsNoTracking().SingleAsync(s => s.Id == subscriptionId)).CustomRetryPolicy.Groups;
+            Assert.All(inline, g => Assert.Null(g.AlertHandlerId));
+            Assert.NotNull(inline.Single(g => g.Name == "sends").AlertChannelId);
+            Assert.Null(inline.Single(g => g.Name == "stale").AlertChannelId);
+
+            var overrides = await db.Set<RetryAlertOverride>().AsNoTracking().Where(o => o.SubscriptionId == subscriptionId).ToListAsync();
+            Assert.All(overrides, o => Assert.Null(o.AlertHandlerId));
+            Assert.NotNull(overrides.Single(o => o.AlertMode == RetryAlertMode.Send).AlertChannelId);
+            Assert.Null(overrides.Single(o => o.AlertMode == RetryAlertMode.Silent).AlertChannelId);
+
+            var made = (await db.Set<NotificationChannel>().AsNoTracking().ToListAsync())
+                .Where(c => c.HandlerProperties.GetValueOrDefault("Url")?.Contains(tag) == true || string.IsNullOrWhiteSpace(c.HandlerId))
+                .Select(c => c.HandlerProperties.GetValueOrDefault("Url")).ToList();
+            Assert.Equal(2, made.Count);
+            Assert.DoesNotContain(made, url => url == null || url.EndsWith("/stale"));
+        }
+    }
+
+    /// <summary>Two replicas start together and both reach the move. One does it; nothing is made twice.</summary>
+    [Fact]
+    public async Task Two_instances_moving_retry_alerts_at_once_make_one_set_of_channels()
+    {
+        await ForgetTheRetryAlertMove();
+        var recipient = $"{Unique("raced")}@example.com";
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            db.Add(new RetryPolicy
+            {
+                Name = Unique("Raced alert policy"),
+                AlertHandlerId = "NativeSmtpHandler",
+                AlertHandlerProperties = new Dictionary<string, string> { ["To"] = recipient }
+            });
+            await db.SaveChangesAsync();
+        }
+
+        async Task<int> Boot()
+        {
+            await using var scope = fixture.CreateScope();
+            return await RetryAlertChannelConversion.Run(
+                scope.ServiceProvider.GetRequiredService<BitweenDbContext>(), NullLogger.Instance);
+        }
+
+        var moved = await Task.WhenAll(Boot(), Boot());
+
+        Assert.Equal(1, moved.Count(m => m > 0));
+        await using (var scope = fixture.CreateScope())
+        {
+            var channels = await scope.ServiceProvider.GetRequiredService<BitweenDbContext>()
+                .Set<NotificationChannel>().AsNoTracking().ToListAsync();
+            Assert.Single(channels, c => c.HandlerProperties.GetValueOrDefault("To") == recipient);
+        }
+    }
+
+    /// <summary>Lets the move run again in this database, as it does on its first boot.</summary>
+    private async Task ForgetTheRetryAlertMove()
+    {
+        await using var scope = fixture.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<Setting>()
+            .Where(s => s.Id == RetryAlertChannelConversion.DoneKey).ExecuteDeleteAsync();
+    }
+
+    private static string Token(string prefix) => $"{prefix}-{Guid.NewGuid():N}";
+
+    /// <summary>The SMTP adapter pointed at MailHog, with a subject of its own so a test finds its mail.</summary>
+    private Dictionary<string, string> MailHog(string subject) => new()
+    {
+        ["Host"] = "localhost",
+        ["Port"] = fixture.MailHogSmtpPort.ToString(),
+        ["UseTls"] = "false",
+        ["From"] = "bitween@example.com",
+        ["To"] = "ops@example.com",
+        ["Subject"] = subject,
+        ["Body"] = "Exchange {{ Id }}"
+    };
+
+    private async Task<List<MimeKit.MimeMessage>> Mailed(string subject)
+    {
+        using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        using var messages = System.Text.Json.JsonDocument.Parse(
+            await http.GetStringAsync($"{fixture.MailHogApi}/api/v2/messages?limit=250"));
+        var found = new List<MimeKit.MimeMessage>();
+        foreach (var item in messages.RootElement.GetProperty("items").EnumerateArray())
+        {
+            var raw = item.GetProperty("Raw").GetProperty("Data").GetString()!;
+            var message = await MimeKit.MimeMessage.LoadAsync(
+                new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(raw)));
+            if (message.Subject == subject) found.Add(message);
+        }
+        return found;
+    }
+
+    private async Task<NotificationChannelTestResult> TestChannel(int id)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        return (NotificationChannelTestResult)await ActivatorUtilities
+            .CreateInstance<Resources.NotificationChannels.Test>(scope.ServiceProvider)
+            .Handle(id, new NotificationChannelTest());
+    }
+
+    /// <summary>A channel whose messages the test responder counts under <paramref name="token"/>.</summary>
+    private async Task<int> RecordingChannel(string token, Dictionary<string, string> extra = null)
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var properties = new Dictionary<string, string>(extra ?? []) { ["Body"] = token };
+        var channel = new NotificationChannel
+        {
+            Name = Unique("Recording"), HandlerId = nameof(NativeTestResponder), HandlerProperties = properties
+        };
+        db.Add(channel);
+        await db.SaveChangesAsync();
+        scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+        return channel.Id;
+    }
+
+    private async Task<int> NotifyingSubscription(params SubscriptionNotification[] notifications)
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var document = new Document(null, $"Channels {Guid.NewGuid():N}", DocumentFormat.Json);
+        db.Add(document);
+        await db.SaveChangesAsync();
+        // A gateway type: a Receiving one would need schedules before an update is accepted.
+        var subscription = new Subscription($"Channels {Guid.NewGuid():N}", document.Id,
+            SubscriptionType.GatewayApiCall) { Inactive = false };
+        subscription.SetNotifications(notifications);
+        db.Add(subscription);
+        await db.SaveChangesAsync();
+        scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+        return subscription.Id;
+    }
+
+    private async Task<SubscriptionGet> ReadSubscription(int id)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        return (SubscriptionGet)await ActivatorUtilities
+            .CreateInstance<Resources.Subscriptions.Get>(scope.ServiceProvider).Handle(id);
+    }
+
+    private async Task SaveNotifications(int subscriptionId, ICollection<SubscriptionNotification> notifications)
+    {
+        var model = await ReadSubscription(subscriptionId);
+        model.Notifications = notifications;
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        await ActivatorUtilities.CreateInstance<Resources.Subscriptions.Update>(scope.ServiceProvider)
+            .Handle(subscriptionId, model);
+    }
+
+    private async Task<string> FinishedExchange(int subscriptionId, bool failed,
+        string exception = "System.Exception: the partner is down")
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var subscription = await db.Set<Subscription>().SingleAsync(s => s.Id == subscriptionId);
+        var xchange = await scope.ServiceProvider.GetRequiredService<XchangeService>()
+            .CreateXchange(subscription, new XchangeFile("{}"));
+        await db.SaveChangesAsync();
+        db.Add(new XchangeResult(xchange.Id, null, null,
+            exception: failed ? exception : null));
+        await db.SaveChangesAsync();
+        return xchange.Id;
+    }
+
+    private async Task ProcessResult(string xchangeId)
+    {
+        await using var scope = fixture.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<XchangeService>()
+            .Process("Channels" + XchangeService.ResultQueueSuffix, JsonConvert.SerializeObject(new { Id = xchangeId }));
+    }
+
+    private async Task<List<XchangeNotification>> Sends(int channelId)
+    {
+        await using var scope = fixture.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<BitweenDbContext>()
+            .Set<XchangeNotification>().AsNoTracking().Where(n => n.ChannelId == channelId).ToListAsync();
+    }
+}

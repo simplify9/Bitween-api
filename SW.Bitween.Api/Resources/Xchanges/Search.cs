@@ -17,7 +17,7 @@ namespace SW.Bitween.Resources.Xchanges
     {
         /// <summary>
         /// Largest exact total the exchange search reports. Beyond it the response carries
-        /// <c>CountCap + 1</c>, meaning "more than this" — the client renders that as "10,000+".
+        /// <c>CountCap + 1</c>, meaning "more than this" - the client renders that as "10,000+".
         /// Kept in step with <c>COUNT_CAP</c> in ClientApp's <c>ExchangesPage.tsx</c>.
         /// </summary>
         internal const int CountCap = 10_000;
@@ -92,7 +92,7 @@ namespace SW.Bitween.Resources.Xchanges
                             // a left one: an exchange still running, or one that failed before it
                             // produced a result, has no row there. Reading a non-nullable int off
                             // that null threw "Nullable object must have a value" out of the whole
-                            // query — one such exchange 500'd the entire list.
+                            // query - one such exchange 500'd the entire list.
                             InputFileSize = xchange.InputSize,
                             OutputFileSize = result != null ? result.OutputSize : 0,
                             ResponseFileSize = result != null ? result.ResponseSize : 0,
@@ -101,10 +101,11 @@ namespace SW.Bitween.Resources.Xchanges
                             // gateway/bus-route partner, or the subscription's own PartnerId as a
                             // fallback there too) but the column was added later with no backfill, so
                             // pre-migration xchanges have it null even when their subscription carries
-                            // a direct PartnerId — fall back to that for those legacy rows.
+                            // a direct PartnerId - fall back to that for those legacy rows.
                             PartnerId = xchange.PartnerId ?? subscriber.PartnerId,
                             ScheduledRetryOn = delayedRetry != null ? delayedRetry.On : (DateTime?)null,
-                            RetryBlockedReason = result.RetryBlockedReason
+                            RetryBlockedReason = result.RetryBlockedReason,
+                            Warning = result.Warning
                         };
 
             query = query.ApplySpecialFilters(searchyRequest, dbContext);
@@ -113,8 +114,8 @@ namespace SW.Bitween.Resources.Xchanges
                 searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex);
 
             // Only id and information type, so the lookup has nothing to hide from a caller without
-            // the view permission. It returned whole rows before — errors, promoted values, source
-            // values — to anyone signed in. Capped, because exchanges run to millions and a lookup
+            // the view permission. It returned whole rows before - errors, promoted values, source
+            // values - to anyone signed in. Capped, because exchanges run to millions and a lookup
             // with no page size would otherwise list every one of them.
             if (lookup)
                 return await s.Take(LookupLimit).ToDictionaryAsync(k => k.Id, v => v.DocumentName);
@@ -129,7 +130,7 @@ namespace SW.Bitween.Resources.Xchanges
             // Which of these have already been retried, so the client can tell a spent exchange
             // from a retryable one without asking about each row's chain. Asked separately rather
             // than as a subquery in the projection above, because TotalCount reuses that query and
-            // an exact count already costs more than fetching the rows does — this way neither
+            // an exact count already costs more than fetching the rows does - this way neither
             // plan changes. One indexed lookup over RetryFor for the page's worth of ids.
             if (r.Count > 0)
             {

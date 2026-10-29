@@ -9,7 +9,7 @@ import { useId, useState, type InputHTMLAttributes, type SelectHTMLAttributes } 
  * last. These set no width at all, so the caller's width is the width.
  */
 const base =
-  "h-7 rounded border border-ink-200 bg-white px-1.5 text-[11px] text-ink-900 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-1 focus:ring-crimson-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-400";
+  "h-7 rounded border border-ink-200 bg-white px-1.5 text-[11px] text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-1 focus:ring-focus-100 focus:outline-none disabled:bg-ink-50 disabled:text-ink-400";
 
 export function RowInput({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return <input {...props} className={`${base} ${className}`} />;
@@ -20,7 +20,7 @@ export function RowInput({ className = "", ...props }: InputHTMLAttributes<HTMLI
  *
  * Both halves matter. A plain box means remembering every path and getting one
  * wrong silently; a plain dropdown means a path the sample does not happen to
- * contain cannot be named at all — and a sample whose list is empty then has no
+ * contain cannot be named at all - and a sample whose list is empty then has no
  * fields to offer, so that list could not be mapped. The sample is an aid, not the
  * set of legal answers.
  */

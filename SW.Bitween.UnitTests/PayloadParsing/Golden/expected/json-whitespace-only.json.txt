@@ -1,0 +1,27 @@
+=== promoted-json
+hits: 
+gateway: 
+=== promoted-xml
+!System.Xml.XmlException: Root element is missing.
+=== promoted-json-big
+hits: 
+gateway: 
+=== schema-json
+Not valid JSON: Error reading JToken from JsonReader. Path '', line 2, position 1.
+=== schema-xml
+Not valid XML: Root element is missing.
+=== enriched
+(not an object, not enriched)
+=== enriched-scriban
+!Newtonsoft.Json.JsonReaderException: Error reading JToken from JsonReader. Path '', line 2, position 1.
+=== scriban
+!Newtonsoft.Json.JsonReaderException: Error reading JToken from JsonReader. Path '', line 2, position 1.
+=== rules-json
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is empty, so there is nothing to map.
+=== rules-xml
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is empty, so there is nothing to map.
+=== url
+https://partner.test/orders/?price=&at=&name=&big=&sku=
+https://partner.test/orders/?price=&at=&name=&big=&sku=
+=== fill
+order-{{ id }}-{{ price }}-{{ orderedAt }}.json

@@ -32,6 +32,10 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext)
                     .ToDictionaryAsync(i => i.Id, i => i.DisplayName);
             }
 
+            // The member list is people; service accounts have their own (lookup keeps them, so a
+            // change one made still shows who made it).
+            query = query.Where(a => a.Kind == AccountKind.Person);
+
             var count = await query.CountAsync();
 
             var accounts = await query.OrderBy(i => i.CreatedOn)
@@ -45,15 +49,38 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext)
                     Id = a.Id,
                     Disabled = a.Disabled,
                     Role = a.Role.ToString(),
-                    LockoutEnd = a.LockoutEnd
+                    LockoutEnd = a.LockoutEnd,
+                    LastSignInOn = a.LastSignInOn,
+                    MicrosoftLinked = a.MicrosoftIdentity != null,
+                    HasPassword = a.Password != null && a.Password != ""
                 })
                 .ToListAsync();
 
             var accountIds = accounts.Select(a => a.Id).ToList();
             var rolesByAccount = await AccountRoles.For(dbContext, accountIds);
 
+            // The latest invite of each member still to choose a password. Expired ones too: the
+            // page says it expired, and offers another.
+            var waiting = accounts.Where(a => !a.HasPassword).Select(a => a.Id).ToList();
+            var invites = waiting.Count == 0
+                ? new List<AccountLink>()
+                : await dbContext.Set<AccountLink>().AsNoTracking()
+                    .Where(l => waiting.Contains(l.AccountId) && l.Purpose == AccountLinkPurpose.Invite)
+                    .ToListAsync();
+
             foreach (var account in accounts)
+            {
                 account.Roles = rolesByAccount.GetValueOrDefault(account.Id, []);
+                account.Invite = invites.Where(l => l.AccountId == account.Id)
+                    .OrderByDescending(l => l.CreatedOn)
+                    .Select(l => new AccountInviteModel
+                    {
+                        ExpiresOn = l.ExpiresOn,
+                        EmailedOn = l.EmailedOn,
+                        EmailError = l.EmailError
+                    })
+                    .FirstOrDefault();
+            }
 
             return new
             {

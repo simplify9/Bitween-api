@@ -18,7 +18,7 @@ namespace SW.Bitween.Model
         Csv = 2,
 
         /// <summary>
-        /// Anything Bitween has no format for — custom adapters send whatever they like. Treated
+        /// Anything Bitween has no format for - custom adapters send whatever they like. Treated
         /// exactly as <see cref="Csv"/>.
         /// </summary>
         Other = 3
@@ -38,7 +38,13 @@ namespace SW.Bitween.Model
         /// off the bus for good, and its queue is deleted.
         /// </summary>
         public string? BusMessageTypeName { get; set; }
+        /// <summary>
+        /// Minutes within which the same payload from the same partner is a duplicate. 0 for no check.
+        /// </summary>
         public int DuplicateInterval { get; set; }
+
+        /// <summary>Drop duplicates rather than let them through tagged <c>duplicate-of</c>. Off by default.</summary>
+        public bool DropDuplicates { get; set; }
 
         public bool DisregardsUnfilteredMessages { get; set; }
 
@@ -48,6 +54,12 @@ namespace SW.Bitween.Model
         /// Null leaves the existing promoted properties alone; an empty collection clears them.
         /// </summary>
         public ICollection<KeyAndValue>? PromotedProperties { get; set; }
+
+        /// <summary>
+        /// JSON Schema for a JSON type, XSD for an XML one, that what arrives must match. Null
+        /// leaves the existing schema alone; empty removes it.
+        /// </summary>
+        public string? ValidationSchema { get; set; }
     }
 
     public class DocumentUpdate : DocumentCreate
@@ -55,7 +67,7 @@ namespace SW.Bitween.Model
         public int Id { get; set; }
     }
 
-    /// <summary>Empty on purpose — retiring toggles, so there is nothing to send.</summary>
+    /// <summary>Empty on purpose - retiring toggles, so there is nothing to send.</summary>
     public class DocumentRetire
     {
     }
@@ -75,5 +87,11 @@ namespace SW.Bitween.Model
         /// alongside every page of this list.
         /// </summary>
         public int UsedByCount { get; set; }
+
+        /// <summary>Duplicates in the last 7 days, let through or dropped. Filled when one type is read.</summary>
+        public int DuplicatesLastWeek { get; set; }
+
+        /// <summary>How many of <see cref="DuplicatesLastWeek"/> were dropped.</summary>
+        public int DuplicatesDroppedLastWeek { get; set; }
     }
 }

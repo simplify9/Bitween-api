@@ -1,23 +1,36 @@
-import { Link, useNavigate, useSearchParams } from "react-router";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Search, Workflow } from "lucide-react";
-import { api, type SubscriptionRow, type SubscriptionType } from "../../api";
-import { useSessionCan } from "../../auth/guards";
+import { Plus, Workflow } from "lucide-react";
+import { api, type MirrorListFilter, type SubscriptionRow, type SubscriptionType } from "../../api";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { BringFromProd } from "../mirror/BringFromProd";
+import { PROD_FILTER_OPTIONS, ProdNotice, ProdStatus, TestFromProd, useProdListing } from "../mirror/ProdList";
+import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
-import { SearchSelect } from "../../components/ui/SearchSelect";
-import { Select } from "../../components/ui/forms";
+import { FilterSelect, SearchSelect } from "../../components/ui/SearchSelect";
 import { Table } from "../../components/ui/Table";
 import { keys } from "../../api/queryKeys";
-import {
-  HealthBadge,
-  SUBSCRIPTION_TYPE_LABELS,
-  SubscriptionStatusBadges,
-  LinkListCell,
-  TypeBadge,
-  useGatewayPartners,
-} from "../../components/config/shared";
+import { ExceptionLine } from "../../components/ui/Exception";
+import { ManageCategoriesDialog } from "../../components/config/CategoryDialogs";
+import { useCategories } from "../../components/config/categories";
+import { NewSubscriptionDialog } from "./NewSubscriptionDialog";
+import { HealthBadge, SubscriptionStatusBadges, LinkListCell, TypeBadge } from "../../components/config/shared";
+import { SUBSCRIPTION_TYPE_LABELS, isLegacyType } from "../../components/config/subscriptionLabels";
+import { useGatewayPartners, useSubscriptionsCache } from "../../components/config/lookups";
+import { useListParams } from "../../lib/listParams";
+import { NONE } from "../../lib/none";
+import { subscriptionPath } from "../../lib/subscriptionPaths";
+import { SearchBox } from "../../components/ui/SearchBox";
+import type { HealthStatus } from "../../api/metricsTypes";
+import { HEALTH } from "../../components/metrics/health";
+import { HealthStatusBadge } from "../../components/metrics/HealthStatus";
+import { Sparkline } from "../../components/charts/Sparkline";
+import { percent } from "../../lib/numbers";
+import { Panel } from "../../components/ui/Panel";
+import { timeAgo } from "../../lib/dates";
 
 const STATUS_OPTIONS = [
   { value: "", label: "Any status" },
@@ -37,7 +50,7 @@ const TYPE_ORDER: SubscriptionType[] = [
 ];
 
 /**
- * Every subscription, of every type — the pipelines that move a document from
+ * Every subscription, of every type - the pipelines that move a document from
  * one place to another.
  *
  * Gateways are NOT rows here. A gateway is an entry point, not a pipeline, and
@@ -49,7 +62,7 @@ const TYPE_ORDER: SubscriptionType[] = [
 const PAGE_SIZE = 25;
 
 export function SubscriptionsPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const q = searchParams.get("q") ?? "";
   const type = searchParams.get("type") as SubscriptionType | null;
@@ -57,20 +70,34 @@ export function SubscriptionsPage() {
     ? Number(searchParams.get("informationTypeId"))
     : null;
   const partnerId = searchParams.get("partnerId") ? Number(searchParams.get("partnerId")) : null;
+  const categoryId = searchParams.get("categoryId") ? Number(searchParams.get("categoryId")) : null;
+  const [managingCategories, setManagingCategories] = useState(false);
+  const [choosingWay, setChoosingWay] = useState(false);
+  const categories = useCategories().data ?? [];
+  const allSubscriptions = useSubscriptionsCache().data ?? NONE;
+  const categoryUsage = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const s of allSubscriptions) if (s.categoryId != null) counts.set(s.categoryId, (counts.get(s.categoryId) ?? 0) + 1);
+    return counts;
+  }, [allSubscriptions]);
   const inactiveParam = searchParams.get("inactive");
   const inactive = inactiveParam === "true" ? true : inactiveParam === "false" ? false : null;
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
   const canSeeInfoTypes = useSessionCan("documents.view");
+  const prod = useProdListing("subscriptions");
+  const prodFilter = prod.ready ? (searchParams.get("prod") as MirrorListFilter | null) : null;
 
   const rows = useQuery({
-    queryKey: keys.subscriptions.rowsSearch({ q, type, informationTypeId, partnerId, inactive, offset }),
+    queryKey: keys.subscriptions.rowsSearch({ q, type, informationTypeId, partnerId, categoryId, inactive, prodFilter, offset }),
     queryFn: () =>
       api.searchSubscriptionRows({
         search: q,
         type,
         informationTypeId,
         partnerId,
+        categoryId,
         inactive,
+        mirror: prodFilter,
         offset,
         limit: PAGE_SIZE,
       }),
@@ -87,18 +114,11 @@ export function SubscriptionsPage() {
     return [...own, ...viaGateway];
   };
 
-  const setParam = (key: string, value: string | null, resetOffset = true) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        if (resetOffset) next.delete("offset");
-        return next;
-      },
-      { replace: key === "q" },
-    );
 
+  // Each subscription's last week, from the hourly metrics: one request for the whole list.
+  const health = useQuery({ queryKey: keys.metrics.subscriptions(7), queryFn: () => api.getSubscriptionHealth(7) });
+  const healthById = new Map((health.data?.subscriptions ?? []).map((h) => [h.subscriptionId, h]));
+  const healthFilter = searchParams.get("health") as HealthStatus | null;
   const filtered = rows.data?.result ?? [];
   const total = rows.data?.total ?? 0;
 
@@ -106,29 +126,74 @@ export function SubscriptionsPage() {
     <div>
       <PageHeader
         title="All subscriptions"
-        description="Every pipeline that moves a document — what comes in, how it's transformed, where it goes."
+        description="Every pipeline that moves a document - what comes in, how it's transformed, where it goes."
+        actions={
+          <div className="flex gap-2">
+            <BringFromProd section="subscriptions" label="subscriptions" />
+            <TestFromProd listing={prod} section="subscriptions" label="subscriptions" />
+            <Button onClick={() => setManagingCategories(true)}>Categories</Button>
+            <Can permission="subscriptions.create">
+              <Button variant="primary" onClick={() => setChoosingWay(true)}>
+                <Plus className="size-4" /> New subscription
+              </Button>
+            </Can>
+          </div>
+        }
         help={{
           title: "What's on this page?",
           body: (
             <>
               <p>
                 A subscription is one <strong>pipeline</strong>: it receives a document, optionally
-                maps it, and hands it on. Every type is listed here, including legacy ones.
+                maps it, and hands it on. Every type is listed here, including the direct ones
+                that something calls by id or by sending a document, with no gateway in front.
               </p>
               <p>
-                The <strong>entry points</strong> live on their own pages — API gateways (partners
+                The <strong>entry points</strong> live on their own pages - API gateways (partners
                 push in), bus gateways (messages off the bus) and scheduled jobs (pulled in on a
                 schedule). A scheduled job is also a subscription, so it appears in both places.
               </p>
               <p>
-                There is nothing to create from here. A gateway subscription is created while
-                attaching a partner or adding a route, so it is wired up the moment it exists; a
-                scheduled job is created from the Scheduled jobs page.
+                <strong>New subscription</strong> asks what starts it and takes you there: a
+                gateway subscription is created while attaching a partner or adding a route, so it
+                is wired up the moment it exists; the other kinds have their own pages.
               </p>
             </>
           ),
         }}
       />
+
+      {healthFilter && HEALTH[healthFilter] && (
+        <Panel
+          title={`${HEALTH[healthFilter].label}, last 7 days`}
+          description={HEALTH[healthFilter].explain}
+          className="mb-4"
+          action={
+            <button type="button" onClick={() => setParam("health", null)} className="text-[13px] font-medium link">
+              Show all
+            </button>
+          }
+        >
+          {(health.data?.subscriptions ?? []).filter((h) => h.status === healthFilter).length === 0 ? (
+            <p className="text-[13px] text-ink-500">None right now.</p>
+          ) : (
+            <ul className="space-y-1.5">
+              {(health.data?.subscriptions ?? [])
+                .filter((h) => h.status === healthFilter)
+                .map((h) => (
+                  <li key={h.subscriptionId} className="flex items-center gap-2.5 text-sm">
+                    <Link to={subscriptionPath(h.subscriptionId)} className="min-w-0 flex-1 truncate font-medium text-ink-800 hover:link">
+                      {h.name}
+                    </Link>
+                    <span className="text-xs text-ink-500">
+                      {h.lastExchangeHour ? `latest exchange ${timeAgo(h.lastExchangeHour)}` : "no exchanges in 30 days"}
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          )}
+        </Panel>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <button
@@ -142,7 +207,9 @@ export function SubscriptionsPage() {
         >
           All
         </button>
-        {TYPE_ORDER.map((t) => (
+        {/* The legacy types only where they are still in use: a chip for a kind of subscription
+            nobody can create, on an instance that has none, is a filter that can only say "none". */}
+        {TYPE_ORDER.filter((t) => !isLegacyType(t) || type === t || allSubscriptions.some((s) => s.type === t)).map((t) => (
           <button
             key={t}
             onClick={() => setParam("type", type === t ? null : t)}
@@ -156,20 +223,10 @@ export function SubscriptionsPage() {
             {SUBSCRIPTION_TYPE_LABELS[t]}
           </button>
         ))}
-        <div className="relative ml-auto w-full max-w-55 sm:w-auto">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setParam("q", e.target.value || null)}
-            placeholder="Search"
-            aria-label="Search subscriptions"
-            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-          />
-        </div>
+        <SearchBox value={searchText} onChange={setSearchText} label="Search subscriptions" placeholder="Search" className="ml-auto w-full max-w-55 sm:w-auto" />
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+      <div className={`mb-4 grid grid-cols-2 gap-2 ${prod.ready ? "sm:grid-cols-5" : "sm:grid-cols-4"}`}>
         <SearchSelect
           aria-label="Filter by information type"
           size="sm"
@@ -186,23 +243,58 @@ export function SubscriptionsPage() {
           onChange={(v) => setParam("partnerId", v || null)}
           options={partners.map((p) => ({ value: String(p.id), label: p.name }))}
         />
-        <Select
+        <SearchSelect
+          aria-label="Filter by category"
+          size="sm"
+          clearLabel="Any category"
+          value={categoryId?.toString() ?? ""}
+          onChange={(v) => setParam("categoryId", v || null)}
+          options={categories.map((c) => ({ value: String(c.id), label: c.code }))}
+        />
+        <FilterSelect
           aria-label="Filter by status"
-          className="!h-8 text-[13px]"
           value={inactiveParam ?? ""}
-          onChange={(e) => setParam("inactive", e.target.value || null)}
+          onChange={(v) => setParam("inactive", v || null)}
           options={STATUS_OPTIONS}
         />
+        {prod.ready && (
+          <FilterSelect
+            aria-label="Filter by how it stands against prod"
+            value={prodFilter ?? ""}
+            onChange={(v) => setParam("prod", v || null)}
+            options={PROD_FILTER_OPTIONS}
+          />
+        )}
       </div>
+
+      <ProdNotice listing={prod} />
+
+      {choosingWay && <NewSubscriptionDialog onClose={() => setChoosingWay(false)} />}
+      {managingCategories && (
+        <ManageCategoriesDialog usage={categoryUsage} onClose={() => setManagingCategories(false)} />
+      )}
 
       {rows.isPending ? (
         <LoadingBlock label="Loading subscriptions…" />
+      ) : rows.isError ? (
+        <LoadError error={rows.error} what="subscriptions" onRetry={() => void rows.refetch()} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Workflow />}
-          title={q || type || informationTypeId || partnerId || inactive !== null ? "Nothing matches" : "No subscriptions yet"}
+          title={
+            q || type || informationTypeId || partnerId || categoryId || inactive !== null || prodFilter ? "Nothing matches" : "No subscriptions yet"
+          }
+          action={
+            q || type || informationTypeId || partnerId || categoryId || inactive !== null || prodFilter ? undefined : (
+              <Can permission="subscriptions.create">
+                <Button variant="primary" onClick={() => setChoosingWay(true)}>
+                  <Plus className="size-4" /> New subscription
+                </Button>
+              </Can>
+            )
+          }
         >
-          {q || type || informationTypeId || partnerId || inactive !== null
+          {q || type || informationTypeId || partnerId || categoryId || inactive !== null || prodFilter
             ? "Try a different search or filter."
             : "Create a subscription to start moving documents."}
         </EmptyState>
@@ -211,13 +303,41 @@ export function SubscriptionsPage() {
           rows={filtered}
           rowKey={(r) => r.id}
           minWidth="min-w-220"
-          onRowClick={(r) => navigate(`/subscriptions/${r.id}`)}
+          onRowClick={(r) => navigate(subscriptionPath(r.id, r.type))}
+          card={(r) => {
+            const h = healthById.get(r.id);
+            const partnerNames = partnersFor(r).map((p) => p.name).join(", ");
+            return {
+              title: r.name,
+              status: (
+                <>
+                  <SubscriptionStatusBadges enabled={r.enabled} paused={r.paused} />
+                  <HealthBadge isRunning={r.isRunning} consecutiveFailures={r.consecutiveFailures} />
+                </>
+              ),
+              subtitle: (
+                <span className="inline-flex flex-wrap items-center gap-1.5">
+                  <TypeBadge type={r.type} />
+                  {partnerNames && <span>{partnerNames}</span>}
+                </span>
+              ),
+              technical: r.informationTypeCode,
+              facts: h
+                ? [
+                    { label: "7 days", value: <HealthStatusBadge status={h.status} /> },
+                    { label: "Succeeded", value: h.total > 0 ? percent(h.successRate) : "-", tone: h.total > 0 ? undefined : "muted" },
+                    { label: "Exchanges", value: h.total },
+                  ]
+                : undefined,
+              footer: r.lastException && <ExceptionLine text={r.lastException} className="text-[12px] text-danger-700" />,
+            };
+          }}
           footer={
             <Pagination
               offset={offset}
               limit={PAGE_SIZE}
               total={total}
-              onOffsetChange={(o) => setParam("offset", String(o), false)}
+              onOffsetChange={(o) => setParam("offset", String(o))}
             />
           }
           columns={[
@@ -234,7 +354,7 @@ export function SubscriptionsPage() {
                   <Link
                     to={`/information-types/${r.informationTypeId}`}
                     onClick={(e) => e.stopPropagation()}
-                    className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+                    className="font-mono text-xs text-ink-600 hover:link"
                   >
                     {r.informationTypeCode}
                   </Link>
@@ -265,19 +385,36 @@ export function SubscriptionsPage() {
                 </span>
               ),
             },
+            ...(prod.ready
+              ? [{
+                  header: "Prod",
+                  headerTitle: "How its test with prod's traffic last went: Same, Check, Different or Not tested; - when prod has no subscription of its name.",
+                  cell: (r: SubscriptionRow) => <ProdStatus listing={prod} id={r.id} />,
+                }]
+              : []),
+            {
+              header: "7 days",
+              headerTitle: "Health over the last week: its status, the share that succeeded, and exchanges per day.",
+              cell: (r) => {
+                const h = healthById.get(r.id);
+                if (!h) return <span className="text-ink-500">-</span>;
+                return (
+                  <span className="inline-flex items-center gap-2">
+                    <HealthStatusBadge status={h.status} />
+                    {h.total > 0 && <span className="text-[12px] text-ink-600 tabular-nums">{percent(h.successRate)}</span>}
+                    {h.total > 0 && <Sparkline values={h.daily} label={`${h.total} exchanges in 7 days, by day`} width={56} />}
+                  </span>
+                );
+              },
+            },
             {
               header: "Last error",
               truncate: true,
               cell: (r) =>
                 r.lastException ? (
-                  <span
-                    className="block truncate font-mono text-[11px] text-danger-700"
-                    title={r.lastException}
-                  >
-                    {r.lastException}
-                  </span>
+                  <ExceptionLine text={r.lastException} icon className="text-[12px] text-danger-700" />
                 ) : (
-                  <span className="text-ink-400">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
           ]}

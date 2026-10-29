@@ -1,14 +1,8 @@
 import { test, expect } from "@playwright/test";
-
-const ADMIN_EMAIL = "admin@Bitween.systems";
-const ADMIN_PASSWORD = "Mtm@dmin!2";
+import { signInAsAdmin, moreAction } from "./helpers";
 
 test.beforeEach(async ({ page }) => {
-  await page.goto("login");
-  await page.fill("#login-email", ADMIN_EMAIL);
-  await page.fill("#login-password", ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL((url) => !url.pathname.endsWith("/login"), { timeout: 15000 });
+  await signInAsAdmin(page);
 });
 
 test("global value set create, edit values, list, delete", async ({ page }) => {
@@ -16,7 +10,7 @@ test("global value set create, edit values, list, delete", async ({ page }) => {
   const name = `Playwright Values ${stamp}`;
 
   await page.goto("global-values");
-  await page.getByRole("button", { name: "New value set" }).click();
+  await page.getByRole("button", { name: "New value set" }).first().click();
   await page.fill("#nvs-name", name);
   await page.getByRole("button", { name: "Create value set" }).click();
 
@@ -29,7 +23,7 @@ test("global value set create, edit values, list, delete", async ({ page }) => {
   await page.getByRole("button", { name: "Save changes" }).click();
   await expect(page.getByRole("button", { name: "Save changes" })).toHaveCount(0);
 
-  // Reload forces a fresh GET — proves the write actually persisted server-side.
+  // Reload forces a fresh GET - proves the write actually persisted server-side.
   await page.reload();
   await expect(page.getByLabel("Key 1")).toHaveValue("baseUrl");
   await expect(page.getByLabel("Value 1")).toHaveValue("https://example.com");
@@ -40,7 +34,7 @@ test("global value set create, edit values, list, delete", async ({ page }) => {
   await expect(row.locator("td").nth(2)).toHaveText("1"); // Values column
 
   await row.click();
-  await page.getByRole("button", { name: "Delete" }).click();
+  await moreAction(page, "Delete");
   await page.getByRole("button", { name: "Delete value set" }).click();
   await expect(page).toHaveURL(/\/global-values$/);
   await expect(page.getByText(name)).toHaveCount(0);

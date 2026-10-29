@@ -14,7 +14,7 @@ public abstract class DbOptionsBase
     /// <summary>
     /// The reason this adapter is resident at all. An ephemeral adapter gets a cold pool per
     /// process, so every Xchange pays a TCP connect, a TLS handshake and an authentication round
-    /// trip — 20–150 ms to a remote database, and considerably more to Oracle. A process that
+    /// trip - 20-150 ms to a remote database, and considerably more to Oracle. A process that
     /// stays up pays it once.
     /// </summary>
     [AdapterSetting(Default = "2", Hint =
@@ -53,13 +53,13 @@ public abstract class DbOptionsBase
     /// Named statements as JSON: <c>{"getOrder": "select * from orders where id = :id"}</c>.
     /// The message supplies parameter values; it never supplies SQL.
     ///
-    /// Composed by Bitween from the data source's statement rows, not typed by an operator — which
+    /// Composed by Bitween from the data source's statement rows, not typed by an operator - which
     /// is why it is hidden. Statements are their own entity so that writing a query and changing a
     /// database password are different permissions; the adapter still just receives name-to-SQL and
     /// knows nothing about where they were kept.
     /// </summary>
     [AdapterSetting(Hidden = true, Hint =
-        "Named statements as JSON — {\"name\":\"select …\"}. Composed by Bitween from the data "
+        "Named statements as JSON - {\"name\":\"select …\"}. Composed by Bitween from the data "
         + "source's statements; not edited here.")]
     public string Statements { get; set; }
 
@@ -79,7 +79,7 @@ public abstract class DbOptionsBase
     // Where these live is the point, and it is not all one place.
     //
     // A connection is shared by every subscription pointed at it, so anything that varies per
-    // reader cannot sit here — one data source could otherwise only ever feed one receiver. What
+    // reader cannot sit here - one data source could otherwise only ever feed one receiver. What
     // is left divides cleanly: the SQL and the shape of its rows belong to the STATEMENT, and the
     // reading policy belongs to the SUBSCRIPTION doing the reading.
     //
@@ -113,7 +113,7 @@ public abstract class DbOptionsBase
     public string KeyColumn { get; set; }
 
     /// <summary>
-    /// Superseded by naming a statement as the subscription's MarkProcessedStatement — Camel's
+    /// Superseded by naming a statement as the subscription's MarkProcessedStatement - Camel's
     /// onConsume, run against each row once Bitween has accepted it.
     /// </summary>
     [AdapterSetting(Hidden = true)]

@@ -54,7 +54,7 @@ internal static class TestRequestContext
         return viewer.Id;
     }
 
-    /// <summary>Signed in, but with no account behind the token — grants must resolve to nothing.</summary>
+    /// <summary>Signed in, but with no account behind the token - grants must resolve to nothing.</summary>
     public static RequestContext AsAnonymous(this AsyncServiceScope scope)
     {
         var ctx = scope.ServiceProvider.GetRequiredService<RequestContext>();

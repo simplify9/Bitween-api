@@ -18,7 +18,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// Nothing here is mocked: a container comes up, a schema is created in it, the adapter is
 /// installed from cloud storage and spawned as its own process, and every assertion goes over the
 /// resident transport into that process and out to the database. That is the only way to test the
-/// parts that actually break — REF CURSOR binding, the data dictionary queries, and a cursor that
+/// parts that actually break - REF CURSOR binding, the data dictionary queries, and a cursor that
 /// has to survive the adapter process being restarted underneath it.
 ///
 /// The container and the adapter are started once for the class. Tests are written so they do not
@@ -164,7 +164,7 @@ public class OracleAdapterTests : IClassFixture<OracleFixture>
         Assert.NotNull(sequence.Value<long?>("rowCount"));
     }
 
-    /// <summary>Procedure arguments, with a REF CURSOR called out as one — a caller must bind it differently.</summary>
+    /// <summary>Procedure arguments, with a REF CURSOR called out as one - a caller must bind it differently.</summary>
     [SkippableFact]
     public async Task Discover_reports_a_ref_cursor_argument_as_such()
     {
@@ -233,7 +233,7 @@ public class OracleAdapterTests : IClassFixture<OracleFixture>
 
     /// <summary>
     /// Paging, and specifically that it loses nothing. Finding out whether there is another page
-    /// means reading a row, and a reader cannot be rewound — so that row has to be carried into the
+    /// means reading a row, and a reader cannot be rewound - so that row has to be carried into the
     /// next page rather than dropped. Dropped, it costs exactly one row per page, which surfaces
     /// months later as a single missing order and is close to unfindable.
     /// </summary>
@@ -302,7 +302,7 @@ public class OracleAdapterTests : IClassFixture<OracleFixture>
 
     /// <summary>
     /// The case that forces an Oracle-specific hook to exist at all. An Oracle procedure does not
-    /// return rows the way every other engine's does — it returns them through a REF CURSOR out
+    /// return rows the way every other engine's does - it returns them through a REF CURSOR out
     /// parameter the caller has to declare, and a plain output parameter gets an ORA-06550 about
     /// argument types that points nowhere near the real problem.
     /// </summary>
@@ -367,7 +367,7 @@ public class OracleAdapterTests : IClassFixture<OracleFixture>
     /// rather than replaying from the beginning.
     ///
     /// One test rather than three, because they all consume from the same cursor and xUnit gives no
-    /// ordering — split up, they would race each other for the rows.
+    /// ordering - split up, they would race each other for the rows.
     /// </summary>
     [SkippableFact]
     public async Task The_receiver_advances_a_cursor_that_survives_a_restart()
@@ -392,12 +392,12 @@ public class OracleAdapterTests : IClassFixture<OracleFixture>
                 properties: me);
 
             // XchangeFile is SW.PrimitiveTypes' type, not one of the contracts this adapter
-            // controls, so its casing is whatever that library serialises — read it either way
+            // controls, so its casing is whatever that library serialises - read it either way
             // rather than pinning a shape we do not own.
             var data = file.Value<string>("data") ?? file.Value<string>("Data");
             Assert.False(string.IsNullOrWhiteSpace(data));
 
-            // What the pipeline calls once Bitween has durably accepted the row — and therefore the
+            // What the pipeline calls once Bitween has durably accepted the row - and therefore the
             // only point at which the cursor may move.
             await adapter.InvokeAsync<object>("DeleteFile", id, timeoutSeconds: 120,
                 properties: me);
@@ -430,8 +430,8 @@ public class OracleAdapterTests : IClassFixture<OracleFixture>
     // ---------------------------------------------------------------- validating
 
     /// <summary>
-    /// ODP.NET's Prepare is a client-side no-op — Oracle compiles a statement when it is executed,
-    /// not when it is prepared — so the shared check passed EVERYTHING here, including a select
+    /// ODP.NET's Prepare is a client-side no-op - Oracle compiles a statement when it is executed,
+    /// not when it is prepared - so the shared check passed EVERYTHING here, including a select
     /// from a table that does not exist. These pin the replacement: DBMS_SQL.PARSE, which compiles
     /// and resolves names without running anything.
     /// </summary>
@@ -474,7 +474,7 @@ public class OracleAdapterTests : IClassFixture<OracleFixture>
         Assert.False(result.Value<bool>("ok"));
 
         // @ is a database link on Oracle, not a placeholder, so this is ORA-00936 missing
-        // expression — and the hint says to write :id instead.
+        // expression - and the hint says to write :id instead.
         Assert.Contains(":id", result.Value<string>("error"));
     }
 
@@ -546,7 +546,7 @@ public class OracleAdapterTests : IClassFixture<OracleFixture>
         {
             AdapterId = BusAdapters.Oracle,
 
-            // The data source id, exactly as the supervisor keys it — which is what lets the
+            // The data source id, exactly as the supervisor keys it - which is what lets the
             // Inspect endpoint find this instance, and what scopes its host-held state.
             InstanceKey = _dataSourceId.ToString()
         };

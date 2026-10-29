@@ -20,7 +20,7 @@ namespace SW.Bitween.Resources.Documents
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Documents.Create);
 
             // Same check Update makes, and compared the same way. Without it two types
-            // could be created under one name, and then neither could be saved again —
+            // could be created under one name, and then neither could be saved again -
             // Update refuses the name it already has. Ignoring case, because a list
             // holding both "Invoice" and "invoice" reads as a mistake, not a choice.
             var wantedName = (model.Name ?? string.Empty).ToLower();
@@ -38,17 +38,20 @@ namespace SW.Bitween.Resources.Documents
                 await BusMessageTypeNames.EnsureFree(dbContext, model.BusMessageTypeName);
 
             PromotedPropertyValidation.Check(model.PromotedProperties, model.DocumentFormat);
+            await DocumentSchema.EnsureUsable(model.DocumentFormat, model.ValidationSchema);
 
             var entity = new Document(code, model.Name, model.DocumentFormat)
             {
                 BusEnabled = model.BusEnabled,
                 BusMessageTypeName = model.BusEnabled ? model.BusMessageTypeName : null,
                 DuplicateInterval = model.DuplicateInterval,
+                DropDuplicates = model.DropDuplicates,
                 DisregardsUnfilteredMessages = model.DisregardsUnfilteredMessages,
             };
             if (model.PromotedProperties != null)
                 entity.SetDictionaries(model.PromotedProperties.ToDictionary());
 
+            entity.SetValidationSchema(model.ValidationSchema);
             dbContext.Add(entity);
             await dbContext.SaveChangesAsync();
             // Routing resolves an information type by name off the cache, so a new one is

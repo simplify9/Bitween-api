@@ -13,31 +13,32 @@ sequenceDiagram
   participant X as XchangeService
   participant A as Adapters
   E->>E: Validator (API entry points only)
-  E->>S: Write input file
-  E->>DB: Save exchange
-  DB-->>Q: Publish exchange id after commit
+  E->>S: Write input file, beside the rest of creation
+  E->>DB: Save exchange, once storage has the input
+  DB-->>Q: Publish exchange id after commit, with the input when small
   Q->>X: Deliver
-  X->>S: Read input
+  X->>S: Read input, only when the message didn't carry it
   X->>X: Filter and extract promoted properties
   alt Exchange has a subscription
     X->>A: Mapper, if configured
-    X->>S: Write output
+    X->>S: Write output, while the handler runs
     X->>A: Handler, if configured
-    X->>S: Write response
+    X->>S: Write response, while the result is prepared
     X->>Q: Publish response under its message type, if set
   else Document-level exchange
     X->>DB: Create exchanges for matching subscriptions and routes
   end
-  X->>DB: Save result and any scheduled retry
+  X->>DB: Save result and any scheduled retry, once storage has their files
+  X-->>E: Tell a waiting sync call, with the response when small
   DB-->>Q: Publish result id on the -Result lane
-  Q->>X: Run notifiers
+  Q->>X: Send notifications
 ```
 
 Every stage runs its adapter through the same invoker, whether the adapter is native, resident or classic. A stage bound to a [data source](data-sources.md) runs through that connection.
 
 ## 1. Creation
 
-Every entry point ends the same way. The input is written to storage, the exchange row is added and the save commits. After the commit, an event carrying only the exchange id goes to the lane of the subscription's work group.
+Every entry point ends the same way. The input's write to storage starts, the exchange row is added while it runs, and the save commits only once storage has the input, so a saved exchange always has its file. A write that fails fails the save. After the commit, an event goes to the lane of the subscription's work group. It carries the exchange id and, when the input is no larger than `Bitween:MessagePayloadMaxBytes` (256 KB), the input itself, so the worker doesn't read it back from storage. The outbox row keeps the id alone: a message the outbox publishes again later, after a failed publish, has no input, and the worker reads storage. Storage is written for every input either way and stays the record; the copy in the message is used only when it matches the hash stored on the exchange.
 
 When an exchange is created for a subscription, Bitween resolves `{{partner.KEY}}` and `{{globals.SET.KEY}}` tokens in the mapper and handler properties and stores the result on the exchange. The partner is the one the entry point supplies, such as the calling partner or a bus gateway route's partner. Otherwise it is the subscription's own partner. Tokens that cannot be resolved are left as written.
 
@@ -91,7 +92,7 @@ When the exchange has a mapper, the mapper turns the input into the output file.
 How the mapper sees partner and global values depends on the mapper.
 
 - The **rules-based mapper**, `NativeMapper`, receives partner and global values as separate context. The payload reaches it untouched, so it can map XML as well as JSON.
-- **Every other mapper**, including the legacy JSON mapper and custom mappers, gets them written into the payload as `__partner__` and `__globals__` keys, and only when the payload is a JSON object. A payload that is not JSON fails the exchange before the mapper runs. A real payload key with either name is overwritten.
+- **Every other mapper**, including the legacy JSON mapper and custom mappers, gets them written into the payload as `__partner__` and `__globals__` keys, and only when the payload is a JSON object. Any other payload, such as XML or CSV, reaches the mapper as it arrived. A real payload key with either name is overwritten.
 
 A mapper that returns nothing fails the exchange. See [Mapping](mapping.md).
 
@@ -131,15 +132,25 @@ Bitween saves the result.
 
 Retry evaluation can never cost the result. If evaluation itself fails, the error is logged and the result is still saved.
 
+The output and response files are written while the handler runs and the result is prepared, and the result is saved only once their writes have finished. What a failed write does depends on whether the handler delivered:
+
+- **The handler delivered** and the output write, the response write or both failed: the result is saved as a success, because the partner has the document. The file is recorded as missing: it has no size, name or hash, so the exchange list, the drawer, the export and the archive show no file for it and no link is made to it. The result carries a warning, one line per file, such as `Delivered; the output file could not be stored: <reason>`, and the worker logs it at Warning level with the exchange id and the storage key. Nothing is retried and no retry budget is touched; success notifications send, and auto-pause counts it as a success. A sync gateway call is answered with the response the result signal carries when it is under the size cap; when it is not, and the response file is missing, the call gets 200 with the exchange id, as a delivery with no response does.
+- **The handler failed**: the exchange fails as any failed delivery does, and the failure result names only the files that were written.
+- **No handler ran**: nothing was delivered, so a failed write fails the exchange.
+
+The input is written when the exchange is created, before anything is delivered, and a failed input write still fails the request that created it.
+
+When a [sync gateway call](entry-points.md#async-and-sync) waits for the exchange, the worker tells it as soon as the result is saved, on success and on failure. On the node holding the call it does so directly; otherwise it broadcasts to every node, and the one holding the call takes it. The signal carries what the answer needs, including the response when it is no larger than `Bitween:MessagePayloadMaxBytes` (always, on the same node), so a successful call is answered without reading the database or storage.
+
 ## 8. Notifications
 
-Saving the result publishes its id on the work group's `-Result` lane. There, each active notifier that watches the exchange's subscription runs when the outcome matches its settings. See [Notifiers](retries-and-alerts.md#notifiers).
+Saving the result publishes its id on the work group's `-Result` lane. There, each of the subscription's notifications whose outcome matches sends through its channel, and so does each active legacy notifier watching the subscription. See [Subscription notifications](retries-and-alerts.md#subscription-notifications).
 
 ## Pausing
 
 While a subscription is paused, messages that reach it by content are stored as on-hold exchanges. That covers documents matched to internal subscriptions and bus gateway routes. Resuming the subscription publishes an event that turns every on-hold exchange into a real exchange and deletes the holds.
 
-API gateway calls, legacy API calls, scheduled job runs, aggregations and exchanges created by hand ignore the pause and still create exchanges.
+API gateway calls, legacy API calls, scheduled job runs, aggregations and exchanges created by hand ignore the pause and still create exchanges. On a staging marked as a [prod mirror](prod-mirror.md), a paused scheduled job or aggregation doesn't run on its schedule; **Receive now** and **Roll up now** still run it.
 
 ## Aggregation
 
@@ -166,4 +177,5 @@ Exchange lists return a link and a storage key for each file that has content. T
 | Request body size | 50 MB |
 | Exchanges counted by one search | 10,000 |
 | Exchanges collected per aggregation run | 10,000 |
-| Concurrent exchanges per consumer | The work group's prefetch, 12 by default |
+| Exchanges buffered per lane per node | The work group's prefetch, 12 by default |
+| Concurrent exchanges per lane per node | The work group's parallel exchanges, capped by its prefetch; empty takes the prefetch. The Ungrouped lane takes `Bitween:BusDefaultConcurrency`. A results lane runs one at a time |

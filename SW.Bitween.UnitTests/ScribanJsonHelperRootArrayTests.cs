@@ -18,7 +18,7 @@ public class ScribanJsonHelperRootArrayTests
     [TestMethod]
     public void RootArrayInput_AccessFirstItemField_DirectReference()
     {
-        // Hoisted top-level keys — direct field access without index
+        // Hoisted top-level keys - direct field access without index
         var input = "[{\"OrderId\":1,\"OrderNumber\":\"ORD-001\"}]";
         var template = "{ \"id\": {{ OrderId | json }}, \"ref\": {{ OrderNumber | json }} }";
 
@@ -93,7 +93,7 @@ public class ScribanJsonHelperRootArrayTests
             "[{\"OrderId\":7,\"Status\":\"A\"}," +
             "{\"OrderId\":8,\"Status\":\"B\"}]";
 
-        // Embed __partner__ / __globals__ via hoisted fields — simulate injection
+        // Embed __partner__ / __globals__ via hoisted fields - simulate injection
         var inputWithExtras =
             "[{\"OrderId\":7,\"Status\":\"A\",\"__partner__\":{\"key\":\"PK\"},\"__globals__\":{\"S\":{\"K\":\"GV\"}}}]";
 

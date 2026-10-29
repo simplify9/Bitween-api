@@ -1,15 +1,14 @@
 import { useCallback, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
+import { useMappingEditorDispatch, useMappingEditorState } from "../../lib/mapping/mappingEditorHooks";
 import {
-  useMappingEditorDispatch,
-  useMappingEditorState,
   setArrayMappings,
   setFieldMappings,
   setMode,
   setValidationErrors,
   syncManualTemplate,
-} from "../../lib/mapping/MappingEditorContext";
+} from "../../lib/mapping/mappingEditorActions";
 import { NATIVE_JSON_MAPPER_ID, type ValidationError, type KeyValuePair } from "../../lib/mapping/types";
 import { generateScriban, parseScriban, resolveParentArrayIds } from "../../lib/mapping/scribanGenerator";
 import { kvpsToRecord, useValuesSetMap } from "./data";
@@ -154,7 +153,7 @@ export function useSave(subscriptionId: number): UseSaveResult {
       }
       dispatch(setMode(newMode));
     },
-    [mode, isManualDirty, manualTemplate, fieldMappings, arrayMappings, valuesSetMap, dispatch]
+    [mode, isManualDirty, manualTemplate, fieldMappings, arrayMappings, valuesSetMap, outputJson, dispatch]
   );
 
   return { isSaving, saveSuccess, handleValidate, handleSave, handleModeChange };

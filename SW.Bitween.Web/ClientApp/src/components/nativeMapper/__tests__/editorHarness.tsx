@@ -75,7 +75,7 @@ const CONTENT_TYPES: Record<string, string> = {
 /**
  * A mock backend holding one subscription.
  *
- * Saving writes to it, so a remount afterwards reads back what was saved — the same round trip a
+ * Saving writes to it, so a remount afterwards reads back what was saved - the same round trip a
  * page reload made against the real server.
  */
 export function mapperBackend({
@@ -91,7 +91,7 @@ export function mapperBackend({
   const saves: { mapperId: string | null; mapperProperties: Record<string, string> }[] = [];
 
   // RawSubscription in src/api/http/subscriptions.ts: a scheduled job with no partner and, until
-  // something is saved, no mapper — which is what opens the new editor.
+  // something is saved, no mapper - which is what opens the new editor.
   const subscription = () => ({
     id: SUBSCRIPTION_ID,
     name: "Mapper cases",
@@ -248,7 +248,7 @@ export async function openWithSample(backend: MapperBackend, sample: unknown = S
 /**
  * Replaces a box's text in one change, the way Playwright's fill() did.
  *
- * Typed a key at a time, every keystroke would be its own step on the undo stack — and the
+ * Typed a key at a time, every keystroke would be its own step on the undo stack - and the
  * keyboard test is precisely about one undo taking back one change.
  */
 export async function fill(user: UserEvent, box: HTMLElement, text: string) {
@@ -338,7 +338,7 @@ export const preview = () => document.querySelector("pre");
 /**
  * Waits for the editor to have asked the server to map rules shaped like `rules`.
  *
- * Matched as `toMatchObject` does, so `rules` names only what the test is about — which is why it
+ * Matched as `toMatchObject` does, so `rules` names only what the test is about - which is why it
  * is not typed as the rules themselves, whose required keys it deliberately leaves out.
  */
 export async function expectSent(backend: MapperBackend, rules: object) {

@@ -6,11 +6,66 @@ import { ApiRequestError } from "../types";
  */
 export const API_BASE = "/api";
 
-/** The Jwt is kept in localStorage; the refresh token is an HttpOnly cookie JS never sees. */
+/**
+ * Where earlier versions kept the Jwt. Read once at load only to delete it, so a token left
+ * behind by an older build does not outlive the upgrade.
+ */
 export const TOKEN_KEY = "access_token";
 
 /**
- * Told when a request proves the session is over — the Jwt was refused and no
+ * Set while this browser holds a session, cleared when it ends. Not a credential - it only tells
+ * a new tab or a reload that a refresh cookie is worth trying, so the sign-in page doesn't spend
+ * the sign-in rate limit probing for a session that was never there.
+ */
+export const SIGNED_IN_KEY = "bitween_signed_in";
+
+/**
+ * The Jwt lives in this module's memory and nowhere else; the refresh token is an HttpOnly
+ * cookie JS never sees. localStorage was readable by any script that ever ran on the page, and
+ * a stolen Jwt works from anywhere until it expires. A reload starts with no Jwt and gets one
+ * from the refresh cookie (see `getSession`).
+ */
+let accessToken: string | null = null;
+
+type SessionMessage = { type: "token"; jwt: string } | { type: "signed-out" };
+
+/**
+ * How tabs share what used to be shared through localStorage: a new Jwt, and the end of the
+ * session. Missing in very old browsers, where each tab simply refreshes on its own.
+ */
+const channel: BroadcastChannel | null =
+  typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel("bitween-session");
+
+// Node (the test runner) keeps a process alive while a channel listens; browsers have no unref.
+(channel as unknown as { unref?: () => void } | null)?.unref?.();
+
+let signedOutElsewhereListener: (() => void) | null = null;
+
+/** Told when another tab of this origin ends the session. `SessionProvider` registers itself. */
+export const onSignedOutElsewhere = (listener: (() => void) | null): void => {
+  signedOutElsewhereListener = listener;
+};
+
+channel?.addEventListener("message", (event: MessageEvent<SessionMessage>) => {
+  if (event.data?.type === "token") accessToken = event.data.jwt;
+  else if (event.data?.type === "signed-out") {
+    accessToken = null;
+    signedOutElsewhereListener?.();
+  }
+});
+
+const safeStorage = (action: () => void): void => {
+  try {
+    action();
+  } catch {
+    /* storage can be unavailable (private mode, blocked site data); the hint is only an optimisation */
+  }
+};
+
+safeStorage(() => localStorage.removeItem(TOKEN_KEY));
+
+/**
+ * Told when a request proves the session is over - the Jwt was refused and no
  * refresh cookie was left to replace it.
  *
  * A callback rather than a hook because this is plain module code that cannot
@@ -24,9 +79,28 @@ export const onSessionEnded = (listener: (() => void) | null): void => {
   sessionEndedListener = listener;
 };
 
-export const getToken = (): string | null => localStorage.getItem(TOKEN_KEY);
-export const setToken = (jwt: string): void => localStorage.setItem(TOKEN_KEY, jwt);
-export const clearToken = (): void => localStorage.removeItem(TOKEN_KEY);
+export const getToken = (): string | null => accessToken;
+
+export const setToken = (jwt: string): void => {
+  accessToken = jwt;
+  safeStorage(() => localStorage.setItem(SIGNED_IN_KEY, "1"));
+  channel?.postMessage({ type: "token", jwt } satisfies SessionMessage);
+};
+
+export const clearToken = (): void => {
+  accessToken = null;
+  safeStorage(() => localStorage.removeItem(SIGNED_IN_KEY));
+  channel?.postMessage({ type: "signed-out" } satisfies SessionMessage);
+};
+
+/** Whether this browser held a session when it last looked - worth a silent refresh to find out. */
+export const mayHaveSession = (): boolean => {
+  try {
+    return localStorage.getItem(SIGNED_IN_KEY) === "1";
+  } catch {
+    return true;
+  }
+};
 
 /** Backend serializes camelCase; login returns `{ jwt }`. */
 const readJwt = (data: unknown): string | null =>
@@ -35,14 +109,22 @@ const readJwt = (data: unknown): string | null =>
 let refreshInFlight: Promise<string | null> | null = null;
 
 /**
- * Silent refresh: POST /accounts/login with an empty body — the HttpOnly
+ * Silent refresh: POST /accounts/login with an empty body - the HttpOnly
  * refresh_token cookie alone re-issues a Jwt. Returns the new token, or null
  * when the cookie is missing/expired. Bypasses `request()` to avoid recursion,
  * and dedupes concurrent callers behind one in-flight promise.
+ *
+ * Serialised across tabs with a Web Lock. Each refresh replaces the cookie and
+ * deletes the token it was sent with, so two tabs refreshing at once would send
+ * the same cookie and the second would be refused - signing that tab out. Behind
+ * the lock the second tab sends the cookie the first one just got, or, when the
+ * first tab's new Jwt has already arrived over the channel, does not refresh at all.
  */
 export function silentRefresh(): Promise<string | null> {
   if (!refreshInFlight) {
-    refreshInFlight = (async () => {
+    const tokenBefore = accessToken;
+    const refresh = async (): Promise<string | null> => {
+      if (accessToken && accessToken !== tokenBefore) return accessToken;
       try {
         const res = await fetch(`${API_BASE}/accounts/login`, {
           method: "POST",
@@ -58,7 +140,11 @@ export function silentRefresh(): Promise<string | null> {
       } catch {
         return null;
       }
-    })();
+    };
+    refreshInFlight = (async () =>
+      typeof navigator !== "undefined" && navigator.locks
+        ? navigator.locks.request("bitween-refresh", refresh)
+        : refresh())();
     void refreshInFlight.finally(() => {
       refreshInFlight = null;
     });
@@ -78,24 +164,29 @@ async function toApiError(res: Response): Promise<ApiRequestError> {
 
   // 404 → the message is a bare JSON string.
   if (typeof body === "string" && body)
-    return new ApiRequestError(res.status === 404 ? "NOT_FOUND" : "ERROR", body);
+    return new ApiRequestError(res.status === 404 ? "NOT_FOUND" : "ERROR", body, res.status);
 
   // Framework-level errors (415, unhandled 500, …) come as ASP.NET ProblemDetails:
   // { type, title, status, traceId }. Prefer its human `title`.
   if (body && typeof body === "object" && "title" in body && "status" in body) {
     const pd = body as { title?: string; status?: number };
-    return new ApiRequestError(`HTTP_${pd.status ?? res.status}`, pd.title || `Request failed (${res.status}).`);
+    return new ApiRequestError(`HTTP_${pd.status ?? res.status}`, pd.title || `Request failed (${res.status}).`, res.status);
   }
 
   // 400 → ASP.NET SerializableError: { key: [msg, ...] } (key is the validation
   // code for SWValidationException, or the exception type name otherwise).
+  // Every message is kept: the first key's first message used to be all that reached the form,
+  // so a save with two problems showed one, and the second only after fixing the first.
   if (body && typeof body === "object") {
-    const [code, value] = Object.entries(body as Record<string, unknown>)[0] ?? [];
-    const message = Array.isArray(value) ? String(value[0]) : String(value ?? "");
-    if (code) return new ApiRequestError(code, message || "Request failed.");
+    const errors: Record<string, string[]> = {};
+    for (const [key, value] of Object.entries(body as Record<string, unknown>))
+      errors[key] = (Array.isArray(value) ? value : [value]).filter((v) => v != null && v !== "").map(String);
+    const [code] = Object.keys(errors);
+    const messages = [...new Set(Object.values(errors).flat())];
+    if (code) return new ApiRequestError(code, messages.join(" ") || "Request failed.", res.status, errors);
   }
 
-  return new ApiRequestError("ERROR", `Request failed (${res.status}).`);
+  return new ApiRequestError("ERROR", `Request failed (${res.status}).`, res.status);
 }
 
 export interface RequestOptions {
@@ -103,7 +194,9 @@ export interface RequestOptions {
   body?: unknown;
   /** Internal: prevents the 401 → refresh → retry loop from recursing. */
   _retried?: boolean;
-  /** Lets a caller cancel the request — only `logout` needs this, and says why. */
+  /** A file sent as the body itself rather than as JSON: an adapter package. */
+  file?: Blob;
+  /** Lets a caller cancel the request - only `logout` needs this, and says why. */
   signal?: AbortSignal;
 }
 
@@ -119,7 +212,7 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
   const text = await res.text();
   if (!text) return undefined as T;
   // Some endpoints return a bare string as text/plain (e.g. /partners/generatekey),
-  // which isn't valid JSON — only parse when the response actually is JSON.
+  // which isn't valid JSON - only parse when the response actually is JSON.
   const isJson = res.headers.get("content-type")?.includes("application/json") ?? false;
   return (isJson ? JSON.parse(text) : text) as T;
 }
@@ -139,18 +232,19 @@ async function send(path: string, opts: RequestOptions): Promise<Response> {
   const token = getToken();
   const method = opts.method ?? "GET";
   // Backend command handlers (POST) bind a JSON body, so they always need
-  // `Content-Type: application/json` — even a body-less command like logout.
+  // `Content-Type: application/json` - even a body-less command like logout.
   // Without it the framework rejects the call with 415 before the handler runs;
   // an empty `{}` satisfies it.
-  const sendJson = method === "POST";
+  const sendJson = method === "POST" && !opts.file;
   const res = await fetch(`${API_BASE}${path}`, {
     method,
     credentials: "include",
     headers: {
       ...(sendJson ? { "Content-Type": "application/json" } : {}),
+      ...(opts.file ? { "Content-Type": opts.file.type || "application/zip" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
-    body: sendJson ? JSON.stringify(opts.body ?? {}) : undefined,
+    body: opts.file ?? (sendJson ? JSON.stringify(opts.body ?? {}) : undefined),
     ...(opts.signal ? { signal: opts.signal } : {}),
   });
 
@@ -173,14 +267,19 @@ export const post = <T>(path: string, body?: unknown): Promise<T> =>
   request<T>(path, { method: "POST", body });
 
 /**
- * For a secondary read that only enriches a page — the "used by" counts, which come from another
+ * For a secondary read that only enriches a page - the "used by" counts, which come from another
  * area's list. Those are permission-guarded in their own right, so a role that can see this page
  * but not that area would otherwise take the whole page down with it. The enrichment is worth
  * losing; the page isn't. Only refusals are swallowed, so a real outage still surfaces.
  */
-export async function getEnrichment<T>(path: string, fallback: T): Promise<T> {
+export function getEnrichment<T>(path: string, fallback: T): Promise<T> {
+  return enrichment(get<T>(path), fallback);
+}
+
+/** `getEnrichment` for a read that is more than one GET - another area's whole list, say. */
+export async function enrichment<T>(read: Promise<T>, fallback: T): Promise<T> {
   try {
-    return await get<T>(path);
+    return await read;
   } catch (e) {
     // A refusal for *this* read only. UNAUTHENTICATED deliberately isn't swallowed: that one means
     // the session itself is gone, and the app needs to hear about it.

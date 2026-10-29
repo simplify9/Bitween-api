@@ -9,7 +9,7 @@ import type {
 } from "../types";
 import { exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
-import { get, post, request } from "./request";
+import { enrichment, get, post, request } from "./request";
 import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
 interface SearchyResponse<T> {
@@ -20,7 +20,7 @@ interface RawKeyAndValue {
   key: string;
   value: string;
 }
-/** Seeded by the model — mirrors Document.AggregationDocumentId on the backend. */
+/** Seeded by the model - mirrors Document.AggregationDocumentId on the backend. */
 const AGGREGATION_DOCUMENT_ID = 10001;
 
 interface RawDocument {
@@ -31,9 +31,14 @@ interface RawDocument {
   busEnabled: boolean;
   busMessageTypeName: string | null;
   duplicateInterval: number;
+  /** Absent from servers that predate it. */
+  dropDuplicates?: boolean;
+  duplicatesLastWeek?: number;
+  duplicatesDroppedLastWeek?: number;
   disregardsUnfilteredMessages: boolean;
   promotedProperties: RawKeyAndValue[] | null;
-  /** Counted by the backend — see DocumentRow.UsedByCount. */
+  validationSchema?: string | null;
+  /** Counted by the backend - see DocumentRow.UsedByCount. */
   usedByCount: number;
   retiredOn: string | null;
 }
@@ -81,19 +86,28 @@ const toInformationType = (d: RawDocument): InformationType => ({
   busEnabled: d.busEnabled,
   busMessageTypeName: d.busMessageTypeName ?? undefined,
   duplicateIntervalMinutes: d.duplicateInterval,
+  dropDuplicates: d.dropDuplicates ?? false,
+  duplicatesLastWeek: d.duplicatesLastWeek,
+  duplicatesDroppedLastWeek: d.duplicatesDroppedLastWeek,
   disregardsUnfilteredMessages: d.disregardsUnfilteredMessages,
   promotedProperties: (d.promotedProperties ?? []).map((p) => ({ key: p.key, path: p.value })),
+  validationSchema: d.validationSchema ?? null,
   createdOn: "",
   retiredOn: d.retiredOn ?? null,
   isSystem: d.id === AGGREGATION_DOCUMENT_ID,
 });
 
 async function fetchDetail(id: number): Promise<InformationTypeDetail> {
+  // Only the type itself is required. The rest come from areas a role that can see information
+  // types may not be allowed into, and without them the page still has everything it edits.
   const [d, subs, busGateways, recentExchanges] = await Promise.all([
     get<RawDocument>(`/documents/${id}`),
-    fetchSubscriptionsByDocument(id),
-    gatewayMethods.listBusGateways(),
-    exchangeMethods.searchExchanges({ informationTypeId: id, offset: 0, limit: 8 }),
+    enrichment(fetchSubscriptionsByDocument(id), []),
+    enrichment(gatewayMethods.listBusGateways(), []),
+    enrichment(exchangeMethods.searchExchanges({ informationTypeIds: [id], offset: 0, limit: 8 }), {
+      result: [],
+      total: 0,
+    }),
   ]);
   return {
     ...toInformationType(d),
@@ -121,8 +135,11 @@ const documentBody = (t: Omit<InformationType, "id" | "createdOn">) => ({
   // Sent with the bus off too: the name is what a paused type resumes on.
   busMessageTypeName: t.busMessageTypeName || undefined,
   duplicateInterval: t.duplicateIntervalMinutes,
+  dropDuplicates: t.dropDuplicates,
   disregardsUnfilteredMessages: t.disregardsUnfilteredMessages,
   promotedProperties: t.promotedProperties.map((p) => ({ key: p.key, value: p.path })),
+  // Empty removes it; the server reads a missing one as "leave it alone".
+  validationSchema: t.validationSchema ?? "",
 });
 
 export const documentMethods = {

@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowUpRight, Check, ChevronDown, ChevronRight, Copy } from "lucide-react";
 import { api, type ReceiveAttemptRow, type ReceiveOutcome } from "../../../api";
-import { Badge, EmptyState, LoadingBlock } from "../../../components/ui/basics";
+import { Badge, Button, EmptyState, FormError, LoadingBlock } from "../../../components/ui/basics";
+import { Can } from "../../../auth/guards";
+import { ConfirmDialog } from "../../../components/ui/overlays";
 import { Select } from "../../../components/ui/forms";
 import { Pagination } from "../../../components/ui/Pagination";
 import { Table } from "../../../components/ui/Table";
@@ -15,7 +17,7 @@ import { keys } from "../../../api/queryKeys";
 const PAGE_SIZE = 25;
 
 /**
- * Both scheduled types write into the same history, so this panel serves both — but a
+ * Both scheduled types write into the same history, so this panel serves both - but a
  * receiver "checks for new data" and an aggregation "rolls up what its source produced",
  * and one set of words cannot honestly describe both. The outcomes underneath are the
  * same three; only what they mean to a person changes.
@@ -39,16 +41,16 @@ const WORDING: Record<
   }
 > = {
   receiving: {
-    description: "Every time this subscription checked for new data — what it found, and what happened to it.",
+    description: "Every time this subscription checked for new data - what it found, and what happened to it.",
     empty: "No checks recorded yet",
     emptyHint: "This subscription hasn't checked for new data since this history started being kept.",
     exchangeHeader: "Exchange",
     exchangeHint: "The exchanges this run created, one per document it received.",
     resultHint: "What the run found when it checked its source.",
     failed: "Couldn't check",
-    failedHint: "The run could not reach or read its source — no documents were received.",
+    failedHint: "The run could not reach or read its source - no documents were received.",
     nothing: "Nothing new",
-    nothingHint: "Checked for new data — there was nothing to receive this time.",
+    nothingHint: "Checked for new data - there was nothing to receive this time.",
     outcomes: [
       { value: "", label: "All" },
       { value: "Failed", label: "Couldn't check" },
@@ -57,14 +59,14 @@ const WORDING: Record<
     ],
   },
   aggregation: {
-    description: "Every time this aggregation ran — whether it had anything to collect, and the exchange it produced.",
+    description: "Every time this aggregation ran - whether it had anything to collect, and the exchange it produced.",
     empty: "No runs recorded yet",
     emptyHint: "This aggregation hasn't run since this history started being kept.",
     exchangeHeader: "Roll-up",
     exchangeHint: "The single exchange this run produced. Opening it also lists everything it collected.",
     resultHint: "Whether the run found anything outstanding to roll up.",
     failed: "Couldn't run",
-    failedHint: "The run threw before it finished — nothing was rolled up.",
+    failedHint: "The run threw before it finished - nothing was rolled up.",
     nothing: "Nothing to roll up",
     nothingHint: "Ran, but the source had no new successful exchanges waiting. No exchange is created for an empty period.",
     outcomes: [
@@ -88,7 +90,8 @@ function CopyErrorButton({ text }: { text: string }) {
         setTimeout(() => setCopied(false), 1400);
       }}
       title="Copy full error"
-      className="shrink-0 rounded p-0.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+      aria-label={copied ? "Copied" : "Copy full error"}
+      className="shrink-0 rounded p-0.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
     >
       {copied ? <Check className="size-3" /> : <Copy className="size-3" />}
     </button>
@@ -107,7 +110,7 @@ function ErrorText({ text }: { text: string }) {
         }}
         aria-label={expanded ? "Collapse error" : "Expand error"}
         aria-expanded={expanded}
-        className="mt-0.5 shrink-0 text-ink-400 hover:text-ink-700"
+        className="mt-0.5 shrink-0 text-ink-500 hover:text-ink-700"
       >
         {expanded ? <ChevronDown className="size-3" /> : <ChevronRight className="size-3" />}
       </button>
@@ -138,7 +141,7 @@ function AttemptResult({ attempt, kind }: { attempt: ReceiveAttemptRow; kind: At
     );
   if (attempt.outcome === "NoNewData") return <Badge title={w.nothingHint}>{w.nothing}</Badge>;
   // No count for an aggregation: the attempt holds the one roll-up it made, not the number
-  // of exchanges that went into it — saying "Rolled up 1" would be a plain lie. The link in
+  // of exchanges that went into it - saying "Rolled up 1" would be a plain lie. The link in
   // the next column opens the roll-up together with everything it collected.
   if (kind === "aggregation")
     return (
@@ -156,7 +159,7 @@ function AttemptResult({ attempt, kind }: { attempt: ReceiveAttemptRow; kind: At
 /**
  * A single poll can pick up dozens of documents, and each one is a line here. Uncapped,
  * one busy run makes a row taller than the screen while its When and Result cells stay
- * two short lines — so the column is capped and the rest is one click away.
+ * two short lines - so the column is capped and the rest is one click away.
  */
 const EXCHANGES_SHOWN = 5;
 
@@ -167,7 +170,7 @@ function AttemptExchanges({
   attemptId: number;
   exchanges: ReceiveAttemptRow["exchanges"];
 }) {
-  if (exchanges.length === 0) return <span className="text-ink-400">—</span>;
+  if (exchanges.length === 0) return <span className="text-ink-500">-</span>;
 
   const hidden = exchanges.length - EXCHANGES_SHOWN;
   return (
@@ -189,7 +192,7 @@ function AttemptExchanges({
         <Link
           to={`/exchanges?receiveAttemptId=${attemptId}`}
           onClick={(e) => e.stopPropagation()}
-          className="flex items-center gap-1 text-[11px] font-medium text-crimson-700 hover:underline"
+          className="flex items-center gap-1 text-[11px] font-medium link"
         >
           View all {exchanges.length} in Exchanges
           <ArrowUpRight className="size-3" />
@@ -200,13 +203,55 @@ function AttemptExchanges({
 }
 
 /**
- * Every time a Receiving subscription checked for new data — replaces the old pairing of
+ * Every time a Receiving subscription checked for new data - replaces the old pairing of
  * the scheduler's own run history (Quartz vocabulary an operator has no reason to know,
  * and which always reports success even when the receive step itself failed) next to a
  * capped 8-row exchange glance. One row per run regardless of what it found, so a poll
- * that couldn't even connect shows up here just as much as one that produced an exchange —
+ * that couldn't even connect shows up here just as much as one that produced an exchange -
  * "Exchanges" as a title would undersell the rows that have none.
  */
+/**
+ * Where a receiver that keeps a bookmark last got to - the next run takes only what came after it -
+ * with a way to forget it and take everything again. Shown only when there is one.
+ */
+export function BookmarkLine({ subscriptionId }: { subscriptionId: number }) {
+  const queryClient = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+  const bookmark = useQuery({
+    queryKey: keys.subscriptions.bookmark(subscriptionId),
+    queryFn: () => api.getBookmark(subscriptionId),
+  });
+  const forget = useMutation({
+    mutationFn: () => api.forgetBookmark(subscriptionId),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.subscriptions.bookmark(subscriptionId) }),
+  });
+  const b = bookmark.data;
+  if (!b?.value) return null;
+  return (
+    <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-[13px]">
+      <span className="min-w-0 text-ink-600">
+        Next run starts after <code className="font-mono text-xs break-all text-ink-800">{b.value}</code>
+        {b.updatedOn && <span className="text-ink-500"> · moved {timeAgo(b.updatedOn)}</span>}
+      </span>
+      <Can permission="subscriptions.operate">
+        <Button className="!h-7 text-[12px]" onClick={() => setConfirming(true)}>Forget bookmark</Button>
+      </Can>
+      <FormError>{forget.error?.message}</FormError>
+      {confirming && (
+        <ConfirmDialog
+          title="Forget the bookmark?"
+          body="The next run takes everything the source has again, from the beginning, so records already received will be received again."
+          confirmLabel="Forget bookmark"
+          onConfirm={async () => {
+            await forget.mutateAsync();
+          }}
+          onClose={() => setConfirming(false)}
+        />
+      )}
+    </div>
+  );
+}
+
 export function ReceiveAttemptsPanel({
   subscriptionId,
   kind,
@@ -229,6 +274,7 @@ export function ReceiveAttemptsPanel({
 
   return (
     <div>
+      {kind === "receiving" && <BookmarkLine subscriptionId={subscriptionId} />}
       <div className="mb-3 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-[15px] font-semibold text-ink-900">Runs</h2>

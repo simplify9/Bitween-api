@@ -1,0 +1,130 @@
+import { useQuery } from "@tanstack/react-query";
+import { api, type GatewayRejections as Rejections } from "../../api";
+import { keys } from "../../api/queryKeys";
+import { Badge } from "../../components/ui/basics";
+import { Panel } from "../../components/ui/Panel";
+import { formatDateTime, timeAgo } from "../../lib/dates";
+
+/** What each refusal means, for whoever is on the phone with the partner. */
+const REASON: Record<string, { label: string; meaning: string }> = {
+  "not-authenticated": {
+    label: "Key not recognised",
+    meaning: "No key, or one that isn't any partner's: a typo, a revoked key, or the wrong header.",
+  },
+  "not-attached": {
+    label: "Partner not attached",
+    meaning: "A valid key, but its partner isn't attached to this gateway.",
+  },
+  "gateway-off": { label: "Gateway switched off", meaning: "The gateway is inactive; callers got 503." },
+  "no-subscription": {
+    label: "Nothing behind it",
+    meaning: "The partner's subscription for this gateway is gone.",
+  },
+  "rate-limited": {
+    label: "Too many calls",
+    meaning: "More calls a minute from one address than Bitween allows; they got 429.",
+  },
+  "unknown-gateway": { label: "Unknown address", meaning: "Called at an address no gateway has." },
+};
+
+/**
+ * Calls to this gateway turned away, and why - what "the partner says they get 401" needed and had
+ * nowhere to look. The week across every node, from the hourly metrics; and live, the node that
+ * answered, since it started, with the most recent calls themselves.
+ */
+export function GatewayRejections({ gatewayId }: { gatewayId: number }) {
+  const rejections = useQuery({
+    queryKey: keys.apiGateways.rejections(gatewayId),
+    queryFn: () => api.getGatewayRejections(gatewayId),
+    refetchInterval: 30_000,
+  });
+  if (!rejections.data) return null;
+  const r = rejections.data;
+  const reasons = Object.entries(r.counts).sort((a, b) => b[1] - a[1]);
+  const week = Object.entries(r.lastSevenDays ?? {}).sort((a, b) => b[1] - a[1]);
+  const recent = groupRecent(r.recent);
+
+  return (
+    <Panel
+      title="Calls turned away"
+      description={`Counted by the node that answered (${r.node}) since it started ${timeAgo(r.since)}. Each node counts its own.`}
+    >
+      {week.length > 0 && (
+        <div className="mb-4">
+          <h4 className="mb-1 text-[12px] font-semibold tracking-wide text-ink-500 uppercase">Last 7 days, every node</h4>
+          <p className="flex flex-wrap gap-x-4 gap-y-1 text-[13px] text-ink-700">
+            {week.map(([reason, count]) => (
+              <span key={reason}>
+                <span className="font-semibold tabular-nums">{count.toLocaleString("en")}</span> {REASON[reason]?.label ?? reason}
+              </span>
+            ))}
+          </p>
+        </div>
+      )}
+      {reasons.length === 0 ? (
+        <p className="text-[13px] text-ink-500">None. Every call that reached this node got through.</p>
+      ) : (
+        <div className="space-y-3">
+          <ul className="space-y-1.5">
+            {reasons.map(([reason, count]) => (
+              <li key={reason} className="flex items-start gap-2 text-[13px]">
+                <Badge tone="danger">{count}</Badge>
+                <span>
+                  <span className="font-medium text-ink-900">{REASON[reason]?.label ?? reason}</span>
+                  <span className="block text-[12px] text-ink-500">{REASON[reason]?.meaning}</span>
+                </span>
+              </li>
+            ))}
+          </ul>
+          <div>
+            <h4 className="mb-1 text-[12px] font-semibold tracking-wide text-ink-500 uppercase">Most recent</h4>
+            <ul className="divide-y divide-ink-100 text-[12.5px]">
+              {recent.map((x) => (
+                <li key={`${x.reason} ${x.status} ${x.address}`} className="flex flex-wrap items-baseline justify-between gap-2 py-1">
+                  <span className="flex items-baseline gap-2 text-ink-800">
+                    <Badge tone="neutral" title={`${x.count} of the most recent calls`}>
+                      {x.count}
+                    </Badge>
+                    <span>
+                      {REASON[x.reason]?.label ?? x.reason} <span className="text-ink-500">· {x.status}</span>
+                    </span>
+                  </span>
+                  <span className="text-ink-500">
+                    from {x.address ?? "an unknown address"} ·{" "}
+                    <span title={formatDateTime(x.last)}>last {timeAgo(x.last)}</span>
+                    {x.count > 1 && (
+                      <>
+                        {" "}
+                        · <span title={formatDateTime(x.first)}>first {timeAgo(x.first)}</span>
+                      </>
+                    )}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+/**
+ * The most recent refusals, one row per reason and caller: a partner retrying with a wrong key
+ * is one problem, and twelve identical rows under a heading that already says 12 buried any
+ * second caller below them. Newest first.
+ */
+function groupRecent(recent: Rejections["recent"]) {
+  const groups = new Map<string, { reason: string; status: number; address: string | null; count: number; first: string; last: string }>();
+  for (const x of recent) {
+    const key = `${x.reason}|${x.status}|${x.address ?? ""}`;
+    const g = groups.get(key);
+    if (!g) groups.set(key, { reason: x.reason, status: x.status, address: x.address, count: 1, first: x.on, last: x.on });
+    else {
+      g.count++;
+      if (x.on < g.first) g.first = x.on;
+      if (x.on > g.last) g.last = x.on;
+    }
+  }
+  return [...groups.values()].sort((a, b) => (a.last < b.last ? 1 : a.last > b.last ? -1 : 0));
+}

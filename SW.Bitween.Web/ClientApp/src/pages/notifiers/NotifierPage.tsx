@@ -1,21 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowUpRight, Search } from "lucide-react";
+import { ArrowUpRight, Trash2 } from "lucide-react";
 import { api, type NotificationEntry, type Notifier } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
 import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { ConfirmDialog } from "../../components/ui/overlays";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import { MiniTable } from "../../components/ui/Table";
 import { AdapterPicker } from "../../components/config/AdapterPicker";
-import { useAdapterCatalog } from "../../components/config/AdapterConfig";
-import { useSubscriptionsCache } from "../../components/config/shared";
+import { useAdapterCatalog } from "../../components/config/adapterCatalog";
+import { propertyLabel } from "../../components/config/propertyLabels";
+import { SettingHint } from "../../components/config/SettingsSections";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { timeAgo } from "../../lib/dates";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
+import { ExceptionLine } from "../../components/ui/Exception";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
+import { usePageTitle } from "../../lib/pageTitle";
+import { SearchBox } from "../../components/ui/SearchBox";
 
 type Draft = Omit<Notifier, "id" | "createdOn">;
 
@@ -33,7 +41,7 @@ function NotificationsList({ items }: { items: NotificationEntry[] }) {
           cell: (n) => (
             <Link
               to={`/exchanges?ids=${encodeURIComponent(n.xchangeId)}`}
-              className="block font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
+              className="block font-mono text-xs text-ink-600 hover:link"
             >
               {n.xchangeId}
             </Link>
@@ -48,18 +56,16 @@ function NotificationsList({ items }: { items: NotificationEntry[] }) {
           truncate: true,
           cell: (n) =>
             n.exception ? (
-              <span className="block truncate font-mono text-[11px] text-danger-700" title={n.exception}>
-                {n.exception}
-              </span>
+              <ExceptionLine text={n.exception} icon className="text-[12px] text-danger-700" />
             ) : (
-              <span className="text-ink-400">—</span>
+              <span className="text-ink-500">-</span>
             ),
         },
         {
           header: "When",
           align: "right",
           className: "whitespace-nowrap",
-          cell: (n) => <span className="text-xs text-ink-400">{timeAgo(n.on)}</span>,
+          cell: (n) => <span className="text-xs text-ink-500">{timeAgo(n.on)}</span>,
         },
       ]}
     />
@@ -72,12 +78,14 @@ export function NotifierPage() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const canEdit = useSessionCan("notifiers.edit");
+  const canDelete = useSessionCan("notifiers.delete");
 
   const notifier = useQuery({
     queryKey: keys.notifiers.detail(notifierId),
     queryFn: () => api.getNotifier(notifierId),
     retry: false,
   });
+  usePageTitle(notifier.data?.name);
   const channels = useAdapterCatalog("handler");
   const subscriptions = useSubscriptionsCache();
 
@@ -109,11 +117,15 @@ export function NotifierPage() {
     },
   });
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+
   if (notifier.isPending) return <LoadingBlock label="Loading notifier…" />;
+  if (notifier.isError && !isNotFound(notifier.error))
+    return <LoadError error={notifier.error} what="this notifier" onRetry={() => void notifier.refetch()} />;
   if (notifier.isError)
     return (
       <EmptyState title="This notifier no longer exists">
-        <Link to="/notifiers" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/notifiers" className="font-medium link">
           Back to notifiers
         </Link>
       </EmptyState>
@@ -145,6 +157,7 @@ export function NotifierPage() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/notifiers" label="Notifiers" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -172,11 +185,17 @@ export function NotifierPage() {
           </h1>
         </div>
 
-        <Can permission="notifiers.delete">
-          <Button variant="danger" onClick={() => setDeleting(true)}>
-            Delete
-          </Button>
-        </Can>
+        <MoreActionsMenu
+          actions={[
+            {
+              label: "Delete",
+              icon: <Trash2 className="size-4" />,
+              danger: true,
+              onSelect: () => setDeleting(true),
+              hidden: !canDelete,
+            },
+          ]}
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -207,7 +226,7 @@ export function NotifierPage() {
                 />
                 {!draft.onFailed && !draft.onBadResult && !draft.onSuccess && (
                   <p className="rounded-lg bg-warn-100 px-3 py-2 text-[13px] text-warn-700">
-                    No outcomes selected — this notifier never sends anything.
+                    No outcomes selected - this notifier never sends anything.
                   </p>
                 )}
               </div>
@@ -236,9 +255,15 @@ export function NotifierPage() {
                     {channel.props.map((prop) => (
                       <Field
                         key={prop.key}
-                        label={prop.optional ? prop.key : `${prop.key} *`}
+                        label={prop.optional ? propertyLabel(prop.key, prop.displayName) : `${propertyLabel(prop.key, prop.displayName)} *`}
                         htmlFor={`nf-prop-${prop.key}`}
-                        hint={prop.description}
+                        hint={
+                          <SettingHint
+                            rawKey={prop.key}
+                            label={propertyLabel(prop.key, prop.displayName)}
+                            help={prop.description}
+                          />
+                        }
                       >
                         <TextInput
                           id={`nf-prop-${prop.key}`}
@@ -274,17 +299,7 @@ export function NotifierPage() {
                     subscription.
                   </p>
                 )}
-                <div className="relative">
-                  <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-                  <input
-                    type="search"
-                    value={watchSearch}
-                    onChange={(e) => setWatchSearch(e.target.value)}
-                    placeholder="Search subscriptions"
-                    aria-label="Search subscriptions"
-                    className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-                  />
-                </div>
+                <SearchBox value={watchSearch} onChange={setWatchSearch} label="Search subscriptions" className="" />
                 <ul className="max-h-80 space-y-1.5 overflow-y-auto pr-1">
                   {filteredSubscriptions.map((s) => (
                     <li key={s.id} className="flex items-center gap-1">
@@ -305,14 +320,14 @@ export function NotifierPage() {
                         to={`/subscriptions/${s.id}`}
                         aria-label={`Open ${s.name}`}
                         title="Open"
-                        className="shrink-0 rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                        className="shrink-0 rounded-md p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
                       >
                         <ArrowUpRight className="size-3.5" />
                       </Link>
                     </li>
                   ))}
                   {filteredSubscriptions.length === 0 && (
-                    <li className="px-1 py-2 text-sm text-ink-400">No subscriptions match.</li>
+                    <li className="px-1 py-2 text-sm text-ink-500">No subscriptions match.</li>
                   )}
                 </ul>
               </div>
@@ -321,7 +336,7 @@ export function NotifierPage() {
 
           <Panel
             title="Recent notifications"
-            description="Every delivery attempt — expand a failed one to see why."
+            description="Every delivery attempt - expand a failed one to see why."
           >
             <NotificationsList items={n.recentNotifications} />
           </Panel>
@@ -353,7 +368,7 @@ export function NotifierPage() {
           onConfirm={async () => {
             await api.deleteNotifier(notifierId);
             void queryClient.invalidateQueries({ queryKey: keys.notifiers.all });
-            navigate("/notifiers", { replace: true });
+            leave(() => navigate("/notifiers", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
         />

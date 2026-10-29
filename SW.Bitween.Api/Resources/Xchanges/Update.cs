@@ -15,14 +15,29 @@ namespace SW.Bitween.Resources.Xchanges
 {
     [Unprotect]
     public class Update(RequestContext requestContext, XchangeService xchangeService, BitweenDbContext dbContext,
-        BitweenOptions BitweenSettings, IInfolinkCache cache) : ICommandHandler<string, object,object>
+        BitweenOptions BitweenSettings, IInfolinkCache cache,
+        Microsoft.AspNetCore.Http.IHttpContextAccessor httpContextAccessor = null) : ICommandHandler<string, object,object>
     {
         public async Task<object> Handle(string documentIdOrName, dynamic request)
         {
+            // Created in a method of its own, so the payload's text and file are garbage before the
+            // wait. The request itself CqApi holds until this returns.
+            (object answer, string xchangeId, int waitResponse) = await CreateAsync(documentIdOrName, (object)request);
+            return waitResponse <= 0 ? answer : await WaitAsync(xchangeId, waitResponse);
+        }
+
+        /// <summary>The answer when there is no wait, else the exchange to wait for and how long.</summary>
+        private async Task<(object Answer, string XchangeId, int WaitResponse)> CreateAsync(string documentIdOrName,
+            dynamic request)
+        {
             Document document;
 
-            //Inject external request context values into the object
-            request._ExternalRequestContext = JsonConvert.SerializeObject(requestContext.Values);
+            // Inject external request context values into the object - minus the caller's
+            // credentials. This lands in the stored input file, where anyone who can view
+            // exchanges reads it, and is handed to mappers and handlers, none of which need the
+            // partner's key to do their job.
+            request._ExternalRequestContext = JsonConvert.SerializeObject(
+                requestContext.Values.Where(v => !IsCredential(v.Name, BitweenSettings.PartnerKeyHeader)).ToList());
 
             if (int.TryParse(documentIdOrName, out var documentId))
                 document = await cache.DocumentByIdAsync(documentId);
@@ -44,10 +59,15 @@ namespace SW.Bitween.Resources.Xchanges
 
             var sub = subs.SingleOrDefault();
 
+            string body = request.ToString();
+            var schemaErrors = await DocumentSchema.Check(document.DocumentFormat, document.ValidationSchema, body);
+            if (schemaErrors.Count > 0)
+                throw new SWValidationException("SCHEMA_MISMATCH", string.Join("\n", schemaErrors));
+
             if (par.Partner.Id == Partner.SystemId && sub is null)
             {
                 await xchangeService.SubmitFilterXchange(document.Id,new XchangeFile(request.ToString()));
-                return null;
+                return (null, null, 0);
             }
 
             if (sub is null)
@@ -59,10 +79,11 @@ namespace SW.Bitween.Resources.Xchanges
                 .Where(item => item.Name.ToLower() == "waitresponse")
                 .Select(item => item.Value).FirstOrDefault();
 
+            // No header, no wait - as before. With one, the wait is capped; see ResultWait.
             var waitResponse = 0;
             if (int.TryParse(waitResponseHeader, out var waitResponseValue))
             {
-                waitResponse = waitResponseValue <= 0 ? 120 : waitResponseValue;
+                waitResponse = ResultWait.Clamp(waitResponseValue, BitweenSettings.MaxResponseWaitSeconds);
                 xchangeReferences.Add($"waitresponse: {waitResponse}");
             }
 
@@ -70,26 +91,68 @@ namespace SW.Bitween.Resources.Xchanges
 
             var globalAdapterValuesSets = await cache.ListGlobalAdapterValuesSetsAsync();
             var validatorProperties = sub.ValidatorProperties.ToDictionary().Fill(par.Partner, globalAdapterValuesSets);
-            await xchangeService.RunValidator(sub.ValidatorId, validatorProperties, xchangeFile);
+            await xchangeService.RunValidator(sub.ValidatorRef, validatorProperties, xchangeFile);
 
-            var xchangeId =
-                await xchangeService.SubmitSubscriptionXchange(sub.Id, xchangeFile, xchangeReferences.ToArray());
+            // Same Idempotency-Key from the same partner for the same type: the first call's exchange.
+            var idempotencyKey = requestContext.Values
+                .Where(v => v.Type == RequestValueType.HttpHeader &&
+                            v.Name.Equals(IdempotencyGuard.Header, StringComparison.OrdinalIgnoreCase))
+                .Select(v => v.Value?.Trim()).FirstOrDefault();
+            if (idempotencyKey?.Length > IdempotencyGuard.MaxKeyLength)
+                throw new SWValidationException("IDEMPOTENCY_KEY",
+                    $"{IdempotencyGuard.Header} is longer than {IdempotencyGuard.MaxKeyLength} characters.");
+            var idempotencyScope = $"legacy:partner:{par.Partner.Id}:document:{document.Id}";
+
+            var xchangeId = string.IsNullOrEmpty(idempotencyKey)
+                ? null
+                : await IdempotencyGuard.FindAsync(dbContext, idempotencyScope, idempotencyKey);
+            // A mirror's rehearsal calls as prod's partner did, under a correlation of its own, and
+            // sends what the rehearsal before it sent.
+            var rehearsal = Services.Mirror.MirrorTraffic.CorrelationFor(BitweenSettings, httpContextAccessor?.HttpContext?.Request.Headers);
+            // Not for a replayed call: its payload is a repeat by definition, and it is answered already.
+            var duplicate = xchangeId is null && rehearsal is null
+                ? await new DuplicateArrivals(dbContext).CheckAsync(document, par.Partner.Id, xchangeFile)
+                : null;
+            if (duplicate?.Drop == true)
+            {
+                await dbContext.SaveChangesAsync();
+                xchangeId = duplicate.OriginalXchangeId;
+            }
+            else if (xchangeId is null)
+            {
+                if (duplicate != null && duplicate.FitsWith(xchangeReferences)) xchangeReferences.Add(duplicate.Reference);
+                var subscription = await cache.SubscriptionByIdAsync(sub.Id);
+                var xchange = await xchangeService.CreateXchange(subscription, xchangeFile,
+                    xchangeReferences.ToArray(), rehearsal ?? Guid.NewGuid().ToString("N"));
+                if (string.IsNullOrEmpty(idempotencyKey))
+                {
+                    await dbContext.SaveChangesAsync();
+                    xchangeId = xchange.Id;
+                }
+                else
+                {
+                    await IdempotencyGuard.StageAsync(dbContext, idempotencyScope, idempotencyKey, xchange.Id);
+                    (xchangeId, _) = await IdempotencyGuard.SaveAsync(dbContext, idempotencyScope, idempotencyKey,
+                        xchange.Id);
+                }
+            }
 
             if (waitResponse <= 0)
-                return new CqApiResult<string>(xchangeId)
+                return (new CqApiResult<string>(xchangeId)
                 {
                     Status = CqApiResultStatus.Ok
-                };
+                }, xchangeId, waitResponse);
 
-            var currentFibTerm = 1;
-            var previousTerm = 1;
-            while (currentFibTerm <= waitResponse)
+            return (null, xchangeId, waitResponse);
+        }
+
+        private async Task<object> WaitAsync(string xchangeId, int waitResponse)
+        {
+            var available = await ResultWait.UntilAsync(() => IsResultAvailable(xchangeId), waitResponse,
+                httpContextAccessor?.HttpContext?.RequestAborted ?? System.Threading.CancellationToken.None);
+
+            if (available)
             {
-                await Task.Delay(TimeSpan.FromSeconds(currentFibTerm));
-                var nextTerm = Math.Min(currentFibTerm + previousTerm, 8);
-                previousTerm = currentFibTerm;
-                currentFibTerm = nextTerm;
-                if (!await IsResultAvailable(xchangeId)) continue;
 
                 var xchangeResult = await dbContext.FindAsync<XchangeResult>(xchangeId);
 
@@ -130,5 +193,16 @@ namespace SW.Bitween.Resources.Xchanges
                 .AsNoTracking()
                 .AnyAsync(i => i.Id == xchangeId);
         }
+
+        private static readonly HashSet<string> CredentialNames = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "authorization", "proxy-authorization", "cookie", PartnerKeyHeaders.Default,
+        };
+
+        private static bool IsCredential(string name, string partnerKeyHeader) =>
+            name is not null &&
+            (CredentialNames.Contains(name) ||
+             (!string.IsNullOrWhiteSpace(partnerKeyHeader) &&
+              name.Equals(partnerKeyHeader.Trim(), StringComparison.OrdinalIgnoreCase)));
     }
 }

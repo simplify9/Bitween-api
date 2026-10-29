@@ -6,7 +6,7 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.IntegrationTests.Adapters;
 
-/// <summary>Always fails to list files — for exercising ReceivingJob's failure path.</summary>
+/// <summary>Always fails to list files - for exercising ReceivingJob's failure path.</summary>
 public class NativeFailingTestReceiver : INativeInfolinkReceiver
 {
     public string Name => nameof(NativeFailingTestReceiver);

@@ -19,4 +19,8 @@ public class AzureBlobUploadHandlerInput
 
     [Description("Extension appended to the generated blob name (e.g. json, csv). Ignored if FileName is set.")]
     public string? FileExtension { get; set; }
+
+    [DefaultValue("utf8")]
+    [Description("Encoding used to write the file contents: utf8, or base64 to write the decoded bytes.")]
+    public string DataEncoding { get; set; } = "utf8";
 }

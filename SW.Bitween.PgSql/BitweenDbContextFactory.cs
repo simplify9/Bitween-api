@@ -10,7 +10,9 @@ namespace SW.Bitween.PgSql
         public BitweenDbContext CreateDbContext(string[] args)
         {
             var connStr = Environment.GetEnvironmentVariable("ConnectionStrings__BitweenDb")
-                ?? "Host=localhost;Port=5432;Database=bitween;Username=postgres;Password=postgres";
+                // No password here: a local server reached through trust auth or ~/.pgpass, as a developer's
+                // is. Set ConnectionStrings__BitweenDb for any other.
+                ?? "Host=localhost;Port=5432;Database=bitween;Username=postgres";
 
             var dataSourceBuilder = new NpgsqlDataSourceBuilder(connStr);
             dataSourceBuilder.EnableDynamicJson();

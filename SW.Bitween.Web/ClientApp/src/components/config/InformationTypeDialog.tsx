@@ -1,28 +1,28 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../api";
-import { useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { Button, FormError, LoadingBlock } from "../ui/basics";
 import { Dialog } from "../ui/overlays";
 import { keys } from "../../api/queryKeys";
+import { BusTypeRenameConfirm, InformationTypeFields, type InformationTypeDraft } from "./InformationTypeFields";
 import {
-  BusTypeRenameConfirm,
   EMPTY_INFORMATION_TYPE,
-  InformationTypeFields,
   renamesBusQueue,
   informationTypeChanges,
   informationTypeDirty,
   informationTypeDraftOf,
   informationTypeMissing,
-  type InformationTypeDraft,
-} from "./InformationTypeFields";
+} from "./informationTypeDraft";
+import { splitErrors } from "../../lib/fieldErrors";
+import { INFORMATION_TYPE_ERRORS } from "./informationTypeErrors";
 
 /**
  * An information type, created or edited without leaving whatever you were doing.
  *
  * Creating is one save: `POST /documents` carries the whole definition, promoted
  * properties included, so the dialog asks for everything once and closes. (It used
- * to stay open as an editor, because create could not carry them — unlike
+ * to stay open as an editor, because create could not carry them - unlike
  * `PartnerDialog`, which still must, since a key can only be issued to a partner
  * that already exists.)
  */
@@ -34,14 +34,17 @@ export function InformationTypeDialog({
 }: {
   /** null opens it empty, to create. */
   typeId: number | null;
-  /** Force "available on the message bus" — the caller reaches this type over the bus. */
+  /** Force "available on the message bus" - the caller reaches this type over the bus. */
   busRequired?: boolean;
   onClose: () => void;
   /** Fires as soon as the type exists, so a picker can select it immediately. */
   onSaved?: (type: { id: number; busMessageTypeName: string }) => void;
 }) {
   const queryClient = useQueryClient();
-  const canEdit = useSessionCan("documents.edit");
+  // A new type is filled in to create it, which documents.create allows on its own.
+  const canCreate = useSessionCan("documents.create");
+  const canChange = useSessionCan("documents.edit");
+  const canEdit = typeId === null ? canCreate : canChange;
 
   const existing = useQuery({
     queryKey: keys.informationTypes.detail(typeId),
@@ -72,8 +75,11 @@ export function InformationTypeDialog({
         busEnabled: changes.busEnabled,
         busMessageTypeName: changes.busMessageTypeName,
         duplicateIntervalMinutes: changes.duplicateIntervalMinutes,
+        dropDuplicates: changes.dropDuplicates,
         disregardsUnfilteredMessages: changes.disregardsUnfilteredMessages,
         promotedProperties: changes.promotedProperties,
+        // Left out, the save would send an empty one and remove the schema.
+        validationSchema: changes.validationSchema,
       };
       if (typeId !== null) {
         await api.updateInformationType(typeId, body);
@@ -95,6 +101,7 @@ export function InformationTypeDialog({
   });
 
   const dirty = !!draft && !!saved && informationTypeDirty(draft, saved);
+  const refused = splitErrors(save.error, INFORMATION_TYPE_ERRORS);
   const missing = draft ? informationTypeMissing(draft) : [];
 
   return (
@@ -110,9 +117,10 @@ export function InformationTypeDialog({
             busRequired={busRequired}
             idPrefix="itd"
             saved={existing.data}
+            errors={refused.byField}
           />
 
-          <FormError>{save.error?.message}</FormError>
+          <FormError>{refused.rest}</FormError>
           <div className="flex items-center justify-end gap-3 border-t border-ink-100 pt-4">
             {missing.length > 0 && (
               <p className="text-[13px] text-ink-500">

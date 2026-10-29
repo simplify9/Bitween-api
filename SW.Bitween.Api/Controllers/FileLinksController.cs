@@ -10,7 +10,7 @@ namespace SW.Bitween.Controllers;
 /// the public storage URL it stands in for worked, so a reader built for those links needs no change.
 /// </summary>
 /// <remarks>
-/// The literal "files" keeps this clear of CqApi, which owns the rest of /api/ — see
+/// The literal "files" keeps this clear of CqApi, which owns the rest of /api/ - see
 /// <see cref="GatewayController"/>.
 /// </remarks>
 [ApiController]

@@ -1,6 +1,7 @@
 import type { ApiClient } from "../client";
 import {
   ApiRequestError,
+  type InviteResult,
   type PermissionArea,
   type PermissionKey,
   type Role,
@@ -27,7 +28,11 @@ interface RawAccount {
   /** Set by the backend's failed-sign-in lockout; null or in the past means not locked. */
   lockoutEnd: string | null;
   createdOn: string;
+  lastSignInOn?: string | null;
+  microsoftLinked?: boolean;
   roles: RawRoleSummary[] | null;
+  hasPassword?: boolean;
+  invite?: { expiresOn: string; emailedOn: string | null; emailError: string | null } | null;
 }
 
 interface RawRole {
@@ -48,9 +53,13 @@ const toUser = (r: RawAccount): User => ({
   status: r.disabled ? "disabled" : "active",
   // Past lockouts are not state anyone can act on, so they read as no lockout at all.
   lockedUntil: r.lockoutEnd && new Date(r.lockoutEnd) > new Date() ? r.lockoutEnd : null,
-  // Not tracked by the backend: no login-method projection, no last-seen column.
-  microsoftLinked: false,
+  microsoftLinked: r.microsoftLinked ?? false,
   createdOn: r.createdOn,
+  // The last sign-in, not the last request: a session renewing itself doesn't count.
+  lastActiveOn: r.lastSignInOn ?? undefined,
+  // Missing from an older backend, whose members all have passwords.
+  hasPassword: r.hasPassword ?? true,
+  invite: r.invite ?? null,
 });
 
 const toRole = (r: RawRole): Role => ({
@@ -63,7 +72,7 @@ const toRole = (r: RawRole): Role => ({
   memberCount: r.memberCount,
 });
 
-/** One page big enough for any realistic team — the backend defaults to 20. */
+/** One page big enough for any realistic team - the backend defaults to 20. */
 const ALL_MEMBERS = 500;
 
 async function fetchUsers(): Promise<User[]> {
@@ -79,12 +88,12 @@ async function fetchUser(id: string): Promise<User> {
 }
 
 export const teamMethods = {
-  // — permission catalog —
+  // - permission catalog -
   async getPermissionCatalog(): Promise<PermissionArea[]> {
     return await get<PermissionArea[]>("/permissions");
   },
 
-  // — members —
+  // - members -
   listUsers: fetchUsers,
   getUser: fetchUser,
 
@@ -92,20 +101,33 @@ export const teamMethods = {
     displayName,
     email,
     password,
+    invite,
     roleIds,
   }: {
     displayName: string;
     email: string;
-    password: string;
+    password?: string;
+    invite?: boolean;
     roleIds: string[];
   }): Promise<User> {
     const id = await post<number>("/accounts", {
       name: displayName,
       email,
-      password,
+      ...(invite ? { invite: true } : { password }),
       roleIds: roleIds.map(Number),
     });
     return fetchUser(String(id));
+  },
+
+  async inviteUser(id: string): Promise<InviteResult> {
+    const r = await post<Partial<InviteResult>>(`/accounts/${id}/invite`, {});
+    return {
+      emailed: r.emailed ?? false,
+      emailError: r.emailError ?? null,
+      expiresOn: r.expiresOn ?? null,
+      // Built on the address the admin is using when the instance has no public one.
+      link: r.link ? new URL(r.link, window.location.origin).toString() : null,
+    };
   },
 
   async setUserPassword(id: string, password: string): Promise<void> {
@@ -132,7 +154,7 @@ export const teamMethods = {
     await post(`/accounts/${id}/remove`, {});
   },
 
-  // — roles —
+  // - roles -
   async listRoles(): Promise<Role[]> {
     const res = await get<SearchyResponse<RawRole>>("/roles?pageSize=200");
     return (res.result ?? []).map(toRole);

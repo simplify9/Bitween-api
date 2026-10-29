@@ -11,7 +11,7 @@ namespace SW.Bitween.Domain
         /// The most a promoted value is stored as. A longer one is cut, ending in "…" to show it.
         /// </summary>
         /// <remarks>
-        /// Promoted values find and name an exchange — an order number, a customer — and they are
+        /// Promoted values find and name an exchange - an order number, a customer - and they are
         /// shown on the Exchanges page and name its archived files. A path that picks up a notes
         /// field or a whole object would put thousands of characters in all of those. Routing is
         /// not affected: match expressions read the payload, not these.

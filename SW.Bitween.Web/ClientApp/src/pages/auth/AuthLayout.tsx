@@ -26,7 +26,7 @@ function FlowLines() {
 
 export function AuthLayout({ children }: { children: ReactNode }) {
   // Brand carriers: the sign-in logo and blurb are Settings-driven ("Brand & theme"), so a
-  // rebrand shows up here too — colour, tab title and favicon included, before any sign-in.
+  // rebrand shows up here too - colour, tab title and favicon included, before any sign-in.
   const branding = useApplyBranding();
 
   return (
@@ -41,9 +41,9 @@ export function AuthLayout({ children }: { children: ReactNode }) {
           <p className="text-2xl font-semibold leading-snug tracking-tight text-ink-50">
             The quiet middleman for everything your systems exchange.
           </p>
-          <p className="mt-3 text-sm leading-relaxed text-ink-400">
+          <p className="mt-3 text-sm leading-relaxed text-ink-500">
             {branding.loginBlurb ??
-              "Receive, transform and deliver documents between you and your partners — with every exchange traced."}
+              "Receive, transform and deliver documents between you and your partners - with every exchange traced."}
           </p>
         </div>
         <FlowLines />

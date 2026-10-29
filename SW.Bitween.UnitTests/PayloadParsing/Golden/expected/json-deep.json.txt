@@ -1,0 +1,24 @@
+=== promoted-json
+!Newtonsoft.Json.JsonReaderException: The reader's MaxDepth of 64 has been exceeded. Path 'd.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d', line 1, position 333.
+=== promoted-xml
+!System.Xml.XmlException: Data at the root level is invalid. Line 1, position 1.
+=== promoted-json-big
+!Newtonsoft.Json.JsonReaderException: The reader's MaxDepth of 64 has been exceeded. Path 'd.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d', line 1, position 333.
+=== schema-json
+Not valid JSON: The reader's MaxDepth of 64 has been exceeded. Path 'd.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d', line 1, position 333.
+=== schema-xml
+Not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== enriched
+(not an object, not enriched)
+=== enriched-scriban
+!Newtonsoft.Json.JsonReaderException: The reader's MaxDepth of 64 has been exceeded. Path 'd.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d', line 1, position 333.
+=== scriban
+!Newtonsoft.Json.JsonReaderException: The reader's MaxDepth of 64 has been exceeded. Path 'd.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d', line 1, position 333.
+=== rules-json
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid JSON: The reader's MaxDepth of 64 has been exceeded. Path 'd.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d', line 1, position 333.
+=== rules-xml
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== url
+!Newtonsoft.Json.JsonReaderException: The reader's MaxDepth of 64 has been exceeded. Path 'd.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d.d', line 1, position 333.
+=== fill
+order-{{ id }}-{{ price }}-{{ orderedAt }}.json

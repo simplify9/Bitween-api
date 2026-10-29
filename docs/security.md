@@ -2,19 +2,30 @@
 
 ## Sign-in
 
-Bitween supports three ways to sign in.
+Bitween supports four ways to sign in.
 
 ### Email and password
 
 `POST /api/accounts/login` with `{ "Username": "...", "Password": "..." }`.
 
-- Five wrong passwords in a row lock the account for 15 minutes. An administrator can unlock it early.
+- Five wrong passwords from one address lock that address out of the account for 15 minutes, and 20 from anywhere lock the account itself for 15 minutes. An administrator can unlock it early.
 - Disabled accounts cannot sign in.
+- Changing your own password checks the old one, and that check is limited as sign-in is: five wrong ones from one address lock the change out for 15 minutes, so a session left open can't be used to guess the password.
 - Passwords need at least 8 characters, including an upper-case letter, a lower-case letter, a digit and a symbol. When an administrator sets someone else's password, only the 8-character minimum applies.
-- Passwords are hashed with PBKDF2-HMAC-SHA256, 210,000 iterations and a random salt, and compared in constant time. Hashes stored before September 2026 use PBKDF2-SHA1 with 10,000 iterations. They still verify, and are only replaced when the password is next set.
-- Bitween sends no email, so there is no self-service password reset.
+- Passwords are hashed with PBKDF2-HMAC-SHA256, 210,000 iterations and a random salt, and compared in constant time. Hashes stored before September 2026 use PBKDF2-SHA1 with 10,000 iterations. They still verify, and each is replaced with the current hash the next time that person signs in with their password.
+- With a mail server and a public address, the sign-in page offers **Forgot password?**: see [Invites and password resets](#invites-and-password-resets). Without them, an administrator sets a new password instead.
 
-Turning on the **Microsoft sign-in only** setting disables this method. New accounts are then created without a password.
+Turning on the **Microsoft sign-in only** setting disables this method, for Microsoft and OpenID Connect sign-in alike. New accounts are then created without a password.
+
+### Invites and password resets
+
+Account emails go to one person, through the mail server set in **Settings, Mail server** (the one Email channels use), never through a notification channel.
+
+- **Invites.** A member can be added with an invite instead of a password (`POST /api/accounts` with `invite: true`, then `POST /api/accounts/{id}/invite`). They choose their own password from a link that works once, for 48 hours. With a mail server the link is emailed; without one it is handed back once to whoever invited, to pass on. Sending another invite stops the earlier link working. Inviting needs `users.create`, and, as setting a password does, every permission the member holds. On an instance with **Microsoft sign-in only** an invite is an email saying where to sign in, and needs a mail server.
+- **Resets.** **Forgot password?** emails a link that works once, for one hour. It needs a mail server and `Bitween:PublicUrl`: a link built on the address a request came in on could be pointed at another site with a forged `Host` header. The answer is the same whether the address has an account or not, and the email is sent after the answer, so neither says who has one. A member gets at most one reset email a minute.
+- **Using a link** sets the password, clears a lockout, and ends every session the member had. Every other link they had stops working.
+- **Notices.** A member is emailed when their password is changed (by them, by an administrator, or with a reset link) and when their account is locked after 20 wrong passwords.
+- Only a SHA-256 hash of each link is stored, so the database can't be used to sign in. `POST /api/accounts/forgotPassword`, `passwordLink` and `usePasswordLink` need no session, and share the sign-in rate limit.
 
 ### Microsoft
 
@@ -22,19 +33,29 @@ The sign-in page offers Microsoft once the Azure AD client id, tenant id and red
 
 1. The browser signs in through an MSAL popup and gets an ID token.
 2. It posts `{ "MsToken": "<id token>" }` to `POST /api/accounts/login`.
-3. Bitween validates the token's signature and lifetime against Microsoft's published signing keys, reads the email, and signs in the Bitween account with that email.
+3. Bitween validates the token's signature and lifetime against Microsoft's published signing keys, and checks that it was issued for this app's client id by the token's own tenant, pinned to the configured tenant when that is a tenant id.
+4. It signs in the account bound to the token's Microsoft identity (object id and tenant). An account with none bound yet is found by the token's address, and the identity is bound to it on that first sign-in; after that, another Microsoft identity with the same address is refused.
 
 Accounts are never created automatically. Add each person on the Team page first.
 
 The redirect URI must be `/blank.html` on the Bitween host, such as `https://bitween.example.com/blank.html`, and must be registered on the Azure AD app. Other pages send a cross-origin opener policy that breaks the popup. Bitween logs a warning at startup when the redirect URI does not end in `/blank.html`.
 
-Bitween does not check the token's issuer or audience. See [Known limitations](caveats.md#security).
+### OpenID Connect
+
+The sign-in page offers any OpenID Connect provider, such as Keycloak, Okta, Entra ID, Google or ADFS, once its **Provider address** (the issuer) and **Client ID** are set under **Settings, Single sign-on (OpenID Connect)**. The button reads "Continue with" the **Button label**, or "single sign-on". It can be offered beside Microsoft and passwords, or alone.
+
+1. `POST /api/accounts/oidcstart` returns the provider's sign-in address, read from its `/.well-known/openid-configuration`, for the authorization code flow with PKCE. The state, nonce and PKCE verifier go in an HttpOnly cookie encrypted with a key derived from `Token:Key`, valid for 10 minutes, so any node can finish a sign-in another started.
+2. The provider sends the browser back to `/oidc-callback`, which posts `{ "OidcCode": "...", "OidcState": "..." }` to `POST /api/accounts/login`.
+3. Bitween checks the state against the cookie, exchanges the code at the provider's token endpoint itself, with the verifier and, for a confidential client, the **Client secret**, and validates the ID token: its signature against the provider's keys, its issuer, its audience (the client id), its lifetime and its nonce.
+4. It signs in the account bound to the token's subject and issuer. An account with none bound is found by the token's `email`, unless the provider says the address isn't verified (`email_verified` false), and the identity is bound on that first sign-in. After that another identity with the same address is refused.
+
+Register `https://<bitween host>/oidc-callback` as the redirect URI at the provider, or set **Redirect URI** when the public address isn't the one requests arrive on. The scopes asked are `openid email profile` unless **Scopes** says otherwise. Accounts are never created automatically.
 
 ### Break-glass login (removed)
 
 `POST /api/login` signed in against `Bitween:AdminCredentials` and returned a token with every
-permission, without touching the database and with no lockout. It shipped with a working default —
-`admin:1234512345`, published in this repository — and neither the current nor the legacy UI ever
+permission, without touching the database and with no lockout. It shipped with a working default -
+`admin:1234512345`, published in this repository - and neither the current nor the legacy UI ever
 called it. A penetration test signed in with it. The endpoint and the setting are gone.
 
 There is now no sign-in that bypasses the database. If the last account holding Administrator loses
@@ -44,8 +65,9 @@ the role, no request can restore it and the database has to be repaired directly
 
 - Sign-in returns `{ "jwt": "..." }`. Send it as `Authorization: Bearer <jwt>`.
 - The JWT is signed with `Token:Key` and carries `Token:Issuer` and `Token:Audience`. It lasts for the **Sign-in session length** setting, 60 minutes by default.
-- Sign-in also sets a `refresh_token` cookie that is `HttpOnly`, `Secure` and `SameSite=Lax`, valid for 30 days. Posting to the login endpoint with that cookie and no credentials returns a new JWT and replaces the refresh token.
-- `POST /api/accounts/logout` deletes the refresh token and tells the browser to clear site data. The JWT stays valid until it expires.
+- Sign-in also sets a `refresh_token` cookie that is `HttpOnly`, `Secure` and `SameSite=Lax`, valid for 30 days. Posting to the login endpoint with that cookie and no credentials returns a new JWT and replaces the refresh token. A client without cookies, such as the [bitween CLI](cli.md), sends the token as `refreshToken` in the body instead. Each renewal issues a new refresh token, so the 30 days are a limit on inactivity.
+- `POST /api/accounts/logout` deletes the refresh token and tells the browser to clear site data. The JWT stays valid until it expires. A client without cookies sends the refresh token to end in the body; `bitween logout` does.
+- The [bitween CLI](cli.md) signs in through the browser: the admin UI's `/cli-login` page asks the signed-in member to confirm, then hands the CLI a one-time code on its loopback (`127.0.0.1`), or shows it to paste. The code is signed with a key derived from `Token:Key`, so any node can redeem it and it can't be used as an access token; it lasts two minutes and is redeemed only with the verifier the CLI kept (PKCE S256). It works for every account, Microsoft-only ones included. An account that must change its password can't confirm until it has.
 - The admin UI signs out after 30 minutes without activity in any tab.
 - Permissions are not in the token. They are read from the database on every request, so removing a role takes effect at once.
 
@@ -62,7 +84,7 @@ A permission is written `area.action`. A member holds the union of their roles' 
 | Subscriptions | `partners` | view, create, edit, delete |
 | Subscriptions | `documents` | view, create, edit, delete |
 | Subscriptions | `global-values` | view, create, edit, delete |
-| Subscriptions | `notifiers` | view, create, edit, delete |
+| Subscriptions | `notifiers` | view, create, edit, delete. Covers notification channels and legacy notifiers. |
 | Subscriptions | `api-gateways` | view, create, edit, delete |
 | Subscriptions | `bus-gateways` | view, create, edit, delete |
 | Configuration | `data-sources` | view, create, edit, delete, operate |
@@ -73,12 +95,16 @@ A permission is written `area.action`. A member holds the union of their roles' 
 | Administration | `roles` | view, create, edit, delete |
 | Administration | `settings` | view, edit |
 | Administration | `audit` | view |
+| Administration | `adapter-source` | view, edit, operate |
+| Administration | `mirror` | view, operate |
 
 - `exchanges.operate` covers retrying and resubmitting exchanges, including running a scheduled retry now.
 - `subscriptions.operate` covers pause, resume, receive now, roll up now and resetting a retry budget.
 - `data-sources.operate` covers testing a connection. `data-source-statements` lets people write SQL for a database without the right to change its credentials.
 - `documents` is the information types area.
 - The audit trail has only `view`, because nothing can change it.
+- `mirror` is labelled "Prod mirror". `view` covers comparing a staging with the prod it mirrors; `operate` covers bringing prod's items onto it and testing them with prod's traffic. See [Prod mirror](prod-mirror.md).
+- `adapter-source` is labelled "Adapter code". `view` covers reading the source a published adapter version carries and comparing versions. `edit` covers the adapter editor's drafts: starting, editing, deleting, building, checking and trying them, which runs their code on the Bitween server. `operate` covers publishing a version, from the editor or as a package through the API, making a version current and withdrawing one. Listing an adapter's versions needs only `subscriptions.view`.
 
 ### Built-in roles
 
@@ -92,7 +118,7 @@ Built-in roles cannot be edited or deleted. Custom roles can hold any combinatio
 
 Bitween refuses to remove, disable or demote the last enabled Administrator. Members cannot disable or remove themselves.
 
-A request without the needed permission gets HTTP 401, the same status as a missing sign-in.
+A signed-in request without the needed permission gets HTTP 403. A request that is not signed in, or whose token has expired, gets 401.
 
 `GET /api/permissions` returns the full catalogue with labels and descriptions. `GET /api/accounts/profile` returns the signed-in member's permissions.
 
@@ -109,9 +135,13 @@ The seeded **SYSTEM** partner has a key named `default` whose value is fixed in 
 
 ## Secrets
 
-- Adapter properties marked secret are masked as `__private__` in every API response and redacted from the audit trail. Their defaults are withheld from the adapter descriptions the UI reads. A published adapter that doesn't mark its passwords and keys as private has them returned in plain text, so check custom adapters before uploading them.
-- The Rebex license key is the only secret setting. It is encrypted with AES-256-GCM, using a key derived from `Bitween:SettingsEncryptionKey`. Without that passphrase the value can only come from configuration, and changing the passphrase makes the stored value unreadable.
-- Partner properties, global values, adapter properties and data source settings, including passwords, are stored unencrypted in the database.
+- Adapter properties marked secret are masked as `__private__` in every API response and redacted from the audit trail. Their defaults are withheld from the adapter descriptions the UI reads. A published adapter that doesn't mark its passwords and keys as private has them returned in plain text, so check custom adapters before uploading them. Names are matched ignoring case, as adapters read them, so `password` is masked like `Password`. Sending `__private__` back keeps the stored value only while the adapter and where it connects stay the same, and never when a request names one setting twice in different case.
+- A [connection](adapters.md#connections)'s client secret, password, refresh token and access token are encrypted the same way, and are never returned by the API or written to the audit trail. An access token is put into an adapter's settings only as the adapter starts, so none is stored on an exchange.
+- The secret settings are the Rebex license key, the OpenID Connect client secret and the mail server password. They are encrypted with AES-256-GCM, using a key derived from `Bitween:SettingsEncryptionKey`. Without that passphrase the value can only come from configuration, and changing the passphrase makes the stored value unreadable.
+- Teams and Slack webhook addresses are secret, because anyone who has one can post to the channel.
+- A bus gateway's endpoint settings are masked as its data source's settings are: those the data source names as secret, and any with a credential's name (password, token, key and so on). Sending `__private__` back keeps the stored value.
+- Partner properties, global values, adapter properties, data source settings, notification channel, notifier and retry alert properties, including passwords, are encrypted in the database with AES-256-GCM when `Bitween:SettingsEncryptionKey` is set, and stored in plain text when it isn't. Values stored before the key was set are encrypted a few minutes after the next start. `Bitween:PreviousSettingsEncryptionKey` still decrypts values while the key is rotated.
+- Bitween [won't start](deployment.md#when-bitween-wont-start) when it can't read these with the key it has: a key that isn't set, or isn't the one they were encrypted with. A Helm deployment still has the key in an earlier release: `helm history <release>` lists them and `helm get values <release> --revision <n>` shows one's values. A database backup doesn't help without it, as it is encrypted with the same key. When the key is lost for good, `Bitween:SettingsEncryptionKeyLost=true` lets Bitween start: every value the lost key encrypted shows as empty until it is entered again, and stays stored until then, so it can still be read if the key turns up. Remove the setting once everything is re-entered.
 
 ## Exchange files
 
@@ -128,7 +158,7 @@ Exchange files are always written as private objects, so a storage URL doesn't o
 
 Data sources open connections to customers' brokers and databases, so they only run on nodes with `Bitween__BusProvidersEnabled` set.
 
-- Their settings are masked in responses but stored unencrypted.
+- Their settings are masked in responses, and encrypted at rest as other credentials are (see [Secrets](#secrets)).
 - Anyone with `data-sources.view` can browse a database's catalogue and see the login's privileges.
 - Saving or testing an Oracle statement runs `DBMS_SQL.PARSE`, which executes DDL. Connect Oracle sources with a login that has no DDL rights.
 - SQL only comes from named statements, and every value is bound as a parameter, unless a data source turns on `AllowAdHocSql`.
@@ -153,21 +183,23 @@ Every response carries these headers.
 
 ## Audit trail
 
-Bitween records every change to configuration: subscriptions and their schedules, categories, partners and API keys, information types, gateways and routes, work groups, retry policies and alert overrides, notifiers, global value sets, settings, accounts, roles and role assignments.
+Bitween records every change to configuration: subscriptions and their schedules, categories, partners and API keys, information types, gateways and routes, work groups, retry policies and alert overrides, notification channels, notifiers, global value sets, settings, accounts, roles and role assignments.
 
-Each entry holds the time, the member, the entity and its key, whether it was added, modified or deleted, and the old and new value of each changed property. Entries from one save share a correlation id. Adapter properties, partner properties, global values, API key values, passwords and secret settings are redacted. Exchanges and other runtime records are not audited.
+Each entry holds the time, the member, the entity and its key, whether it was added, modified or deleted, and the old and new value of each changed property. Entries from one save share a correlation id. Adapter properties, partner properties, global values, API key values, passwords and secret settings are redacted. Exchanges and other runtime records are not audited. Reading an adapter's source is: each file read is an `AdapterSourceAccess` entry with the adapter, version and file. So are the adapter editor's drafts, each save recorded by a hash of its files rather than the code, and every version published, made current or withdrawn from Bitween (`AdapterRelease`). Operations that change what Bitween does without changing its configuration are recorded as `OperatorAction` entries naming what was done to what: retrying an exchange, a bulk retry, exporting exchange files, running a scheduled retry now, requeueing dead letters and deleting unattended queues. A sign-in with a password, Microsoft, OpenID Connect or the CLI sets the member's `LastSignInOn`, which is in the trail as a change to the account; a session renewing itself doesn't.
 
 The trail is written in the same transaction as the change, and no API edits or deletes it. Browse it on the Audit trail page or with `GET /api/audit`.
 
 ## Production checklist
 
-1. Change the seeded administrator's password, or add your own administrator and then remove the
-   seeded one. The seeded password is published in this repository, so until it is replaced that
-   account's token grants nothing and the only screen it can reach is the password change.
+1. Set `Bitween__InitialAdminPassword` when installing; a new installation refuses to start
+   without it ([details](configuration.md#bitweeninitialadminpassword-on-a-new-installation)). On an
+   existing one still using the published default password, set it too, or change that password
+   yourself: until then, whoever signs in with it first chooses the new one.
 3. Replace or remove the SYSTEM partner's API key.
 4. Set `Token__Key` to a long random secret, and choose your own `Token__Issuer` and `Token__Audience`.
-5. Set `Bitween__SettingsEncryptionKey` before saving a Rebex license key.
+5. Set `Bitween__SettingsEncryptionKey`, so credentials are encrypted at rest, and before saving a Rebex license key or an OpenID Connect client secret.
 6. Give the chart's Ingress a TLS entry for its host, so file links are built on an https address, and treat roll-ups and exchange results as holding the files themselves: a link opens its file without a login. Over plain http a link and its file can be read on the way.
 7. Serve Bitween over HTTPS. The refresh cookie is always marked `Secure`.
 8. Connect data sources with least-privilege logins, and never with DDL rights on Oracle.
-9. Review [Known limitations](caveats.md#security).
+9. Keep the chart's read-only root file system (`securityContext.readOnlyRootFilesystem`, on by default), and connect to MySQL over TLS (required by default).
+10. Review [Known limitations](caveats.md#security).

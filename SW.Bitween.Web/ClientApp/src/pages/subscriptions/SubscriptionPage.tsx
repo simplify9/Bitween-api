@@ -1,24 +1,27 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { DownloadCloud, FileStack, Pause, Play, Power, PowerOff, Trash2, X } from "lucide-react";
+import { DownloadCloud, FileStack, Play, Trash2, X } from "lucide-react";
 import { api } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
-import { Button, EmptyState, FormError, LoadingBlock } from "../../components/ui/basics";
-import { ConfirmDialog, dialogsOpen } from "../../components/ui/overlays";
+import { useSessionCan } from "../../auth/useSessionCan";
+import { Button, EmptyState, FormError, LoadError, LoadingBlock, ProblemText } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
+import { ConfirmDialog } from "../../components/ui/overlays";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu, RunStateControl, type RunStateOption } from "../../components/layout/HeaderActions";
+import { dialogsOpen } from "../../components/ui/dialogStack";
 import { CodeBadge, EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
-import { AdapterConfig, useAdapterCatalog } from "../../components/config/AdapterConfig";
+import { AdapterConfig } from "../../components/config/AdapterConfig";
+import { useAdapterCatalog } from "../../components/config/adapterCatalog";
 import { MatchExpressionEditor } from "../../components/config/MatchExpressionEditor";
 import { ScheduleEditor } from "../../components/config/ScheduleEditor";
 import { AggregationRetentionWarning } from "../../components/config/AggregationRetentionWarning";
 import { AggregationFields } from "../../components/config/AggregationFields";
 import { useSourceDocument } from "../../components/config/sourceValues";
-import {
-  SubscriptionStatusBadges,
-  TypeBadge,
-  scheduleFault,
-  useSubscriptionsCache,
-} from "../../components/config/shared";
+import { SubscriptionStatusBadges, TypeBadge } from "../../components/config/shared";
+import { scheduleFault } from "../../components/config/subscriptionLabels";
+import { useSubscriptionsCache } from "../../components/config/lookups";
+import { RevokedAdapterNotice } from "../../components/config/RevokedAdapterNotice";
 import { STAGES, stagesFor, type StageId } from "./studio/stages";
 import { DataSourceBinding } from "./studio/DataSourceBinding";
 import { useBindsToDataSource } from "../data-sources/providers";
@@ -30,11 +33,36 @@ import { ResponseTrigger } from "./studio/ResponseTrigger";
 import { draftOf, entryPointsOf, feedersOf, stageDirty, type Draft } from "./studio/model";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
-import { useResponseDetour } from "../../lib/responseDetour";
+import { useDetour } from "../../lib/detour";
+import { notificationSlot, notificationsIncomplete, withPickedChannel } from "../../lib/notificationChannels";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
+import { useCurrentPage } from "../../lib/currentPage";
+import { SUBSCRIPTION_PAGE, SUBSCRIPTION_PAGES, subscriptionPath } from "../../lib/subscriptionPaths";
+import { PAGES, pathOf } from "../../pages";
+import { usePageTitle } from "../../lib/pageTitle";
+import { ProdBadge, ProdSection } from "../mirror/ProdSection";
+
+type RunState = "running" | "paused" | "off";
+
+// Paused and Off as the server treats them: a paused subscription is still matched and its
+// exchanges are kept on hold; a disabled one is neither matched nor scheduled.
+const runStates: RunStateOption<RunState>[] = [
+  { value: "running", label: "Running", caption: "Running: accepts work and delivers it." },
+  {
+    value: "paused",
+    label: "Paused",
+    caption: "Paused: keeps accepting work and holds every exchange until you resume.",
+  },
+  {
+    value: "off",
+    label: "Off",
+    caption: "Off: not matched or scheduled. Work that arrives meanwhile is not kept.",
+  },
+];
 
 /**
- * Keyed by id. Going from one subscription's page straight to another's — down a response
- * chain, say — keeps the same route mounted, and without a key the draft of the one you left
+ * Keyed by id. Going from one subscription's page straight to another's - down a response
+ * chain, say - keeps the same route mounted, and without a key the draft of the one you left
  * stayed on screen as the next one's: its name in the title, its save bar, and its settings
  * written over the next one's on Save.
  */
@@ -50,6 +78,8 @@ function SubscriptionStudio() {
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("subscriptions.edit");
   const canOperate = useSessionCan("subscriptions.operate");
+  const canCreate = useSessionCan("subscriptions.create");
+  const canDelete = useSessionCan("subscriptions.delete");
   const [params, setParams] = useSearchParams();
 
   const subscription = useQuery({
@@ -57,6 +87,7 @@ function SubscriptionStudio() {
     queryFn: () => api.getSubscription(subscriptionId),
     retry: false,
   });
+  usePageTitle(subscription.data?.name);
   const allSubscriptions = useSubscriptionsCache();
   // promoted properties power the legacy message filter
   const infoType = useQuery({
@@ -78,7 +109,7 @@ function SubscriptionStudio() {
   const handlers = useAdapterCatalog("handler");
 
   // Shares the scheduled-jobs page's cache entry. The only per-stage fault we
-  // can honestly attribute — it comes from the scheduler's own trigger state.
+  // can honestly attribute - it comes from the scheduler's own trigger state.
   // Which adapters are database providers, so the connection controls appear only where they mean
   // something. Called with the other queries because this component returns early below, and a
   // hook after that point runs in a different order on the two paths.
@@ -92,27 +123,35 @@ function SubscriptionStudio() {
 
   const [draft, setDraft] = useState<Draft | null>(null);
   const [deleting, setDeleting] = useState(false);
-  const [confirmingPause, setConfirmingPause] = useState(false);
   // The state being asked for, not a flag: the dialog then confirms and writes the
-  // action the operator actually opened it for, rather than re-deriving it from a
+  // move the operator actually opened it for, rather than re-deriving it from a
   // `s.enabled` that a refetch could have flipped underneath the open dialog.
-  const [enabling, setEnabling] = useState<boolean | null>(null);
+  const [moving, setMoving] = useState<RunState | null>(null);
   const [confirmingReceive, setConfirmingReceive] = useState(false);
   const [confirmingAggregate, setConfirmingAggregate] = useState(false);
   /** The response subscription asked to be opened while this page had unsaved changes. */
   const [opening, setOpening] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(false);
   // Back from creating a response subscription: the edits as they were left, with that one
-  // picked. Used for the first load only — Discard after that goes back to what is saved.
-  const detour = useResponseDetour<Draft>();
-  const returning = useRef({ kept: detour.kept, picked: detour.pickedResponse });
+  // picked. Used for the first load only - Discard after that goes back to what is saved.
+  const detour = useDetour<Draft>();
+  const returning = useRef({
+    kept: detour.kept,
+    picked: detour.pickedResponse,
+    pickedChannel: detour.pickedChannel,
+    slot: detour.slot,
+  });
 
   useEffect(() => {
     if (!loaded && subscription.data) {
-      const { kept, picked } = returning.current;
-      returning.current = { kept: null, picked: null };
-      const base = kept ?? draftOf(subscription.data);
-      setDraft(picked !== null ? { ...base, responseSubscriptionId: picked } : base);
+      const { kept, picked, pickedChannel, slot } = returning.current;
+      returning.current = { kept: null, picked: null, pickedChannel: null, slot: null };
+      let next = kept ?? draftOf(subscription.data);
+      if (picked !== null) next = { ...next, responseSubscriptionId: picked };
+      // Back from making a channel in one of the notification rows: that row gets it.
+      if (pickedChannel !== null)
+        next = { ...next, notifications: withPickedChannel(next.notifications, slot, pickedChannel) };
+      setDraft(next);
       setLoaded(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -123,14 +162,22 @@ function SubscriptionStudio() {
     return JSON.stringify(draft) !== JSON.stringify(draftOf(subscription.data));
   }, [subscription.data, draft]);
 
-  // Escape closes the open stage — but only when it holds nothing unsaved. A
+  // The mapping editor's link takes the picked mapper along, so a mapper choice alone isn't lost
+  // by following it. Anything else unsaved would be.
+  const dirtyBesidesMapper = useMemo(() => {
+    if (!subscription.data || !draft) return false;
+    const withoutMapper = (d: Draft) => ({ ...d, mapperId: null, mapperProperties: null, mapperVersion: null });
+    return JSON.stringify(withoutMapper(draft)) !== JSON.stringify(withoutMapper(draftOf(subscription.data)));
+  }, [subscription.data, draft]);
+
+  // Escape closes the open stage - but only when it holds nothing unsaved. A
   // config panel that can be dismissed onto a half-finished handler is how you
   // lose an operator's work; if there are edits, Escape does nothing and the
   // save bar stays the way out.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
-      // A dialog on top owns Escape — see `dialogsOpen`.
+      // A dialog on top owns Escape - see `dialogsOpen`.
       if (dialogsOpen()) return;
       const open = params.get("stage") as StageId | null;
       if (!open || !subscription.data || !draft) return;
@@ -154,7 +201,7 @@ function SubscriptionStudio() {
   // One call, because `all` is a prefix of `detail` and already covers it. Invalidating both
   // cancelled the detail refetch the first call had just started (invalidateQueries cancels by
   // default), so the promise awaited below belonged to the cancelled one and could resolve before
-  // the fresh data landed — the very race the await exists to prevent.
+  // the fresh data landed - the very race the await exists to prevent.
   const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
 
   const save = useMutation({
@@ -174,7 +221,7 @@ function SubscriptionStudio() {
   // Its own one-field write rather than a draft edit ridden along on the save
   // bar: this is the switch that drops work on the floor, so it applies when
   // asked for and not at some later save of unrelated configuration. The draft
-  // is patched to match so an operator's half-finished edits below survive it —
+  // is patched to match so an operator's half-finished edits below survive it -
   // and so the value doesn't immediately read back as unsaved.
   const setEnabled = useMutation({
     mutationFn: (enabled: boolean) => api.updateSubscription(subscriptionId, { enabled }),
@@ -193,6 +240,14 @@ function SubscriptionStudio() {
     },
   });
 
+  const clearRunning = useMutation({
+    mutationFn: () => api.clearRunning(subscriptionId),
+    onSuccess: async () => {
+      await invalidate();
+      void queryClient.invalidateQueries({ queryKey: keys.subscriptions.scheduleHealth });
+    },
+  });
+
   const receive = useMutation({
     mutationFn: () => api.receiveNow(subscriptionId),
     onSuccess: async () => {
@@ -202,11 +257,32 @@ function SubscriptionStudio() {
     },
   });
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty, {
+    carriedTo: (path) => path === `/subscriptions/${subscriptionId}/mapper` && !dirtyBesidesMapper,
+  });
+
+  // Opened from a link that couldn't tell its type (or an old bookmark): move to the address of
+  // its own section, so the sidebar, the breadcrumb and the way back all name the right list.
+  // A replace, so Back doesn't return to the address it just left.
+  const location = useLocation();
+  const current = useCurrentPage();
+  const type = subscription.data?.type;
+  useEffect(() => {
+    if (!type || current === null || !SUBSCRIPTION_PAGES.has(current)) return;
+    const home = SUBSCRIPTION_PAGE[type];
+    if (home !== current) navigate(subscriptionPath(subscriptionId, type) + location.search + location.hash, { replace: true });
+  }, [type, current, subscriptionId, navigate, location.search, location.hash]);
+
+  // The list this section belongs to, for the way back from a pasted link.
+  const listPage = (current && PAGES[current].parent) || "subscriptions";
+
   if (subscription.isPending) return <LoadingBlock label="Loading subscription…" />;
+  if (subscription.isError && !isNotFound(subscription.error))
+    return <LoadError error={subscription.error} what="this subscription" onRetry={() => void subscription.refetch()} />;
   if (subscription.isError)
     return (
       <EmptyState title="This subscription no longer exists">
-        <Link to="/subscriptions" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/subscriptions" className="font-medium link">
           Back to subscriptions
         </Link>
       </EmptyState>
@@ -224,6 +300,9 @@ function SubscriptionStudio() {
   const aggregationSource =
     allSubscriptions.data?.find((x) => x.id === s.aggregationForId) ?? null;
   const paused = s.pausedOn !== null;
+  // Off wins over Paused: a disabled subscription is not matched at all, so whether
+  // it would hold work is moot until it is turned back on.
+  const runState: RunState = !s.enabled ? "off" : paused ? "paused" : "running";
   // A response subscription has no gateway of its own; what feeds it is the subscriptions
   // that hand it their response.
   const entryPoints = isResponse ? feedersOf(s.id, allSubscriptions.data) : entryPointsOf(s);
@@ -243,12 +322,17 @@ function SubscriptionStudio() {
       { replace: true },
     );
 
-  const triggerEmpty = isApiCall
-    ? "Invoked directly by id (legacy) — nothing to configure here."
-    : "Not wired into any gateway yet — it never runs.";
+  // A direct subscription with no gateway is normal: something calls it by id. Only a
+  // gateway type with nothing in front of it is a real fault, so only that reads as one.
+  const triggerEmpty = isApiCall ? (
+    "Called directly by id, so there is nothing to configure here."
+  ) : (
+    <ProblemText plain>Not wired into any gateway yet, so nothing runs it.</ProblemText>
+  );
 
   const saved = draftOf(s);
-  const fault = scheduleFault(scheduleHealth.data?.find((h) => h.subscriptionId === s.id)) ?? undefined;
+  const health = scheduleHealth.data?.find((h) => h.subscriptionId === s.id);
+  const fault = scheduleFault(health) ?? undefined;
 
   const faces = stages.map((id) =>
     faceOf(id, {
@@ -259,7 +343,7 @@ function SubscriptionStudio() {
       entryPoints,
       nextRunOn: s.nextReceiveOn,
       // The fault belongs to the Schedule node now that aggregations have one. It used
-      // to be pinned to the aggregation node too, which was the only node they had —
+      // to be pinned to the aggregation node too, which was the only node they had -
       // and that node could not be edited, so the page reported a broken schedule and
       // offered no way to fix it.
       fault: id === "schedule" ? fault : undefined,
@@ -299,6 +383,14 @@ function SubscriptionStudio() {
             ) : (
               <EntryPointsTable rows={entryPoints} empty={triggerEmpty} />
             )}
+            {/* Said once, quietly, where the trigger is edited: the history behind the type,
+                not a warning about it. */}
+            {(isInternal || isApiCall) && (
+              <p className="mt-3 text-[12.5px] text-ink-500">
+                A direct subscription. This type predates gateways and keeps working as it is; new
+                subscriptions are fed through a gateway or a scheduled job instead.
+              </p>
+            )}
           </Panel>
         );
       case "source":
@@ -309,8 +401,20 @@ function SubscriptionStudio() {
               adapterId={draft.receiverId}
               properties={draft.receiverProperties}
               onChange={(adapterId, properties) =>
-                setDraft((d) => (d ? { ...d, receiverId: adapterId, receiverProperties: properties } : d))
+                // A pin belongs to the adapter it was made on, so choosing another clears it.
+                setDraft((d) =>
+                  d
+                    ? {
+                        ...d,
+                        receiverId: adapterId,
+                        receiverProperties: properties,
+                        receiverVersion: adapterId === d.receiverId ? d.receiverVersion : null,
+                      }
+                    : d,
+                )
               }
+              version={draft.receiverVersion}
+              onVersionChange={(v) => set("receiverVersion", v)}
               disabled={!canEdit}
               required
             />
@@ -366,10 +470,22 @@ function SubscriptionStudio() {
               adapterId={draft.validatorId}
               properties={draft.validatorProperties}
               onChange={(adapterId, properties) =>
-                setDraft((d) => (d ? { ...d, validatorId: adapterId, validatorProperties: properties } : d))
+                // A pin belongs to the adapter it was made on, so choosing another clears it.
+                setDraft((d) =>
+                  d
+                    ? {
+                        ...d,
+                        validatorId: adapterId,
+                        validatorProperties: properties,
+                        validatorVersion: adapterId === d.validatorId ? d.validatorVersion : null,
+                      }
+                    : d,
+                )
               }
+              version={draft.validatorVersion}
+              onVersionChange={(v) => set("validatorVersion", v)}
               disabled={!canEdit}
-              noneLabel="None — accept every document"
+              noneLabel="None - accept every document"
             />
           </Panel>
         );
@@ -381,10 +497,22 @@ function SubscriptionStudio() {
               adapterId={draft.mapperId}
               properties={draft.mapperProperties}
               onChange={(adapterId, properties) =>
-                setDraft((d) => (d ? { ...d, mapperId: adapterId, mapperProperties: properties } : d))
+                // A pin belongs to the adapter it was made on, so choosing another clears it.
+                setDraft((d) =>
+                  d
+                    ? {
+                        ...d,
+                        mapperId: adapterId,
+                        mapperProperties: properties,
+                        mapperVersion: adapterId === d.mapperId ? d.mapperVersion : null,
+                      }
+                    : d,
+                )
               }
+              version={draft.mapperVersion}
+              onVersionChange={(v) => set("mapperVersion", v)}
               disabled={!canEdit}
-              noneLabel="None — the document passes through unchanged"
+              noneLabel="None - the document passes through unchanged"
               mapperEditorHref={`/subscriptions/${s.id}/mapper`}
             />
             {bindsToDataSource(draft.mapperId, "mapper") && (
@@ -412,10 +540,22 @@ function SubscriptionStudio() {
               adapterId={draft.handlerId}
               properties={draft.handlerProperties}
               onChange={(adapterId, properties) =>
-                setDraft((d) => (d ? { ...d, handlerId: adapterId, handlerProperties: properties } : d))
+                // A pin belongs to the adapter it was made on, so choosing another clears it.
+                setDraft((d) =>
+                  d
+                    ? {
+                        ...d,
+                        handlerId: adapterId,
+                        handlerProperties: properties,
+                        handlerVersion: adapterId === d.handlerId ? d.handlerVersion : null,
+                      }
+                    : d,
+                )
               }
+              version={draft.handlerVersion}
+              onVersionChange={(v) => set("handlerVersion", v)}
               disabled={!canEdit}
-              noneLabel="None — the document stops here"
+              noneLabel="None - the document stops here"
               sourceValues={sourceValues}
             />
             {bindsToDataSource(draft.handlerId, "handler") && (
@@ -446,7 +586,7 @@ function SubscriptionStudio() {
               disabled={!canEdit}
               candidates={(allSubscriptions.data ?? []).filter((x) => x.id !== subscriptionId)}
               idPrefix="in-resp"
-              onNewResponseSubscription={() => detour.leave(draft, subscriptionId)}
+              onNewResponseSubscription={() => leave(() => detour.leave(draft, subscriptionId))}
               onOpenResponseSubscription={(target) =>
                 dirty ? setOpening(target) : navigate(`/subscriptions/${target}`)
               }
@@ -458,7 +598,27 @@ function SubscriptionStudio() {
 
   return (
     <div className="pb-24">
-      <BackLink to="/subscriptions" label="Subscriptions" />
+      {leaveDialog}
+      <BackLink to={pathOf(listPage, {})!} label={PAGES[listPage].title} />
+
+      {health?.stuck && (
+        <div role="alert" className="mb-4 rounded-lg border border-danger-200 bg-danger-50 px-4 py-3 text-sm text-danger-800">
+          <p className="font-medium">Every scheduled run is being skipped.</p>
+          <p className="mt-0.5">
+            It is still marked as running from a run that didn't finish - usually one stopped with its node - so each
+            run that comes due sees it busy and skips. The mark clears itself after a while; clearing it now lets the
+            next run start.
+          </p>
+          {canOperate && (
+            <div className="mt-2 flex items-center gap-3">
+              <Button size="sm" busy={clearRunning.isPending} onClick={() => clearRunning.mutate()}>
+                Clear the running mark
+              </Button>
+              {clearRunning.error && <span>{clearRunning.error.message}</span>}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -470,12 +630,13 @@ function SubscriptionStudio() {
               placeholder="Subscription name"
             />
             <TypeBadge type={s.type} />
-            {/* Status is reported here and changed from the buttons on the right.
+            {/* Status is reported here and changed from the running-state control on the right.
                 It used to be a clickable chip, indistinguishable from the Paused
-                badge beside it, that only edited the draft — so the lossy switch
+                badge beside it, that only edited the draft - so the lossy switch
                 saved later and quietly, while Pause, which keeps the work, asked
                 first and applied at once. */}
             <SubscriptionStatusBadges enabled={s.enabled} paused={paused} />
+            <ProdBadge subscriptionId={s.id} />
           </h1>
           <p className="mt-1 text-sm text-ink-500">
             Carries{" "}
@@ -491,7 +652,7 @@ function SubscriptionStudio() {
                   {entryPoints.map((e, i) => (
                     <span key={e.key}>
                       {i > 0 && (i === entryPoints.length - 1 ? " and " : ", ")}
-                      <Link to={e.href} className="font-medium text-ink-700 hover:text-crimson-700 hover:underline">
+                      <Link to={e.href} className="font-medium text-ink-700 hover:link">
                         {e.name}
                       </Link>
                     </span>
@@ -503,8 +664,10 @@ function SubscriptionStudio() {
               ))}
           </p>
         </div>
-        <div className="shrink-0 text-right">
-          <div className="flex gap-2">
+        {/* On a phone the actions take their own row and wrap, rather than pushing the page wider
+            than the screen with Delete off its edge. */}
+        <div className="w-full sm:w-auto sm:shrink-0 sm:text-right">
+          <div className="flex flex-wrap gap-2 sm:justify-end">
             {/* On the header rather than inside the Schedule stage: an operator
                 shouldn't have to know which card hides the button. */}
             {isReceiver && canOperate && (
@@ -522,60 +685,62 @@ function SubscriptionStudio() {
                 title={
                   s.enabled
                     ? "Collect everything outstanding immediately and run the delivery, without waiting for the schedule."
-                    : "Enable the aggregation first — a disabled one never runs, even when triggered by hand."
+                    : "Enable the aggregation first - a disabled one never runs, even when triggered by hand."
                 }
               >
                 <Play className="size-4" /> Roll up now
               </Button>
             )}
-            {/* Creating the aggregation from here rather than from a type picker: the
-                thing being rolled up is the page you are standing on, so it can never
-                be the wrong one. Not offered on an aggregation — roll-ups of roll-ups
-                are not a shape anyone has asked for, and the picker refuses them too. */}
-            {!isAggregation && (
-              <Can permission="subscriptions.create">
-                <Button
-                  onClick={() => navigate(`/aggregations/new?source=${s.id}`)}
-                  title="Create an aggregation that collects this subscription's exchanges on a schedule into one summary exchange."
-                >
-                  <FileStack className="size-4" /> Roll these up
-                </Button>
-              </Can>
-            )}
-            {canOperate && (
-              <Button
-                onClick={() => setConfirmingPause(true)}
-                title={paused ? "Release held work and resume." : "Keep accepting work but hold it for later release."}
-              >
-                {paused ? <Play className="size-4" /> : <Pause className="size-4" />}
-                {paused ? "Resume" : "Pause"}
-              </Button>
-            )}
-            {/* Beside Pause, because the two questions an operator actually has
-                are the same shape — stop it, or hold it — and the answer differs
-                only in whether the work survives. */}
-            {canEdit && (
-              <Button
-                onClick={() => setEnabling(!s.enabled)}
-                title={
-                  s.enabled
-                    ? "Stop it running at all. Work that arrives while it is off is not kept — pause instead to hold it."
-                    : "Let it match and run again."
-                }
-              >
-                {s.enabled ? <PowerOff className="size-4" /> : <Power className="size-4" />}
-                {s.enabled ? "Disable" : "Enable"}
-              </Button>
-            )}
-            <Can permission="subscriptions.delete">
-              <Button variant="danger" onClick={() => setDeleting(true)}>
-                <Trash2 className="size-4" /> Delete
-              </Button>
-            </Can>
+            {/* Pause and Disable as one control: the two questions an operator has
+                are the same shape - stop it, or hold it - and the answer differs only
+                in whether the work survives, which the caption says for the state it
+                is in. Shown read-only to a session that can change neither. */}
+            <RunStateControl
+              label="Running state"
+              options={runStates}
+              value={runState}
+              onChange={setMoving}
+              disabled={!canOperate && !canEdit}
+            />
+            <MoreActionsMenu
+              actions={[
+                // Creating the aggregation from here rather than from a type picker: the
+                // thing being rolled up is the page you are standing on, so it can never
+                // be the wrong one. Not offered on an aggregation - roll-ups of roll-ups
+                // are not a shape anyone has asked for, and the picker refuses them too.
+                {
+                  label: "Create an aggregation of this",
+                  icon: <FileStack className="size-4" />,
+                  title: "Create an aggregation that collects this subscription's exchanges on a schedule into one summary exchange.",
+                  onSelect: () => navigate(`/aggregations/new?source=${s.id}`),
+                  hidden: isAggregation || !canCreate,
+                },
+                {
+                  label: "Delete",
+                  icon: <Trash2 className="size-4" />,
+                  danger: true,
+                  onSelect: () => setDeleting(true),
+                  hidden: !canDelete,
+                },
+              ]}
+            />
           </div>
           <FormError>{receive.error?.message ?? aggregate.error?.message}</FormError>
         </div>
       </div>
+
+      <RevokedAdapterNotice
+        uses={(
+          [
+            ["receiver", s.receiverId, s.receiverVersion],
+            ["validator", s.validatorId, s.validatorVersion],
+            ["mapper", s.mapperId, s.mapperVersion],
+            ["handler", s.handlerId, s.handlerVersion],
+          ] as const
+        )
+          .filter(([, adapterId]) => !!adapterId)
+          .map(([kind, adapterId, version]) => ({ kind, adapterId: adapterId!, version: version ?? null }))}
+      />
 
       <StageRail faces={faces} selected={stage} onSelect={selectStage} />
 
@@ -588,6 +753,8 @@ function SubscriptionStudio() {
             canEdit={canEdit}
             entryPoints={entryPoints}
             scheduled={isReceiver || isAggregation}
+            onNewChannel={(index) => leave(() => detour.newChannel(draft, notificationSlot(index)))}
+            onEditChannel={(channelId) => leave(() => detour.openChannel(draft, channelId))}
           />
         )
       ) : (
@@ -600,65 +767,88 @@ function SubscriptionStudio() {
             onClick={() => selectStage(null)}
             aria-label="Close and show the overview"
             title="Close  Esc"
-            className="absolute top-2.5 right-3 rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+            className="absolute top-2.5 right-3 rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
           >
             <X className="size-4" />
           </button>
         </div>
       )}
 
+      <ProdSection subscriptionId={s.id} name={s.name} type={s.type} />
+
       {canEdit && dirty && (
         <UnsavedBar
           busy={save.isPending}
           error={save.error?.message}
+          blocked={
+            draft && notificationsIncomplete(draft.notifications)
+              ? "Every notification needs a channel of its own and at least one outcome ticked."
+              : undefined
+          }
           onSave={() => save.mutate()}
           onDiscard={() => setLoaded(false)}
         />
       )}
 
-      {confirmingPause && (
+      {/* Within the enabled states, moving is the pause toggle alone. */}
+      {moving !== null && moving !== "off" && runState !== "off" && (
         <ConfirmDialog
-          title={paused ? "Resume this subscription?" : "Pause this subscription?"}
+          title={moving === "running" ? "Resume this subscription?" : "Pause this subscription?"}
           body={
-            paused
+            moving === "running"
               ? `${s.name} releases its held exchanges and starts processing again.`
               : `${s.name} keeps accepting work but holds every exchange until you resume it.`
           }
-          confirmLabel={paused ? "Resume" : "Pause"}
+          confirmLabel={moving === "running" ? "Resume" : "Pause"}
+          confirmDisabled={!canOperate}
           onConfirm={async () => {
             await pause.mutateAsync();
           }}
-          onClose={() => setConfirmingPause(false)}
+          onClose={() => setMoving(null)}
         />
       )}
 
-      {enabling !== null && (
+      {/* Into or out of Off is the enabled switch, with the pause toggled alongside
+          when the state asked for needs it: Off to Running releases anything still
+          held from before, Off to Paused holds first so nothing slips through between
+          the two writes. */}
+      {moving !== null && (moving === "off" || runState === "off") && (
         <ConfirmDialog
-          title={enabling ? "Enable this subscription?" : "Disable this subscription?"}
+          title={moving === "off" ? "Turn this subscription off?" : moving === "paused" ? "Turn this subscription on, paused?" : "Turn this subscription on?"}
           body={
-            enabling ? (
-              `${s.name} starts being matched and scheduled again.`
-            ) : (
+            moving === "off" ? (
               <>
                 <strong className="font-medium text-ink-800">{s.name}</strong> stops being matched
                 and stops being scheduled. Anything that arrives for it while it is off is{" "}
-                <strong className="font-medium text-ink-800">not kept</strong> — pause it instead to
+                <strong className="font-medium text-ink-800">not kept</strong> - pause it instead to
                 hold that work and release it later.
               </>
+            ) : moving === "paused" ? (
+              `${s.name} starts being matched and scheduled again, and holds every exchange until you resume it.`
+            ) : (
+              `${s.name} starts being matched and scheduled again.`
             )
           }
-          confirmLabel={enabling ? "Enable" : "Disable"}
+          confirmLabel={moving === "off" ? "Turn off" : "Turn on"}
+          // Paused on either side of the switch also takes the pause toggle.
+          confirmDisabled={!canEdit || (moving !== "off" && paused !== (moving === "paused") && !canOperate)}
           onConfirm={async () => {
-            await setEnabled.mutateAsync(enabling);
+            if (moving === "off") {
+              await setEnabled.mutateAsync(false);
+              return;
+            }
+            if (moving === "paused" && !paused) await pause.mutateAsync();
+            await setEnabled.mutateAsync(true);
+            if (moving === "running" && paused) await pause.mutateAsync();
           }}
-          onClose={() => setEnabling(null)}
+          onClose={() => setMoving(null)}
         />
       )}
 
       {confirmingReceive && (
         <ConfirmDialog
           title="Receive now?"
-          body={`${s.name} checks its source immediately — anything found becomes new exchanges, outside the regular schedule.`}
+          body={`${s.name} checks its source immediately - anything found becomes new exchanges, outside the regular schedule.`}
           confirmLabel="Receive now"
           onConfirm={async () => {
             await receive.mutateAsync();
@@ -683,7 +873,7 @@ function SubscriptionStudio() {
           confirmLabel="Save and open"
           onConfirm={async () => {
             await save.mutateAsync();
-            navigate(`/subscriptions/${opening}`);
+            leave(() => navigate(`/subscriptions/${opening}`));
           }}
           onClose={() => setOpening(null)}
         />
@@ -692,7 +882,7 @@ function SubscriptionStudio() {
       {confirmingAggregate && (
         <ConfirmDialog
           title="Roll up now?"
-          body={`${s.name} collects everything outstanding immediately and runs its delivery — outside the regular schedule.`}
+          body={`${s.name} collects everything outstanding immediately and runs its delivery - outside the regular schedule.`}
           confirmLabel="Roll up now"
           onConfirm={async () => {
             await aggregate.mutateAsync();
@@ -702,20 +892,29 @@ function SubscriptionStudio() {
       )}
 
       {deleting && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this subscription?"
+          name={s.name}
+          // What the server refuses the delete over, as far as this page can see it. Aggregations
+          // rolling it up are refused too, but the list data does not say which source each has;
+          // the server's answer names them.
+          blockers={[
+            isResponse
+              ? counted(entryPoints.length, "subscription handing it its response", "subscriptions handing it their response")
+              : counted(entryPoints.length, "gateway route or attachment", "gateway routes and attachments"),
+          ]}
           body={
             <>
               <strong className="font-medium text-ink-800">{s.name}</strong> and its configuration
               will be gone for good. One a gateway or another subscription still points at can't be
-              deleted — it will say which.
+              deleted - it will say which.
             </>
           }
           confirmLabel="Delete subscription"
           onConfirm={async () => {
             await api.deleteSubscription(subscriptionId);
             void queryClient.invalidateQueries({ queryKey: keys.subscriptions.all });
-            navigate("/subscriptions", { replace: true });
+            leave(() => navigate("/subscriptions", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
         />

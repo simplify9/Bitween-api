@@ -5,9 +5,10 @@ import { X } from "lucide-react";
 import { Button, FormError } from "../../components/ui/basics";
 import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { Panel } from "../../components/ui/Panel";
-import { AdapterConfig, useAdapterCatalog } from "../../components/config/AdapterConfig";
+import { AdapterConfig } from "../../components/config/AdapterConfig";
+import { useAdapterCatalog } from "../../components/config/adapterCatalog";
 import { InfoTypePicker } from "../../components/config/pickers";
-import { useSubscriptionsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { useSourceDocument } from "../../components/config/sourceValues";
 import { api } from "../../api";
 import { STAGES, stagesFor, type StageId } from "../subscriptions/studio/stages";
@@ -22,7 +23,10 @@ import { LaneAndRetry } from "../subscriptions/studio/LaneAndRetry";
 import { useBindsToDataSource } from "../data-sources/providers";
 import NativeMapperEditor from "../../components/nativeMapper/NativeMapperEditor";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
-import { feederOf, returnPath, safeReturn, useResponseDetour } from "../../lib/responseDetour";
+import { subscriptionPath } from "../../lib/subscriptionPaths";
+import { feederOf, returnPath, safeReturn, useDetour } from "../../lib/detour";
+import { notificationSlot, notificationsIncomplete, withPickedChannel } from "../../lib/notificationChannels";
+import { NotificationsPanel } from "../subscriptions/studio/NotificationsPanel";
 
 const STAGES_HERE = stagesFor("Response");
 
@@ -39,6 +43,7 @@ type Draft = Pick<
   | "workGroupId"
   | "retryPolicyId"
   | "dataSourceId"
+  | "notifications"
 > & {
   informationTypeId: number | null;
   enable: boolean;
@@ -57,6 +62,7 @@ const EMPTY: Draft = {
   workGroupId: null,
   retryPolicyId: null,
   dataSourceId: null,
+  notifications: [],
   enable: true,
 };
 
@@ -69,7 +75,7 @@ const EMPTY: Draft = {
  * own, Create lands on its page, whose Trigger node lists the feeders once there are any.
  *
  * Keyed by where it goes back to: a new one started from this page is this same route, and
- * without a key the draft on screen would carry over into it — and back again.
+ * without a key the draft on screen would carry over into it - and back again.
  */
 export function NewResponseSubscriptionPage() {
   const [params] = useSearchParams();
@@ -82,11 +88,12 @@ function NewResponseSubscription() {
   const [params] = useSearchParams();
   const returnTo = safeReturn(params.get("return"));
   // It can hand its own response to a new response subscription too, which is this page again.
-  const detour = useResponseDetour<Draft>();
+  const detour = useDetour<Draft>();
+  // Back from the response trip specifically; a channel trip comes back to the Notifications card.
   const [stage, setStage] = useState<StageId | null>(
-    detour.kept || detour.pickedResponse !== null ? "response" : "delivery",
+    detour.pickedResponse !== null || (detour.kept !== null && detour.slot === null) ? "response" : "delivery",
   );
-  /** The visual mapper, over the page — there is no subscription page to send you to yet. */
+  /** The visual mapper, over the page - there is no subscription page to send you to yet. */
   const [mapping, setMapping] = useState(false);
 
   const allSubscriptions = useSubscriptionsCache();
@@ -97,10 +104,17 @@ function NewResponseSubscription() {
   const mappers = useAdapterCatalog("mapper");
   const handlers = useAdapterCatalog("handler");
 
-  const [draft, setDraft] = useState<Draft>(() => ({
-    ...(detour.kept ?? EMPTY),
-    ...(detour.pickedResponse !== null ? { responseSubscriptionId: detour.pickedResponse } : {}),
-  }));
+  const [draft, setDraft] = useState<Draft>(() => {
+    // EMPTY first: a draft kept by an older page has no notifications to spread over it.
+    const kept = { ...EMPTY, ...detour.kept };
+    return {
+      ...kept,
+      ...(detour.pickedResponse !== null ? { responseSubscriptionId: detour.pickedResponse } : {}),
+      ...(detour.pickedChannel !== null
+        ? { notifications: withPickedChannel(kept.notifications, detour.slot, detour.pickedChannel) }
+        : {}),
+    };
+  });
   const update = (patch: Partial<Draft>) => setDraft((d) => ({ ...d, ...patch }));
   const bindsToDataSource = useBindsToDataSource();
 
@@ -120,13 +134,14 @@ function NewResponseSubscription() {
         workGroupId: draft.workGroupId,
         retryPolicyId: draft.retryPolicyId,
         dataSourceId: draft.dataSourceId,
+        notifications: draft.notifications,
         enabled: draft.enable,
       }),
     onSuccess: async (created) => {
       // Awaited when going back: the page there picks it from the subscriptions list, which
       // has to include it by then.
       await queryClient.invalidateQueries();
-      navigate(returnTo ? returnPath(returnTo, created.id) : `/subscriptions/${created.id}`, { replace: true });
+      navigate(returnTo ? returnPath(returnTo, created.id) : subscriptionPath(created.id, "Response"), { replace: true });
     },
   });
 
@@ -134,6 +149,15 @@ function NewResponseSubscription() {
   // are simply empty.
   const studioDraft: StudioDraft = {
     ...draft,
+    // Set on the subscription once it exists, not while creating it.
+    autoPauseAfterFailures: null,
+    expectTraffic: null,
+    categoryId: null,
+    // A new subscription follows the current version of each adapter.
+    receiverVersion: null,
+    validatorVersion: null,
+    mapperVersion: null,
+    handlerVersion: null,
     enabled: draft.enable,
     aggregationTarget: "Input",
     receiverId: null,
@@ -166,6 +190,7 @@ function NewResponseSubscription() {
     draft.informationTypeId === null && "an information type",
     draft.handlerId === null && "a delivery",
     unfilled.length > 0 && `the required fields on ${unfilled.join(" and ")}`,
+    notificationsIncomplete(draft.notifications) && "a channel and an outcome on every notification",
   ].filter((m): m is string => typeof m === "string");
 
   const renderStage = (stageId: StageId) => {
@@ -191,7 +216,7 @@ function NewResponseSubscription() {
               properties={draft.mapperProperties}
               onChange={(mapperId, mapperProperties) => update({ mapperId, mapperProperties })}
               disabled={false}
-              noneLabel="None — the response passes through unchanged"
+              noneLabel="None - the response passes through unchanged"
               onOpenMapperEditor={() => setMapping(true)}
             />
             {bindsToDataSource(draft.mapperId, "mapper") && (
@@ -260,7 +285,7 @@ function NewResponseSubscription() {
   return (
     <div className="pb-10">
       {returnTo ? (
-        <BackLink to={returnTo} label="Back" />
+        <BackLink to={returnTo} label="Back" keep />
       ) : (
         <BackLink to="/response-subscriptions" label="Response subscriptions" />
       )}
@@ -315,12 +340,22 @@ function NewResponseSubscription() {
             onClick={() => setStage(null)}
             aria-label="Close this step"
             title="Close"
-            className="absolute top-2.5 right-3 rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+            className="absolute top-2.5 right-3 rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
           >
             <X className="size-4" />
           </button>
         </div>
       )}
+
+      <div className="mt-5">
+        <NotificationsPanel
+          value={draft.notifications}
+          onChange={(notifications) => update({ notifications })}
+          canEdit
+          onNewChannel={(index) => detour.newChannel(draft, notificationSlot(index))}
+          onEditChannel={(channelId) => detour.openChannel(draft, channelId)}
+        />
+      </div>
 
       <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-ink-200 bg-white px-4 py-3">
         <Checkbox

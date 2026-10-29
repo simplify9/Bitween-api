@@ -1,0 +1,43 @@
+import type { ApiClient } from "../client";
+import type { AdapterDraft, AdapterDraftSummary, DraftBuild, DraftPublishResult, DraftRun, AdapterUploadResult } from "../types";
+import { get, post, request } from "./request";
+
+export const adapterDraftMethods = {
+  listAdapterDrafts: () => get<AdapterDraftSummary[]>("/adapterdrafts"),
+
+  getAdapterDraft: (id: number) => get<AdapterDraft>(`/adapterdrafts/${id}`),
+
+  createAdapterDraft: (input) => post<number>("/adapterdrafts", input),
+
+  draftFromVersion: (adapterId: string, version: string) =>
+    post<number>("/adapterdrafts", { fromAdapterId: adapterId, fromVersion: version }),
+
+  saveAdapterDraft: (id: number, files: Record<string, string>, baseHash?: string) =>
+    post<AdapterDraftSummary>(`/adapterdrafts/${id}`, baseHash ? { files, baseHash } : { files }),
+
+  async deleteAdapterDraft(id: number) {
+    await request(`/adapterdrafts/${id}`, { method: "DELETE" });
+  },
+
+  buildAdapterDraft: (id: number, settings: Record<string, string>, buildOnly = false) =>
+    post<DraftBuild>(`/adapterdrafts/${id}/build`, { settings, buildOnly }),
+
+  tryAdapterDraft: (id: number, settings: Record<string, string>, command: string, input: string) =>
+    post<DraftRun>(`/adapterdrafts/${id}/try`, { settings, command, input }),
+
+  publishAdapterDraft: (id: number, input) => post<DraftPublishResult>(`/adapterdrafts/${id}/publish`, input),
+
+  async promoteAdapter(adapterId: string, version: string) {
+    await post("/adapters/promote", { adapterId, version });
+  },
+
+  async withdrawAdapterVersion(adapterId: string, version: string) {
+    await post("/adapters/withdraw", { adapterId, version });
+  },
+
+  uploadAdapterPackage(file: Blob, options: { version: string; current: boolean; releaseNotes: string }) {
+    const query = new URLSearchParams({ version: options.version, current: String(options.current) });
+    if (options.releaseNotes.trim()) query.set("releaseNotes", options.releaseNotes.trim());
+    return request<AdapterUploadResult>(`/adapters/packages?${query.toString()}`, { method: "POST", file });
+  },
+} satisfies Partial<ApiClient>;

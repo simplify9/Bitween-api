@@ -2,16 +2,12 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowUpRight, Plus } from "lucide-react";
 import { api, type SubscriptionType } from "../../../api";
-import { useSessionCan } from "../../../auth/guards";
+import { useSessionCan } from "../../../auth/useSessionCan";
 import { Field } from "../../../components/ui/forms";
 import { Button } from "../../../components/ui/basics";
 import { CodeBadge } from "../../../components/ui/Panel";
-import {
-  SubscriptionStatusBadges,
-  TypeBadge,
-  useSubscriptionRowsById,
-  useSubscriptionsCache,
-} from "../../../components/config/shared";
+import { SubscriptionStatusBadges, TypeBadge } from "../../../components/config/shared";
+import { useSubscriptionRowsById, useSubscriptionsCache } from "../../../components/config/lookups";
 import { SearchSelect } from "../../../components/ui/SearchSelect";
 import { InformationTypeDialog } from "../../../components/config/InformationTypeDialog";
 import { busMessageNameProblem } from "../../../lib/busMessageName";
@@ -21,7 +17,7 @@ import { keys } from "../../../api/queryKeys";
  * The Response stage's body: what happens to whatever the delivery hands back.
  *
  * Shared by the studio pages and both create pages so the node means the same
- * thing wherever it appears — the create rails would otherwise be one node
+ * thing wherever it appears - the create rails would otherwise be one node
  * shorter than the edit rail, which defeats reusing the pipeline at all.
  *
  * Two ways to pass a response on, and both can be set: hand it to a response
@@ -99,7 +95,7 @@ export function ResponseFields({
  * Which response subscription the response is handed to.
  *
  * Only Response-type subscriptions are offered, because a response is the only way one
- * runs — every other type has an entry point of its own, and feeding it a response runs
+ * runs - every other type has an entry point of its own, and feeding it a response runs
  * it through a door it does not have. A legacy target already saved stays listed, so
  * opening this panel can't quietly blank it; once changed, it can't be picked again.
  */
@@ -135,7 +131,7 @@ function ResponseSubscriptionField({
         value={value === null ? "" : String(value)}
         disabled={disabled}
         onChange={(v) => onChange(v === "" ? null : Number(v))}
-        clearLabel="Nothing — no response subscription"
+        clearLabel="Nothing - no response subscription"
         options={[
           ...offered.map((x) => ({
             value: String(x.id),
@@ -151,7 +147,7 @@ function ResponseSubscriptionField({
             type="button"
             onClick={onNew}
             title="Define a new response subscription and hand the response to it."
-            className="inline-flex items-center gap-1 text-[13px] font-medium text-crimson-700 hover:underline"
+            className="inline-flex items-center gap-1 text-[13px] font-medium link"
           >
             <Plus className="size-3" /> New response subscription
           </button>
@@ -162,8 +158,8 @@ function ResponseSubscriptionField({
 }
 
 /**
- * The subscription the response goes to, summed up — what it carries, whether it runs, and
- * where its own response goes next — with the way to open it.
+ * The subscription the response goes to, summed up - what it carries, whether it runs, and
+ * where its own response goes next - with the way to open it.
  *
  * A legacy Internal or ApiCall target, from before the Response type existed, says so: it
  * keeps working, because dropping it would change what a live subscription does without
@@ -178,7 +174,7 @@ function ResponseTargetCard({
 }) {
   const setups = useSubscriptionsCache().data;
   const rows = useSubscriptionRowsById();
-  // Not there for one still being defined on the bus gateway canvas — it has no id yet.
+  // Not there for one still being defined on the bus gateway canvas - it has no id yet.
   const setup = setups?.find((x) => x.id === target.id);
   const row = rows.get(target.id);
   const next = setup?.responseSubscriptionId
@@ -214,7 +210,7 @@ function ResponseTargetCard({
               </span>
             </p>
           ) : (
-            <p className="text-[13px] text-ink-500">Being defined here — it is saved with this one.</p>
+            <p className="text-[13px] text-ink-500">Being defined here - it is saved with this one.</p>
           )}
         </div>
         {onOpen && (
@@ -230,7 +226,7 @@ function ResponseTargetCard({
       {legacy && (
         <p className="mt-2 border-t border-ink-200 pt-2 text-[12px] text-ink-500">
           A legacy subscription. It keeps getting the response, but once you change this it can't be
-          picked again — only response subscriptions can.
+          picked again - only response subscriptions can.
         </p>
       )}
     </div>
@@ -242,13 +238,13 @@ function ResponseTargetCard({
  *
  * A picker rather than a text box, because the name is not free-form in practice:
  * `BusService` consumes exactly the bus message names of bus-enabled information
- * types, so a typo here doesn't publish to nobody-in-particular — it publishes to
+ * types, so a typo here doesn't publish to nobody-in-particular - it publishes to
  * nobody at all, silently. Listing the real names makes the working answers the
  * easy ones, and offers to create the type when it doesn't exist yet.
  *
  * A name of your own is still reachable, because publishing is not Bitween's to
  * police: something outside the product may be the consumer. It is offered as the
- * last row of the same dropdown rather than behind a separate mode — the mode used
+ * last row of the same dropdown rather than behind a separate mode - the mode used
  * to be seeded from `unknown`, which is derived from a query that has not resolved
  * on first render, so it latched on for every value including the valid ones.
  */
@@ -272,7 +268,7 @@ function BusMessageField({
 
   const known = (informationTypes.data ?? []).filter((t) => t.busEnabled && t.busMessageTypeName);
   const matched = known.find((t) => t.busMessageTypeName?.toLowerCase() === (value ?? "").toLowerCase());
-  // A saved value nobody carries. Only meaningful once the types have actually arrived —
+  // A saved value nobody carries. Only meaningful once the types have actually arrived -
   // while the query is pending `known` is empty, so every value looks unknown.
   const unknown = !informationTypes.isPending && value !== null && value !== "" && !matched;
 
@@ -280,20 +276,20 @@ function BusMessageField({
     <Field
       label="Publish the response on the bus as"
       htmlFor={`${idPrefix}-bus`}
-      hint="Every route bound to that message's information type picks it up — on any gateway."
+      hint="Every route bound to that message's information type picks it up - on any gateway."
     >
       <SearchSelect
         id={`${idPrefix}-bus`}
         value={matched?.busMessageTypeName ?? value ?? ""}
         disabled={disabled || informationTypes.isPending}
         onChange={(v) => onChange(v === "" ? null : v)}
-        clearLabel="Nothing — keep responses off the bus"
-        // Publishing is not Bitween's to police — the consumer may be another
-        // product entirely — so a name nobody carries is offered right here
+        clearLabel="Nothing - keep responses off the bus"
+        // Publishing is not Bitween's to police - the consumer may be another
+        // product entirely - so a name nobody carries is offered right here
         // rather than dead-ending on "nothing matches".
         freeText={(typed) =>
           busMessageNameProblem(typed) ??
-          { value: typed, label: `Publish as “${typed}” — a name of your own` }
+          { value: typed, label: `Publish as “${typed}” - a name of your own` }
         }
         options={[
           ...known.map((t) => ({
@@ -313,7 +309,7 @@ function BusMessageField({
             <button
               type="button"
               onClick={() => setCreating(true)}
-              className="inline-flex items-center gap-1 text-[13px] font-medium text-crimson-700 hover:underline"
+              className="inline-flex items-center gap-1 text-[13px] font-medium link"
             >
               <Plus className="size-3" /> New information type
             </button>

@@ -4,7 +4,7 @@ import { useMutation } from "@tanstack/react-query";
 import { Check, ShieldCheck } from "lucide-react";
 import { api } from "../api";
 import { allKeysIn, usePermissionCatalog } from "../api/permissions";
-import { useSession } from "../auth/SessionContext";
+import { useSession } from "../auth/useSession";
 import { PageHeader } from "../components/layout/PageHeader";
 import { Avatar } from "../components/ui/Avatar";
 import { Badge, Button, FormError } from "../components/ui/basics";
@@ -30,7 +30,7 @@ function SavedFlash({ show }: { show: boolean }) {
 }
 
 export function ProfilePage() {
-  const { session, refresh, can } = useSession();
+  const { session, refresh, can, changePassword } = useSession();
   const totalPermissions = allKeysIn(usePermissionCatalog().data ?? []).length;
 
   const [displayName, setDisplayName] = useState(session?.user.displayName ?? "");
@@ -52,7 +52,7 @@ export function ProfilePage() {
   });
 
   const password = useMutation({
-    mutationFn: () => api.changePassword(currentPassword, newPassword),
+    mutationFn: () => changePassword(currentPassword, newPassword),
     onSuccess: () => {
       setCurrentPassword("");
       setNewPassword("");
@@ -123,7 +123,7 @@ export function ProfilePage() {
             <ul className="space-y-2.5">
               {roles.map((role) => (
                 <li key={role.id} className="flex items-start gap-2.5">
-                  <ShieldCheck className="mt-0.5 size-4 shrink-0 text-crimson-600" />
+                  <ShieldCheck className="mt-0.5 size-4 shrink-0 text-ink-500" />
                   <div className="min-w-0">
                     <p className="text-sm font-medium text-ink-800">{role.name}</p>
                   </div>
@@ -137,7 +137,7 @@ export function ProfilePage() {
             {can("roles.view") && (
               <p className="mt-2 text-[13px] text-ink-500">
                 See what each role unlocks under{" "}
-                <Link to="/team/roles" className="font-medium text-crimson-700 hover:underline">
+                <Link to="/team/roles" className="font-medium link">
                   Team → Roles
                 </Link>
                 .
@@ -192,7 +192,7 @@ export function ProfilePage() {
                 <p className="text-sm font-medium text-ink-800">Microsoft account</p>
                 <p className="text-[13px] text-ink-500">
                   {user.microsoftLinked
-                    ? "Linked — you can sign in with Microsoft."
+                    ? "Linked - you can sign in with Microsoft."
                     : "Not linked. Signing in with a Microsoft account that matches your email links it automatically."}
                 </p>
               </div>

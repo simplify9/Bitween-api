@@ -15,10 +15,31 @@ namespace SW.Bitween.Model
 
         /// <summary>
         /// How callers prove who they are. Left out on create, the gateway takes partner keys;
-        /// left out on update, it keeps what it has — so a save that only renames or pauses the
+        /// left out on update, it keeps what it has - so a save that only renames or pauses the
         /// gateway can't quietly switch it back to partner keys.
         /// </summary>
         public ApiGatewayAuthentication? Authentication { get; set; }
+
+        /// <summary>
+        /// What a sync call is told when its delivery fails. Left out on create, a new gateway answers
+        /// Accurate; left out on update, it keeps what it has. Gateways made before this existed answer
+        /// Legacy, as they always did.
+        /// </summary>
+        public GatewayFailureAnswer? FailureAnswer { get; set; }
+    }
+
+    /// <summary>What a sync gateway call is told when the delivery behind it fails.</summary>
+    public enum GatewayFailureAnswer
+    {
+        /// <summary>400 with no body, whatever happened: what every gateway answered before.</summary>
+        Legacy = 0,
+
+        /// <summary>
+        /// 202 when Bitween has scheduled a retry (it has the message: don't send it again), 422 when
+        /// the message couldn't be mapped, 502 when the delivery failed and won't be retried. Each with
+        /// the exchange id and a short reason.
+        /// </summary>
+        Accurate = 1,
     }
 
     /// <summary>How the callers of an API gateway prove who they are.</summary>

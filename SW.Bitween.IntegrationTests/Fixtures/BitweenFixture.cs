@@ -11,6 +11,7 @@ using Npgsql;
 using SW.Bitween.Domain;
 using SW.Bitween.IntegrationTests.Adapters;
 using SW.Bitween.NativeAdapters;
+using SW.Bitween.NativeAdapters.EmailMessageHandler;
 using SW.Bitween.NativeAdapters.SmtpHandler;
 using SW.Bitween.PgSql;
 using SW.Bitween.Services;
@@ -41,12 +42,15 @@ namespace SW.Bitween.IntegrationTests.Fixtures;
 /// Every test in the collection shares this one database, so entities must not be given hand-picked
 /// primary keys. Documents used to be created with literal ids chosen to be "high enough" to miss
 /// the seeded rows, which worked only for as long as no two test files happened to pick the same
-/// number — and when they eventually did, the pair passed in isolation and failed together, which
+/// number - and when they eventually did, the pair passed in isolation and failed together, which
 /// reads as a broken test rather than a collision. Let the database assign ids: for a document that
 /// is <c>new Document(null, name, format)</c>, the constructor that exists for exactly this.
 /// </remarks>
 public sealed class BitweenFixture : IAsyncLifetime
 {
+    /// <summary>The sample validator: requires a Name, and an Id from 1 to 9.</summary>
+    public const string SampleValidatorId = "sw.bitween.samplevalidator";
+
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder().Build();
     private readonly RabbitMqContainer _rabbitMq = new RabbitMqBuilder().Build();
 
@@ -88,6 +92,25 @@ public sealed class BitweenFixture : IAsyncLifetime
     /// <summary>Base address of MailHog's own API, for reading back what was delivered.</summary>
     public string MailHogApi => $"http://{_mailHog.Hostname}:{_mailHog.GetMappedPublicPort(ApiContainerPort)}";
 
+    /// <summary>What MailHog received for <paramref name="to"/> with this subject.</summary>
+    public async Task<List<MimeKit.MimeMessage>> MailedAsync(string to, string subject)
+    {
+        using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromSeconds(5) };
+        using var messages = System.Text.Json.JsonDocument.Parse(
+            await http.GetStringAsync($"{MailHogApi}/api/v2/messages?limit=250"));
+        var found = new List<MimeKit.MimeMessage>();
+        foreach (var item in messages.RootElement.GetProperty("items").EnumerateArray())
+        {
+            var raw = item.GetProperty("Raw").GetProperty("Data").GetString()!;
+            var message = await MimeKit.MimeMessage.LoadAsync(
+                new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(raw)));
+            if (message.Subject == subject &&
+                System.Linq.Enumerable.Any(message.To.Mailboxes, m => string.Equals(m.Address, to, StringComparison.OrdinalIgnoreCase)))
+                found.Add(message);
+        }
+        return found;
+    }
+
     /// <summary>
     /// Connection details for the external broker, as a data source's properties.
     ///
@@ -106,6 +129,16 @@ public sealed class BitweenFixture : IAsyncLifetime
     };
 
     private Uri ExternalRabbitUri => new(_externalRabbitMq.GetConnectionString());
+
+    /// <summary>
+    /// What a broker restart does to the connections on it, without restarting the broker every
+    /// other test shares: the broker closes them all.
+    /// </summary>
+    public async Task CloseExternalRabbitConnectionsAsync()
+    {
+        var result = await _externalRabbitMq.ExecAsync(["rabbitmqctl", "close_all_connections", "broker restarting"]);
+        if (result.ExitCode != 0) throw new InvalidOperationException($"rabbitmqctl failed: {result.Stderr}");
+    }
 
     public string ExternalRabbitHost => ExternalRabbitUri.Host;
     public int ExternalRabbitPort => ExternalRabbitUri.Port;
@@ -128,7 +161,7 @@ public sealed class BitweenFixture : IAsyncLifetime
     /// Creates a queue and returns a URL that actually resolves from the test host.
     ///
     /// ElasticMQ builds QueueUrl from its own node address, which is the port INSIDE the
-    /// container, not the mapped one — so the URL it hands back is unreachable. Only the path is
+    /// container, not the mapped one - so the URL it hands back is unreachable. Only the path is
     /// trustworthy; the authority has to come from the mapped endpoint.
     /// </summary>
     public async Task<string> CreateSqsQueueAsync(string name)
@@ -168,7 +201,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                 .ConfigureAppConfiguration(cfg => cfg.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["ConnectionStrings:RabbitMQ"] = _rabbitMq.GetConnectionString(),
-                    // Signing material for the tokens the login handler issues. Test-only values —
+                    // Signing material for the tokens the login handler issues. Test-only values -
                     // the key just has to be long enough for the algorithm to accept it.
                     ["Token:Key"] = "integration-test-signing-key-not-used-anywhere-else-0123456789",
                     ["Token:Issuer"] = "bitween-tests",
@@ -189,6 +222,18 @@ public sealed class BitweenFixture : IAsyncLifetime
                         // What an aggregation builds its file links on; a scheduled job has no
                         // request to take an address from.
                         PublicUrl = "https://bitween.test",
+                        // The fixture is a node that runs data sources: it registers the resident
+                        // host for them below, and resident pipeline adapters run only on such a node.
+                        BusProvidersEnabled = true,
+                        // Where Email channels send: the MailHog the SMTP handler tests read back from.
+                        MailServer =
+                        {
+                            Host = "localhost",
+                            Port = MailHogSmtpPort,
+                            UseTls = false,
+                            From = "bitween@example.com",
+                            FromName = "Bitween tests"
+                        },
                     });
 
                     services.AddSingleton(new ThemeOptions());
@@ -201,6 +246,8 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddJwtTokenParameters();
 
                     services.AddMemoryCache();
+                    services.AddSingleton<SignInThrottle>();
+                    services.AddSingleton<AccountMail>();
                     services.AddScoped<RequestContext>();
 
                     services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>
@@ -220,7 +267,7 @@ public sealed class BitweenFixture : IAsyncLifetime
 
                     // Real local filesystem cloud files provider
                     // Its OWN bucket. The default one is shared with whatever else uses the local
-                    // store on this machine — including a developer's running Bitween — and the
+                    // store on this machine - including a developer's running Bitween - and the
                     // teardown below calls Cleanup(), which deletes the bucket outright. Sharing it
                     // meant running this suite silently unpublished the dev environment's adapters,
                     // and the next thing anyone did there failed as "metadata is missing
@@ -247,15 +294,27 @@ public sealed class BitweenFixture : IAsyncLifetime
                     });
 
                     services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
+                    // Published outbox rows are queued for deletion as in production, but tests flush the
+                    // queue by hand (OutboxAcknowledger.FlushAsync), so a row is there to look at until then.
+                    services.AddSingleton<OutboxAcknowledger>();
                     services.AddSingleton<INativeInfolinkReceiver, NativeTestReceiver>();
                     services.AddSingleton<INativeInfolinkReceiver, NativeFailingTestReceiver>();
+                    services.AddSingleton<INativeInfolinkReceiver, NativePartlyFailingTestReceiver>();
                     services.AddSingleton<INativeInfolinkReceiver, NativeEmptyTestReceiver>();
+                    // Scoped, as a run sets it up from its settings: a singleton would carry one run into the next.
+                    services.AddScoped<INativeInfolinkReceiver, NativeBookmarkTestReceiver>();
                     services.AddScoped<INativeInfolinkHandler, NativeSmtpHandler>();
                     services.AddScoped<INativeAdapter, NativeSmtpHandler>();
                     services.AddScoped<INativeInfolinkHandler, NativeTestResponder>();
                     services.AddScoped<INativeAdapter, NativeTestResponder>();
+                    services.AddScoped<INativeInfolinkHandler, NativeParseCountHttpHandler>();
+                    services.AddScoped<INativeAdapter, NativeParseCountHttpHandler>();
+                    services.AddScoped<INativeInfolinkHandler>(sp =>
+                        new NativeEmailMessageHandler(sp.GetRequiredService<BitweenOptions>().MailServer));
+                    services.AddScoped<INativeAdapter>(sp =>
+                        new NativeEmailMessageHandler(sp.GetRequiredService<BitweenOptions>().MailServer));
 
-                    // The mapper step had no end-to-end coverage at all — every mapper test was a
+                    // The mapper step had no end-to-end coverage at all - every mapper test was a
                     // unit test against ScribanJsonHelper, so what XchangeService does to a payload
                     // on the way in was never exercised. See MapperEnrichmentBaselineTests.
                     services.AddScoped<INativeInfolinkMapper, NativeJSONMapper>();
@@ -268,12 +327,20 @@ public sealed class BitweenFixture : IAsyncLifetime
                     // to construct, and a real Quartz store would fire background jobs mid-test.
                     services.AddSingleton<IScheduleRepository, RecordingScheduleRepository>();
                     services.AddScoped<SubscriptionSchedulerService>();
+                    services.AddScoped<SubscriptionRevisions>();
+                    services.AddScoped<Services.Marketplace.RegistryClient>();
+                    services.AddScoped<Services.Marketplace.MarketplaceInstaller>();
 
                     services.AddSingleton<DataSourceProviderCatalog>();
                     services.AddScoped<StatementUsageReader>();
                     services.AddScoped<StatementValidator>();
                     services.AddSingleton<FilterService>();
                     services.AddScoped<NativeAdapterDiscoveryService>();
+                    services.AddScoped<Services.Adapters.NativeAdapterManifests>();
+                    services.AddScoped<Services.Adapters.AdapterCatalog>();
+                    services.AddScoped<Services.Adapters.AdapterSourceReader>();
+                    services.AddScoped<Services.Adapters.AdapterWorkshop>();
+                    services.AddScoped<Services.Adapters.AdapterChanges>();
                     services.AddSingleton<ServerlessAdapterDescriber>();
                     services.AddScoped<AdapterStartupValues>();
                     services.AddScoped<Resources.Adapters.AdapterListing>();
@@ -281,6 +348,7 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<AdapterSecretProperties>();
                     services.AddScoped<RetryUsageReport>();
                     services.AddScoped<Resources.Ops.BrokerQueues>();
+                    services.AddScoped<Resources.Ops.DeadLetterQueues>();
                     // Registration ORDER is the routing order: each runtime is asked whether an
                     // adapter is its own, and the classic one claims everything, so it must be asked last.
                     services.AddScoped<IAdapterRuntime, NativeAdapterRuntime>();
@@ -289,13 +357,27 @@ public sealed class BitweenFixture : IAsyncLifetime
                     services.AddScoped<IAdapterInvoker, AdapterInvoker>();
                     services.AddScoped<MappingContextFactory>();
                     services.AddScoped<XchangeService>();
+                    services.AddScoped<NotificationChannelSender>();
                     services.AddSingleton<FileLinks>();
+                    // The lists' searches filter by how their items stand against prod on a mirror.
+                    services.AddScoped<Services.Mirror.MirrorService>();
+                    services.AddScoped<OidcSignIn>();
+                    services.AddScoped<ReceiverBookmarks>();
+                    services.AddSingleton<SealedState>();
+                    services.AddScoped<Services.Connections.ConnectionTokens>();
                     services.AddSingleton<StorageRetention>();
                     services.AddSingleton<StorageAccess>();
+                    services.AddSingleton<LegacyEventQueues>();
                     services.AddScoped<ExchangeArchive>();
                     services.AddScoped<RetentionPlanner>();
                     services.AddScoped<ExchangeRetentionJob>();
                     services.AddScoped<GatewayCallers>();
+                    services.AddSingleton<GatewayActivity>();
+                    services.AddSingleton<ResultSignals>();
+                    // Recorded as in production; tests flush by hand (MetricsFlusher.FlushAsync) rather
+                    // than run the minute-long loop, and the backfill is run by the tests that need it.
+                    services.AddSingleton<Services.Metrics.MetricsRecorder>();
+                    services.AddSingleton<Services.Metrics.MetricsFlusher>();
                     services.AddSingleton<IGatewayIssuers>(LoginServer);
                     services.AddScoped<RunFlagUpdater>();
                     services.AddScoped<ReceivingJob>();
@@ -317,6 +399,8 @@ public sealed class BitweenFixture : IAsyncLifetime
                 var cloudFiles = scope.ServiceProvider.GetRequiredService<ICloudFilesService>();
                 await AdapterInstaller.InstallAsync(cloudFiles,
                     "SW.Bitween.SampleHandler", "sw.bitween.samplehandler", "SW.Bitween.SampleHandler.dll");
+                await AdapterInstaller.InstallAsync(cloudFiles,
+                    "SW.Bitween.SampleValidator", SampleValidatorId, "SW.Bitween.SampleValidator.dll");
                 await AdapterInstaller.InstallAsync(cloudFiles,
                     "SW.Bitween.SampleConfigurableAdapter", "sw.bitween.sampleconfigurableadapter", "SW.Bitween.SampleConfigurableAdapter.dll");
 

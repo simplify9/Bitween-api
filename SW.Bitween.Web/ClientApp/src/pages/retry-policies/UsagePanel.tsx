@@ -1,8 +1,15 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, BellOff, ChevronDown, ChevronRight, RotateCcw } from "lucide-react";
-import { api, type SubscriptionSetupRef, type RetryAlertLevel, type RetryUsageRow } from "../../api";
+import {
+  api,
+  type RetryAlertConfig,
+  type RetryAlertLevel,
+  type RetryUsageRow,
+  type SubscriptionSetupRef,
+} from "../../api";
+import { useNotificationChannelNames } from "../../lib/notificationChannels";
 import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { Panel } from "../../components/ui/Panel";
@@ -16,8 +23,8 @@ import { keys } from "../../api/queryKeys";
  *
  * One row per subscription-and-group pair, because that is how a budget is counted: a shared
  * policy gives every subscription its own separate total. There is no such thing as "this
- * policy's usage" — any single figure here would be an aggregate matching nothing anyone can
- * act on — and it is also why resetting and overriding both address one pair.
+ * policy's usage" - any single figure here would be an aggregate matching nothing anyone can
+ * act on - and it is also why resetting and overriding both address one pair.
  *
  * Everything in this panel happens immediately. The groups above it stage into the save bar;
  * a reset here does not, and the panel says so rather than leaving the reader to find out.
@@ -40,7 +47,7 @@ type FilterKey = "attention" | "exhausted" | "silent" | "overridden" | "all";
  * tell them apart flags every deliberate silence until nobody reads it any more.
  */
 const needsAttention = (r: RetryUsageRow) =>
-  r.exhausted || r.alert?.delivered === false || (r.resolvedHandlerId === null && r.silencedAt === null);
+  r.exhausted || r.alert?.delivered === false || (r.resolvedChannelId === null && r.silencedAt === null);
 
 const FILTERS: { key: FilterKey; label: string; match: (r: RetryUsageRow) => boolean; blurb: string }[] = [
   {
@@ -59,8 +66,8 @@ const FILTERS: { key: FilterKey; label: string; match: (r: RetryUsageRow) => boo
   {
     key: "silent",
     label: "No alert",
-    match: (r) => r.resolvedHandlerId === null,
-    blurb: "Nothing is sent when these run out — whether that was chosen or simply never set.",
+    match: (r) => r.resolvedChannelId === null,
+    blurb: "Nothing is sent when these run out - whether that was chosen or simply never set.",
   },
   {
     key: "overridden",
@@ -73,17 +80,23 @@ const FILTERS: { key: FilterKey; label: string; match: (r: RetryUsageRow) => boo
 
 /** Where this pair's alert ends up, said as a destination rather than a mode. */
 function AlertCell({ row }: { row: RetryUsageRow }) {
-  if (row.resolvedHandlerId)
+  const channels = useNotificationChannelNames();
+  if (row.resolvedChannelId !== null) {
+    const name = channels.data?.find((c) => c.id === row.resolvedChannelId)?.name ?? "…";
+    const setBy = row.resolvedFrom ? ` · set by ${LEVEL_WORD[row.resolvedFrom]}` : "";
+    // One line, cut like the subscription and group beside it: a channel name has spaces, and
+    // wrapped in this narrow column it stood each row several lines tall.
     return (
-      <span className="text-[13px] text-ink-700">
-        <span className="font-mono text-xs">{row.resolvedHandlerId}</span>
-        {row.resolvedFrom && <span className="text-ink-400"> · set by {LEVEL_WORD[row.resolvedFrom]}</span>}
+      <span className="block truncate text-[13px] text-ink-700" title={`${name}${setBy}`}>
+        {name}
+        {setBy && <span className="text-ink-500">{setBy}</span>}
       </span>
     );
+  }
 
   return (
     <span className="inline-flex items-center gap-1.5 text-[13px]">
-      <BellOff className="size-3.5 text-ink-400" />
+      <BellOff className="size-3.5 text-ink-500" />
       {row.silencedAt ? (
         <span className="text-ink-500">Silenced by {LEVEL_WORD[row.silencedAt]}</span>
       ) : (
@@ -103,7 +116,7 @@ function AlertCell({ row }: { row: RetryUsageRow }) {
  */
 function AlertedCell({ row }: { row: RetryUsageRow }) {
   const { alert } = row;
-  if (!alert) return <span className="text-ink-400">—</span>;
+  if (!alert) return <span className="text-ink-500">-</span>;
   if (alert.delivered === false) return <Badge tone="danger">Not delivered</Badge>;
   if (alert.delivered === null)
     return (
@@ -151,17 +164,17 @@ function Attempts({ policyId, row }: { policyId: number; row: RetryUsageRow }) {
           <li key={a.exchangeId} className="flex items-start gap-2.5 text-[13px]">
             <Link
               to={`/exchanges?ids=${a.exchangeId}`}
-              className="mt-0.5 shrink-0 font-mono text-xs text-crimson-700 hover:underline"
+              className="mt-0.5 shrink-0 font-mono text-xs link"
             >
               {a.exchangeId.slice(0, 8)}
             </Link>
-            <span className="w-20 shrink-0 text-ink-400" title={formatDateTime(a.failedOn)}>
+            <span className="w-20 shrink-0 text-ink-500" title={formatDateTime(a.failedOn)}>
               {timeAgo(a.failedOn)}
             </span>
             {a.retryPending ? (
-              <Badge tone="ok" title="Within budget — this will be retried automatically.">Retry due</Badge>
+              <Badge tone="ok" title="Within budget - this will be retried automatically.">Retry due</Badge>
             ) : a.blockedReason ? (
-              <Badge tone="warn" title="Won't retry again — see the reason to the right.">Stopped</Badge>
+              <Badge tone="warn" title="Won't retry again - see the reason to the right.">Stopped</Badge>
             ) : null}
             <span className="min-w-0 flex-1 truncate text-ink-600" title={a.error}>
               {a.blockedReason ?? a.error}
@@ -174,7 +187,7 @@ function Attempts({ policyId, row }: { policyId: number; row: RetryUsageRow }) {
           Showing the {attempts.length} most recent of {total} failures.{" "}
           <Link
             to={`/exchanges?subscriptionId=${row.subscriptionId}&status=failed`}
-            className="font-medium text-crimson-700 hover:underline"
+            className="font-medium link"
           >
             See them all
           </Link>
@@ -188,24 +201,29 @@ function Attempts({ policyId, row }: { policyId: number; row: RetryUsageRow }) {
 function OverrideDialog({
   policyId,
   row,
+  initial,
   onClose,
+  onNewChannel,
+  onOpenChannel,
 }: {
   policyId: number;
   row: RetryUsageRow;
+  /** What to start from instead of what the pair sends now - a channel just made for it. */
+  initial?: RetryAlertConfig;
   onClose: () => void;
+  onNewChannel?: () => void;
+  onOpenChannel?: (channelId: number) => void;
 }) {
   const queryClient = useQueryClient();
-  // Seeded from what this pair currently sends, not from an empty form: an override replaces
-  // the level above rather than merging with it, so starting blank would quietly drop the very
-  // settings the alert needs to arrive.
-  const [value, setValue] = useState({
-    alertMode: row.override.alertMode,
-    alertHandlerId: row.override.alertHandlerId ?? row.resolvedHandlerId,
-    alertHandlerProperties:
-      Object.keys(row.override.alertHandlerProperties).length > 0
-        ? row.override.alertHandlerProperties
-        : row.resolvedHandlerProperties,
-  });
+  const channels = useNotificationChannelNames();
+  // Seeded from what this pair currently sends, so "Send here" starts from the channel already in
+  // use rather than from nothing.
+  const [value, setValue] = useState<RetryAlertConfig>(
+    initial ?? {
+      alertMode: row.override.alertMode,
+      alertChannelId: row.override.alertChannelId ?? row.resolvedChannelId,
+    },
+  );
 
   const save = useMutation({
     mutationFn: () => api.saveRetryAlertOverride(policyId, { ...value, subscriptionId: row.subscriptionId, groupId: row.groupId }),
@@ -216,19 +234,25 @@ function OverrideDialog({
   });
 
   return (
-    <Dialog title={`${row.subscriptionName} — ${row.groupName}`} onClose={onClose} wide>
+    <Dialog title={`${row.subscriptionName} - ${row.groupName}`} onClose={onClose} wide>
       <div className="space-y-4">
         <p className="text-[13px] text-ink-500">
           Where this one subscription's alert goes when this group's budget runs out. The most
-          specific of the three levels — it wins over both the group and the policy.
+          specific of the three levels - it wins over both the group and the policy.
         </p>
         <AlertRouting
           value={value}
           onChange={setValue}
+          onNewChannel={onNewChannel}
+          onEditChannel={onOpenChannel}
           inherited={
-            row.resolvedHandlerId ? (
+            row.resolvedChannelId !== null ? (
               <>
-                Sends through <code className="font-mono">{row.resolvedHandlerId}</code>, set by{" "}
+                Sends through{" "}
+                <span className="font-medium text-ink-700">
+                  {channels.data?.find((c) => c.id === row.resolvedChannelId)?.name ?? "…"}
+                </span>
+                , set by{" "}
                 {row.resolvedFrom ? LEVEL_WORD[row.resolvedFrom] : "a level above"}.
               </>
             ) : row.silencedAt ? (
@@ -244,7 +268,7 @@ function OverrideDialog({
           <Button
             variant="primary"
             busy={save.isPending}
-            disabled={value.alertMode === "Send" && !value.alertHandlerId}
+            disabled={value.alertMode === "Send" && value.alertChannelId === null}
             onClick={() => save.mutate()}
           >
             Save routing
@@ -259,19 +283,36 @@ export function UsagePanel({
   policyId,
   subscriptions,
   canEdit,
+  onNewOverrideChannel,
+  onOpenChannel,
+  reopen,
+  onReopened,
 }: {
   policyId: number;
-  /** Used to explain an empty report — the subscriptions are still following the policy. */
+  /** Used to explain an empty report - the subscriptions are still following the policy. */
   subscriptions: SubscriptionSetupRef[];
   canEdit: boolean;
+  /** Leaves for the new channel page from one pair's override; see NotificationChannelPicker. */
+  onNewOverrideChannel?: (row: RetryUsageRow) => void;
+  onOpenChannel?: (channelId: number) => void;
+  /** An override to open again, keyed subscriptionId:groupId, with the channel made for it. */
+  reopen?: { key: string; channelId: number } | null;
+  onReopened?: () => void;
 }) {
   const queryClient = useQueryClient();
   const [filter, setFilter] = useState<FilterKey>("attention");
   const [open, setOpen] = useState<string | null>(null);
-  const [overriding, setOverriding] = useState<RetryUsageRow | null>(null);
+  const [overriding, setOverriding] = useState<{ row: RetryUsageRow; initial?: RetryAlertConfig } | null>(null);
   const [resetting, setResetting] = useState<RetryUsageRow | "all" | null>(null);
 
   const usage = useQuery({ queryKey: keys.retryUsage.forPolicy(policyId), queryFn: () => api.getRetryUsage(policyId) });
+
+  useEffect(() => {
+    if (!reopen || !usage.data) return;
+    const row = usage.data.find((r) => `${r.subscriptionId}:${r.groupId}` === reopen.key);
+    if (row) setOverriding({ row, initial: { alertMode: "Send", alertChannelId: reopen.channelId } });
+    onReopened?.();
+  }, [reopen, usage.data, onReopened]);
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: keys.retryUsage.all });
 
@@ -309,7 +350,7 @@ export function UsagePanel({
   return (
     <Panel
       title="Budget usage"
-      description="What each budget has spent, and whether anyone was told when one ran out. Changes here take effect immediately — they are not part of the save bar."
+      description="What each budget has spent, and whether anyone was told when one ran out. Changes here take effect immediately - they are not part of the save bar."
       action={
         canEdit && spent.length > 0 ? (
           <Button size="sm" onClick={() => setResetting("all")}>
@@ -331,7 +372,7 @@ export function UsagePanel({
                 on ? "bg-ink-900 text-white" : "bg-ink-50 text-ink-600 hover:bg-ink-100 hover:text-ink-900"
               }`}
             >
-              {f.label} <span className={on ? "text-white/60" : "text-ink-400"}>{counts[f.key]}</span>
+              {f.label} <span className={on ? "text-white/60" : "text-ink-500"}>{counts[f.key]}</span>
             </button>
           );
         })}
@@ -339,12 +380,12 @@ export function UsagePanel({
       <p className="mb-2 text-[13px] text-ink-500">{active.blurb}</p>
 
       {shown.length === 0 ? (
-        <p className="text-sm text-ink-500">Nothing here — which is the good outcome.</p>
+        <p className="text-sm text-ink-500">Nothing here - which is the good outcome.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full min-w-200 text-left text-sm">
             <thead>
-              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                 <th className="w-px px-2 py-1.5" />
                 <th className="max-w-0 px-3 py-1.5">Subscription</th>
                 <th className="max-w-0 px-3 py-1.5">Group</th>
@@ -366,7 +407,7 @@ export function UsagePanel({
                         onClick={() => setOpen(isOpen ? null : key)}
                         aria-expanded={isOpen}
                         aria-label={`Failures for ${r.subscriptionName} in ${r.groupName}`}
-                        className="rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+                        className="rounded-md p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
                       >
                         {isOpen ? <ChevronDown className="size-3.5" /> : <ChevronRight className="size-3.5" />}
                       </button>
@@ -390,7 +431,7 @@ export function UsagePanel({
                         {r.exhausted && (
                           <Badge
                             tone="danger"
-                            title="The retry budget ran out — this won't retry again until it resets."
+                            title="The retry budget ran out - this won't retry again until it resets."
                           >
                             Exhausted
                           </Badge>
@@ -401,7 +442,7 @@ export function UsagePanel({
                       {r.lastAttemptOn ? (
                         <span title={formatDateTime(r.lastAttemptOn)}>{timeAgo(r.lastAttemptOn)}</span>
                       ) : (
-                        <span className="italic text-ink-400">never failed</span>
+                        <span className="italic text-ink-500">never failed</span>
                       )}
                     </td>
                     <td className="max-w-0 px-3 py-1.5">
@@ -418,7 +459,7 @@ export function UsagePanel({
                               Reset
                             </Button>
                           )}
-                          <Button size="sm" onClick={() => setOverriding(r)}>
+                          <Button size="sm" onClick={() => setOverriding({ row: r })}>
                             Route alert
                           </Button>
                         </span>
@@ -430,7 +471,7 @@ export function UsagePanel({
                       {/*
                         max-w-0 stops this cell reporting an intrinsic width, the same trick the
                         shared Table uses. Without it a single unwrapped stack trace widened the
-                        whole table, and every column after Subscription was pushed out of view —
+                        whole table, and every column after Subscription was pushed out of view -
                         opening one row hid the data in all the others.
                       */}
                       <td colSpan={8} className="max-w-0 px-4 py-3">
@@ -446,7 +487,14 @@ export function UsagePanel({
       )}
 
       {overriding && (
-        <OverrideDialog policyId={policyId} row={overriding} onClose={() => setOverriding(null)} />
+        <OverrideDialog
+          policyId={policyId}
+          row={overriding.row}
+          initial={overriding.initial}
+          onClose={() => setOverriding(null)}
+          onNewChannel={onNewOverrideChannel && (() => onNewOverrideChannel(overriding.row))}
+          onOpenChannel={onOpenChannel}
+        />
       )}
 
       {resetting && (
@@ -469,7 +517,7 @@ export function UsagePanel({
           }
           confirmLabel={resetting === "all" ? "Reset them all" : "Reset budget"}
           onConfirm={async () => {
-            // No pair means every pair — which is why the sweep is scoped to what has actually
+            // No pair means every pair - which is why the sweep is scoped to what has actually
             // run out rather than sent as one policy-wide reset: a budget partway through is
             // spending it for a reason, and handing that back is not what was asked for.
             if (resetting === "all")

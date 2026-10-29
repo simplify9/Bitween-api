@@ -1,24 +1,20 @@
 import { test, expect } from "@playwright/test";
-
-const ADMIN_EMAIL = "admin@Bitween.systems";
-const ADMIN_PASSWORD = "Mtm@dmin!2";
+import { signInAsAdmin } from "./helpers";
 
 test("dashboard loads with real aggregated data", async ({ page }) => {
-  await page.goto("login");
-  await page.fill("#login-email", ADMIN_EMAIL);
-  await page.fill("#login-password", ADMIN_PASSWORD);
-  await page.getByRole("button", { name: "Sign in" }).click();
-  await page.waitForURL((url) => !url.pathname.endsWith("/login"), { timeout: 15000 });
+  await signInAsAdmin(page);
 
   await page.goto("dashboard");
   await expect(page.getByRole("heading", { name: "Dashboard" })).toBeVisible({ timeout: 15000 });
-  await expect(page.getByText("Exchanges today")).toBeVisible();
-  await expect(page.getByText("Success rate (7 days)")).toBeVisible();
+  await expect(page.getByText("Exchanges, last 24 hours")).toBeVisible();
+  await expect(page.getByText("Success rate, 7 days")).toBeVisible();
+  await expect(page.getByText("Traffic, last 48 hours")).toBeVisible();
+  await expect(page.getByText("Housekeeping")).toBeVisible();
   await expect(page.getByText("undefined")).toHaveCount(0);
   await expect(page.getByText("NaN")).toHaveCount(0);
 
   // "Failures to act on" counts problems rather than attempts, and has to agree with the list it
-  // opens — a tile whose number changes when you click it is worse than no tile.
+  // opens - a tile whose number changes when you click it is worse than no tile.
   // Anchored: the "Chains that keep failing" panel ends with an "All failures to act on" link,
   // which an unanchored match picks up as well.
   const tile = page.getByRole("link").filter({ hasText: /^Failures to act on/ });
@@ -31,7 +27,7 @@ test("dashboard loads with real aggregated data", async ({ page }) => {
   await expect(page.getByText(`of ${count}`)).toBeVisible({ timeout: 15000 });
 
   // The panel that says which of those failures are not getting better, however often they are
-  // retried — the number on each row is how many attempts that one piece of work has taken.
+  // retried - the number on each row is how many attempts that one piece of work has taken.
   await page.goBack();
   const chains = page.getByText("Chains that keep failing");
   await expect(chains).toBeVisible();

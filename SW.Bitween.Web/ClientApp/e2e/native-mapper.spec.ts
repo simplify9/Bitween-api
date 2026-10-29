@@ -14,12 +14,12 @@ import {
  * The new mapping editor, in a real browser against the real backend.
  *
  * The journeys: build a mapping, save, reload, and find exactly what was built. The
- * old editor could not do that — it saved a generated Scriban template and
+ * old editor could not do that - it saved a generated Scriban template and
  * reverse-engineered the rules back out of it on load, so subtle detail came back
  * changed and nothing said so.
  *
- * The mapping shapes themselves — every source, every transform, every kind of
- * list — are tested below the browser: what the engine makes of them in C#
+ * The mapping shapes themselves - every source, every transform, every kind of
+ * list - are tested below the browser: what the engine makes of them in C#
  * (SW.Bitween.UnitTests/NativeMapper), and the editor's handling of them in
  * src/components/nativeMapper/__tests__.
  */
@@ -51,7 +51,7 @@ test("builds a mapping, previews it, saves it, and reloads exactly what was buil
   await page.getByRole("radio", { name: "Fixed" }).last().click();
   await page.getByRole("textbox", { name: "Fixed value" }).last().fill("WEB");
 
-  // A number target with a transform — the case that proves the arithmetic is done
+  // A number target with a transform - the case that proves the arithmetic is done
   // on the server with the real value rather than baked into a template.
   await addPathRule(page, "total", "order.net");
   await openDetail(page, "total");
@@ -84,7 +84,7 @@ test("builds a mapping, previews it, saves it, and reloads exactly what was buil
 
   // 100 × 1.16. In binary floating point this is 115.99999999999999, which is why
   // the mapper works in decimal. It arrives as 116 rather than 116.00 because a
-  // whole number is written as an integer — an order quantity must not pick up a
+  // whole number is written as an integer - an order quantity must not pick up a
   // decimal point the source never had.
   await expect(preview).toContainText('"total": 116,');
 
@@ -153,7 +153,7 @@ test("choosing the new mapper offers its editor, and the old mapper keeps its ow
   // take the editor away from the one running subscriptions still use.
   //
   // Choosing an option leaves focus on the picker's input, and the list opens on a
-  // focus change — so picking twice from the same picker needs the focus released
+  // focus change - so picking twice from the same picker needs the focus released
   // first. A person never hits this: their next click lands long after focus has
   // settled, and the chevron toggles the list either way.
   await page.getByRole("combobox", { name: "mapper adapter" }).blur();
@@ -165,7 +165,7 @@ test("choosing the new mapper offers its editor, and the old mapper keeps its ow
 test("the editor opens for the mapper you picked, not the one that is saved", async ({ page }) => {
   // The link used to carry only the subscription, so the editor asked the server which
   // mapper it used and got the one being replaced. Choosing a mapper and opening its
-  // editor gave you the other one — in both directions — until you saved first, with
+  // editor gave you the other one - in both directions - until you saved first, with
   // nothing on screen to say why.
   const subscriptionId = await createSubscription(page);
   await writeMapperProperties(subscriptionId, "NativeJSONMapper", { ScribanTemplate: "{}" });
@@ -202,7 +202,7 @@ test("saving over the mapping the other mapper already has asks first", async ({
   await addPathRule(page, "customer", "order.customer");
 
   // Saving here switches the mapper as well as storing the rules, so the template
-  // someone wrote in the other editor goes — and nothing else holds a copy of it.
+  // someone wrote in the other editor goes - and nothing else holds a copy of it.
   await page.getByRole("button", { name: "Save" }).click();
   await expect(page.getByText(/Replace the mapping this subscription already has/)).toBeVisible();
 

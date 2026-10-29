@@ -1,10 +1,10 @@
 import { Plus, Trash2 } from "lucide-react";
 import { Link } from "react-router";
 import type { InformationTypeFormat, MatchCondition, MatchGroup, MatchNode } from "../../api";
-import { useSessionCan } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { formatLabel, readsContent } from "../../lib/informationTypeFormat";
 import { matchSummary } from "../../lib/match";
-import { Button } from "../ui/basics";
+import { Button, ProblemText } from "../ui/basics";
 import { Select } from "../ui/forms";
 
 const emptyCondition = (path: string): MatchCondition => ({ op: "oneOf", path, values: [] });
@@ -51,13 +51,13 @@ function ConditionRow({
         onChange={(e) =>
           onChange({ ...condition, values: e.target.value.split(",").map((v) => v.trim()).filter(Boolean) })
         }
-        className="h-9.5 min-w-40 flex-1 rounded-lg border border-ink-200 bg-white px-3 font-mono text-xs text-ink-900 placeholder:font-sans placeholder:text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none disabled:bg-ink-50"
+        className="h-9.5 min-w-40 flex-1 rounded-lg border border-ink-200 bg-white px-3 font-mono text-xs text-ink-900 placeholder:font-sans placeholder:text-sm placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none disabled:bg-ink-50"
       />
       {!disabled && (
         <button
           onClick={onRemove}
           aria-label="Remove condition"
-          className="rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
+          className="rounded-md p-1.5 text-ink-500 hover:bg-danger-50 hover:text-danger-700"
         >
           <Trash2 className="size-3.5" />
         </button>
@@ -105,7 +105,7 @@ function GroupCard({
           <button
             onClick={onRemove}
             aria-label="Remove group"
-            className="ml-auto rounded-md p-1.5 text-ink-400 hover:bg-danger-50 hover:text-danger-700"
+            className="ml-auto rounded-md p-1.5 text-ink-500 hover:bg-danger-50 hover:text-danger-700"
           >
             <Trash2 className="size-3.5" />
           </button>
@@ -113,7 +113,7 @@ function GroupCard({
       </div>
 
       {group.children.length === 0 && (
-        <p className="text-[13px] text-ink-400">Empty group — matches every message.</p>
+        <p className="text-[13px] text-ink-500">Empty group - matches every message.</p>
       )}
       {group.children.map((child, i) =>
         "path" in child ? (
@@ -180,7 +180,7 @@ export function MatchExpressionEditor({
   properties: { key: string; path: string }[];
   disabled: boolean;
   /**
-   * The type those properties come from. Only used to point at it when it has none —
+   * The type those properties come from. Only used to point at it when it has none -
    * without it the empty state names the fix without offering it.
    */
   informationTypeId?: number | null;
@@ -196,23 +196,25 @@ export function MatchExpressionEditor({
       <div className="space-y-2.5">
         {value === null ? (
           <p className="text-sm text-ink-600">
-            No filter — <strong className="font-medium">every message</strong> is picked up.
+            No filter - <strong className="font-medium">every message</strong> is picked up.
           </p>
         ) : (
           // Left over from before the type was switched: the server skips it on every message.
           <>
-            <p role="alert" className="text-sm text-danger-700">
-              This filter never passes — nothing reads {formatLabel(format)} content, so no message is picked up.
+            <p role="alert">
+              <ProblemText>
+                This filter never passes - nothing reads {formatLabel(format)} content, so no message is picked up.
+              </ProblemText>
             </p>
             <p className="rounded-lg bg-ink-50 px-3 py-2 font-mono text-xs text-ink-600">{matchSummary(value)}</p>
             {!disabled && (
               <Button size="sm" onClick={() => onChange(null)}>
-                Clear filter — match every message
+                Clear filter - match every message
               </Button>
             )}
           </>
         )}
-        <p className="text-[13px] text-ink-400">
+        <p className="text-[13px] text-ink-500">
           Filters can't be used on {formatLabel(format)} information types: Bitween doesn't read their content.
         </p>
       </div>
@@ -223,7 +225,7 @@ export function MatchExpressionEditor({
     return (
       <div className="space-y-2.5">
         <p className="text-sm text-ink-600">
-          No filter — <strong className="font-medium">every message</strong> is picked up.
+          No filter - <strong className="font-medium">every message</strong> is picked up.
         </p>
         {!disabled && (
           <Button
@@ -237,12 +239,12 @@ export function MatchExpressionEditor({
           </Button>
         )}
         {properties.length === 0 && (
-          <p className="text-[13px] text-ink-400">
-            Filters match on promoted properties — this information type has none yet.{" "}
+          <p className="text-[13px] text-ink-500">
+            Filters match on promoted properties - this information type has none yet.{" "}
             {informationTypeId != null && canEditTypes && (
               <Link
                 to={`/information-types/${informationTypeId}`}
-                className="font-medium text-crimson-700 hover:underline"
+                className="font-medium link"
               >
                 Add some
               </Link>
@@ -259,7 +261,7 @@ export function MatchExpressionEditor({
       <GroupCard group={value} properties={properties} disabled={disabled} depth={0} onChange={onChange} />
       {!disabled && (
         <Button size="sm" variant="ghost" onClick={() => onChange(null)}>
-          Clear filter — match every message
+          Clear filter - match every message
         </Button>
       )}
     </div>

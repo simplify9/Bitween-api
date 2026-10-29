@@ -37,9 +37,9 @@ namespace SW.Bitween.Resources.Adapters
                 return _nativeAdapterDiscovery.GetExpectedStartupValues(decodedKey);
             }
             
-            // Handle serverless adapters. The native branch above returns a different shape —
-            // each key's default rather than a "key (default)" label — so it is left as it was.
-            var expected = AdapterStartupValues.WithoutSecretDefaults(await startupValues.Describe(decodedKey));
+            // Handle serverless adapters. The native branch above returns a different shape -
+            // each key's default rather than a "key (default)" label - so it is left as it was.
+            var expected = AdapterStartupValues.WithoutSecretDefaults(await startupValues.DescribeOrNotFound(decodedKey));
 
             return expected
                 .ToList()

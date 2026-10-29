@@ -17,8 +17,8 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// Which integrations run when a document arrives on the bus.
 /// </summary>
 /// <remarks>
-/// <see cref="FilterService"/> is the dispatcher: one message lands, and it decides — from the
-/// payload alone — which integrations are handed it. Everything downstream is a consequence of
+/// <see cref="FilterService"/> is the dispatcher: one message lands, and it decides - from the
+/// payload alone - which integrations are handed it. Everything downstream is a consequence of
 /// what it returns, and until now nothing exercised it. Both directions matter equally here: an
 /// integration that stops being selected goes quiet with no error anywhere, and one that is
 /// selected when it shouldn't be runs real traffic through the wrong pipeline.
@@ -76,7 +76,7 @@ public class GatewayRoutingTests(BitweenFixture fixture)
             db.Set<BusGateway>().Add(gateway);
             await db.SaveChangesAsync();
 
-            // No MatchExpression at all — the "send me everything on this type" route.
+            // No MatchExpression at all - the "send me everything on this type" route.
             db.Set<BusGatewayRoute>().Add(new BusGatewayRoute
             {
                 BusGatewayId = gateway.Id,
@@ -130,7 +130,7 @@ public class GatewayRoutingTests(BitweenFixture fixture)
 
         var result = await Dispatch(docId, "{\"country\":\"JO\",\"channel\":\"web\"}");
 
-        // Selecting is the entire job — a filter that lets everything through is the same bug as
+        // Selecting is the entire job - a filter that lets everything through is the same bug as
         // one that lets nothing through, and only checking both sides catches it.
         Assert.Contains(result.GatewayHits, h => h.SubscriptionId == jordan);
         Assert.DoesNotContain(result.GatewayHits, h => h.SubscriptionId == emirates);
@@ -171,7 +171,7 @@ public class GatewayRoutingTests(BitweenFixture fixture)
 
         // A bus gateway integration has no partner of its own, so this is the only place the
         // partner can come from. Lose it here and every {{partner.…}} in its adapters stays a
-        // literal token — the request goes out to a URL with the placeholder still in it.
+        // literal token - the request goes out to a URL with the placeholder still in it.
         var hit = Assert.Single(result.GatewayHits, h => h.SubscriptionId == integrationId);
         Assert.Equal(partnerId, hit.PartnerId);
     }
@@ -253,7 +253,7 @@ public class GatewayRoutingTests(BitweenFixture fixture)
                 [SubscriptionType.Response] =
                     new("Entry response", docId, SubscriptionType.Response) { Inactive = false },
                 // The control. Without one, every assertion below would also pass if the
-                // subscriptions simply never reached the dispatcher — an empty result looks
+                // subscriptions simply never reached the dispatcher - an empty result looks
                 // identical to a correctly filtered one.
                 [SubscriptionType.Internal] =
                     new("Entry control", docId, SubscriptionType.Internal, partner.Id) { Inactive = false },
@@ -308,7 +308,7 @@ public class GatewayRoutingTests(BitweenFixture fixture)
         var result = await Dispatch(docId, "{\"country\":\"JO\",\"channel\":\"web\"}");
 
         // The counterweight to the test above: reacting to a document of its type arriving is the
-        // whole definition of an Internal integration — it has no other trigger, so a guard that
+        // whole definition of an Internal integration - it has no other trigger, so a guard that
         // over-reaches silences it with nothing to show for it.
         Assert.Contains(matching, result.Hits);
         Assert.DoesNotContain(filteredOut, result.Hits);

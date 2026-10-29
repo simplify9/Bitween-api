@@ -4,7 +4,8 @@ import { Link } from "react-router";
 import { Check, Plus, Trash2 } from "lucide-react";
 import { api, type DataSourceStatement } from "../../api";
 import { keys } from "../../api/queryKeys";
-import { Can, useSessionCan } from "../../auth/guards";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox, Field, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
@@ -14,12 +15,12 @@ import { fetchCapabilities } from "./schema";
 /**
  * The SQL this connection is allowed to run.
  *
- * It lives here, on the data source, rather than as its own page in the sidebar — a statement is
+ * It lives here, on the data source, rather than as its own page in the sidebar - a statement is
  * only ever reached through the connection it runs against, the same reason data sources sit under
  * bus gateways in the nav.
  *
  * But it is NOT gated on the data source's own permission. Writing a query and rotating a database
- * password are different jobs, and `data-sources.edit` is the one that changes credentials — so
+ * password are different jobs, and `data-sources.edit` is the one that changes credentials - so
  * these controls answer to `data-source-statements.*` instead. That separation is the whole reason
  * a statement is a record rather than a field.
  */
@@ -119,7 +120,7 @@ export function Statements({
       {rows.length === 0 ? (
         <p className="px-4 pb-4 text-[13px] text-ink-500">
           None yet. Until one exists, a subscription bound to this connection has nothing it is
-          allowed to run — the adapter refuses SQL sent with a message unless ad-hoc SQL is
+          allowed to run - the adapter refuses SQL sent with a message unless ad-hoc SQL is
           explicitly switched on.
         </p>
       ) : (
@@ -145,7 +146,7 @@ export function Statements({
           confirmLabel="Delete"
           body={
             removing.usageCount > 0
-              ? `${removing.usageCount} subscription(s) name this statement. The server will refuse — mark it inactive instead, to retire it while they are migrated.`
+              ? `${removing.usageCount} subscription(s) name this statement. The server will refuse - mark it inactive instead, to retire it while they are migrated.`
               : "Nothing names this statement, so removing it changes no running integration."
           }
           onClose={() => setRemoving(null)}
@@ -205,7 +206,7 @@ function StatementRow({
           {statement.description && (
             <p className="mt-0.5 text-[13px] text-ink-500">{statement.description}</p>
           )}
-          <code className="mt-1 block truncate text-[12px] text-ink-400">{statement.sql}</code>
+          <code className="mt-1 block truncate text-[12px] text-ink-500">{statement.sql}</code>
         </button>
 
         <Can permission="data-source-statements.delete">
@@ -225,7 +226,7 @@ function StatementRow({
             {usage.isLoading && "Checking what uses this…"}
             {usage.data && usage.data.usedBy.length === 0 && (
               <span>
-                Nothing names it. Safe to change or delete — though a subscription could be added
+                Nothing names it. Safe to change or delete - though a subscription could be added
                 tomorrow, so a name that reads like what it does is still worth having.
               </span>
             )}
@@ -241,7 +242,7 @@ function StatementRow({
                       >
                         {entry.subscriptionName}
                       </Link>{" "}
-                      — {entry.role}, {entry.operation}
+                      - {entry.role}, {entry.operation}
                       {entry.inactive && " (inactive)"}
                     </li>
                   ))}
@@ -312,12 +313,12 @@ function StatementForm({
   // of statements can put it off screen entirely.
   const [error, setError] = useState<string | null>(null);
 
-  // The codebase's existing way of saying a save landed — see the mapping editor. Two seconds,
+  // The codebase's existing way of saying a save landed - see the mapping editor. Two seconds,
   // in place of the button, because a save that changes nothing visible on the form otherwise
   // looks like a button that did nothing.
   const [justSaved, setJustSaved] = useState(false);
 
-  // True when the database never looked at the SQL — the adapter for this connection is not
+  // True when the database never looked at the SQL - the adapter for this connection is not
   // running, so there was nobody to ask. Said out loud because a save that reported nothing would
   // look exactly like one that had been verified, and the next thing to notice would be a failed
   // connection test or a failed message.
@@ -348,7 +349,7 @@ function StatementForm({
     onSuccess: (saved) => {
       setError(null);
       setUnchecked(!saved.checked);
-      // Only for an edit. A create closes the form on success, which says it landed by itself —
+      // Only for an edit. A create closes the form on success, which says it landed by itself -
       // and a "Saved" flash on a form that is disappearing is a flicker, not a message.
       if (statement) {
         setJustSaved(true);
@@ -357,7 +358,7 @@ function StatementForm({
       onSaved();
     },
     // Not raised to the panel as well: one message in two places reads as two problems, and
-    // the panel header is where a DELETE failure belongs — that one has no form to sit under.
+    // the panel header is where a DELETE failure belongs - that one has no form to sit under.
     onError: (e: Error) => setError(e.message),
   });
 
@@ -367,7 +368,7 @@ function StatementForm({
     <div className="space-y-3 rounded-lg border border-ink-200 bg-ink-50/50 p-3">
       <Field
         label="Name"
-        hint="What a subscription names to run it — its Statement property, or ReceiveStatement for one that polls. Unique per connection, and matched without regard to case."
+        hint="What a subscription names to run it - its Statement property, or ReceiveStatement for one that polls. Unique per connection, and matched without regard to case."
       >
         <TextInput value={name} onChange={(e) => setName(e.target.value)} />
       </Field>
@@ -375,7 +376,7 @@ function StatementForm({
       <Field
         label="SQL"
         hint={
-          `Bind values as parameters — ${prefix}name on this connection. Never concatenate a value `
+          `Bind values as parameters - ${prefix}name on this connection. Never concatenate a value `
           + `into the text.`
         }
       >
@@ -416,7 +417,7 @@ function StatementForm({
 
         <Field
           label="Cursor column"
-          hint="Which column the receiver follows — the incrementing id, or the modified-at timestamp. Its value in the last row read is what gets saved. Not needed for bulk or marker."
+          hint="Which column the receiver follows - the incrementing id, or the modified-at timestamp. Its value in the last row read is what gets saved. Not needed for bulk or marker."
         >
           <TextInput
             value={cursorColumn}
@@ -460,7 +461,7 @@ function StatementForm({
       {unchecked && !error && (
         <p className="text-[12px] text-warn-700">
           Saved, but not checked. This connection is not running here, so the database never saw
-          this SQL — run a connection test once it is up.
+          this SQL - run a connection test once it is up.
         </p>
       )}
 

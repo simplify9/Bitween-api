@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 ﻿using System;
 using Microsoft.EntityFrameworkCore;
 using SW.EfCoreExtensions;
@@ -15,13 +16,15 @@ using SW.Bitween.JsonConverters;
 namespace SW.Bitween
 {
     public class BitweenDbContext(DbContextOptions options, RequestContext requestContext,
-        IPublish publish) : DbContext(options)
+        IPublish publish, IInfolinkCache cache = null, OutboxAcknowledger outboxAcknowledger = null) : DbContext(options)
     {
         private readonly RequestContext requestContext = requestContext;
         private readonly IPublish publish = publish;
+        private readonly IInfolinkCache cache = cache;
+        private readonly OutboxAcknowledger outboxAcknowledger = outboxAcknowledger;
 
         // Parsed as Unspecified kind, so the .ToUniversalTime() calls at every use site below used
-        // to convert using whatever timezone the current machine happened to be in — deterministic
+        // to convert using whatever timezone the current machine happened to be in - deterministic
         // on any one developer's machine, but different on every other machine/CI runner, which
         // permanently disagreed with whichever machine last regenerated the migration snapshot.
         protected readonly DateTime defaultCreatedOn = DateTime.SpecifyKind(DateTime.Parse("1/1/2022"), DateTimeKind.Utc);
@@ -31,6 +34,19 @@ namespace SW.Bitween
             "$SWHASH$V1$10000$VQCi48eitH4Ml5juvBMOFZrMdQwBbhuIQVXe6RR7qJdDF2bJ";
 
         public const string ConnectionString = "BitweenDb";
+
+        /// <summary>What this unit of work's exchanges hand to its save; see <see cref="XchangeHandoff"/>.</summary>
+        internal XchangeHandoff Handoff { get; } = new();
+
+        /// <summary>
+        /// Every provider's context counts its commands against the exchange stage running, so the
+        /// round trips an exchange costs are measured rather than estimated (see DbCommandTally).
+        /// </summary>
+        protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+        {
+            base.OnConfiguring(optionsBuilder);
+            optionsBuilder.AddInterceptors(Services.Metrics.DbCommandCounter.Instance);
+        }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -130,7 +146,7 @@ namespace SW.Bitween
                 ds.Property(p => p.Name).IsRequired().HasMaxLength(200);
                 ds.Property(p => p.AdapterId).IsRequired().HasMaxLength(200).IsUnicode(false);
                 ds.Property(p => p.Kind).HasConversion<int>();
-                ds.Property(p => p.Properties).StoreAsJson();
+                ds.Property(p => p.Properties).StoreAsJson().Encrypted();
                 ds.Property(p => p.SecretProperties).StoreAsJson();
                 ds.Property(p => p.LastKnownState).HasMaxLength(100).IsUnicode(false);
                 ds.Property(p => p.OwnedByNode).HasMaxLength(200).IsUnicode(false);
@@ -146,7 +162,7 @@ namespace SW.Bitween
                 st.Property(p => p.Sql).IsRequired();
                 st.Property(p => p.Description).HasMaxLength(1000);
 
-                // Column names, so the database's own identifier limit is the ceiling — 128 is
+                // Column names, so the database's own identifier limit is the ceiling - 128 is
                 // above every engine's (Oracle allows 128, PostgreSQL 63).
                 st.Property(p => p.CursorColumn).HasMaxLength(128).IsUnicode(false);
                 st.Property(p => p.KeyColumn).HasMaxLength(128).IsUnicode(false);
@@ -180,7 +196,7 @@ namespace SW.Bitween
 
             // Declared here rather than only in the PgSql context: leader election needs this table
             // on every provider Bitween supports, and a node whose database has no cluster_lease
-            // cannot fence anything — which means two nodes can consume one queue, silently.
+            // cannot fence anything - which means two nodes can consume one queue, silently.
             modelBuilder.Entity<Domain.Cluster.ClusterLease>(cl =>
             {
                 cl.ToTable("ClusterLeases");
@@ -194,7 +210,7 @@ namespace SW.Bitween
                 im.ToTable("InboundMessages");
 
                 // The dedupe key IS the key. A unique constraint the database enforces is the
-                // whole mechanism — see the type's remarks.
+                // whole mechanism - see the type's remarks.
                 im.HasKey(i => i.Id);
                 im.Property(i => i.Id).HasMaxLength(400).IsUnicode(false);
                 im.Property(i => i.XchangeId).HasMaxLength(50).IsUnicode(false);
@@ -225,7 +241,7 @@ namespace SW.Bitween
                 gav.ToTable("GlobalAdapterValuesSets");
                 gav.HasKey(i => i.Id);
                 gav.Property(p => p.Id).IsUnicode(false).HasMaxLength(200);
-                gav.Property(p => p.Values).StoreAsJson();
+                gav.Property(p => p.Values).StoreAsJson().Encrypted();
                 gav.Property(p => p.SecretProperties).StoreAsJson();
             });
             modelBuilder.Entity<Partner>(b =>
@@ -233,7 +249,7 @@ namespace SW.Bitween
                 b.ToTable("Partners");
                 b.Metadata.SetNavigationAccessMode(PropertyAccessMode.Field);
                 b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
-                b.Property(p => p.AdapterProperties).StoreAsJson();
+                b.Property(p => p.AdapterProperties).StoreAsJson().Encrypted();
                 b.Property(p => p.SecretProperties).StoreAsJson();
                 b.Property(p => p.LoginIdentity).HasMaxLength(500);
                 b.HasIndex(p => p.LoginIdentity).IsUnique();
@@ -244,6 +260,7 @@ namespace SW.Bitween
                     apicred.ToTable("PartnerApiCredentials");
                     apicred.Property(p => p.Name).IsRequired().HasMaxLength(500);
                     apicred.Property(p => p.Key).IsRequired().IsUnicode(false).HasMaxLength(500);
+                    apicred.Property(p => p.KeyPrefix).HasMaxLength(10);
                     apicred.HasIndex(p => p.Key).IsUnique();
                     apicred.WithOwner().HasForeignKey("PartnerId");
 
@@ -276,16 +293,21 @@ namespace SW.Bitween
                     schedules.Property(p => p.Recurrence).HasConversion<byte>();
                 });
 
-                b.Property(p => p.HandlerProperties).StoreAsJson();
-                b.Property(p => p.MapperProperties).StoreAsJson();
-                b.Property(p => p.ReceiverProperties).StoreAsJson();
-                b.Property(p => p.ValidatorProperties).StoreAsJson();
+                b.Property(p => p.HandlerProperties).StoreAsJson().Encrypted();
+                b.Property(p => p.MapperProperties).StoreAsJson().Encrypted();
+                b.Property(p => p.ReceiverProperties).StoreAsJson().Encrypted();
+                b.Property(p => p.ValidatorProperties).StoreAsJson().Encrypted();
                 b.Property(p => p.DocumentFilter).StoreAsJson();
 
                 b.Property(p => p.ResponseMessageTypeName).IsUnicode(false).HasMaxLength(500);
 
                 b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
+                // Pinned versions, null to follow whatever is current. See SubscriptionConfiguration.HandlerVersion.
+                b.Property(p => p.ReceiverVersion).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.ValidatorVersion).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.MapperVersion).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.HandlerVersion).HasMaxLength(50).IsUnicode(false);
                 b.Property(p => p.ReceiverId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.ValidatorId).HasMaxLength(200).IsUnicode(false);
 
@@ -306,6 +328,8 @@ namespace SW.Bitween
                 b.HasOne(i => i.RetryPolicy).WithMany().HasForeignKey(i => i.RetryPolicyId).IsRequired(false)
                     .OnDelete(DeleteBehavior.SetNull);
                 b.Property(p => p.CustomRetryPolicy).StoreAsJson();
+                b.Property(p => p.ExpectTraffic).StoreAsJson();
+                b.Property(p => p.Notifications).StoreAsJson();
                 b.Property(p => p.MatchExpression).HasMatchExpressionConversion();
             });
 
@@ -317,7 +341,7 @@ namespace SW.Bitween
                 b.Property(p => p.Name).IsRequired().HasMaxLength(200);
                 b.Property(p => p.Groups).StoreAsJson();
                 b.Property(p => p.AlertHandlerId).HasMaxLength(200).IsUnicode(false);
-                b.Property(p => p.AlertHandlerProperties).StoreAsJson();
+                b.Property(p => p.AlertHandlerProperties).StoreAsJson().Encrypted();
             });
 
             modelBuilder.Entity<DelayedRetry>(b =>
@@ -327,6 +351,152 @@ namespace SW.Bitween
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.On);
                 b.HasIndex(p => p.On);
+            });
+
+            modelBuilder.Entity<IdempotencyKey>(b =>
+            {
+                b.ToTable("IdempotencyKeys");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Scope).IsRequired().HasMaxLength(200);
+                b.Property(p => p.Key).IsRequired().HasMaxLength(200);
+                b.Property(p => p.XchangeId).IsRequired().IsUnicode(false).HasMaxLength(50);
+                b.HasIndex(p => new { p.Scope, p.Key }).IsUnique();
+                b.HasIndex(p => p.CreatedOn);
+            });
+
+            modelBuilder.Entity<OutboxMessage>(b =>
+            {
+                b.ToTable("OutboxMessages");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.MessageType).IsRequired().HasMaxLength(500);
+                b.Property(p => p.Body).IsRequired();
+                b.Property(p => p.Headers).StoreAsJson();
+                b.Property(p => p.LastError).HasMaxLength(2000);
+                // The dispatcher's index on unpublished rows differs by provider: see the SQL Server
+                // and MySQL contexts.
+            });
+
+            modelBuilder.Entity<OperatorAction>(b =>
+            {
+                b.ToTable("OperatorActions");
+                b.HasKey(a => a.Id);
+                b.Property(a => a.Id).ValueGeneratedOnAdd();
+                b.Property(a => a.Action).HasMaxLength(50).IsRequired();
+                b.Property(a => a.Target).HasMaxLength(500);
+                b.Property(a => a.Detail).HasMaxLength(2000);
+                b.Property(a => a.AccountId).HasMaxLength(50);
+                b.HasIndex(a => a.OccurredOn);
+            });
+
+            modelBuilder.Entity<ApiKeyUse>(b =>
+            {
+                b.ToTable("ApiKeyUses");
+                b.HasKey(u => new { u.PartnerId, u.KeyName });
+                b.Property(u => u.KeyName).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<Domain.Cluster.ClusterNode>(b =>
+            {
+                b.ToTable("ClusterNodes");
+                b.Property(p => p.Id).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.Host).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.Version).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.Runtimes).HasMaxLength(100).IsUnicode(false);
+                b.Property(p => p.ResidentHealth).HasMaxLength(4000);
+                b.HasIndex(p => p.LastSeenOn);
+            });
+
+            // Metrics: hourly rollups each node adds to once a minute, and broker snapshots. Keys lead
+            // with the hour, so reading a time range and pruning old hours both use the key itself.
+            modelBuilder.Entity<Domain.Metrics.ExchangeStats>(b =>
+            {
+                b.ToTable("ExchangeStats");
+                b.HasKey(p => new { p.Hour, p.Node, p.SubscriptionId, p.PartnerId });
+                b.Property(p => p.Node).HasMaxLength(100).IsUnicode(false);
+            });
+
+            modelBuilder.Entity<Domain.Metrics.AdapterStats>(b =>
+            {
+                b.ToTable("AdapterStats");
+                b.HasKey(p => new { p.Hour, p.Node, p.AdapterId, p.Version, p.Role, p.Runtime });
+                b.Property(p => p.Node).HasMaxLength(100).IsUnicode(false);
+                b.Property(p => p.AdapterId).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.Version).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.Role).HasMaxLength(20).IsUnicode(false);
+                b.Property(p => p.Runtime).HasMaxLength(20).IsUnicode(false);
+            });
+
+            modelBuilder.Entity<Domain.Metrics.ErrorStats>(b =>
+            {
+                b.ToTable("ErrorStats");
+                b.HasKey(p => new { p.Hour, p.Node, p.Scope, p.ScopeKey, p.Fingerprint });
+                b.Property(p => p.Node).HasMaxLength(100).IsUnicode(false);
+                b.Property(p => p.Scope).HasMaxLength(20).IsUnicode(false);
+                b.Property(p => p.ScopeKey).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.Fingerprint).HasMaxLength(16).IsUnicode(false);
+                b.Property(p => p.Sample).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<Domain.Metrics.QueueSnapshot>(b =>
+            {
+                b.ToTable("QueueSnapshots");
+                b.HasKey(p => p.At);
+            });
+
+            modelBuilder.Entity<AdapterDraft>(b =>
+            {
+                b.ToTable("AdapterDrafts");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.AdapterId).HasMaxLength(200).IsUnicode(false).IsRequired();
+                b.Property(p => p.Language).HasMaxLength(20).IsUnicode(false).IsRequired();
+                b.Property(p => p.Kind).HasMaxLength(20).IsUnicode(false);
+                b.Property(p => p.BaseVersion).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.FilesJson).IsRequired();
+                b.Property(p => p.FilesHash).HasMaxLength(64).IsUnicode(false).IsRequired();
+                b.Property(p => p.CreatedBy).HasMaxLength(200);
+                b.Property(p => p.ModifiedBy).HasMaxLength(200);
+                b.HasIndex(p => p.AdapterId);
+            });
+
+            modelBuilder.Entity<AdapterRelease>(b =>
+            {
+                b.ToTable("AdapterReleases");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.AdapterId).HasMaxLength(200).IsUnicode(false).IsRequired();
+                b.Property(p => p.Version).HasMaxLength(50).IsUnicode(false).IsRequired();
+                b.Property(p => p.Action).HasMaxLength(20).IsUnicode(false).IsRequired();
+                b.Property(p => p.AccountId).HasMaxLength(100).IsUnicode(false);
+                b.HasIndex(p => new { p.AdapterId, p.OccurredOn });
+            });
+
+            modelBuilder.Entity<AdapterSourceAccess>(b =>
+            {
+                b.ToTable("AdapterSourceAccesses");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.AdapterId).HasMaxLength(200).IsUnicode(false).IsRequired();
+                b.Property(p => p.Version).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.Path).HasMaxLength(500);
+                b.Property(p => p.AccountId).HasMaxLength(100).IsUnicode(false);
+                b.HasIndex(p => new { p.AdapterId, p.OccurredOn });
+            });
+
+            modelBuilder.Entity<SubscriptionRevision>(b =>
+            {
+                b.ToTable("SubscriptionRevisions");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Snapshot).IsRequired();
+                b.Property(p => p.SavedBy).HasMaxLength(200);
+                b.HasIndex(p => new { p.SubscriptionId, p.Number }).IsUnique();
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.SubscriptionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<DuplicateArrival>(b =>
+            {
+                b.ToTable("DuplicateArrivals");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.OriginalXchangeId).IsUnicode(false).HasMaxLength(50).IsRequired();
+                b.HasIndex(p => new { p.DocumentId, p.OccurredOn });
             });
 
             modelBuilder.Entity<ReceiveAttempt>(b =>
@@ -353,7 +523,7 @@ namespace SW.Bitween
                 b.HasKey(p => new { p.SubscriptionId, p.GroupId });
                 b.Property(p => p.AlertMode).HasConversion<byte>();
                 b.Property(p => p.AlertHandlerId).HasMaxLength(200).IsUnicode(false);
-                b.Property(p => p.AlertHandlerProperties).StoreAsJson();
+                b.Property(p => p.AlertHandlerProperties).StoreAsJson().Encrypted();
             });
 
             modelBuilder.Entity<Xchange>(b =>
@@ -366,8 +536,8 @@ namespace SW.Bitween
                 b.Property(p => p.InputName).HasMaxLength(200);
                 b.Property(p => p.MapperId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
-                b.Property(p => p.HandlerProperties).StoreAsJson();
-                b.Property(p => p.MapperProperties).StoreAsJson();
+                b.Property(p => p.HandlerProperties).StoreAsJson().Encrypted();
+                b.Property(p => p.MapperProperties).StoreAsJson().Encrypted();
                 b.Property(p => p.SourceValues).StoreAsJson();
                 b.Property(p => p.SourceXchangeId).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.InputContentType).IsUnicode(false).HasMaxLength(200);
@@ -404,10 +574,15 @@ namespace SW.Bitween
                 b.Property(p => p.ResponseContentType).IsUnicode(false).HasMaxLength(200);
                 b.Property(p => p.OutputContentType).IsUnicode(false).HasMaxLength(200);
                 b.Property(p => p.RetryBlockedReason).HasMaxLength(500);
+                b.Property(p => p.Warning).HasMaxLength(XchangeResult.WarningMaxLength);
                 b.Property(p => p.RetryGroupId);
                 b.Property(p => p.AttemptNumber);
                 b.HasIndex(p => p.RetryGroupId);
-
+                b.Property(p => p.NodeName).HasMaxLength(100).IsUnicode(false);
+                b.Property(p => p.MapperVersion).HasMaxLength(50).IsUnicode(false);
+                b.Property(p => p.HandlerVersion).HasMaxLength(50).IsUnicode(false);
+                // A subscription's latest result: what auto-pause counts from.
+                b.HasIndex(p => new { p.SubscriptionId, p.FinishedOn });
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });
@@ -419,14 +594,18 @@ namespace SW.Bitween
                 b.Property(p => p.XchangeId).IsUnicode(false).HasMaxLength(50);
                 // Retention deletes an exchange's notifications by exchange id.
                 b.HasIndex(p => p.XchangeId);
+                // The quiet window looks up a notifier's recent sends.
+                b.HasIndex(p => new { p.NotifierId, p.FinishedOn });
+                // And a channel's.
+                b.HasIndex(p => new { p.ChannelId, p.FinishedOn });
             });
 
-            modelBuilder.Entity<XchangeDelivery>(b =>
+            modelBuilder.Entity<XchangeRetryClaim>(b =>
             {
-                b.ToTable("XchangeDeliveries");
+                b.ToTable("XchangeRetryClaims");
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
-                b.HasIndex(i => i.DeliveredOn);
-                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeDelivery>(p => p.Id)
+                b.Property(p => p.RetryXchangeId).IsUnicode(false).HasMaxLength(50).IsRequired();
+                b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeRetryClaim>(p => p.Id)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
@@ -454,11 +633,34 @@ namespace SW.Bitween
                 // No b-tree on PropertiesRaw. The only query on it is the Exchanges page's substring
                 // search, a leading-wildcard LIKE no b-tree can serve (Postgres has a trigram index
                 // for it, PromotedPropertiesTrigramIndex). Having one made long values fail the
-                // save — after the delivery, so the retry delivered again — and it is what had
+                // save - after the delivery, so the retry delivered again - and it is what had
                 // capped the column at 450 characters on SQL Server and 255 on MySQL.
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangePromotedProperties>(p => p.Id)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<Domain.Connections.Connection>(c =>
+            {
+                c.ToTable("Connections");
+                c.Property(p => p.Id).ValueGeneratedOnAdd();
+                c.Property(p => p.Name).IsRequired().HasMaxLength(100).IsUnicode(false);
+                c.HasIndex(p => p.Name).IsUnique();
+                c.Property(p => p.Grant).HasConversion<int>();
+                c.Property(p => p.Status).HasConversion<int>();
+                c.Property(p => p.AuthorizeUrl).HasMaxLength(1000);
+                c.Property(p => p.TokenUrl).HasMaxLength(1000);
+                c.Property(p => p.ClientId).HasMaxLength(500);
+                c.Property(p => p.ClientSecret).EncryptedText();
+                c.Property(p => p.Scopes).HasMaxLength(2000);
+                c.Property(p => p.AuthorizeParameters).HasMaxLength(2000);
+                c.Property(p => p.TokenAuth).HasMaxLength(20).IsUnicode(false);
+                c.Property(p => p.Username).HasMaxLength(500);
+                c.Property(p => p.Password).EncryptedText();
+                c.Property(p => p.RefreshToken).EncryptedText();
+                c.Property(p => p.AccessToken).EncryptedText();
+                c.Property(p => p.LastError).HasMaxLength(2000);
+                c.Property(p => p.AuthorizedBy).HasMaxLength(200);
             });
 
             modelBuilder.Entity<Notifier>(b =>
@@ -466,9 +668,19 @@ namespace SW.Bitween
                 b.ToTable("Notifiers");
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
                 b.Property(p => p.Name).HasMaxLength(100).IsRequired();
-                b.Property(p => p.HandlerProperties).StoreAsJson();
+                b.Property(p => p.HandlerProperties).StoreAsJson().Encrypted();
                 b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false);
                 b.Property(p => p.RunOnSubscriptions).IsSeparatorDelimited();
+            });
+
+            modelBuilder.Entity<NotificationChannel>(b =>
+            {
+                b.ToTable("NotificationChannels");
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Property(p => p.Name).HasMaxLength(100).IsRequired();
+                b.HasIndex(p => p.Name).IsUnique();
+                b.Property(p => p.HandlerId).HasMaxLength(200).IsUnicode(false).IsRequired();
+                b.Property(p => p.HandlerProperties).StoreAsJson().Encrypted();
             });
 
             modelBuilder.Entity<Account>(b =>
@@ -484,6 +696,8 @@ namespace SW.Bitween
 
                 b.Property(p => p.EmailProvider).HasConversion<byte>();
                 b.Property(p => p.LoginMethods).HasConversion<byte>();
+                // Added with service accounts; every account before them is a person (0).
+                b.Property(p => p.Kind).HasConversion<byte>();
 
                 b.HasData(
                     new
@@ -498,6 +712,7 @@ namespace SW.Bitween
                         Password = defaultPasswordHash,
                         Deleted = false,
                         Role = AccountRole.Admin,
+                        Kind = AccountKind.Person,
                         FailedLoginCount = 0,
                         // True for a fresh installation, whose password is the published default.
                         // Installations that already exist are handled by the migration, which
@@ -515,6 +730,36 @@ namespace SW.Bitween
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.AccountId);
                 b.Property(p => p.LoginMethod).HasConversion<byte>();
+            });
+
+            modelBuilder.Entity<ServiceToken>(b =>
+            {
+                b.ToTable("ServiceTokens");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasOne<Account>().WithMany().HasForeignKey(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
+
+                b.Property(p => p.Name).IsRequired().HasMaxLength(100);
+                b.Property(p => p.Hash).IsRequired().IsUnicode(false).HasMaxLength(64);
+                b.Property(p => p.Shown).IsRequired().IsUnicode(false).HasMaxLength(20);
+                b.Property(p => p.RevokedBy).HasMaxLength(200);
+                b.Property(p => p.LastUsedFrom).IsUnicode(false).HasMaxLength(64);
+                // Every sign-in looks a token up by its hash.
+                b.HasIndex(p => p.Hash).IsUnique();
+            });
+
+            modelBuilder.Entity<AccountLink>(b =>
+            {
+                b.ToTable("AccountLinks");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasOne<Account>().WithMany().HasForeignKey(p => p.AccountId).OnDelete(DeleteBehavior.Cascade);
+
+                b.Property(p => p.Purpose).HasConversion<byte>();
+                b.Property(p => p.Hash).IsRequired().IsUnicode(false).HasMaxLength(64);
+                b.Property(p => p.EmailError).HasMaxLength(500);
+                // A link is looked up by its hash when it is opened.
+                b.HasIndex(p => p.Hash).IsUnique();
             });
 
             modelBuilder.Entity<Role>(b =>
@@ -548,7 +793,7 @@ namespace SW.Bitween
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(200);
             });
 
-            // ——— Audit trail ———
+            // --- Audit trail ---
             // A table that only ever grows and is only ever appended to. The indexes answer the two
             // questions asked of it: the history of one row, and everything one save changed.
             modelBuilder.Entity<AuditEntry>(b =>
@@ -571,8 +816,8 @@ namespace SW.Bitween
         }
 
         /// <summary>
-        /// The built-in roles. Their grants aren't stored — <see cref="Role.GetEffectivePermissions"/>
-        /// derives them from the catalog — so adding a permission never needs a data fix-up here.
+        /// The built-in roles. Their grants aren't stored - <see cref="Role.GetEffectivePermissions"/>
+        /// derives them from the catalog - so adding a permission never needs a data fix-up here.
         /// </summary>
         protected Role[] SystemRoleSeed() =>
         [
@@ -589,30 +834,57 @@ namespace SW.Bitween
 
         /// <summary>
         /// Refused, because it would save without auditing. Only <see cref="SaveChangesAsync"/>
-        /// captures the trail, and an audit table with a silent hole in it is worse than none —
+        /// captures the trail, and an audit table with a silent hole in it is worse than none -
         /// nobody would know which changes it had missed. Nothing in Bitween calls this today;
         /// this makes sure a future caller finds out immediately rather than quietly.
         /// </summary>
         public override int SaveChanges() => throw new NotSupportedException(
-            "Use SaveChangesAsync — the synchronous path would skip the audit trail.");
+            "Use SaveChangesAsync - the synchronous path would skip the audit trail.");
 
         /// <summary>
         /// Saves, and records what was saved. The audit rows are written inside the same transaction
-        /// as the change they describe, so the trail can never disagree with the data — a save that
+        /// as the change they describe, so the trail can never disagree with the data - a save that
         /// rolls back takes its audit rows with it.
         /// </summary>
         /// <remarks>
-        /// The transaction is opened only when there is something to audit. Runtime traffic — every
-        /// xchange, result and receive attempt — is excluded by <see cref="AuditPolicy"/> and so
+        /// The transaction is opened only when there is something to audit. Runtime traffic - every
+        /// xchange, result and receive attempt - is excluded by <see cref="AuditPolicy"/> and so
         /// still saves in exactly one round trip, unchanged. When a caller has already opened a
         /// transaction of its own, that one is used rather than nested.
         /// </remarks>
         async public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         {
+            // Exchange files written beside the work rather than before it: none of the rows that
+            // name them is saved until storage has them all. A write that failed fails the save.
+            await Handoff.WrittenAsync();
+
             var userId = requestContext.GetNameIdentifier();
             ChangeTracker.ApplyAuditValues(userId);
 
             var pendingAudit = ChangeTracker.CapturePendingAuditDiffs(userId, AuditPolicy.Options);
+
+            // Domain events go into the outbox in the same save as the change that raised them, so
+            // one can no longer be committed without the other. They are taken off the entities
+            // only once the save has succeeded; a save that fails leaves them where they were.
+            var raised = ChangeTracker.Entries<IGeneratesDomainEvents>()
+                .Select(e => e.Entity)
+                .Where(e => e.Events.Any())
+                .ToArray();
+            var fromEvents = raised
+                .SelectMany(entity => entity.Events)
+                .Select(domainEvent => Handoff.Announcing(domainEvent, ToOutboxMessage(domainEvent)))
+                .ToList();
+            foreach (var message in fromEvents) Add(message);
+
+            var revokesCache = cache != null && ChangeTracker.Entries().Any(e =>
+                e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted &&
+                e.Entity is Partner or ApiCredential or ApiGateway or ApiGatewayPartner or RetryPolicy);
+
+            // Plus any a caller queued itself, such as a delivery's response.
+            var outgoing = ChangeTracker.Entries<OutboxMessage>()
+                .Where(e => e.State == EntityState.Added)
+                .Select(e => e.Entity)
+                .ToList();
 
             var transaction = pendingAudit.Count > 0 && Database.CurrentTransaction is null
                 ? await Database.BeginTransactionAsync(cancellationToken)
@@ -631,39 +903,120 @@ namespace SW.Bitween
                         Add(new AuditEntry(diff));
 
                     // base, deliberately: re-entering this override would audit the audit rows and
-                    // publish every domain event a second time.
+                    // write every domain event to the outbox a second time.
                     await base.SaveChangesAsync(cancellationToken);
                 }
 
                 if (transaction is not null) await transaction.CommitAsync(cancellationToken);
+            }
+            catch
+            {
+                // Not saved, so not to be published - and not left tracked, or the next save
+                // would insert them alongside a second copy made from the same events.
+                foreach (var message in outgoing) Entry(message).State = EntityState.Detached;
+                throw;
             }
             finally
             {
                 if (transaction is not null) await transaction.DisposeAsync();
             }
 
-            // Published after the commit. An event announcing a change that then rolled back would
-            // send every consumer after a row that never existed.
-            //await ChangeTracker.PublishDomainEvents(publish);
-            var entitiesWithEvents = ChangeTracker.Entries<IGeneratesDomainEvents>()
-                .Select(e => e.Entity)
-                .Where(e => e.Events.Any())
-                .ToArray();
+            foreach (var entity in raised) entity.Events.Clear();
 
-            foreach (var entity in entitiesWithEvents)
+            if (revokesCache)
             {
-                var events = entity.Events.ToArray();
-                entity.Events.Clear();
-                foreach (var domainEvent in events)
-                    if (domainEvent is IHasWorkGroup hasWorkGroup)
-                        await publish.Publish(hasWorkGroup.GetBusMessageName(),
-                            JsonConvert.SerializeObject(new XchangeMessage { Id = hasWorkGroup.Id }));
-                    else
-                        await publish.Publish(domainEvent.GetType().Name, JsonConvert.SerializeObject(domainEvent));
+                // Gateway calls and exchanges read these from the cache. Revoked here rather than by
+                // each handler, so no writer can forget: a key removed must stop opening the gateway.
+                // This instance at once, the others through the broadcast.
+                cache.Revoke();
+                await cache.BroadcastRevoke();
             }
 
+            // Published straight after the commit, as before; the outbox is for when that fails.
+            // Inside a caller's transaction nothing is committed yet - announcing a row that may
+            // still roll back would send every consumer after a row that never existed - so those
+            // wait for the dispatcher.
+            if (outgoing.Count > 0 && Database.CurrentTransaction is null)
+                await PublishOutboxAsync(outgoing, cancellationToken);
 
             return affectedRecords;
+        }
+
+        /// <summary>
+        /// Saves without an audit entry or an outbox message - for rewriting stored values in a new
+        /// form, which changes nothing a person did. Only <see cref="SecretColumnEncryptionPass"/>
+        /// should need it.
+        /// </summary>
+        internal Task<int> SaveRewrittenValuesAsync(CancellationToken cancellationToken) =>
+            base.SaveChangesAsync(cancellationToken);
+
+        private static OutboxMessage ToOutboxMessage(object domainEvent) =>
+            domainEvent is IHasWorkGroup hasWorkGroup
+                ? new OutboxMessage(hasWorkGroup.GetBusMessageName(),
+                    JsonConvert.SerializeObject(new XchangeMessage { Id = hasWorkGroup.Id }))
+                : new OutboxMessage(domainEvent.GetType().Name, JsonConvert.SerializeObject(domainEvent));
+
+        /// <summary>
+        /// Publishes saved outbox rows and deletes those the broker took, through
+        /// <see cref="OutboxAcknowledger"/>, off this caller's path. One that fails stays unpublished,
+        /// with the error on it, for <see cref="OutboxDispatcher"/>. Never throws: the change is
+        /// committed, and failing the caller now would only make it try the change a second time.
+        /// </summary>
+        /// <returns>How many the broker took.</returns>
+        internal async Task<int> PublishOutboxAsync(IReadOnlyCollection<OutboxMessage> messages,
+            CancellationToken cancellationToken = default)
+        {
+            using var stage = BitweenTelemetry.Stage("publish");
+            var published = new List<long>();
+            foreach (var message in messages)
+            {
+                try
+                {
+                    // Bitween's bus publisher takes values as well; anything that only publishes
+                    // (a test double) gets the message without them.
+                    // A created message goes with what its exchange handed over, such as the input;
+                    // the stored row, and so a later publish of it, is the id alone.
+                    var body = Handoff.BodyToPublish(message) ?? message.Body;
+                    if (message.Headers is { Count: > 0 } && publish is SW.Bus.RabbitMqExtensions.IPublishWithValues withValues)
+                        await withValues.Publish(message.MessageType, body, message.Headers);
+                    else
+                        await publish.Publish(message.MessageType, body);
+                    published.Add(message.Id);
+                }
+                catch (Exception ex)
+                {
+                    var error = ex.Message.Length > 2000 ? ex.Message[..2000] : ex.Message;
+                    try
+                    {
+                        await Set<OutboxMessage>().Where(m => m.Id == message.Id)
+                            .ExecuteUpdateAsync(u => u
+                                .SetProperty(m => m.Attempts, m => m.Attempts + 1)
+                                .SetProperty(m => m.LastError, error), CancellationToken.None);
+                    }
+                    catch
+                    {
+                        // The dispatcher finds it either way; the error text is only a courtesy.
+                    }
+                }
+            }
+
+            if (published.Count == 0) return 0;
+
+            // Deleted rather than marked, and in a batch a second later rather than here: marking
+            // was a round trip per save on every exchange, and a day of dead rows.
+            if (outboxAcknowledger?.Acknowledge(published) == true) return published.Count;
+
+            try
+            {
+                await OutboxAcknowledger.DeleteAsync(this, published, CancellationToken.None);
+            }
+            catch
+            {
+                // Published but not deleted: the dispatcher will publish them again. Consumers take a
+                // repeat - Process checks for an existing result before doing anything.
+            }
+
+            return published.Count;
         }
     }
 }

@@ -15,7 +15,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// </summary>
 /// <remarks>
 /// Two properties are load-bearing and neither is obvious from reading a handler. First, the
-/// built-in roles don't store their grants — <c>Role.SystemPermissions</c> derives them at runtime,
+/// built-in roles don't store their grants - <c>Role.SystemPermissions</c> derives them at runtime,
 /// so a Viewer's exact reach is a computed thing that could quietly change. Second, permissions are
 /// resolved from the database on every call instead of being carried in the token, which is the
 /// only reason revoking a role can take effect before the token expires. That second one is a
@@ -105,7 +105,7 @@ public class PermissionGuardTests(BitweenFixture fixture)
 
         await ctx.EnsurePermission(db, Permissions.Subscriptions.Create);
 
-        // Same RequestContext, same claims — only the database changed. If grants were baked into
+        // Same RequestContext, same claims - only the database changed. If grants were baked into
         // the token this would keep passing until it expired.
         var link = db.Set<AccountRoleLink>().Single(l => l.AccountId == account.Id && l.RoleId == Role.MemberId);
         db.Set<AccountRoleLink>().Remove(link);

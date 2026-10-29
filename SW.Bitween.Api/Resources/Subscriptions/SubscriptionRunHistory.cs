@@ -28,12 +28,12 @@ internal static class SubscriptionRunHistory
         BitweenDbContext dbContext, IScheduledJobDefinition job, int subscriptionId, DateTime since)
     {
         // Executions are keyed per schedule entry, and a manual run gets its own
-        // generated key entirely — so neither the subscription id nor the set of
+        // generated key entirely - so neither the subscription id nor the set of
         // current schedule keys can be matched on JobName. The subscription id is
         // in the serialized job parameter instead, which covers all of them:
         // scheduled runs, manual runs, and runs of schedules since edited away.
         //
-        // The trailing comma keeps 128 from matching 1289 — safe because
+        // The trailing comma keeps 128 from matching 1289 - safe because
         // ReceivingJobParams/AggregationJobParams both carry CronExpression after
         // SubscriptionId, so it is never the last property.
         var needle = $"\"subscriptionId\":{subscriptionId},";

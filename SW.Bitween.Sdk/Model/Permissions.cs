@@ -21,7 +21,10 @@ public static class Permissions
     {
         public const string View = "monitoring.view";
 
-        /// <summary>Delete leftover queues nothing reads, along with whatever they hold.</summary>
+        /// <summary>
+        /// Delete leftover queues nothing reads, along with whatever they hold, and send
+        /// dead-lettered messages back to be tried again.
+        /// </summary>
         public const string Operate = "monitoring.operate";
     }
 
@@ -100,8 +103,8 @@ public static class Permissions
 
     /// <summary>
     /// Separate from <see cref="DataSources"/> on purpose. Statements have to live on the
-    /// connection — SQL in a subscription's adapter properties would have partner values templated
-    /// into it — but that must not mean editing SQL requires the right that also changes the
+    /// connection - SQL in a subscription's adapter properties would have partner values templated
+    /// into it - but that must not mean editing SQL requires the right that also changes the
     /// credentials. Someone configuring their own integration gets these; only whoever owns the
     /// connection gets DataSources.Edit.
     /// </summary>
@@ -141,6 +144,14 @@ public static class Permissions
         public const string Delete = "users.delete";
     }
 
+    public static class ServiceAccounts
+    {
+        public const string View = "service-accounts.view";
+        public const string Create = "service-accounts.create";
+        public const string Edit = "service-accounts.edit";
+        public const string Delete = "service-accounts.delete";
+    }
+
     public static class Roles
     {
         public const string View = "roles.view";
@@ -156,12 +167,34 @@ public static class Permissions
     }
 
     /// <summary>
-    /// Read-only by design. Nothing edits or deletes an audit entry — a trail that could be
+    /// Read-only by design. Nothing edits or deletes an audit entry - a trail that could be
     /// rewritten by the people it records would not be worth keeping.
     /// </summary>
     public static class Audit
     {
         public const string View = "audit.view";
+    }
+
+    /// <summary>A staging that mirrors a prod, to rehearse upgrades on.</summary>
+    public static class Mirror
+    {
+        /// <summary>See how close this staging is to prod, and what is left to do.</summary>
+        public const string View = "mirror.view";
+
+        /// <summary>Bring prod's items onto this staging, keeping what it has, and test them with prod's traffic.</summary>
+        public const string Operate = "mirror.operate";
+    }
+
+    public static class AdapterSource
+    {
+        /// <summary>Read the source an adapter version was published with, and compare versions.</summary>
+        public const string View = "adapter-source.view";
+
+        /// <summary>Write adapters in Bitween's editor: drafts, building, testing and trying them.</summary>
+        public const string Edit = "adapter-source.edit";
+
+        /// <summary>Publish a version from the editor, and make a published version the current one.</summary>
+        public const string Operate = "adapter-source.operate";
     }
 }
 
@@ -205,19 +238,19 @@ public static class PermissionCatalog
 
     public static readonly List<PermissionAreaModel> Areas =
     [
-        // ——— Operate ———
+        // --- Operate ---
         Area("exchanges", "Exchanges", "Operate", "Every message that flows through Bitween.",
             (View, "Browse exchanges, payloads and traces."),
             (Operate, "Retry or resubmit failed exchanges.")),
 
         Area("monitoring", "Queue health", "Operate", "Live message-queue throughput and consumers.",
             (View, "See queue health and rates."),
-            (Operate, "Delete leftover queues nothing reads, and the messages in them.")),
+            (Operate, "Delete leftover queues nothing reads, and the messages in them; send dead letters back to be tried again.")),
 
         Area("dashboard", "Dashboard", "Operate", "Traffic and health overview (reached from the logo).",
             (View, "See the dashboard.")),
 
-        // ——— Subscriptions ———
+        // --- Subscriptions ---
         Area("subscriptions", "Subscriptions", "Subscriptions", "The configured pipelines that process exchanges.",
             (View, "Browse subscriptions and their configuration."),
             (Create, "Create subscriptions."),
@@ -244,11 +277,12 @@ public static class PermissionCatalog
             (Edit, "Change value sets."),
             (Delete, "Delete value sets.")),
 
-        Area("notifiers", "Notifiers", "Subscriptions", "Alerts sent when exchanges fail or succeed.",
-            (View, "Browse notifiers and their delivery history."),
-            (Create, "Create notifiers."),
-            (Edit, "Change notifiers."),
-            (Delete, "Remove notifiers.")),
+        Area("notifiers", "Notification channels", "Subscriptions",
+            "Where notifications and alerts are sent, and the legacy notifiers.",
+            (View, "Browse notification channels, legacy notifiers and their delivery history."),
+            (Create, "Create notification channels and legacy notifiers."),
+            (Edit, "Change notification channels and legacy notifiers."),
+            (Delete, "Remove notification channels and legacy notifiers.")),
 
         Area("api-gateways", "API gateways", "Subscriptions", "HTTP entry points partners call into.",
             (View, "Browse API gateways and attached partners."),
@@ -262,7 +296,7 @@ public static class PermissionCatalog
             (Edit, "Change gateways and routes."),
             (Delete, "Delete bus gateways.")),
 
-        // ——— Configuration ———
+        // --- Configuration ---
         Area("data-sources", "Data sources", "Configuration",
             "Connections to external brokers that bus gateways can read from.",
             (View, "Browse data sources and their connection health."),
@@ -292,12 +326,20 @@ public static class PermissionCatalog
             (Edit, "Change retry policies."),
             (Delete, "Delete retry policies.")),
 
-        // ——— Administration ———
+        // --- Administration ---
         Area("users", "Members", "Administration", "The people who can sign in to this Bitween instance.",
             (View, "See the member list."),
             (Create, "Invite new members."),
             (Edit, "Change members' roles, disable accounts, reset passwords."),
             (Delete, "Remove members.")),
+
+        // Administration, like members: a token is a way in, and whoever issues one decides what it can do.
+        Area("service-accounts", "Service accounts", "Administration",
+            "Accounts for programs, such as a job applying configuration, that sign in with tokens instead of a password.",
+            (View, "See service accounts and their tokens (never a token's value)."),
+            (Create, "Create service accounts and issue their tokens."),
+            (Edit, "Change a service account's roles, disable it, revoke tokens."),
+            (Delete, "Remove service accounts.")),
 
         Area("roles", "Roles", "Administration", "What each kind of member is allowed to do.",
             (View, "See roles and their permissions."),
@@ -313,14 +355,28 @@ public static class PermissionCatalog
         // account and role changes, which is exactly what someone covering their tracks would edit.
         Area("audit", "Audit trail", "Administration",
             "Who changed what, and when, across every configuration entity.",
-            (View, "Browse the audit trail."))
+            (View, "Browse the audit trail.")),
+
+        // Administration, like the trail: source is our partners' code and our own, and some of
+        // it is licensed to us rather than ours to show every member.
+        Area("adapter-source", "Adapter code", "Administration",
+            "The code each adapter version was published with, and adapters written in Bitween.",
+            (View, "Read an adapter's source and compare its versions."),
+            (Edit, "Write Python and JavaScript adapters in the editor: drafts, building, testing and trying them."),
+            (Operate, "Publish versions from the editor, and make a published version the one that runs.")),
+
+        // Administration: it brings prod's items onto this Bitween and runs prod's traffic through them.
+        Area("mirror", "Prod mirror", "Administration",
+            "A staging that copies a prod's setup, faked, to rehearse upgrades on.",
+            (View, "See how close staging is to prod, and what is left to do."),
+            (Operate, "Bring prod's items onto this staging, keeping what it has, and test them with prod's traffic."))
     ];
 
     /// <summary>Every valid permission key.</summary>
     public static readonly HashSet<string> AllKeys =
         Areas.SelectMany(a => a.Actions.Select(x => $"{a.Id}.{x.Id}")).ToHashSet();
 
-    /// <summary>Drops anything not in the catalog — stale keys left over from a removed area.</summary>
+    /// <summary>Drops anything not in the catalog - stale keys left over from a removed area.</summary>
     public static List<string> Sanitize(IEnumerable<string> keys) =>
         (keys ?? []).Where(AllKeys.Contains).Distinct().ToList();
 

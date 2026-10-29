@@ -1,56 +1,48 @@
-import { Fragment, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { Check, ChevronDown, Copy } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
 import {
-  api,
   type ExchangeRef,
   type SubscriptionInfo,
   type SubscriptionRow,
   type SubscriptionSetupRef,
   type SubscriptionType,
-  type QueueSeverity,
-  type ScheduleHealth,
   type AuditChange,
   type TrailEntry,
 } from "../../api";
-import { useSessionCan } from "../../auth/guards";
 import { Badge } from "../ui/basics";
 import { Popover } from "../ui/Popover";
-import { MiniTable, type Column } from "../ui/Table";
+import { MiniTable } from "../ui/Table";
 import { formatDate, timeAgo } from "../../lib/dates";
-import { keys } from "../../api/queryKeys";
+import { propertyLabel } from "../../lib/auditLabels";
+import {
+  ACTION_LABEL,
+  ACTION_TONE,
+  actorName,
+  collapseMachineRuns,
+  isRun,
+  summarizeChange,
+  type MachineRun,
+} from "../../lib/auditSummary";
+import { DIRECT_TRIGGER, SUBSCRIPTION_TYPE_LABELS, namesSomething } from "./subscriptionLabels";
 
 /**
- * Display names for subscription types; Internal and ApiCall are legacy.
- *
- * `Receiving` reads "Scheduled job", not the backend's "Receiver" — it is the
- * same thing the sidebar and its own page call a scheduled job, and one entity
- * with two names in the same screen is just a puzzle for the reader.
+ * A subscription's type. The two direct types read "Direct" with a quiet note on how they
+ * are called, rather than the warning-yellow "Legacy" they used to carry beside a healthy
+ * row: nothing is wrong with them, they just have no gateway in front.
  */
-export const SUBSCRIPTION_TYPE_LABELS: Record<SubscriptionType, string> = {
-  Receiving: "Scheduled job",
-  GatewayApiCall: "API gateway",
-  BusGateway: "Bus gateway",
-  Internal: "Internal",
-  ApiCall: "API call",
-  Aggregation: "Aggregation",
-  Response: "Response",
-};
-
-export const isLegacyType = (type: SubscriptionType) =>
-  type === "Internal" || type === "ApiCall";
-
 export function TypeBadge({ type }: { type: SubscriptionType }) {
+  const how = DIRECT_TRIGGER[type];
+  if (!how) return <Badge>{SUBSCRIPTION_TYPE_LABELS[type]}</Badge>;
   return (
-    <span className="inline-flex items-center gap-1">
-      <Badge>{SUBSCRIPTION_TYPE_LABELS[type]}</Badge>
-      {isLegacyType(type) && <Badge tone="warn">Legacy</Badge>}
+    <span className="inline-flex items-center gap-1 whitespace-nowrap">
+      <Badge title="Runs when something calls it directly, not through a gateway or a schedule.">Direct</Badge>
+      <span className="text-[11px] text-ink-500">{how}</span>
     </span>
   );
 }
 
-/** Enabled/paused pair — a subscription can be both enabled and paused. */
+/** Enabled/paused pair - a subscription can be both enabled and paused. */
 export function SubscriptionStatusBadges({
   enabled,
   paused,
@@ -63,99 +55,18 @@ export function SubscriptionStatusBadges({
       {enabled ? (
         <Badge tone="ok" title="Runs when its trigger fires.">Active</Badge>
       ) : (
-        <Badge title="Turned off — nothing will run it, even if a trigger fires.">Disabled</Badge>
+        <Badge title="Turned off - nothing will run it, even if a trigger fires.">Disabled</Badge>
       )}
       {paused && (
         <Badge
           tone="warn"
-          title="Held without being disabled — its trigger still fires, but nothing runs until unpaused."
+          title="Held without being disabled - its trigger still fires, but nothing runs until unpaused."
         >
           Paused
         </Badge>
       )}
     </span>
   );
-}
-
-/**
- * A fault the scheduler itself reports, which contradicts whatever the
- * subscription's own badges say — "Active" with no trigger behind it is still a
- * job that never runs. Shared by the scheduled-jobs table and the pipeline rail
- * so the two can't drift apart.
- */
-export function scheduleFault(
-  health: ScheduleHealth | undefined,
-): { label: string; tone: "warn" | "danger"; title: string } | null {
-  if (!health) return null;
-
-  if (health.stuck)
-    return {
-      label: "Stuck",
-      tone: "danger",
-      title:
-        "Flagged as running with nothing executing — every later run is being skipped. Usually a run that was killed rather than failing.",
-    };
-
-  switch (health.state) {
-    case "Missing":
-      return {
-        label: "Not scheduled",
-        tone: "danger",
-        title:
-          "The scheduler has no trigger for this schedule — it will never fire.",
-      };
-    case "Error":
-      return {
-        label: "Trigger error",
-        tone: "danger",
-        title:
-          "The scheduler put this trigger in an error state; it will not fire again until fixed.",
-      };
-    case "Paused":
-      return {
-        label: "Trigger paused",
-        tone: "warn",
-        title:
-          "Paused inside the scheduler — this is not the subscription's own pause.",
-      };
-    case "Blocked":
-      return {
-        label: "Blocked",
-        tone: "warn",
-        title:
-          "A previous run is still going and this job doesn't allow overlap, so fires are being held.",
-      };
-    case "Complete":
-      return {
-        label: "Schedule ended",
-        tone: "warn",
-        title:
-          "The schedule has run to completion and has no future fire times.",
-      };
-    default:
-      return null;
-  }
-}
-
-/**
- * What a lane's severity is actually reporting — the three sources this fans out
- * to (Work groups, Queue health, the live stats strip) used to each spell out the
- * same three words with no explanation of what put a lane there.
- *
- * Matches `AlertEvaluator` in SW.Bus: critical is no running consumer or a
- * backlog past its critical threshold; warning is a backlog past its warning
- * threshold, a queue depth past the backpressure threshold, or messages arriving
- * with essentially nothing being acknowledged.
- */
-export function queueHealthTitle(severity: QueueSeverity): string {
-  switch (severity) {
-    case "critical":
-      return "No consumer is running for this lane, or a backlog has passed its critical threshold.";
-    case "warning":
-      return "A backlog, queue depth or the incoming-vs-acknowledged rate has passed its warning threshold.";
-    default:
-      return "No active alerts for this lane.";
-  }
 }
 
 export function HealthBadge({
@@ -169,13 +80,13 @@ export function HealthBadge({
     return (
       <Badge
         tone="danger"
-        title="Runs in a row that ended in an error since the last success — check its retry policy and last exception."
+        title="Runs in a row that ended in an error since the last success - check its retry policy and last exception."
       >
         {consecutiveFailures} failure{consecutiveFailures === 1 ? "" : "s"}
       </Badge>
     );
   if (isRunning) return <Badge tone="ok" title="Executing right now.">Running</Badge>;
-  return <Badge title="Not executing right now — normal between runs.">Idle</Badge>;
+  return <Badge title="Not executing right now - normal between runs.">Idle</Badge>;
 }
 
 export function ExchangeStatusBadge({
@@ -202,21 +113,6 @@ export function ExchangeStatusBadge({
   return <Badge tone="neutral" title="Still in progress.">Processing</Badge>;
 }
 
-/**
- * Recent traffic for a hub page. Every field the row already carries is a
- * column — the old version spent a whole line on an id and left the rest of
- * the width empty, so what the exchange actually *was* never made it to the
- * screen.
- */
-/**
- * Promoted properties only name an exchange when at least one of them carries a value. An
- * information type can promote three paths that a payload never filled, and
- * "merchant= orderRef= destination=" then names every exchange of that type equally — so a
- * caller with room for one identity is better off showing the id.
- */
-export const namesSomething = (properties: Record<string, string | null> | null) =>
-  properties != null && Object.values(properties).some((v) => v != null && v !== "");
-
 export function PromotedProps({
   properties,
   max = 3,
@@ -226,7 +122,7 @@ export function PromotedProps({
   max?: number;
   /**
    * Shown when the information type promotes nothing, or promotes nothing this
-   * payload carried. A bare em dash left the row with no identity at all — the id
+   * payload carried. A bare em dash left the row with no identity at all - the id
    * is a poor name but it is the only one left, and it makes the row addressable.
    * Shown whole: an id cut to its first eight characters is not something you can
    * match against a log line or quote to anyone, which is the only thing it is for.
@@ -240,16 +136,16 @@ export function PromotedProps({
 
   // Keys whose values are all empty are treated like no promoted properties at all. An
   // information type can promote three paths that a payload never filled, and
-  // "merchant= orderRef= destination=" then names every exchange of that type equally — three
+  // "merchant= orderRef= destination=" then names every exchange of that type equally - three
   // chips that say which fields exist and nothing about which record this is.
   // break-all: the id is one unbroken run of hex with nowhere natural to wrap, and
   // these lists also sit in ~360px side panels, where nowrap pushed the last column
   // off the edge.
   if (!namesSomething(properties))
     return fallbackId ? (
-      <span className="font-mono text-xs break-all text-ink-400">{fallbackId}</span>
+      <span className="font-mono text-xs break-all text-ink-500">{fallbackId}</span>
     ) : (
-      <span className="text-[13px] text-ink-400">—</span>
+      <span className="text-[13px] text-ink-500">-</span>
     );
 
   const shown = entries.slice(0, max);
@@ -301,7 +197,7 @@ const VALUE_CHIP_CAP = 28;
  * Every promoted property, in full.
  *
  * The row can only afford three chips and a cut value, and these are the fields
- * people actually search on — "which of these is Northwind's order" is answered
+ * people actually search on - "which of these is Northwind's order" is answered
  * here, so it can't be a `title` attribute: a tooltip can't be selected, copied,
  * or scrolled, and ten properties don't fit in one. Keys and values line up in
  * two columns and long values wrap, because a value cut twice is no better than
@@ -319,7 +215,7 @@ function PromotedPropsPanel({ entries }: { entries: [string, string][] }) {
   return (
     <>
       <div className="flex items-center justify-between gap-2 px-1.5 pb-1.5">
-        <p className="text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+        <p className="text-[11px] font-medium tracking-wide text-ink-500 uppercase">
           {entries.length} promoted {entries.length === 1 ? "property" : "properties"}
         </p>
         <button
@@ -348,7 +244,7 @@ function PromotedPropsPanel({ entries }: { entries: [string, string][] }) {
  *
  * Leads with the promoted properties, because they are the only column that says
  * what the exchange *was*. The id led before and answered the question nobody
- * asks — it's a 32-character guid, so all you could fit was the first eight
+ * asks - it's a 32-character guid, so all you could fit was the first eight
  * characters of something meaningless even in full. "Northwind says three orders
  * are missing" is answered by reading order numbers off these rows; it used to
  * take eight clicks.
@@ -358,11 +254,11 @@ function PromotedPropsPanel({ entries }: { entries: [string, string][] }) {
  * opens it in Exchanges, where the full id is shown and copyable.
  *
  * When an exchange has no promoted properties there is nothing to lead with, so
- * the short id stands in — a row still needs a handle, and admitting "no
+ * the short id stands in - a row still needs a handle, and admitting "no
  * properties, here's the id" beats an empty cell.
  *
- * `hide` drops a column that is constant for the host page — Partner on a
- * partner's page, Type on an information type's — which is where the width for
+ * `hide` drops a column that is constant for the host page - Partner on a
+ * partner's page, Type on an information type's - which is where the width for
  * the properties comes from.
  */
 export function ExchangesList({
@@ -417,7 +313,7 @@ export function ExchangesList({
             truncate: true,
             cell: (x: ExchangeRef) => (
               <span className="block truncate text-[13px] text-ink-600" title={x.partnerName}>
-                {x.partnerName ?? "—"}
+                {x.partnerName ?? "-"}
               </span>
             ),
           },
@@ -431,7 +327,7 @@ export function ExchangesList({
       align: "right" as const,
       className: "whitespace-nowrap",
       cell: (x: ExchangeRef) => (
-        <span className="text-xs text-ink-400">{timeAgo(x.on)}</span>
+        <span className="text-xs text-ink-500">{timeAgo(x.on)}</span>
       ),
     },
   ];
@@ -461,7 +357,7 @@ export function SetupList({ items }: { items: SubscriptionSetupRef[] }) {
           cell: (s) => (
             <Link
               to={`/subscriptions/${s.id}`}
-              className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+              className="block font-medium text-ink-800 hover:link"
             >
               {s.name}
             </Link>
@@ -478,156 +374,8 @@ export function SetupList({ items }: { items: SubscriptionSetupRef[] }) {
 }
 
 /**
- * All subscriptions, cached hard — pages use it to answer "who uses this
- * property/value/policy?" without extra requests.
- */
-export function useSubscriptionsCache() {
-  return useQuery({
-    queryKey: keys.subscriptions.cache,
-    queryFn: () => api.listSubscriptions(),
-  });
-}
-
-/**
- * Which subscriptions each partner is reached through, keyed by partner id.
- *
- * A subscription's own `partnerId` only covers the legacy types. Everything
- * modern links a partner through a **gateway** — an API-gateway attachment or a
- * bus route — so those have to be folded in or a partner that is plainly in use
- * shows up as unused. Both gateway lists are the same cache entries the
- * Subscriptions page fills, and each is gated on its own view permission.
- */
-export function usePartnerSubscriptions(): Map<number, SubscriptionInfo[]> {
-  const subscriptions = useSubscriptionsCache().data ?? [];
-  const canSeeApi = useSessionCan("api-gateways.view");
-  const canSeeBus = useSessionCan("bus-gateways.view");
-  const apiGateways =
-    useQuery({
-      queryKey: keys.apiGateways.list,
-      queryFn: () => api.listApiGateways(),
-      enabled: canSeeApi,
-    }).data ?? [];
-  const busGateways =
-    useQuery({
-      queryKey: keys.busGateways.list,
-      queryFn: () => api.listBusGateways(),
-      enabled: canSeeBus,
-    }).data ?? [];
-
-  return useMemo(() => {
-    const byId = new Map(subscriptions.map((s) => [s.id, s]));
-    const out = new Map<number, SubscriptionInfo[]>();
-    const add = (partnerId: number | null, subscriptionId: number) => {
-      if (partnerId === null) return;
-      const setup = byId.get(subscriptionId);
-      if (!setup) return;
-      const list = out.get(partnerId) ?? [];
-      if (!list.some((x) => x.id === setup.id)) {
-        list.push(setup);
-        out.set(partnerId, list);
-      }
-    };
-    for (const s of subscriptions)
-      for (const pid of s.partnerIds) add(pid, s.id);
-    for (const g of apiGateways)
-      for (const a of g.attachments) add(a.partnerId, a.subscriptionId);
-    for (const g of busGateways)
-      for (const r of g.routes) add(r.partnerId, r.subscriptionId);
-    return out;
-  }, [subscriptions, apiGateways, busGateways]);
-}
-
-/**
- * The same wiring as `usePartnerSubscriptions`, read the other way: partners
- * reached through a gateway, keyed by *subscription* id.
- *
- * `SubscriptionRow.partners` only carries a subscription's own `partnerId`, which
- * the modern types never have — without this, every gateway-fed subscription
- * shows a dash where its partner should be.
- */
-export function useGatewayPartners(): Map<
-  number,
-  { id: number; name: string }[]
-> {
-  const canSeeApi = useSessionCan("api-gateways.view");
-  const canSeeBus = useSessionCan("bus-gateways.view");
-  const apiGateways =
-    useQuery({
-      queryKey: keys.apiGateways.list,
-      queryFn: () => api.listApiGateways(),
-      enabled: canSeeApi,
-    }).data ?? [];
-  const busGateways =
-    useQuery({
-      queryKey: keys.busGateways.list,
-      queryFn: () => api.listBusGateways(),
-      enabled: canSeeBus,
-    }).data ?? [];
-
-  return useMemo(() => {
-    const out = new Map<number, { id: number; name: string }[]>();
-    const add = (
-      subscriptionId: number,
-      partnerId: number | null,
-      partnerName: string | null,
-    ) => {
-      if (partnerId === null || partnerName === null) return;
-      const list = out.get(subscriptionId) ?? [];
-      if (!list.some((p) => p.id === partnerId)) {
-        list.push({ id: partnerId, name: partnerName });
-        out.set(subscriptionId, list);
-      }
-    };
-    for (const g of apiGateways)
-      for (const a of g.attachments)
-        add(a.subscriptionId, a.partnerId, a.partnerName);
-    for (const g of busGateways)
-      for (const r of g.routes)
-        add(r.subscriptionId, r.partnerId, r.partnerName);
-    return out;
-  }, [apiGateways, busGateways]);
-}
-
-/** Live status for every subscription, keyed by id — shared by the gateway pages. */
-export function useSubscriptionRowsById(): Map<number, SubscriptionRow> {
-  const rows =
-    useQuery({
-      queryKey: keys.subscriptions.rows,
-      queryFn: () => api.listSubscriptionRows(),
-    }).data ?? [];
-  return useMemo(() => new Map(rows.map((r) => [r.id, r])), [rows]);
-}
-
-/** Work-group names by id; empty without the permission to read them. */
-export function useWorkGroupNames(): Map<number, string> {
-  const canSee = useSessionCan("workgroups.view");
-  const groups =
-    useQuery({
-      queryKey: keys.workGroups.list,
-      queryFn: () => api.listWorkGroups(),
-      enabled: canSee,
-    }).data ?? [];
-  return useMemo(() => new Map(groups.map((g) => [g.id, g.name])), [groups]);
-}
-
-/** Retry-policy names by id; empty without the permission to read them. */
-export function useRetryPolicyNames(): Map<number, string> {
-  const canSee = useSessionCan("retry-policies.view");
-  const policies =
-    useQuery({
-      queryKey: keys.retryPolicies.list,
-      queryFn: () => api.listRetryPolicies(),
-      enabled: canSee,
-    }).data ?? [];
-  return useMemo(
-    () => new Map(policies.map((p) => [p.id, p.name])),
-    [policies],
-  );
-}
-
-/**
  * Roll-up health for what a gateway feeds. A gateway itself has no state worth
- * reporting — it is only as healthy as the pipelines behind it, and "3 partners
+ * reporting - it is only as healthy as the pipelines behind it, and "3 partners
  * attached" says nothing about whether any of them currently works.
  */
 export function WiredHealthBadge({
@@ -667,8 +415,8 @@ export function WiredHealthBadge({
 /**
  * The columns describing the pipeline behind one gateway attachment or route.
  *
- * These tables are the only 1:1 place in the gateway story — one row is exactly
- * one partner and one subscription — so this is where its configuration can be
+ * These tables are the only 1:1 place in the gateway story - one row is exactly
+ * one partner and one subscription - so this is where its configuration can be
  * stated in separate columns without the reader having to guess which value
  * pairs with which. The parent list can't do it: two parallel lists in a row
  * lose their pairing, which is why the gateway tables carry only aggregates.
@@ -676,131 +424,6 @@ export function WiredHealthBadge({
  * Everything here comes from caches the app already holds, keyed by subscription
  * id; the gateway endpoints know none of it.
  */
-/**
- * Work group and retry policy are the two columns that sit between "Runs" and
- * "Status" and, rendered as plain links like it, gave the row three stretches of
- * identical 13px text with nothing but padding between them — which is what made
- * the table hard to read across. They are both *an assignment to a named thing*,
- * so they take a shared chip: it groups the pair, and separates them from the
- * subscription link on one side and the status badges on the other.
- */
-const assignmentChip =
-  "inline-flex items-center rounded-md bg-ink-50 px-1.5 py-0.5 text-[12px] text-ink-600 " +
-  "hover:bg-ink-100 hover:text-crimson-700";
-
-export function useWiredSubscriptionColumns<T>(
-  subscriptionIdOf: (row: T) => number,
-  /** Off where the parent already fixes it — a bus gateway listens for one type. */
-  { informationType = true }: { informationType?: boolean } = {},
-): Column<T>[] {
-  const rowsById = useSubscriptionRowsById();
-  const setups = useSubscriptionsCache().data ?? [];
-  const setupById = useMemo(
-    () => new Map(setups.map((s) => [s.id, s])),
-    [setups],
-  );
-  const workGroupNames = useWorkGroupNames();
-  const retryPolicyNames = useRetryPolicyNames();
-  const canSeeInfoTypes = useSessionCan("documents.view");
-
-  const columns: Column<T>[] = [];
-
-  if (informationType)
-    columns.push({
-      header: "Information type",
-      cell: (row) => {
-        const r = rowsById.get(subscriptionIdOf(row));
-        if (!r) return <span className="text-ink-400">—</span>;
-        return canSeeInfoTypes ? (
-          <Link
-            to={`/information-types/${r.informationTypeId}`}
-            className="font-mono text-xs text-ink-600 hover:text-crimson-700 hover:underline"
-          >
-            {r.informationTypeCode}
-          </Link>
-        ) : (
-          <code className="font-mono text-xs text-ink-600">
-            {r.informationTypeCode}
-          </code>
-        );
-      },
-    });
-
-  columns.push(
-    {
-      header: "Work group",
-      cell: (row) => {
-        const id = setupById.get(subscriptionIdOf(row))?.workGroupId ?? null;
-        // "Ungrouped", not "Default": a null WorkGroupId isn't the absence of a
-        // lane, it's `WorkGroup.None` — a real shared queue (`0Ungrouped`) that
-        // every ungrouped subscription competes in. Matches the wording the
-        // subscription page's work-group picker already uses.
-        if (id === null)
-          return <span className="text-[13px] text-ink-400">Ungrouped</span>;
-        const name = workGroupNames.get(id);
-        return name ? (
-          <Link to={`/work-groups/${id}`} className={assignmentChip}>
-            {name}
-          </Link>
-        ) : (
-          <span className="text-[13px] text-ink-400">—</span>
-        );
-      },
-    },
-    {
-      header: "Retry policy",
-      cell: (row) => {
-        const id = setupById.get(subscriptionIdOf(row))?.retryPolicyId ?? null;
-        if (id === null)
-          return <span className="text-[13px] text-ink-400">None</span>;
-        const name = retryPolicyNames.get(id);
-        return name ? (
-          <Link to={`/retry-policies/${id}`} className={assignmentChip}>
-            {name}
-          </Link>
-        ) : (
-          <span className="text-[13px] text-ink-400">—</span>
-        );
-      },
-    },
-    {
-      header: "Status",
-      cell: (row) => {
-        const r = rowsById.get(subscriptionIdOf(row));
-        if (!r) return <span className="text-ink-400">—</span>;
-        return (
-          <span className="inline-flex items-center gap-1">
-            <SubscriptionStatusBadges enabled={r.enabled} paused={r.paused} />
-            <HealthBadge
-              isRunning={r.isRunning}
-              consecutiveFailures={r.consecutiveFailures}
-            />
-          </span>
-        );
-      },
-    },
-    {
-      header: "Last error",
-      truncate: true,
-      cell: (row) => {
-        const message = rowsById.get(subscriptionIdOf(row))?.lastException;
-        return message ? (
-          <span
-            className="block truncate font-mono text-[11px] text-danger-700"
-            title={message}
-          >
-            {message}
-          </span>
-        ) : (
-          <span className="text-ink-400">—</span>
-        );
-      },
-    },
-  );
-
-  return columns;
-}
-
 export interface CellLink {
   key: string | number;
   name: string;
@@ -813,7 +436,7 @@ export interface CellLink {
  * A cell listing the records something is wired to: the first couple inline,
  * the rest behind a popover.
  *
- * "3 places" tells you a thing is in use but nothing you can act on — you still
+ * "3 places" tells you a thing is in use but nothing you can act on - you still
  * have to open the row to learn whether it's safe to touch. Names answer that in
  * the table. The overflow goes into a popover rather than wrapping, so row
  * height stays fixed and the table keeps its rhythm, and nothing ends up
@@ -827,7 +450,7 @@ export function LinkListCell({
   /** Plural noun for the popover heading, e.g. "subscriptions". */
   label: string;
 }) {
-  if (items.length === 0) return <span className="text-ink-400">—</span>;
+  if (items.length === 0) return <span className="text-ink-500">-</span>;
 
   // One of something is just that thing. A chip reading "1" would cost the name and
   // buy a popover with a single row in it.
@@ -838,7 +461,7 @@ export function LinkListCell({
         to={only.href}
         onClick={(e) => e.stopPropagation()}
         title={only.name}
-        className="block text-[13px] text-ink-700 hover:text-crimson-700 hover:underline"
+        className="block text-[13px] text-ink-700 hover:link"
       >
         {only.name}
       </Link>
@@ -852,7 +475,7 @@ export function LinkListCell({
         width="w-80"
         button={
           // The noun rides along with the count because the column header often can't
-          // supply it — "Used by" alone never says used by *what*. A bare digit also
+          // supply it - "Used by" alone never says used by *what*. A bare digit also
           // reads as data you can't act on, so the list behind it would never be found.
           <span
             className="rounded bg-ink-100 px-1.5 py-0.5 text-[12px] font-medium text-ink-700"
@@ -862,7 +485,7 @@ export function LinkListCell({
           </span>
         }
       >
-        <p className="px-1.5 pb-1.5 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+        <p className="px-1.5 pb-1.5 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
           {items.length} {label}
         </p>
         <ul className="border-t border-ink-100 pt-1">
@@ -894,7 +517,7 @@ export function UsedByCell({ items }: { items: SubscriptionInfo[] }) {
         key: s.id,
         name: s.name,
         href: `/subscriptions/${s.id}`,
-        note: <Badge>{SUBSCRIPTION_TYPE_LABELS[s.type]}</Badge>,
+        note: <TypeBadge type={s.type} />,
       }))}
     />
   );
@@ -908,32 +531,52 @@ const showValue = (v: unknown) =>
  * The property names, with the before/after values behind a popover.
  *
  * A created row is recorded as a full snapshot rather than a diff, so its list runs to every
- * column the entity has — unreadable as a cell. The values used to live in a `title`, which
+ * column the entity has - unreadable as a cell. The values used to live in a `title`, which
  * only a mouse can reach; this is a real control, so it works from the keyboard and on touch.
+ *
+ * `subject` names the row itself, for a list that mixes rows of one kind: the settings history
+ * was eight lines of "Added, Value, System" that never said which setting.
  */
-export function ChangedCell({ changes }: { changes: AuditChange[] }) {
-  if (changes.length === 0) return <span className="text-ink-400">—</span>;
+export function ChangedCell({
+  changes: all,
+  entity,
+  action = "Modified",
+  subject,
+}: {
+  changes: AuditChange[];
+  entity?: string;
+  action?: TrailEntry["action"];
+  subject?: string;
+}) {
+  // Ids and timestamps the database keeps for itself are not what anyone changed: a new row used
+  // to read "Id, CreatedBy, CreatedOn +3 more". A creation also leaves out the columns left empty.
+  const { changes, shown, more } = summarizeChange(entity, action, all);
+  if (changes.length === 0 && !subject) return <span className="text-ink-500">-</span>;
+  if (changes.length === 0) return <span className="block text-[13px] font-medium text-ink-800">{subject}</span>;
 
-  const shown = changes.slice(0, 3).map((c) => c.property);
-  const rest = changes.length - shown.length;
+  const label = (c: AuditChange) => propertyLabel(entity, c.property);
+  // A setting is one value, so its name already says what changed; "Value" after it adds nothing.
+  const fields = subject && changes.every((c) => c.property === "Value") ? [] : shown;
 
   return (
     <Popover
-      label={`Show what changed: ${changes.map((c) => c.property).join(", ")}`}
+      label={`Show what changed${subject ? ` in ${subject}` : ""}: ${changes.map(label).join(", ")}`}
       width="w-96"
       button={
         <span className="block text-left text-[13px] text-ink-600">
-          {shown.join(", ")}
-          {rest > 0 && <span className="text-ink-400"> +{rest} more</span>}
+          {subject && <span className="font-medium text-ink-800">{subject}</span>}
+          {subject && fields.length > 0 && ": "}
+          {fields.join(", ")}
+          {more > 0 && fields.length > 0 && <span className="text-ink-500"> +{more} more</span>}
         </span>
       }
     >
       <dl className="space-y-2">
         {changes.map((c) => (
           <div key={c.property}>
-            <dt className="text-[12px] font-medium text-ink-800">{c.property}</dt>
+            <dt className="text-[12px] font-medium text-ink-800">{label(c)}</dt>
             <dd className="mt-0.5 font-mono text-[11px] break-all text-ink-600">
-              <span className="text-ink-400">{showValue(c.old)}</span>
+              <span className="text-ink-500">{showValue(c.old)}</span>
               <span aria-hidden> → </span>
               <span className="sr-only"> changed to </span>
               {showValue(c.new)}
@@ -945,73 +588,126 @@ export function ChangedCell({ changes }: { changes: AuditChange[] }) {
   );
 }
 
-const ACTION_STYLE: Record<TrailEntry["action"], string> = {
-  Added: "bg-emerald-50 text-emerald-700",
-  Modified: "bg-amber-50 text-amber-700",
-  Deleted: "bg-rose-50 text-rose-700",
-};
-
 const ACTION_TITLE: Record<TrailEntry["action"], string> = {
   Added: "This row was created.",
   Modified: "Some of this row's fields were changed.",
   Deleted: "This row was deleted. The values shown are what it held.",
 };
 
+/** Created, Changed or Deleted, as a chip in the app's own tones. Shared with the audit trail page. */
+export function ActionBadge({ action }: { action: TrailEntry["action"] }) {
+  return (
+    <Badge tone={ACTION_TONE[action]} title={ACTION_TITLE[action]}>
+      {ACTION_LABEL[action]}
+    </Badge>
+  );
+}
+
+/** Who saved a change: a link to the member, or the machine's name in plain text. */
+function Actor({ entry }: { entry: TrailEntry }) {
+  return entry.byUserId ? (
+    <Link to={`/team/members/${entry.byUserId}`} className="block text-ink-600 hover:link">
+      {entry.by}
+    </Link>
+  ) : (
+    <span className="block text-ink-600" title="No signed-in user - a scheduled job or a bus consumer.">
+      {actorName(entry)}
+    </span>
+  );
+}
+
+/** One line of the table: an entry, a folded run of machine writes, or an entry shown from an opened run. */
+type TrailLine = { entry: TrailEntry; run?: MachineRun; inRun?: boolean };
+
 /**
  * Audit trail for an entity, newest first. Shared by every hub page that has one.
  *
  * Every column is derived from the change tracker rather than written by hand at each
- * call site, which is why deletions appear here at all — the trails this replaced only
+ * call site, which is why deletions appear here at all - the trails this replaced only
  * ever recorded creates and updates.
+ *
+ * Back-to-back identical writes by a machine (the scheduler noting a job's next run) fold into
+ * one line with a count, opened on request; four of them used to fill half the card.
  */
-export function TrailTable({ entries }: { entries: TrailEntry[] }) {
+export function TrailTable({
+  entries,
+  subjectOf,
+}: {
+  entries: TrailEntry[];
+  /** Names the row each entry is about, where the list covers a whole kind (see `ChangedCell`). */
+  subjectOf?: (entry: TrailEntry) => string | undefined;
+}) {
+  const [opened, setOpened] = useState<string[]>([]);
+  const toggle = (id: string) =>
+    setOpened((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  const lines: TrailLine[] = collapseMachineRuns(entries).flatMap((row) =>
+    isRun(row)
+      ? [
+          { entry: row.entries[0], run: row },
+          ...(opened.includes(row.id) ? row.entries.map((entry) => ({ entry, inRun: true })) : []),
+        ]
+      : [{ entry: row }],
+  );
+
   return (
     <MiniTable
-      rows={entries}
-      rowKey={(e) => e.id}
+      rows={lines}
+      rowKey={(l) => (l.run ? `run:${l.run.id}` : l.entry.id)}
       empty="Nothing recorded yet."
       columns={[
         {
           header: "Action",
           headerTitle: "Whether the row was created, changed or deleted.",
-          cell: (e) => (
-            <span
-              title={ACTION_TITLE[e.action]}
-              className={`inline-block rounded px-1.5 py-0.5 text-xs font-medium ${ACTION_STYLE[e.action]}`}
-            >
-              {e.action}
-            </span>
-          ),
+          // An entry shown from an opened run hangs off the run's line rather than repeating its chip.
+          cell: ({ entry, inRun }) =>
+            inRun ? (
+              <span aria-hidden className="ml-3 block h-4 border-l-2 border-ink-200" />
+            ) : (
+              <ActionBadge action={entry.action} />
+            ),
         },
         {
           header: "Changed",
           headerTitle: "The fields this change touched. Open one to see the values.",
           wrap: true,
-          cell: (e) => <ChangedCell changes={e.changes} />,
+          cell: ({ entry }) => (
+            <ChangedCell
+              changes={entry.changes}
+              entity={entry.entityName}
+              action={entry.action}
+              subject={subjectOf?.(entry)}
+            />
+          ),
         },
         {
           header: "By",
           wrap: true,
-          cell: (e) =>
-            e.byUserId ? (
-              <Link
-                to={`/team/members/${e.byUserId}`}
-                className="block text-ink-600 hover:text-crimson-700 hover:underline"
-              >
-                {e.by}
-              </Link>
-            ) : (
-              <span className="block text-ink-600" title="No signed-in user — a scheduled job or a bus consumer.">
-                {e.by}
+          cell: ({ entry, run }) =>
+            run ? (
+              <span className="block text-ink-600">
+                {actorName(entry)}, {run.entries.length} times{" "}
+                <button
+                  type="button"
+                  onClick={() => toggle(run.id)}
+                  aria-expanded={opened.includes(run.id)}
+                  className="text-xs link"
+                >
+                  {opened.includes(run.id) ? "Hide" : "Show each"}
+                </button>
               </span>
+            ) : (
+              <Actor entry={entry} />
             ),
         },
         {
           header: "When",
           align: "right",
           className: "whitespace-nowrap",
-          cell: (e) => (
-            <span className="text-xs text-ink-400">{formatDate(e.on)}</span>
+          cell: ({ entry, run }) => (
+            <span className="text-xs text-ink-500" title={run ? formatDate(entry.on) : undefined}>
+              {run ? `last ${timeAgo(entry.on)}` : formatDate(entry.on)}
+            </span>
           ),
         },
       ]}
@@ -1040,7 +736,7 @@ export function SubscriptionMiniList({
           cell: (s) => (
             <Link
               to={`/subscriptions/${s.id}`}
-              className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+              className="block font-medium text-ink-800 hover:link"
             >
               {s.name}
             </Link>
@@ -1049,7 +745,7 @@ export function SubscriptionMiniList({
         {
           header: "Type",
           align: "right",
-          cell: (s) => <Badge>{SUBSCRIPTION_TYPE_LABELS[s.type]}</Badge>,
+          cell: (s) => <TypeBadge type={s.type} />,
         },
       ]}
     />

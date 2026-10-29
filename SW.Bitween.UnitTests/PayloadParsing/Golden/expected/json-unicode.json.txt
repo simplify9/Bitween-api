@@ -1,0 +1,128 @@
+=== promoted-json
+id = U-1
+price = (null)
+orderedAt = (null)
+offset = (null)
+name = Ünïcødé 日本 مرحبا
+sku = (null)
+lines = (null)
+negzero = (null)
+exp = (null)
+dotted = (null)
+missing = (null)
+hits: 103, 104
+gateway: 502/
+=== promoted-xml
+!System.Xml.XmlException: Data at the root level is invalid. Line 1, position 1.
+=== promoted-json-big
+big = (null)
+hits: 
+gateway: 
+=== schema-json
+(valid)
+=== schema-xml
+Not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== enriched
+{"id":"U-1","name":"Ünïcødé 日本 مرحبا","emoji":"😀","escaped":"éA😀","quote":"say \"hi\"","newline":"line1\nline2\ttab","backslash":"a\\b","slash":"a/b","html":"<b>&amp;</b>","control":"bell\u0007","__partner__":{"code":"P1","since":"2026-10-14T10:00:00Z","rate":"1.10","Upper":"U"},"__globals__":{"set1":{"region":"KSA","cutoff":"2026-10-14"}}}
+=== enriched-scriban
+{
+  "id": "U-1",
+  "price": null,
+  "priceText": "",
+  "priceFloat": null,
+  "orderedAt": null,
+  "orderedAtText": "",
+  "offset": null,
+  "ms": null,
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "name": "Ünïcødé 日本 مرحبا",
+  "firstItem": null,
+  "lines": [],
+  "lineCount": 0,
+  "partner": {
+    "code": {
+      "Value": "P1",
+      "IsReadOnly": false
+    },
+    "since": {
+      "Value": "2026-10-14T10:00:00Z",
+      "IsReadOnly": false
+    },
+    "rate": {
+      "Value": "1.10",
+      "IsReadOnly": false
+    },
+    "Upper": {
+      "Value": "U",
+      "IsReadOnly": false
+    },
+    "upper": {
+      "Value": "U",
+      "IsReadOnly": false
+    }
+  },
+  "partnerSince": "14 Oct 2026",
+  "partnerRate": "1.10",
+  "region": "KSA",
+  "orderId": null,
+  "upper": {
+    "name": "Ünïcødé 日本 مرحبا"
+  }
+}
+=== scriban
+{
+  "id": "U-1",
+  "price": null,
+  "priceText": "",
+  "priceFloat": null,
+  "orderedAt": null,
+  "orderedAtText": "",
+  "offset": null,
+  "ms": null,
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "name": "Ünïcødé 日本 مرحبا",
+  "firstItem": null,
+  "lines": [],
+  "lineCount": 0,
+  "partner": null,
+  "partnerSince": "",
+  "partnerRate": null,
+  "region": null,
+  "orderId": null,
+  "upper": {
+    "name": "Ünïcødé 日本 مرحبا"
+  }
+}
+=== rules-json
+{
+  "id": "U-1",
+  "price": null,
+  "priceNumber": null,
+  "priceText": null,
+  "priceRounded": null,
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "negzerof": null,
+  "tenthTimesThree": null,
+  "orderedAt": null,
+  "orderedAtFormatted": null,
+  "offset": null,
+  "dmy": null,
+  "name": "ÜNÏCØDÉ 日本 مرحبا",
+  "flag": null,
+  "fixed": 1.1,
+  "lines": []
+}
+content-type: application/json
+=== rules-xml
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== url
+https://partner.test/orders/U-1?price=&at=&name=Ünïcødé 日本 مرحبا&big=&sku=
+https://partner.test/orders/U-1?price=&at=&name=%C3%9Cn%C3%AFc%C3%B8d%C3%A9%20%E6%97%A5%E6%9C%AC%20%D9%85%D8%B1%D8%AD%D8%A8%D8%A7&big=&sku=
+=== fill
+order-U-1--.json

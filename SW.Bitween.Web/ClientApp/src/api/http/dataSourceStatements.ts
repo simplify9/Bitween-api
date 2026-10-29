@@ -9,7 +9,7 @@ interface SearchyResponse<T> {
 }
 
 /**
- * What a save answers with. `checked` is false when the database was never asked — the adapter for
+ * What a save answers with. `checked` is false when the database was never asked - the adapter for
  * this connection is not running on the node that handled the request, so there was nobody to
  * validate against. Worth saying: a save that reported nothing would look exactly like one that
  * had been verified.
@@ -57,7 +57,7 @@ const toStatement = (raw: RawStatement): DataSourceStatement => ({
 
 const EVERYTHING = 1_000_000;
 
-export const dataSourceStatementMethods: Partial<ApiClient> = {
+export const dataSourceStatementMethods = {
   async listDataSourceStatements(dataSourceId: number): Promise<DataSourceStatement[]> {
     // Filtered server-side by data source: a statement is only ever meaningful next to the
     // connection it runs against, and no screen wants all of them at once. Rule 1 is EqualsTo.
@@ -129,4 +129,4 @@ export const dataSourceStatementMethods: Partial<ApiClient> = {
     const raw = await post<DataSourceStatementUsage>(`/datasourcestatements/${id}/usage`, {});
     return { ...raw, usedBy: raw.usedBy ?? [] };
   },
-};
+} satisfies Partial<ApiClient>;

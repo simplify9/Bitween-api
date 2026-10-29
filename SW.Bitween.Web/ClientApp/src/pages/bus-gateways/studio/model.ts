@@ -16,7 +16,7 @@ export type { SubscriptionDraft };
 /**
  * The studio's nodes. Three of them are a subscription's own pipeline stages and
  * keep their names from the subscription studio, because they are the same thing
- * — a route that opened "Delivery" and a subscription page that opened
+ * - a route that opened "Delivery" and a subscription page that opened
  * "Delivery" have to be editing the same field.
  *
  * `validation` is absent on purpose: `RunValidator` is only reached from the
@@ -44,7 +44,7 @@ export const BUS_NODES: Record<BusNodeId, { label: string; description: string; 
   response: STAGES.response,
 };
 
-/** Which record a node writes to — the studio saves the two separately. */
+/** Which record a node writes to - the studio saves the two separately. */
 export const OWNER: Record<BusNodeId, "route" | "subscription"> = {
   route: "route",
   subscription: "subscription",
@@ -55,7 +55,7 @@ export const OWNER: Record<BusNodeId, "route" | "subscription"> = {
 
 /**
  * Which subscription fields each node owns, so a node can carry an unsaved dot.
- * The three pipeline nodes defer to the subscription studio's own map — one list
+ * The three pipeline nodes defer to the subscription studio's own map - one list
  * per field, wherever the field is edited.
  */
 export const SUBSCRIPTION_NODE_FIELDS: Partial<Record<BusNodeId, (keyof SubscriptionDraft)[]>> = {
@@ -89,7 +89,7 @@ export const routeDraftOf = (r: BusGatewayRoute): RouteDraft => ({
 
 /**
  * A route being added. It exists only in the studio's state until saved, which is
- * what lets the canvas draw it exactly like a real one — a modal asking the same
+ * what lets the canvas draw it exactly like a real one - a modal asking the same
  * three questions would have hidden the diagram the answers are about.
  */
 export const NEW_ROUTE: RouteDraft = { matchExpression: null, partner: "none", subscriptionId: null };
@@ -100,7 +100,7 @@ export const routeDirty = (draft: RouteDraft, saved: RouteDraft): boolean =>
 /**
  * A filter in words. `matchSummary` says "All messages" for an empty filter, which
  * is right in a table of many types but reads as a different answer sitting inches
- * from the node that says the same thing — so the studio picks one phrase.
+ * from the node that says the same thing - so the studio picks one phrase.
  */
 export const conditionText = (expr: MatchGroup | null): string =>
   !expr || expr.children.length === 0 ? "Every message" : matchSummary(expr);
@@ -126,7 +126,7 @@ export function routeFace(
  * Publishing goes through `BusService`, which maps a message type name to the one
  * information type carrying it (the column is unique) and submits a filter
  * exchange for that type. `FilterService` then evaluates **every** bus-gateway
- * route bound to that type — not just this gateway's — so the answer spans
+ * route bound to that type - not just this gateway's - so the answer spans
  * gateways, and saying otherwise would under-report the fan-out.
  */
 export interface BusListener {
@@ -183,7 +183,7 @@ export const HEALTH_LABEL: Record<RouteHealth, string> = {
   failing: "Failing",
   disabled: "Disabled",
   paused: "Paused",
-  unknown: "—",
+  unknown: "-",
 };
 
 export const HEALTH_DOT: Record<RouteHealth, string> = {
@@ -194,11 +194,11 @@ export const HEALTH_DOT: Record<RouteHealth, string> = {
   unknown: "bg-ink-200",
 };
 
-/** What each dot means, for hovering — `HEALTH_LABEL` alone is a single word with no context. */
+/** What each dot means, for hovering - `HEALTH_LABEL` alone is a single word with no context. */
 export const HEALTH_TITLE: Record<RouteHealth, string> = {
-  ok: "Healthy — enabled, unpaused, and its last run succeeded.",
+  ok: "Healthy - enabled, unpaused, and its last run succeeded.",
   failing: "Enabled and unpaused, but its recent runs ended in errors.",
-  disabled: "Turned off — this route's subscription won't run, even if the filter matches.",
-  paused: "Held without being disabled — matches still route here, but nothing runs until unpaused.",
+  disabled: "Turned off - this route's subscription won't run, even if the filter matches.",
+  paused: "Held without being disabled - matches still route here, but nothing runs until unpaused.",
   unknown: "No subscription data available for this route yet.",
 };

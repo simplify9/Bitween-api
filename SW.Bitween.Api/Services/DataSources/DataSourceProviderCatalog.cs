@@ -15,7 +15,7 @@ namespace SW.Bitween.Services.DataSources;
 /// <summary>
 /// What each data source provider accepts, read out of the adapter itself.
 ///
-/// The front end used to carry this list by hand — which fields a RabbitMQ data source starts with,
+/// The front end used to carry this list by hand - which fields a RabbitMQ data source starts with,
 /// what DeclareMode allows, which values are credentials. A hand-written copy of someone else's
 /// contract drifts: the form advertised a "Tls" field for months that the adapter never read, so an
 /// operator could tick it, see nothing wrong, and still be authenticating in the clear.
@@ -28,8 +28,8 @@ namespace SW.Bitween.Services.DataSources;
 ///   one would mean an extra connection to a customer's broker, and asking a stopped one would mean
 ///   starting a connection nobody asked for.
 /// - The attributes are matched by NAME, not by type identity. Adapters build against their own
-///   copy of the contract — they target net8.0 while the host is on net10.0 — and a type loaded in
-///   a metadata context is never reference-equal to the one the host compiled against anyway.
+///   copy of the contract, published on their own cadence, and a type loaded in a metadata
+///   context is never reference-equal to the one the host compiled against anyway.
 /// </summary>
 public class DataSourceProviderCatalog(AdapterInstaller installer, ICloudFilesService cloudFiles,
     ServerlessOptions options, IMemoryCache cache, ILogger<DataSourceProviderCatalog> logger)
@@ -37,7 +37,7 @@ public class DataSourceProviderCatalog(AdapterInstaller installer, ICloudFilesSe
     /// <summary>
     /// Where Bitween's own providers live. A third-party adapter is found by the Kind stamped on
     /// it at publish time instead; this prefix is what finds the ones published before stamping
-    /// existed, and it is a prefilter either way — describing every adapter in the store to build
+    /// existed, and it is a prefilter either way - describing every adapter in the store to build
     /// a menu would mean downloading every adapter in the store.
     /// </summary>
     public const string ConventionPrefix = "bitween.";

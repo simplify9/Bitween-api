@@ -2,7 +2,7 @@
  * Generator output snapshot tests.
  * These freeze exactly what template string generateScriban produces for each
  * mapping config. Snapshots are stored in __snapshots__/. A failure here means
- * the generator changed its output — check whether the C# parity tests also
+ * the generator changed its output - check whether the C# parity tests also
  * need updating (ScribanGeneratorParityTests.cs).
  */
 import { describe, it, expect } from 'vitest';

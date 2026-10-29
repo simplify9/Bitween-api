@@ -43,7 +43,7 @@ namespace SW.Bitween
             var hash = Rfc2898DeriveBytes.Pbkdf2(
                 password, salt, iterations, HashAlgorithmName.SHA256, V2HashSize);
 
-            // Salt first, then hash — Verify reads them back by the same offsets.
+            // Salt first, then hash - Verify reads them back by the same offsets.
             var hashBytes = new byte[SaltSize + V2HashSize];
             salt.CopyTo(hashBytes, 0);
             hash.CopyTo(hashBytes, SaltSize);
@@ -59,6 +59,20 @@ namespace SW.Bitween
         public static string Hash(string password)
         {
             return Hash(password, DefaultIterations);
+        }
+
+        /// <summary>
+        /// Whether a stored hash is weaker than what <see cref="Hash(string)"/> makes today, so it
+        /// should be replaced once the password is known again.
+        /// </summary>
+        public static bool NeedsRehash(string hashString)
+        {
+            // V1 is PBKDF2-HMAC-SHA1 at 10,000 iterations; a V2 hash made with fewer iterations than today's
+            // is as weak as its count. Either is replaced on the next sign-in that proves the password.
+            if (hashString == null || hashString.StartsWith(V1Prefix, StringComparison.Ordinal)) return true;
+            if (!hashString.StartsWith(V2Prefix, StringComparison.Ordinal)) return false;
+            var parts = hashString[V2Prefix.Length..].Split('$');
+            return parts.Length != 2 || !int.TryParse(parts[0], out var iterations) || iterations < DefaultIterations;
         }
 
         /// <summary>

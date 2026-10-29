@@ -10,25 +10,51 @@ Some values are also **runtime settings** that administrators change in the UI. 
 |---|---|
 | `ConnectionStrings:BitweenDb` | `Host=db;Port=5432;Database=bitween;Username=bitween;Password=...` |
 | `ConnectionStrings:RabbitMQ` | `amqp://user:password@rabbitmq:5672/` |
+| `ASPNETCORE_ENVIRONMENT` | `Production`, or the value the other applications on the same RabbitMQ use: the bus names its exchanges and queues after it. On an upgrade, keep the running value: Bitween remembers it, and refuses to start under another until `Bitween:ConfirmBusEnvironment` names the new one. Use `Development` only on a developer's machine |
 | `Token:Key` | A random secret of at least 32 characters, unique to this deployment |
 | `Token:Issuer`, `Token:Audience` | Values used to sign and validate JWTs |
+| `Bitween:InitialAdminPassword` | New installations only: the password for `admin@Bitween.systems` |
+| `Bitween:SettingsEncryptionKey` | Recommended: a random secret of at least 32 characters that encrypts stored passwords. Without it they can't be saved from the Settings page. Never change it once set. See [Security](security.md#secrets) |
 | Storage settings | See [Storage](#storage) |
 
 The service stops at startup with a clear error when the database connection string is missing.
+
+Set these too when they apply:
+
+- Other applications publish to Bitween's bus: `Bus:OnInvalidUserToken`. See [Bus messages from other applications](#bus-messages-from-other-applications).
+- Upgrading, and partners must keep getting one call at a time, in order: `Bitween:BusDefaultConcurrency` set to `1`. See [Upgrading to parallel exchanges](deployment.md#upgrading-to-parallel-exchanges).
+- S3-compatible storage other than AWS: `AWS_REQUEST_CHECKSUM_CALCULATION` and `AWS_RESPONSE_CHECKSUM_VALIDATION`. See [Storage](#storage).
+- A RabbitMQ shared with another Bitween: `Bitween:QueuePrefix`.
+- MySQL without TLS: `SslMode` in the connection string. See [Databases](deployment.md#databases).
+- The Queue health page: `Bitween:RabbitMqManagementUrl`, `Bitween:RabbitMqManagementUsername` and `Bitween:RabbitMqManagementPassword`.
 
 ### `Token:Key` must be your own
 
 Whoever holds this key can mint a token for any identity, including one with no account behind
 it. The service **refuses to start** when it is missing, or when it is still the sample value
-`6547647654764764767657658658758765876532542` — which ships as the chart default and is published
-in this repository, so a deployment that never overrode it was open to anyone who read it.
+`6547647654764764767657658658758765876532542`, which ships as the chart default and is published
+in this repository.
 
 The check runs in every environment, including Development, so **a local checkout needs its own
 key too**: put one in your gitignored `appsettings.Development.json` (or `appsettings.Local.json`).
-Any long random string will do — `openssl rand -base64 48`.
+Any long random string will do - `openssl rand -base64 48`.
 
 Changing the key invalidates every token already issued, so everyone signs in again. That is the
 intended response to a key you no longer trust.
+
+### `Bitween:InitialAdminPassword` on a new installation
+
+Every installation gets one administrator, `admin@Bitween.systems`, whose default password is
+published in this repository. On startup, while that account still has the default password:
+
+- **`Bitween:InitialAdminPassword` is set:** it becomes the account's password. It must meet the
+  password policy and cannot be the default itself.
+- **It is not set and the account is the only one:** the service **refuses to start**. This is a
+  new installation, and whoever signed in first could otherwise choose the password.
+- **It is not set and other accounts exist:** nothing changes. Signing in with the default
+  password still leads only to the password change.
+
+Once the password is anything else the value is ignored, so it can stay in place or be removed.
 
 ### Bus messages from other applications
 
@@ -54,27 +80,50 @@ applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
 | `AzureManagedIdentityClientId` | | Client id of a user-assigned identity. Falls back to `AZURE_CLIENT_ID` or `MSI_CLIENT_ID`. |
 | `StorageProvider` | `S3` | `S3`, `AS` for Azure Blob, `OC` for Oracle Cloud, or `Local`. `Local` is refused outside Development. |
 | `DocumentPrefix` | `temp30/Bitweendocs` | First value of the runtime setting: the storage key prefix new exchange files are written under. |
-| `PublicUrl` | | The address partners reach Bitween on, such as `https://bitween.example.com`. The chart sets it from its host name. Exchange file links are built on it, including aggregation roll-ups. Without it, roll-ups link through the instance's own address, which only adapters running in Bitween can open. |
+| `PublicUrl` | | The address partners reach Bitween on, such as `https://bitween.example.com`. The chart sets it from its host name. Exchange file links are built on it, including aggregation roll-ups. Without it, roll-ups link through the instance's own address, which only adapters running in Bitween can open. Password reset emails need it too. |
 | `ExchangeRetentionDays`, `ArchiveExchanges`, `ExchangeRetentionCron` | `0`, `true`, `0 0 4 * * ?` | First values of the retention settings. |
+| `Version` | | Leave it unset. A Bitween's release, as `10.0.93`, is stamped on its build by CI, so every image knows it wherever it runs: **Settings, About** shows it, with the commit as the build (`10.0.93+<commit>`), and an adapter's or connector's "needs Bitween X or later" is checked against it. A build CI didn't stamp, as a local one, is `10.0.0`. Set this only to override the stamped version. |
 | `AdapterPath` | `adapters` | Storage key prefix for custom adapter packages. |
 | `ServerlessCommandTimeout` | `300` | Seconds a custom adapter may run. |
-| `BusProvidersEnabled` | `false` | Run data source adapters, for brokers and databases, on this node. See [Data sources](data-sources.md). |
+| `NativeAdapterTimeout` | `900` | Seconds one call to a built-in adapter may take. Past it the exchange fails as a timeout, which a retry policy can retry, and the adapter's connection is closed. Without it, a server that accepts a connection and never answers held its place in the processing queue for good. The call can't be stopped, only left, so it may still finish: a retry can deliver twice what a hung partner did receive. `0` for no limit. |
+| `CircuitBreakerFailures` | `5` | Failures in a row (timeouts, refused or dropped connections, 429, any 5xx but 501) after which the built-in HTTP, SMTP, SFTP and FTP handlers stop calling that destination for a while and fail its deliveries at once, as a 503. Counted per destination (scheme, host and port) and per replica. `0` switches it off. See [Adapters](adapters.md#when-a-destination-keeps-failing). |
+| `CircuitBreakerWindowSeconds` | `60` | The failures must fall within this many seconds. |
+| `CircuitBreakerOpenSeconds` | `60` | How long deliveries fail at once before one is let through to try the destination again. |
+| `AdapterEditorDependencies` | `false` | Let the adapter editor fetch the packages a draft's `requirements.txt` or `package.json` names, from PyPI and npm or the mirrors in `PIP_INDEX_URL` and `NPM_CONFIG_REGISTRY`. Needs the server to reach them. See [Adapters](adapters.md#writing-an-adapter-in-bitween). |
+| `AdapterEditorMemoryMb` | `256` | Memory a draft may use while the editor checks or tries it. `0` for no limit. |
+| `AdapterEditorCpuCores` | `1` | Cores a draft may keep busy, for a few seconds, while the editor checks or tries it. `0` for no limit. |
+| `BusProvidersEnabled` | `false` | Run data source adapters, for brokers and databases, on this node. See [Data sources](data-sources.md). Resident adapters used in the pipeline need it too. Python and Node custom adapters don't: the resident adapter host they run on is started on every node. |
 | `BusProviderMaxInFlight` | `16` | Unacknowledged messages one broker adapter may have in flight with Bitween. |
 | `InboundMessagePruneCron` | `0 30 3 * * ?` | Quartz cron for deleting expired broker deduplication keys. |
 | `QueuePrefix` | `bitween` | Part of every queue name. Give each deployment sharing a broker its own value. |
 | `BusDefaultQueuePrefetch` | `12` | Default number of unacknowledged messages per consumer. Work groups can override it. |
+| `Mirror:Target` | `false` | Whether prod's items may be brought onto this Bitween and tested with prod's traffic, on a staging that mirrors one. Set it on the staging's deployment only. See [Prod mirror](prod-mirror.md). |
+| `BusDefaultConcurrency` | the prefetch | How many messages of a lane run at once on a node, for the Ungrouped lane and the bus's other consumers (bus-enabled information types, retry and auto-pause alerts). A work group sets its own with **Parallel exchanges**. `1` runs them one at a time, in order, as before. |
 | `RabbitMqManagementUrl`, `RabbitMqManagementUsername`, `RabbitMqManagementPassword` | | RabbitMQ management API, needed for queue health. |
-| `ConsumeLegacyEventMessages` | `false` | Also drain the queues that versions before work groups published to. |
 | `CorsOrigins` | empty | Browser origins allowed to call the API with credentials. Set as `Bitween__CorsOrigins__0`, `Bitween__CorsOrigins__1` and so on. |
-| `SettingsEncryptionKey` | | Passphrase that encrypts secret settings in the database. |
+| `SettingsEncryptionKey` | | Passphrase that encrypts secret settings and stored credentials in the database. See [Security](security.md#secrets). |
+| `ConfirmBusEnvironment` | | The new `ASPNETCORE_ENVIRONMENT`, after every application on the same RabbitMQ has moved to it. Bitween reads from new queues under a new name, and what waits in the old ones stays there. It only confirms the name it holds, so it can stay set. |
+| `SettingsEncryptionKeyLost` | `false` | Only when the key that encrypted the stored credentials is gone for good: start anyway, and show what it encrypted as empty until entered again. See [Security](security.md#secrets). |
 | `ReceiveAttemptRetentionDays` | `30` | Days to keep receive attempts. |
+| `AuditRetentionDays` | `0` | Days to keep audit entries; the daily clean-up deletes older ones. 0 keeps them indefinitely. |
+| `LogSqlParameterValues` | `false` | Write SQL parameter values into the logs. They hold passwords, partner keys and payloads, so it is off in every environment unless set; the repository's `launchSettings.json` turns it on for a developer's own machine. |
 | `ReceiveAttemptCleanupCron` | `0 0 3 * * ?` | Quartz cron for the receive attempt cleanup. |
+| `QuietSubscriptionsCron` | `0 0/5 * * * ?` | Quartz cron for checking subscriptions that [expect traffic](entry-points.md#when-traffic-stops). A subscription can't expect a gap shorter than five minutes, so running it less often only delays the alert. |
+| `NotifierQuietMinutes` | `5` | After a notification channel or legacy notifier sends for a subscription and an outcome, more of the same within this many minutes are held back and counted in the next message. `0` sends every one. See [Delivery](retries-and-alerts.md#delivery). |
 | `ApiCallSubscriptionResponseAcceptedStatusCode` | `202` | First value of the runtime setting. |
 | `JwtExpiryMinutes` | `60` | First value of the runtime setting. |
 | `MsalClientId`, `MsalTenantId`, `MsalRedirectUri` | | First values of the Microsoft sign-in settings. |
 | `DisableEmailPasswordLogin` | `false` | First value of the runtime setting. |
+| `OidcAuthority`, `OidcClientId`, `OidcClientSecret`, `OidcDisplayName`, `OidcScopes`, `OidcRedirectUri` | | First values of the OpenID Connect sign-in settings. See [Security](security.md#openid-connect). |
 | `RebexLicenseKey` | | First value of the runtime setting. |
+| `RegistryEnabled`, `RegistryUrl`, `RegistryTrustedKeys`, `RegistryAllowCommunity` | `true`, Simplify9's registry and its keys, `false` | First values of the Marketplace settings. See [Adapters](adapters.md#installing-from-the-marketplace). |
+| `RegistryInstanceId`, `RegistryInstanceToken`, `RegistryUsageReports` | empty, empty, `false` | First values of the registration settings: set by **Register** under Settings, Marketplace rather than by hand. See [Paid connectors and licences](adapters.md#paid-connectors-and-licences). |
 | `RetryJobCron` | `0 * * * * ?` | First value of the runtime setting. |
+| `MaxRetryAfterSeconds` | `21600` | First value of the runtime setting: the longest an adapter's [try again after](retries-and-alerts.md#when-an-adapter-says-when-to-try-again) can push back a retry. |
+| `MaxResponseWaitSeconds` | `300` | The longest a [sync gateway call](entry-points.md#async-and-sync) waits for its exchange's result, whatever `Wait-Period` asks. After it the caller gets `202`. |
+| `MessagePayloadMaxBytes` | `262144` | The largest input, in bytes, an exchange's created message carries beside its id, so the worker doesn't read it back from storage; and the largest response a sync call's result signal carries to another node. Larger ones are read from storage. Every file is written to storage either way. `0` sends none. |
+| `SharedPayloadParse` | `true` | Parse an exchange's payload once per way of reading it and hand the result from step to step: on a gateway call the schema check and the promoted properties; in the worker the schema check, the routing filter, the partner and global values written into the payload, and the built-in mappers. Each step reads exactly what it read before. `false` has every step parse the payload for itself, as it used to. |
+| `CacheCompiledTemplates` | `true` | Keep the built-in mappers' compiled Scriban templates and mapping rules, by their text, instead of compiling them on every exchange. An edited template or rule set is simply new text. `false` compiles them on every call, as it used to. Read at startup. |
 
 ## `Theme` section
 
@@ -90,6 +139,8 @@ Storage credentials live in the `CloudFiles` section and are read by the `Simply
 | `AS` | `AccountName`, `AccessKeyId`, `SecretAccessKey`, `ServiceUrl`, `BucketName`, `Managed`, `ManagedIdentityClientId`, `PublicServiceUrl`, and for deleting files by age `SubscriptionId`, `ResourceGroupName`, optionally `StorageAccountName` |
 | `OC` | `TenantId`, `FingerPrint`, `UserId`, `RSAKey`, `Region`, `NamespaceName`, `BucketName` |
 | `Local` | `BucketName`, and optionally `StoragePath` |
+
+For an S3-compatible store other than AWS, set `AWS_REQUEST_CHECKSUM_CALCULATION` and `AWS_RESPONSE_CHECKSUM_VALIDATION` to `when_required`. The AWS SDK otherwise uploads with a trailing checksum, which some of these stores save into the file itself.
 
 Azure keeps deletion rules in the storage account's lifecycle management policy, which is reached through Azure Resource Manager rather than the blob endpoint. With `SubscriptionId` and `ResourceGroupName` set, the storage library creates the temp-prefix rules at startup and the Settings page reads them. The managed identity, or a service principal in `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and `AZURE_CLIENT_SECRET`, needs `Microsoft.Storage/storageAccounts/managementPolicies/read` and `write`, for example through the Storage Account Contributor role. Without them the rules aren't created on Azure, and any policy set up by hand can't be read.
 
@@ -109,7 +160,7 @@ Logging lives in the `SwLogger` section.
 
 Settings are stored in the `Settings` table and edited on the Settings page.
 
-- On first boot, every editable setting is copied from configuration into the table. After that the table wins, and changing configuration has no effect.
+- On first boot, every editable setting is copied from configuration into the table. After that the table wins, and changing configuration has no effect: each start logs a warning naming every setting whose configured value differs from the stored one.
 - A saved change applies immediately on the instance that saved it, and reaches other instances through the cache revoke broadcast.
 - **Reset to default** writes the product default, not the configured value.
 - Values captured at startup, such as the bus, storage, CORS and database settings, are shown read-only. Credentials only show whether they are set.
@@ -125,11 +176,31 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.CorsOrigins` | API behavior | Read-only | empty |
 | `Bitween.MsalClientId`, `MsalTenantId`, `MsalRedirectUri` | Single sign-on (Microsoft) | Yes | empty |
 | `Bitween.DisableEmailPasswordLogin` | Single sign-on (Microsoft) | Yes | `false` |
+| `Bitween.OidcAuthority`, `OidcClientId`, `OidcDisplayName`, `OidcScopes`, `OidcRedirectUri` | Single sign-on (OpenID Connect) | Yes | empty |
+| `Bitween.OidcClientSecret` | Single sign-on (OpenID Connect) | Yes, secret | empty |
 | `Bitween.RebexLicenseKey` | Adapters | Yes, secret | empty |
 | `Bitween.AdapterPath` | Adapters | Read-only | `adapters` |
 | `Bitween.ServerlessCommandTimeout` | Adapters | Read-only | `300` |
+| `Bitween.NativeAdapterTimeout` | Adapters | Read-only | `900` |
+| `Bitween.CircuitBreakerFailures`, `CircuitBreakerWindowSeconds`, `CircuitBreakerOpenSeconds` | Adapters | Read-only | `5`, `60`, `60` |
+| `Bitween.RegistryEnabled` | Marketplace | Yes | `true` |
+| `Bitween.RegistryUrl` | Marketplace | Yes | `https://registry.bitween.io` |
+| `Bitween.RegistryTrustedKeys` | Marketplace | Yes | Simplify9's registry's keys |
+| `Bitween.RegistryAllowCommunity` | Marketplace | Yes | `false` |
+| `Bitween.RegistryInstanceId` | Marketplace | Yes | empty, set by registering |
+| `Bitween.RegistryInstanceToken` | Marketplace | Yes, secret | empty, set by registering |
+| `Bitween.RegistryUsageReports` | Marketplace | Yes | `false` |
+| `Bitween.Ai.Provider` | AI | Yes | `Anthropic` |
+| `Bitween.Ai.ApiKey` | AI | Yes, secret | empty, AI features off |
+| `Bitween.Ai.Model`, `BaseUrl` | AI | Yes | empty |
+| `Bitween.MailServer.Host`, `Port`, `UseTls`, `CertificateThumbprint`, `Username`, `From`, `FromName` | Mail server | Yes | port `587`, `UseTls` `true`, the rest empty |
+| `Bitween.MailServer.Password` | Mail server | Yes, secret | empty |
+| `Bitween.Mirror.Target` | Prod mirror | Read-only | `false` |
+| `Bitween.Mirror.SourceUrl`, `SourceEmail`, `KeepRealValues` | Prod mirror | Yes | empty |
+| `Bitween.Mirror.SourceToken`, `SourcePassword` | Prod mirror | Yes, secret | empty |
+| `Bitween.MaxRetryAfterSeconds` | Reliability & jobs | Yes | `21600`, six hours |
 | `Bitween.RetryJobCron` | Reliability & jobs | Yes | `0 * * * * ?` |
-| `Bitween.QueuePrefix`, `BusDefaultQueuePrefetch`, `ConsumeLegacyEventMessages` | Messaging | Read-only | |
+| `Bitween.QueuePrefix`, `BusDefaultQueuePrefetch`, `BusDefaultConcurrency` | Messaging | Read-only | |
 | `Bitween.RabbitMqManagementUrl`, `Username`, `Password` | Messaging | Shows whether set | |
 | `Bitween.UseAzureManagedIdentity` | Database | Read-only | `false` |
 | `Bitween.AzureManagedIdentityClientId` | Database | Shows whether set | |
@@ -139,9 +210,49 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 
 The retry poll and retention crons are validated before they're saved, and saving one reschedules its job. A document prefix must be folder names of letters, digits, dots, dashes and underscores, and no folder can be only dots (`.` or `..`). Each exchange keeps the prefix its files were written under, so changing it only affects new exchanges.
 
+### Mail server
+
+The **Mail server** section is the one SMTP server every Email notification channel sends through, so a channel only names its recipients. Member invites, password resets and account notices go through it too; see [Invites and password resets](security.md#invites-and-password-resets). It is read on each send. Until a host and a From address are set, Email channels can't send, and their page says so. The connection follows the [SMTP adapter's](adapters.md#nativesmtphandler) rules: a password is only sent over TLS, `CertificateThumbprint` trusts exactly that certificate, and a server that doesn't answer within 30 seconds fails the send. The password is a secret setting, so storing it needs `Bitween:SettingsEncryptionKey`. Without one, set it through configuration (`Bitween__MailServer__Password`).
+
+### AI
+
+The **AI** section is the provider every AI feature calls; they are [Generate with AI](mapping.md#generate-with-ai) in the mapping editor, [Explain this failure](#explaining-a-failure) on a failed exchange, [Ask](#asking-your-exchanges) on the Exchanges page, and [Suggest with AI](retries-and-alerts.md#suggesting-a-policy-with-ai) beside a subscription's retry policy. It is read on each call, and AI features stay off until an API key is set.
+
+- **Provider** is `Anthropic` or `OpenAI`. Any other value, such as a misspelling in configuration, leaves AI features off. `OpenAI` also covers anything that speaks its chat completions API at **API address**: an Azure OpenAI resource (`https://your-resource.openai.azure.com/openai/v1/`), a local Ollama (`http://localhost:11434/v1/`) or a proxy.
+- **Model** empty uses `claude-opus-5-5` with Anthropic. OpenAI needs one named, or the Azure deployment's name.
+- **API key** is a secret setting, so storing it needs `Bitween:SettingsEncryptionKey`.
+- **API address** must be `https`, except plain `http` to this machine (`localhost`), so the key is never sent in the clear. Calls go through the same address check as adapters: never to link-local or cloud metadata addresses, and not to private or loopback ones while `Bitween:BlockPrivateNetworkAddresses` is on.
+
+When the provider refuses or fails a call, the message gives its HTTP status, not the text it sent back.
+
+Sample documents an AI feature sends go to this provider, with the names - never the values - of partner properties and global values. Secret ones are not named.
+
+#### Explaining a failure
+
+**Explain this failure** on a failed exchange sends this, and only this, to the provider:
+
+- the error, which step failed, the subscription's kind and adapters, and the names of the handler's settings, never their values (they hold partner and global values already filled in, some of them credentials);
+- the retry policy's groups, the attempt's place in its retry chain, why it won't be retried and any scheduled retry, and the first line of up to three earlier attempts' errors;
+- the input, mapped and response documents, with every value replaced by its type: `"name": "Lina"` goes as `"name": "<text>"`. Long lists show their first three entries. A CSV's every row is masked, a header row included, so a file without one can't send its first record as column names. A document that isn't JSON, XML or CSV, or is over 1 MB, isn't sent at all.
+
+Error text is masked too: a document inside it, such as a partner's response body, is masked as a document; every value the exchange's documents hold is taken out wherever it appears; quoted text, numbers of four or more digits, email addresses, URL query strings and anything that looks like a credential or token are replaced; and a stack frame keeps its file name and line but not the server's folders.
+
+The answer says what happened, the most likely cause and what to change. **See what was sent** shows exactly the masked message that went, after fixed instructions that are the same on every call. Anyone who can view the exchange can ask, and each request is recorded as an `explain-failure` operator action in the audit trail before anything is sent, so a call that fails afterwards is on record too.
+
+#### Asking your exchanges
+
+**Ask** on the Exchanges page turns a question such as "failed SkyNet orders since Monday" into the page's own filter: its chips, its link, its saved views. The answer line above the list counts the result itself. It sends the provider only:
+
+- the question, the current time and the asker's time zone;
+- the ids and names of partners, subscriptions and information types (up to 2,000 of each), and promoted-property keys.
+
+No exchange, count or property value is sent. Every id and key in the answer is checked against this Bitween before it becomes a filter; anything that doesn't exist is dropped and listed under the answer. **See what was sent** shows exactly the message that went, after fixed instructions that are the same on every call, and each question is recorded in the audit log as `ask-exchanges` before it is sent. It needs `exchanges.view`, and the filter runs with the asker's rights like any other.
+
+The page also has a **Notification channels** section. Channels are records rather than settings: they have their own table, each opens on a page of its own, and the `notifiers` permissions cover them rather than `settings`. See [Notification channels](retries-and-alerts.md#notification-channels).
+
 `GET /api/retention` and `POST /api/retention/preview` describe what the retention settings do, as saved or as proposed. The Settings page uses them. `POST /api/retention/aggregation` says whether exchanges would be removed before an aggregation on the given schedules rolls them up; the aggregation page uses it.
 
-`GET /api/settings/config` needs no sign-in. It returns the Microsoft sign-in values, whether email and password sign-in is disabled, whether RabbitMQ management is configured, and the theme. The sign-in page loads it.
+`GET /api/settings/config` needs no sign-in. It returns the Microsoft sign-in values, whether email and password sign-in is disabled, whether RabbitMQ management is configured, whether AI features are configured (`aiConfigured`), and the theme. The sign-in page loads it.
 
 ## Helm values
 
@@ -158,6 +269,8 @@ The chart in `charts/default` maps values to environment variables. Values marke
 | `storageProvider` | `Bitween__StorageProvider` |
 | `ingress.hosts`, or `gateway.hostnames` with `gateway.enabled` | `Bitween__PublicUrl`: the first host, `https` unless the Ingress has no TLS for it |
 | `busDefaultQueuePrefetch` | `Bitween__BusDefaultQueuePrefetch` |
+| `busDefaultConcurrency` | `Bitween__BusDefaultConcurrency`, only when set |
+| `terminationGracePeriodSeconds` | The pod's `terminationGracePeriodSeconds`, `60` by default |
 | `serverlessCommandTimeout` | `Bitween__ServerlessCommandTimeout` |
 | `msalClientId`, `msalRedirectUri`, `msalTenantId` | `Bitween__MsalClientId`, `Bitween__MsalRedirectUri`, `Bitween__MsalTenantId` |
 | `environmentVariables.*` | Passed through under their own names, such as the RabbitMQ management values |
@@ -165,7 +278,7 @@ The chart in `charts/default` maps values to environment variables. Values marke
 | `global.token.key`, `issuer`, `audience` *(secret)* | `Token__Key`, `Token__Issuer`, `Token__Audience` |
 | `global.cloudFiles.*` *(secret)* | `CloudFiles__AccessKeyId`, `SecretAccessKey`, `ServiceUrl`, `BucketName`, `TenantId`, `Fingerprint`, `UserId`, `RSAKey`, `Region`, `NamespaceName` |
 | `global.logger.esUrl`, `esUser`, `esPassword` *(secret)* | `SwLogger__ElasticsearchUrl`, `SwLogger__ElasticsearchUser`, `SwLogger__ElasticsearchPassword` |
-| `secrets.*` *(secret)* | Passed through under their own names, such as `Bitween__SettingsEncryptionKey` |
+| `secrets.*` *(secret)* | Passed through under their own names, such as `Bitween__SettingsEncryptionKey` or `Bitween__InitialAdminPassword` |
 
 The chart also sets `SwLogger__ApplicationName` to the release name and `BitweenClient__BaseUrl` to the in-cluster service address.
 

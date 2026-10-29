@@ -1,0 +1,96 @@
+=== promoted-json
+!System.InvalidCastException: Object must implement IConvertible.
+=== promoted-xml
+!System.Xml.XmlException: Data at the root level is invalid. Line 1, position 1.
+=== promoted-json-big
+big = (null)
+hits: 
+gateway: 
+=== schema-json
+!System.InvalidCastException: Object must implement IConvertible.
+=== schema-xml
+Not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== enriched
+{"id":"M-1","price":79228162514264337593543950336,"tiny":1E-30,"huge":"Infinity","neg":-12345678901234567890,"precise":0.30000000000000004,"exp":100.0,"trailing0":2.5,"__partner__":{"code":"P1","since":"2026-10-14T10:00:00Z","rate":"1.10","Upper":"U"},"__globals__":{"set1":{"region":"KSA","cutoff":"2026-10-14"}}}
+=== enriched-scriban
+{
+  "id": "M-1",
+  "price": 79228162514264337593543950336,
+  "priceText": "79228162514264337593543950336",
+  "priceFloat": 7.922816251426434E+28,
+  "orderedAt": null,
+  "orderedAtText": "",
+  "offset": null,
+  "ms": null,
+  "big": null,
+  "exp": 100,
+  "negzero": null,
+  "name": null,
+  "firstItem": null,
+  "lines": [],
+  "lineCount": 0,
+  "partner": {
+    "code": {
+      "Value": "P1",
+      "IsReadOnly": false
+    },
+    "since": {
+      "Value": "2026-10-14T10:00:00Z",
+      "IsReadOnly": false
+    },
+    "rate": {
+      "Value": "1.10",
+      "IsReadOnly": false
+    },
+    "Upper": {
+      "Value": "U",
+      "IsReadOnly": false
+    },
+    "upper": {
+      "Value": "U",
+      "IsReadOnly": false
+    }
+  },
+  "partnerSince": "14 Oct 2026",
+  "partnerRate": "1.10",
+  "region": "KSA",
+  "orderId": null,
+  "upper": {
+    "name": null
+  }
+}
+=== scriban
+{
+  "id": "M-1",
+  "price": 79228162514264337593543950336,
+  "priceText": "79228162514264337593543950336",
+  "priceFloat": 7.922816251426434E+28,
+  "orderedAt": null,
+  "orderedAtText": "",
+  "offset": null,
+  "ms": null,
+  "big": null,
+  "exp": 100,
+  "negzero": null,
+  "name": null,
+  "firstItem": null,
+  "lines": [],
+  "lineCount": 0,
+  "partner": null,
+  "partnerSince": "",
+  "partnerRate": null,
+  "region": null,
+  "orderId": null,
+  "upper": {
+    "name": null
+  }
+}
+=== rules-json
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid JSON: Input string '1e400' is not a valid decimal. Path 'huge', line 1, position 75.
+=== rules-xml
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== url
+https://partner.test/orders/M-1?price=Liquid syntax error: Object '79228162514264337593543950336' is invalid because it is neither a built-in type nor implements ILiquidizable&at=&name=&big=&sku=
+https://partner.test/orders/M-1?price=Liquid%20syntax%20error:%20Object%20'79228162514264337593543950336'%20is%20invalid%20because%20it%20is%20neither%20a%20built-in%20type%20nor%20implements%20ILiquidizable&at=&name=&big=&sku=
+=== fill
+order-M-1-79228162514264337593543950336-.json

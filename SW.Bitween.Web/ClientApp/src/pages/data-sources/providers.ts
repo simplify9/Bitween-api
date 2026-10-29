@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { api } from "../../api";
 import { keys } from "../../api/queryKeys";
+import { propertyLabel } from "../../components/config/propertyLabels";
 import type { DataSourceProvider, DataSourceProviderSetting } from "../../api/types";
 
 /**
@@ -9,7 +10,7 @@ import type { DataSourceProvider, DataSourceProviderSetting } from "../../api/ty
  *
  * This used to be a hand-written table right here: the fields each provider starts with, their
  * defaults, their allowed values, which of them are credentials. That is a copy of a contract the
- * front end does not own, and it drifted — a hint told operators to set "Tls" while the adapter
+ * front end does not own, and it drifted - a hint told operators to set "Tls" while the adapter
  * only ever read "UseSsl", so a connection that looked encrypted in this form was in the clear on
  * the wire.
  *
@@ -51,7 +52,7 @@ export const initialProperties = (provider: DataSourceProvider): Record<string, 
  * The order to show a data source's settings in: the adapter's, not the dictionary's.
  *
  * What comes back from the server is a map, and a map has whatever order the database and the
- * serializer between them produced — which is how a form ended up asking for a password before the
+ * serializer between them produced - which is how a form ended up asking for a password before the
  * username it belongs to. The adapter declares its settings in a deliberate order (connection
  * first, then credentials, then tuning), and that is the order to render.
  *
@@ -92,10 +93,10 @@ export const isSecretName = (
 
 /**
  * Which adapters bind to a data source at all, as a hook so every page asking the
- * question shares one answer — the subscription's own page and all three create pages.
+ * question shares one answer - the subscription's own page and all three create pages.
  *
  * A relational one always does; a BROKER one does in a delivery, because that is how a
- * subscription answers on the customer's own queue — ingress from a broker comes through
+ * subscription answers on the customer's own queue - ingress from a broker comes through
  * a bus gateway rather than through a subscription slot.
  */
 export function useBindsToDataSource() {
@@ -107,28 +108,9 @@ export function useBindsToDataSource() {
   };
 }
 
-/** Words an adapter spells in PascalCase that read wrong once lower-cased. */
-const ACRONYMS: Record<string, string> = {
-  ssl: "SSL", tls: "TLS", url: "URL", uri: "URI", id: "ID", sql: "SQL", ttl: "TTL", tcp: "TCP",
-  ms: "ms",
-};
-
 /**
  * A setting's name as a label: "UserName" reads "User name", "UseSsl" reads "Use SSL". Only the
- * label changes — the adapter still receives the setting under its own name.
+ * label changes - the adapter still receives the setting under its own name. The same rules every
+ * adapter form uses, so a data source and a subscription name the same setting the same way.
  */
-export const settingLabel = (name: string): string => {
-  const words = name
-    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
-    .split(/[\s_.-]+/)
-    .filter(Boolean);
-  return words
-    .map((word, i) => {
-      const acronym = ACRONYMS[word.toLowerCase()];
-      if (acronym) return acronym;
-      if (word.length > 1 && word === word.toUpperCase()) return word;
-      return i === 0 ? word[0].toUpperCase() + word.slice(1).toLowerCase() : word.toLowerCase();
-    })
-    .join(" ");
-};
+export const settingLabel = (name: string): string => propertyLabel(name);

@@ -16,7 +16,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// The PostgreSQL data source provider, against a real PostgreSQL.
 ///
 /// The same suite as Oracle's, which is the point: both engines run on one core, so the parts that
-/// are shared should behave identically and the parts that differ should differ *visibly* — in the
+/// are shared should behave identically and the parts that differ should differ *visibly* - in the
 /// capability list, and in how a routine returns rows. Everything here goes over the resident
 /// transport into a real adapter process and out to a real database.
 /// </summary>
@@ -76,14 +76,14 @@ public class PostgreSqlAdapterTests : IClassFixture<PostgreSqlDbFixture>
 
         // Npgsql refuses to prepare a statement whose parameters have not been supplied, so the
         // core declares an empty placeholder for each before preparing. Without that, every
-        // parameterised statement would fail this check — which is why one is named here.
+        // parameterised statement would fail this check - which is why one is named here.
         Assert.Contains("statement:ordersForCustomer", steps);
         Assert.All(result["steps"]!, s => Assert.True(s.Value<bool>("ok"), s.ToString()));
     }
 
     /// <summary>
     /// Where the two engines are honestly different. PostgreSQL has no REF CURSOR, so a CALL cannot
-    /// hand back rows — declared false rather than glossed over — but it does have arrays and
+    /// hand back rows - declared false rather than glossed over - but it does have arrays and
     /// repeatable-read, which Oracle's list does not claim.
     /// </summary>
     [SkippableFact]
@@ -159,7 +159,7 @@ public class PostgreSqlAdapterTests : IClassFixture<PostgreSqlDbFixture>
 
     /// <summary>
     /// Functions and procedures are listed separately, because on PostgreSQL they are genuinely
-    /// different things — one is queried, the other is called — and lumping them together is how a
+    /// different things - one is queried, the other is called - and lumping them together is how a
     /// caller ends up using the wrong verb.
     /// </summary>
     [SkippableFact]
@@ -291,7 +291,7 @@ public class PostgreSqlAdapterTests : IClassFixture<PostgreSqlDbFixture>
     }
 
     /// <summary>
-    /// The PostgreSQL substitute for Oracle's REF CURSOR. Same outcome — rows from a routine — but
+    /// The PostgreSQL substitute for Oracle's REF CURSOR. Same outcome - rows from a routine - but
     /// reached with Query rather than Call, which is what `procedureResultSets: false` is telling
     /// whoever reads the capability list.
     /// </summary>
@@ -413,7 +413,7 @@ public class PostgreSqlAdapterTests : IClassFixture<PostgreSqlDbFixture>
 
         Assert.NotEmpty(forFirst);
 
-        // Subscription 202 has never read anything, so it must see the same rows from the start —
+        // Subscription 202 has never read anything, so it must see the same rows from the start -
         // not the ones left over after 101 moved the cursor.
         await adapter.InvokeAsync<object>("Initialize", timeoutSeconds: 60, properties: second);
         var forSecond = await adapter.InvokeAsync<List<string>>("ListFiles", timeoutSeconds: 60,
@@ -426,7 +426,7 @@ public class PostgreSqlAdapterTests : IClassFixture<PostgreSqlDbFixture>
 
         // And each was saved under its own name, rather than one overwriting the other.
         Assert.NotNull(await CursorAsync("receive.cursor.101"));
-        // 202 listed but accepted nothing, so it has no cursor yet — which is the point: its
+        // 202 listed but accepted nothing, so it has no cursor yet - which is the point: its
         // progress is its own, and reading did not move it.
         Assert.Null(await CursorAsync("receive.cursor.202"));
     }
@@ -472,7 +472,7 @@ public class PostgreSqlAdapterTests : IClassFixture<PostgreSqlDbFixture>
     }
 
     /// <summary>
-    /// One connection, two receivers, different statements — the case the settings could not
+    /// One connection, two receivers, different statements - the case the settings could not
     /// express while they lived on the data source.
     ///
     /// What each reads and how comes from the invocation: the statement by name, the mode and
@@ -534,7 +534,7 @@ public class PostgreSqlAdapterTests : IClassFixture<PostgreSqlDbFixture>
     // ---------------------------------------------------------------- validating
 
     /// <summary>
-    /// A statement is checked by PREPARING it — parsed and planned by the engine, never run — so
+    /// A statement is checked by PREPARING it - parsed and planned by the engine, never run - so
     /// a typo is refused where it was made instead of surfacing later as a failed connection test
     /// or a failed message.
     /// </summary>
@@ -585,7 +585,7 @@ public class PostgreSqlAdapterTests : IClassFixture<PostgreSqlDbFixture>
 
     /// <summary>
     /// A statement meant to be CALLED holds a procedure name, not SQL. Preparing it as text is a
-    /// syntax error every time, so it is accepted with a note saying what was not checked —
+    /// syntax error every time, so it is accepted with a note saying what was not checked -
     /// refusing it would block a statement that is perfectly correct.
     /// </summary>
     [SkippableFact]
@@ -635,7 +635,7 @@ public class PostgreSqlAdapterTests : IClassFixture<PostgreSqlDbFixture>
             }, default);
 
     /// <summary>
-    /// The mark-processed statement — Camel's onConsume — running per row once Bitween has accepted
+    /// The mark-processed statement - Camel's onConsume - running per row once Bitween has accepted
     /// it. Proven by reading the flag back through the adapter, not by trusting that it ran.
     /// </summary>
     [SkippableFact]
@@ -658,6 +658,44 @@ public class PostgreSqlAdapterTests : IClassFixture<PostgreSqlDbFixture>
 
         Assert.NotEmpty(processed["rows"]!);
         Assert.All(processed["rows"]!, r => Assert.True(r.Value<bool>("processed")));
+    }
+
+    /// <summary>
+    /// A row whose marking fails after Bitween accepted it is marked on the next poll, not received
+    /// again. It used to be read again, since neither its mark nor the cursor had moved, and every
+    /// such row became a second exchange.
+    /// </summary>
+    [SkippableFact]
+    public async Task A_row_whose_marking_failed_is_marked_next_time_rather_than_received_again()
+    {
+        var adapter = await AdapterAsync();
+        var me = Subscription(9);
+        me["ReceiveStatement"] = "flakyOrders";
+        me["ReceiveMode"] = "incrementing";
+        me["MarkProcessedStatement"] = "markFlaky";
+
+        await adapter.InvokeAsync<object>("Initialize", timeoutSeconds: 60, properties: me);
+        var first = await adapter.InvokeAsync<List<string>>("ListFiles", timeoutSeconds: 60, properties: me);
+        Assert.Equal(new[] { 23, 24 }, first.Select(KeyOf));
+
+        // Accepted by Bitween, then the mark fails.
+        await Assert.ThrowsAnyAsync<Exception>(() =>
+            adapter.InvokeAsync<object>("DeleteFile", first[0], timeoutSeconds: 60, properties: me));
+        await adapter.InvokeAsync<object>("Finalize", timeoutSeconds: 60, properties: me);
+
+        await using (var connection = new Npgsql.NpgsqlConnection(_postgres.AdminConnectionString))
+        {
+            await connection.OpenAsync();
+            await using var fix = new Npgsql.NpgsqlCommand("insert into flaky_marks values (true)", connection);
+            await fix.ExecuteNonQueryAsync();
+        }
+
+        await adapter.InvokeAsync<object>("Initialize", timeoutSeconds: 60, properties: me);
+        var second = await adapter.InvokeAsync<List<string>>("ListFiles", timeoutSeconds: 60, properties: me);
+
+        Assert.Equal(new[] { 24 }, second.Select(KeyOf));
+        var processed = await adapter.InvokeAsync<JObject>("Query", new { name = "processedOrders" }, timeoutSeconds: 60);
+        Assert.Contains(processed["rows"]!, r => r.Value<int>("id") == 23);
     }
 
     // ---------------------------------------------------------------- setup
@@ -692,7 +730,7 @@ public class PostgreSqlAdapterTests : IClassFixture<PostgreSqlDbFixture>
         ["MinPoolSize"] = "1",
         ["MaxPoolSize"] = "5",
 
-        // Note @name, not :name — the colon collides with PostgreSQL's :: cast operator.
+        // Note @name, not :name - the colon collides with PostgreSQL's :: cast operator.
         ["Statements"] = $@"{{
             ""seededOrders"":             ""select * from {PostgreSqlDbFixture.Table} where id <= 25 order by id"",
             ""ordersForCustomer"":        ""select * from {PostgreSqlDbFixture.Table} where customer = @customer order by id"",
@@ -710,7 +748,13 @@ public class PostgreSqlAdapterTests : IClassFixture<PostgreSqlDbFixture>
                 ""sql"":          ""select * from {PostgreSqlDbFixture.Table} where id > @cursor and id > 20 order by id"",
                 ""cursorColumn"": ""id"",
                 ""keyColumn"":    ""id""
-            }}
+            }},
+            ""flakyOrders"": {{
+                ""sql"":          ""select * from {PostgreSqlDbFixture.Table} where id > @cursor and id between 23 and 24 order by id"",
+                ""cursorColumn"": ""id"",
+                ""keyColumn"":    ""id""
+            }},
+            ""markFlaky"": ""update {PostgreSqlDbFixture.Table} set processed = true where id = @key and 1 / (select count(*) from flaky_marks) = 1""
         }}",
 
         ["ReceiveMode"] = "incrementing",

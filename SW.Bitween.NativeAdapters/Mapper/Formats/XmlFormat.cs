@@ -16,7 +16,7 @@ namespace SW.Bitween.NativeAdapters.Mapper.Formats;
 /// <para>
 /// Namespaces are dropped on the way in and matched on the local name alone. Real documents bind
 /// the same URI to a prefix and to the default at once, un-declare it again further down with
-/// <c>xmlns=""</c>, and pick a different prefix for the same namespace in the very next element —
+/// <c>xmlns=""</c>, and pick a different prefix for the same namespace in the very next element -
 /// so a path that named a prefix would be naming something the partner is free to change.
 /// </para>
 /// </remarks>
@@ -38,26 +38,51 @@ public class XmlFormat : IDocumentFormat
     /// <remarks>
     /// XML repeats a name to make a list, so a document with one <c>&lt;line&gt;</c> is
     /// indistinguishable from one that is not a list at all. Without this, an order that happened to
-    /// have a single line would map to no lines — the line silently gone, and nothing to say so.
+    /// have a single line would map to no lines - the line silently gone, and nothing to say so.
     /// </remarks>
     public bool SingleValueIsAList => true;
 
     /// <summary>How deep a document may nest before it is refused.</summary>
     /// <remarks>
     /// <see cref="FromElement"/> recurses once per element, and a document nested thousands deep
-    /// would exhaust the stack — which no <c>catch</c> can recover from, so the process goes with
+    /// would exhaust the stack - which no <c>catch</c> can recover from, so the process goes with
     /// it. <see cref="XmlReaderSettings"/> has no nesting limit of its own to lean on. 64 is what
     /// Newtonsoft applies to JSON, so both formats refuse the same shape, and it is far past
     /// anything a real document reaches: a SOAP envelope carrying an order gets to about ten.
     /// </remarks>
     private const int MaxDepth = 64;
 
-    public ValueNode Read(string text)
+    public ValueNode Read(string text) => Read(text, null);
+
+    /// <summary>
+    /// <see cref="Read(string)"/> from the payload's shared parse when the pipeline has one for this
+    /// text, loaded here otherwise. The document is only read.
+    /// </summary>
+    internal ValueNode Read(string text, ParsedPayload? shared)
     {
         if (string.IsNullOrWhiteSpace(text))
             throw new DocumentFormatException("The document is empty, so there is nothing to map.");
 
-        XDocument document;
+        if (shared == null || !shared.TryGet(ParseProfiles.RawXml, text, out var document))
+        {
+            PayloadParseTally.Parsed();
+            document = LoadRaw(text);
+        }
+
+        if (document.Root is null)
+            throw new DocumentFormatException("The document has no root element.");
+
+        // The root element is a named key rather than the tree itself, so its name is part of every
+        // path - `Envelope.Body.shipping.height`. It is the one name in an XML document that says
+        // what the document is, and a mapping that never mentions it would be harder to read.
+        var root = ValueNode.Object();
+        root.Set(document.Root.Name.LocalName, FromElement(document.Root, 1));
+        return root;
+    }
+
+    /// <summary>The text as this format loads it, the one parse profile it shares as <see cref="ParseProfiles.RawXml"/>.</summary>
+    internal static XDocument LoadRaw(string text)
+    {
         try
         {
             // A partner's document is untrusted input, so no DTD and no resolver: between them
@@ -69,22 +94,12 @@ public class XmlFormat : IDocumentFormat
                 XmlResolver = null,
             };
             using var reader = XmlReader.Create(new StringReader(text), settings);
-            document = XDocument.Load(reader);
+            return XDocument.Load(reader);
         }
         catch (XmlException ex)
         {
             throw new DocumentFormatException($"The document is not valid XML: {ex.Message}");
         }
-
-        if (document.Root is null)
-            throw new DocumentFormatException("The document has no root element.");
-
-        // The root element is a named key rather than the tree itself, so its name is part of every
-        // path — `Envelope.Body.shipping.height`. It is the one name in an XML document that says
-        // what the document is, and a mapping that never mentions it would be harder to read.
-        var root = ValueNode.Object();
-        root.Set(document.Root.Name.LocalName, FromElement(document.Root, 1));
-        return root;
     }
 
     /// <summary>
@@ -164,7 +179,7 @@ public class XmlFormat : IDocumentFormat
                 break;
 
             // A scalar is the element's text. Null and "" both give `<x/>`, which is the same
-            // document either way — XML has no null, and an element with no text is what it has.
+            // document either way - XML has no null, and an element with no text is what it has.
             case ScalarNode scalar:
                 var text = AsText(scalar.Value);
                 if (text.Length > 0) element.Add(new XText(text));
@@ -220,7 +235,7 @@ public class XmlFormat : IDocumentFormat
     /// </summary>
     /// <remarks>
     /// <c>xmlns=""</c> puts a subtree back into no namespace, and real documents do it for every
-    /// section of a request body. It cannot be written as an attribute — the writer objects — but it
+    /// section of a request body. It cannot be written as an attribute - the writer objects - but it
     /// does not need to be: an element built with no namespace under a parent that has one makes the
     /// writer emit <c>xmlns=""</c> itself.
     /// </remarks>
@@ -242,7 +257,7 @@ public class XmlFormat : IDocumentFormat
     /// Resolves a written name against the prefixes in scope.
     /// </summary>
     /// <remarks>
-    /// An unprefixed attribute is in no namespace even where a default namespace is in scope — the
+    /// An unprefixed attribute is in no namespace even where a default namespace is in scope - the
     /// one place XML treats elements and attributes differently, and the reason this takes a flag.
     /// </remarks>
     private static XName ResolveName(string name, NamespaceScope scope, bool isAttribute)
@@ -357,7 +372,7 @@ public class XmlFormat : IDocumentFormat
         var children = element.Elements().ToList();
 
         // Nothing but text: the element is its value. `<x/>` and `<x></x>` are the same document, so
-        // both read as "" — present and empty, which is what the element says, and distinguishable
+        // both read as "" - present and empty, which is what the element says, and distinguishable
         // from a missing element, which reads as nothing at all.
         if (attributes.Count == 0 && children.Count == 0)
             return ValueNode.Value(element.Value);
@@ -383,7 +398,7 @@ public class XmlFormat : IDocumentFormat
             node.Set(group.Key, list);
         }
 
-        // Text alongside children — mixed content. Rare in the documents a partner sends, but
+        // Text alongside children - mixed content. Rare in the documents a partner sends, but
         // dropping it would lose data with no error, which is the one outcome to avoid.
         var text = string.Concat(element.Nodes().OfType<XText>().Select(t => t.Value));
         if (!string.IsNullOrWhiteSpace(text)) node.Set(TextKey, ValueNode.Value(text));

@@ -6,11 +6,11 @@ import type { QueryClient } from "@tanstack/react-query";
  * Keys are hierarchical and grouped by *entity*, not by endpoint: a subscription's detail, its
  * paged rows and the whole-list cache all start with `["subscriptions"]`. React Query matches
  * invalidation by prefix, so `invalidateQueries({ queryKey: keys.subscriptions.all })` clears the
- * lot — one line where the old hand-written string keys needed one line per variant, and where
+ * lot - one line where the old hand-written string keys needed one line per variant, and where
  * missing one was silent.
  *
  * It was not hypothetical: nothing in the app ever invalidated `partners-search`,
- * `information-types-search`, `retry-policies-search` or `api-gateways-search` — the four paged
+ * `information-types-search`, `retry-policies-search` or `api-gateways-search` - the four paged
  * tables people actually look at. They only appeared correct because the global 10s staleTime
  * expired almost immediately and a remount refetched. Two more pairs (`information-types` /
  * `information-types-all`, `partners` / `partners-all`) were the same fetch cached twice under
@@ -25,14 +25,16 @@ export const keys = {
     all: ["subscriptions"] as const,
     /** The whole list, held once and shared by every "who uses this?" panel. */
     cache: ["subscriptions", "cache"] as const,
-    /** Live status for every subscription, keyed by id — shared by the gateway pages. */
+    /** Live status for every subscription, keyed by id - shared by the gateway pages. */
     rows: ["subscriptions", "rows"] as const,
     rowsSearch: (params: Record<string, unknown>) => ["subscriptions", "rows", params] as const,
     detail: (id: number | string | null | undefined) => ["subscriptions", "detail", id] as const,
     runs: (id: number) => ["subscriptions", "runs", id] as const,
+    revisions: (id: number) => ["subscriptions", "revisions", id] as const,
     receiveAttempts: (id: number, params: Record<string, unknown>) =>
       ["subscriptions", "receive-attempts", id, params] as const,
     sourcePaths: (id: number) => ["subscriptions", "source-paths", id] as const,
+    bookmark: (id: number) => ["subscriptions", "bookmark", id] as const,
     lastRuns: ["subscriptions", "last-runs"] as const,
     scheduleHealth: ["subscriptions", "schedule-health"] as const,
   },
@@ -59,6 +61,7 @@ export const keys = {
     list: ["api-gateways", "list"] as const,
     search: (params: Record<string, unknown>) => ["api-gateways", "search", params] as const,
     detail: (id: number | string) => ["api-gateways", "detail", id] as const,
+    rejections: (id: number | string) => ["api-gateways", "rejections", id] as const,
     attachments: (id: number | string, params: Record<string, unknown>) =>
       ["api-gateways", "attachments", id, params] as const,
   },
@@ -85,11 +88,11 @@ export const keys = {
     list: ["data-sources", "list"] as const,
     search: (params: Record<string, unknown>) => ["data-sources", "search", params] as const,
     detail: (id: number | string) => ["data-sources", "detail", id] as const,
-    /** Live heartbeat, polled — deliberately its own key so refreshing it never refetches the form. */
+    /** Live heartbeat, polled - deliberately its own key so refreshing it never refetches the form. */
     telemetry: (id: number | string) => ["data-sources", "telemetry", id] as const,
     /** What the engine says it can do. Fixed for the life of a connection, so cached hard. */
     capabilities: (id: number | string) => ["data-sources", "capabilities", id] as const,
-    /** One page of the catalog. The filters are part of the key — each is a different question. */
+    /** One page of the catalog. The filters are part of the key - each is a different question. */
     schema: (id: number | string, params: Record<string, unknown>) =>
       ["data-sources", "schema", id, params] as const,
     /** One object's columns or parameters, fetched only when its row is opened. */
@@ -123,10 +126,25 @@ export const keys = {
       ["retry-usage", "attempts", policyId, subscriptionId, groupId] as const,
   },
 
+  connections: {
+    all: ["connections"] as const,
+    list: ["connections", "list"] as const,
+    detail: (id: number) => ["connections", "detail", id] as const,
+  },
+
   valueSets: {
     all: ["value-sets"] as const,
     list: ["value-sets", "list"] as const,
     detail: (id: string) => ["value-sets", "detail", id] as const,
+  },
+
+  notificationChannels: {
+    all: ["notification-channels"] as const,
+    list: ["notification-channels", "list"] as const,
+    lookup: ["notification-channels", "lookup"] as const,
+    detail: (id: number | string) => ["notification-channels", "detail", id] as const,
+    sends: (id: number, failedOnly: boolean, page: number) =>
+      ["notification-channels", "sends", id, failedOnly, page] as const,
   },
 
   notifiers: {
@@ -142,6 +160,10 @@ export const keys = {
     detail: (id: number | string | null | undefined) => ["roles", "detail", id] as const,
   },
 
+  serviceAccounts: {
+    all: ["service-accounts"] as const,
+  },
+
   users: {
     all: ["users"] as const,
     list: ["users", "list"] as const,
@@ -151,6 +173,8 @@ export const keys = {
   exchanges: {
     all: ["exchanges"] as const,
     search: (params: string) => ["exchanges", "search", params] as const,
+    breakdown: (params: string) => ["exchanges", "breakdown", params] as const,
+    newSince: (params: string) => ["exchanges", "newSince", params] as const,
     document: (key: string | null) => ["exchanges", "document", key] as const,
     /**
      * A chain never changes above the exchange asked about, and only grows below it, so this is
@@ -174,11 +198,36 @@ export const keys = {
   },
 
   queueHealth: ["queue-health"] as const,
+  categories: ["subscription-categories"] as const,
+  background: ["queue-health", "background"] as const,
   dashboard: ["dashboard"] as const,
+  metrics: {
+    all: ["metrics"] as const,
+    overview: ["metrics", "overview"] as const,
+    adapters: (days: number) => ["metrics", "adapters", days] as const,
+    adapter: (id: string, days: number) => ["metrics", "adapter", id, days] as const,
+    subscriptions: (days: number) => ["metrics", "subscriptions", days] as const,
+    subscription: (id: number, days: number) => ["metrics", "subscription", id, days] as const,
+    partners: (days: number) => ["metrics", "partners", days] as const,
+    nodes: ["metrics", "nodes"] as const,
+    insights: ["metrics", "insights"] as const,
+  },
+
+  mirror: {
+    all: ["mirror"] as const,
+    status: ["mirror", "status"] as const,
+    prodKinds: ["mirror", "prodKinds"] as const,
+    prod: (section: string, type?: string) => ["mirror", "prod", section, type ?? "all"] as const,
+    subscription: (id: number) => ["mirror", "subscription", id] as const,
+    test: (id: number) => ["mirror", "test", id] as const,
+    listed: (section: string) => ["mirror", "listed", section] as const,
+  },
 
   settings: {
     all: ["settings"] as const,
     list: ["settings", "list"] as const,
+    about: ["settings", "about"] as const,
+    nodes: ["settings", "nodes"] as const,
     /** Under settings, so saving a setting refreshes what retention it implies. */
     retention: ["settings", "retention"] as const,
     retentionPreview: (proposal: string) => ["settings", "retention", "preview", proposal] as const,
@@ -191,6 +240,16 @@ export const keys = {
   /** Fixed for the lifetime of a deployment. */
   permissionCatalog: ["permission-catalog"] as const,
   adapters: (kind: string) => ["adapters", kind] as const,
+  /** A published version's source never changes, so these are fixed too. */
+  adapterSource: (adapterId: string, version: string) => ["adapter-source", adapterId, version] as const,
+  adapterSourceFile: (adapterId: string, version: string, path: string) =>
+    ["adapter-source", adapterId, version, path] as const,
+  adapterDrafts: ["adapter-drafts"] as const,
+  marketplace: (q: string, tier: string) => ["marketplace", q, tier] as const,
+  marketplaceUpdates: ["marketplace", "updates"] as const,
+  marketplaceLicences: ["marketplace", "licences"] as const,
+  marketplacePackage: (id: string) => ["marketplace", "package", id] as const,
+  adapterDraft: (id: number) => ["adapter-drafts", id] as const,
 } as const;
 
 const MINUTE = 60_000;
@@ -200,17 +259,17 @@ const MINUTE = 60_000;
  *
  * Declared centrally rather than at 97 call sites, so the policy for an entity is one number in
  * one place. Mutations invalidate explicitly, so these windows only govern *background*
- * refetching — an edit still shows up immediately.
+ * refetching - an edit still shows up immediately.
  *
  * Three tiers:
- *  - **Fixed per deployment** — never refetched.
- *  - **Reference/config data** — changes only when someone edits it here, and that path
+ *  - **Fixed per deployment** - never refetched.
+ *  - **Reference/config data** - changes only when someone edits it here, and that path
  *    invalidates. Minutes are safe.
- *  - **Operational data** — moves on its own as messages flow. Always refetched on mount; most of
+ *  - **Operational data** - moves on its own as messages flow. Always refetched on mount; most of
  *    these screens also declare their own `refetchInterval`.
  */
 export function applyQueryDefaults(queryClient: QueryClient): void {
-  const fixed = [keys.permissionCatalog, ["adapters"]];
+  const fixed = [keys.permissionCatalog, ["adapters"], ["adapter-source"]];
   const reference = [
     keys.informationTypes.all,
     keys.partners.all,
@@ -218,8 +277,10 @@ export function applyQueryDefaults(queryClient: QueryClient): void {
     keys.retryPolicies.all,
     keys.valueSets.all,
     keys.notifiers.all,
+    keys.notificationChannels.all,
     keys.roles.all,
     keys.users.all,
+    keys.serviceAccounts.all,
     keys.apiGateways.all,
     keys.busGateways.all,
     keys.subscriptions.all,
@@ -236,13 +297,19 @@ export function applyQueryDefaults(queryClient: QueryClient): void {
     keys.subscriptions.scheduleHealth,
     ["subscriptions", "receive-attempts"],
     ["subscriptions", "runs"],
-    // The row shape carries live state — is it running, how many consecutive failures, when it
-    // fires next — so the tables built on it have to refetch on mount like any other live view.
+    // The row shape carries live state - is it running, how many consecutive failures, when it
+    // fires next - so the tables built on it have to refetch on mount like any other live view.
     // (The whole-list `cache` below is a different query and stays held for the session.)
     keys.subscriptions.rows,
     // A history card sits on the same page as the form that writes to it, so it is never
     // allowed to be a few minutes behind what the person just did.
     keys.audit.all,
+    // A channel's "used by" changes whenever a subscription or retry policy is saved, and it decides
+    // whether Delete is offered; its sends arrive all the time. Only the names for pickers stay
+    // reference data.
+    keys.notificationChannels.list,
+    ["notification-channels", "detail"],
+    ["notification-channels", "sends"],
   ];
 
   for (const key of fixed) queryClient.setQueryDefaults(key, { staleTime: Infinity });

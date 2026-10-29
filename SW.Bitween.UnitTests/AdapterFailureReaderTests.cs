@@ -84,8 +84,8 @@ public class AdapterFailureReaderTests
     [TestMethod]
     public void An_adapter_that_never_used_the_logger_still_says_something()
     {
-        // Dying outside the SDK's logger is allowed — an unhandled exception on a background
-        // thread prints a bare stack trace — and half an answer beats none.
+        // Dying outside the SDK's logger is allowed - an unhandled exception on a background
+        // thread prints a bare stack trace - and half an answer beats none.
         var summary = AdapterFailureReader.Summarise(["Unhandled exception. System.IO.IOException: pipe broken"]);
 
         StringAssert.Contains(summary, "IOException");
@@ -116,7 +116,7 @@ public class AdapterFailureReaderTests
     [TestMethod]
     public void Explain_falls_back_to_what_bitween_saw()
     {
-        // No output at all — the process died before printing, or was killed outright.
+        // No output at all - the process died before printing, or was killed outright.
         Assert.AreEqual("Adapter stream closed.",
             AdapterFailureReader.Explain("Adapter stream closed.", null));
     }

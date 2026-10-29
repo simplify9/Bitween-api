@@ -14,7 +14,7 @@ namespace SW.Bitween.Model;
 /// JSON payload and vice-versa.
 /// </para>
 /// <para>
-/// <strong>Matcher logic</strong>: OR — the group fires as soon as any single matcher returns
+/// <strong>Matcher logic</strong>: OR - the group fires as soon as any single matcher returns
 /// <c>true</c>. Matchers incompatible with the current result type are silently skipped.
 /// </para>
 /// <para>
@@ -68,13 +68,23 @@ public class RetryGroup
     public RetryAlertMode AlertMode { get; init; } = RetryAlertMode.Inherit;
 
     /// <summary>
-    /// Adapter that delivers this group's alert. Required when <see cref="AlertMode"/> is
-    /// <see cref="RetryAlertMode.Send"/>, ignored otherwise.
+    /// The notification channel that delivers this group's alert. Required when
+    /// <see cref="AlertMode"/> is <see cref="RetryAlertMode.Send"/>, ignored otherwise.
     /// </summary>
-    public string? AlertHandlerId { get; init; }
+    /// <remarks>
+    /// Settable, unlike the rest of the group, only so the one-time move of
+    /// <see cref="AlertHandlerId"/> onto a channel can rewrite a stored group in place.
+    /// </remarks>
+    public int? AlertChannelId { get; set; }
 
-    /// <summary>That adapter's own settings — api key, recipients, subject.</summary>
-    public Dictionary<string, string>? AlertHandlerProperties { get; init; }
+    /// <summary>
+    /// Retired: alerts go through <see cref="AlertChannelId"/>. Read once, on the first boot after
+    /// channels existed, to turn the handler into a channel, and refused on save from then on.
+    /// </summary>
+    public string? AlertHandlerId { get; set; }
+
+    /// <summary>Retired along with <see cref="AlertHandlerId"/>.</summary>
+    public Dictionary<string, string>? AlertHandlerProperties { get; set; }
 }
 
 /// <summary>
@@ -92,8 +102,8 @@ public class RetryBudget
     /// Hard ceiling on the total number of group-level retries across all messages, counted per
     /// subscription so one shared policy does not let a single noisy subscription spend everyone's
     /// allowance. Prevents a burst of failures from hammering the downstream. It is not a rate over a
-    /// rolling window: the count only falls once it has been reached — the subscription's next success
-    /// then lifts it — or when somebody resets it by hand.
+    /// rolling window: the count only falls once it has been reached - the subscription's next success
+    /// then lifts it - or when somebody resets it by hand.
     /// </summary>
     /// <remarks>
     /// Null means no group-wide ceiling: only <see cref="MaxAttemptsPerError"/> applies, nothing is
@@ -105,4 +115,26 @@ public class RetryBudget
 
     /// <summary>Calculates the wait duration before each successive retry attempt.</summary>
     public required DelayStrategy DelayStrategy { get; init; }
+
+    /// <summary>
+    /// What happens to a failure the group would retry once <see cref="MaxAttemptsTotal"/> is spent.
+    /// <see cref="RetryExhaustedAction.Fail"/>, the default and how every group behaved before, fails
+    /// it for good. <see cref="RetryExhaustedAction.Hold"/> keeps it and retries it as soon as the
+    /// subscription next succeeds, which is when the spent total is lifted.
+    /// </summary>
+    public RetryExhaustedAction WhenExhausted { get; init; } = RetryExhaustedAction.Fail;
+}
+
+/// <summary>What a group does with a failure it can't retry because its shared total is spent.</summary>
+public enum RetryExhaustedAction
+{
+    /// <summary>The failure is final.</summary>
+    Fail = 0,
+
+    /// <summary>
+    /// The failure waits, and is retried once the subscription succeeds again or the budget is
+    /// reset. For an outage longer than the total covers: a sync gateway answered 202 for these, so
+    /// the caller was told Bitween has them, and failing them when the total ran out broke that.
+    /// </summary>
+    Hold = 1,
 }

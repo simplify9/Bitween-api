@@ -1,0 +1,50 @@
+# Builds the solution and runs the .NET unit tests on every pull request into a release branch.
+#
+# The deploy pipeline runs the .NET tests only after a merge, so a change that broke them was
+# found once it had already landed on a release branch. Bitween runs at customer sites that
+# upgrade in place, so this check runs before the merge instead. The unit tests need no
+# database or broker and take seconds. The integration tests (Testcontainers) still run in the
+# deploy pipeline.
+name: .NET checks
+
+on:
+  pull_request:
+    branches: [releases/**]
+    paths-ignore:
+      # Covered by frontend-tests.yml; the .NET build does not compile the SPA.
+      - 'SW.Bitween.Web/ClientApp/**'
+      - 'docs/**'
+      - '**/*.md'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dotnet-pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-unit-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      # Pinned to commits, since a tag can be moved.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
+        with:
+          dotnet-version: '10.0.x'
+      - run: dotnet restore SW.Bitween.sln
+      # SkipClientBuild keeps MSBuild from building the SPA should any target pull in publish.
+      - run: dotnet build SW.Bitween.sln --no-restore --configuration Release -p:SkipClientBuild=true
+      - run: >
+          dotnet test SW.Bitween.UnitTests/SW.Bitween.UnitTests.csproj
+          --no-build --configuration Release
+          --logger "trx;LogFileName=unit-tests.trx"
+          --results-directory TestResults
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: failure()
+        with:
+          name: unit-test-results
+          path: TestResults

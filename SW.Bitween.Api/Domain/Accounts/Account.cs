@@ -17,6 +17,23 @@ namespace SW.Bitween.Domain.Accounts
             Role = role;
         }
 
+        /// <summary>
+        /// An account for a program rather than a person: no email, no password, nothing to sign
+        /// in to the admin UI with. It holds roles like anyone, and signs in with its tokens.
+        /// </summary>
+        public static Account ForService(string name, AccountRole role) => new()
+        {
+            DisplayName = name,
+            Role = role,
+            Kind = AccountKind.Service,
+            LoginMethods = LoginMethod.ApiKey,
+        };
+
+        /// <summary>A person unless created as a service account; every account before these existed is a person.</summary>
+        public AccountKind Kind { get; private set; }
+
+        public bool IsService => Kind == AccountKind.Service;
+
         public string Email { get; private set; }
         public string DisplayName { get; set; }
 
@@ -44,6 +61,23 @@ namespace SW.Bitween.Domain.Accounts
         /// </remarks>
         public bool MustChangePassword { get; private set; }
 
+        /// <summary>
+        /// The Microsoft identity - object id and tenant id - this account signs in as, bound on its
+        /// first Microsoft sign-in. Matching by address alone let anyone who could get Microsoft to
+        /// put that address in a token sign in as the account.
+        /// </summary>
+        public string MicrosoftIdentity { get; private set; }
+
+        public void BindMicrosoftIdentity(string identity) => MicrosoftIdentity = identity;
+
+        /// <summary>
+        /// The OpenID Connect identity - subject and issuer - this account signs in as, bound on its
+        /// first single sign-on, as <see cref="MicrosoftIdentity"/> is.
+        /// </summary>
+        public string OidcIdentity { get; private set; }
+
+        public void BindOidcIdentity(string identity) => OidcIdentity = identity;
+
         public bool IsLockedOut(DateTime nowUtc) => LockoutEnd.HasValue && LockoutEnd.Value > nowUtc;
 
         public void RegisterSuccessfulLogin()
@@ -51,6 +85,14 @@ namespace SW.Bitween.Domain.Accounts
             FailedLoginCount = 0;
             LockoutEnd = null;
         }
+
+        /// <summary>
+        /// When the member last signed in with a password, Microsoft or the CLI; not when a session
+        /// renewed itself. Being on the audited Account, each sign-in is in the audit trail too.
+        /// </summary>
+        public DateTime? LastSignInOn { get; private set; }
+
+        public void SignedIn() => LastSignInOn = DateTime.UtcNow;
 
         // Admin action: clear a lockout before it expires.
         public void Unlock()
@@ -79,6 +121,15 @@ namespace SW.Bitween.Domain.Accounts
                 return false;
             LoginMethods |= loginMethod;
             return true;
+        }
+
+        /// <summary>
+        /// The same password, hashed again as passwords are hashed now: on a sign-in that just proved it,
+        /// so an account stored with an older, weaker hash is upgraded without anyone choosing a new one.
+        /// </summary>
+        public void UpgradePasswordHash(string password)
+        {
+            if (SecurePasswordHasher.NeedsRehash(Password)) Password = SecurePasswordHasher.Hash(password);
         }
 
         public void SetPassword(string password)

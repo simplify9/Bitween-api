@@ -1,0 +1,62 @@
+using System;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using Newtonsoft.Json;
+using SW.Bitween.Domain;
+using SW.Bitween.Model;
+using SW.Bitween.Services.Adapters;
+using SW.PrimitiveTypes;
+
+namespace SW.Bitween;
+
+/// <summary>
+/// Hands a notifier's handler one <see cref="XchangeResultNotification"/>. Shared by exchange results
+/// and the alerts that have no exchange, so all reach a notifier the same way, quick retries included.
+/// </summary>
+public static class NotifierDelivery
+{
+    /// <summary>
+    /// Null once delivered; otherwise what the last attempt threw. <paramref name="xchangeId"/> fills
+    /// the handler's <c>xchangeid</c> property; an alert without an exchange passes null and names the
+    /// file after its own id instead.
+    /// </summary>
+    public static Task<Exception> SendAsync(IAdapterInvoker adapterInvoker, Notifier notifier,
+        XchangeResultNotification notification, string xchangeId, string correlationId) =>
+        SendAsync(adapterInvoker, notifier.HandlerId, notifier.HandlerProperties, notification,
+            xchangeId ?? notification.Id, xchangeId, correlationId);
+
+    /// <summary>
+    /// The same for any handler and payload, so a notification channel retries as a notifier does.
+    /// </summary>
+    /// <param name="fileName">What the handler's file is called: the exchange id, or the alert's own.</param>
+    /// <param name="attempts">One for a test someone is waiting on, who would rather hear at once.</param>
+    public static async Task<Exception> SendAsync(IAdapterInvoker adapterInvoker, string handlerId,
+        IReadOnlyDictionary<string, string> properties, object payload, string fileName, string xchangeId,
+        string correlationId, int attempts = 3)
+    {
+        var handlerProperties = properties.ToDictionary();
+        if (xchangeId != null) handlerProperties["xchangeid"] = xchangeId;
+
+        // A couple of quick retries for a mail server that hiccups; a send that failed used to be
+        // recorded and never tried again.
+        Exception lastError = null;
+        for (var attempt = 0; attempt < attempts; attempt++)
+        {
+            if (attempt > 0) await Task.Delay(TimeSpan.FromSeconds(attempt * 2));
+            try
+            {
+                await adapterInvoker.InvokeAsync<XchangeFile>(
+                    handlerId, AdapterRole.Handler, nameof(IInfolinkHandler.Handle),
+                    new XchangeFile(JsonConvert.SerializeObject(payload), fileName),
+                    handlerProperties, correlationId);
+                return null;
+            }
+            catch (Exception ex)
+            {
+                lastError = ex;
+            }
+        }
+
+        return lastError;
+    }
+}

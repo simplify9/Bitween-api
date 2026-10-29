@@ -34,7 +34,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext,
             throw new SWNotFoundException($"DataSource with id '{dataSourceId}' was not found");
 
         // Only a relational source runs SQL. Refused rather than stored, because a statement on a
-        // broker is configuration nothing will ever read — and silently keeping it is how people
+        // broker is configuration nothing will ever read - and silently keeping it is how people
         // conclude the feature is broken.
         if (dataSource.Kind != DataSourceKind.Relational)
             throw new SWException(
@@ -66,7 +66,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext,
 
     /// <summary>
     /// Refuses SQL the database itself will not accept, while the person who wrote it is still
-    /// looking at it. The check prepares the statement — parsed and planned, never run.
+    /// looking at it. The check prepares the statement - parsed and planned, never run.
     ///
     /// Silent when the adapter cannot answer: a connection that is down is a fact about the
     /// connection, and blocking someone from saving a fix because the thing they are fixing it
@@ -85,7 +85,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext,
 
     /// <summary>
     /// Case-insensitively unique within the data source. The database index enforces uniqueness but
-    /// its collation is provider-specific, so the case rule is applied here — where it can also say
+    /// its collation is provider-specific, so the case rule is applied here - where it can also say
     /// which statement it collided with, rather than surfacing as a constraint violation.
     /// </summary>
     internal static async Task EnsureNameIsFree(BitweenDbContext dbContext, int dataSourceId,

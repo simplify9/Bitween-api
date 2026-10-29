@@ -1,10 +1,10 @@
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { api, type InformationType, type SubscriptionInfo, type SubscriptionType } from "../../api";
 import { keys } from "../../api/queryKeys";
-import { useSubscriptionsCache } from "./shared";
+import { useSubscriptionsCache } from "./lookups";
 
 /**
- * What a subscription can read from the original document — the input of the exchange whose
+ * What a subscription can read from the original document - the input of the exchange whose
  * delivery got the response it runs on: `{{source.PATH}}` in its handler, and the "Original" value
  * kind in its mapping. A response subscription is fed by whatever hands it a response; a bus
  * gateway subscription by whatever publishes its response as the message its gateway reads.

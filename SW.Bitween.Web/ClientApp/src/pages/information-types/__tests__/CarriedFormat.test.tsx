@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { http, HttpResponse } from "msw";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
-import { TOKEN_KEY } from "../../../api";
+import { setToken } from "../../../api/http/request";
 import { SessionProvider } from "../../../auth/SessionContext";
 import { MatchExpressionEditor } from "../../../components/config/MatchExpressionEditor";
 import { apiPath, appConfig, profile, renderApp } from "../../../__tests__/support/renderApp";
@@ -46,7 +46,7 @@ describe("an information type switched to a carried format", () => {
   it("has no promoted properties to edit, and says why", async () => {
     openType(typeOf("Csv"));
 
-    expect(await screen.findByText(/None — CSV content isn't read/)).toBeVisible();
+    expect(await screen.findByText(/None - CSV content isn't read/)).toBeVisible();
     expect(screen.getByText(/Bitween doesn't read the content of this format/)).toBeVisible();
     expect(screen.queryByText("JSON path")).not.toBeInTheDocument();
   });
@@ -56,7 +56,7 @@ describe("an information type switched to a carried format", () => {
 
     await user.selectOptions(await screen.findByLabelText("Payload format"), "Other");
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Still promotes orderId — Other types can't have promoted properties.");
+    expect(screen.getByRole("alert")).toHaveTextContent("Still promotes orderId - Other types can't have promoted properties.");
     await user.click(screen.getByRole("button", { name: "Remove them" }));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -64,7 +64,7 @@ describe("an information type switched to a carried format", () => {
 
 describe("the filter editor on a carried type", () => {
   const renderEditor = (value: Parameters<typeof MatchExpressionEditor>[0]["value"]) => {
-    localStorage.setItem(TOKEN_KEY, "test-token");
+    setToken("test-token");
     server.use(appConfig(), profile());
     let cleared = false;
     render(

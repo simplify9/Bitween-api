@@ -8,8 +8,8 @@ namespace SW.Bitween;
 public static class AESCryptoService
 {
     /// <summary>
-    /// The salt this has always used. It is a constant, and a well known one — the bytes spell
-    /// "Ivan Medvedev" from an old MSDN sample — so it adds nothing an attacker does not have.
+    /// The salt this has always used. It is a constant, and a well known one - the bytes spell
+    /// "Ivan Medvedev" from an old MSDN sample - so it adds nothing an attacker does not have.
     /// It cannot be changed without making every value already encrypted undecryptable, so it
     /// stays until there is a migration to move ciphertext to a per-value salt.
     /// </summary>

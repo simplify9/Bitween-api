@@ -9,8 +9,8 @@ namespace SW.Bitween.Resources.DataSources;
 ///
 /// This does NOT ask the adapter which of its startup values are marked secure, the way
 /// <see cref="AdapterSecretProperties"/> does for subscription properties. Describing an adapter
-/// means starting it, and a bus provider is resident — started once and held for the life of the
-/// node — so asking would either start a second copy of a connection that is meant to be exclusive
+/// means starting it, and a bus provider is resident - started once and held for the life of the
+/// node - so asking would either start a second copy of a connection that is meant to be exclusive
 /// or block on one that is already running. The data source names its own secrets instead, which
 /// also lets an operator protect a field the adapter author never thought to mark.
 /// </summary>
@@ -35,7 +35,7 @@ public static class Secrets
 
     /// <summary>
     /// A copy with every secret replaced. An empty value is left alone, so "not set" stays
-    /// distinguishable from "set but hidden" — the difference between a form that is finished and
+    /// distinguishable from "set but hidden" - the difference between a form that is finished and
     /// one that is not.
     /// </summary>
     public static Dictionary<string, string> Mask(
@@ -52,7 +52,7 @@ public static class Secrets
 
     /// <summary>
     /// Resolves sentinels against what is stored. A sentinel with nothing behind it is dropped
-    /// rather than saved literally — otherwise a data source copied from a response would
+    /// rather than saved literally - otherwise a data source copied from a response would
     /// authenticate with the string "__private__".
     /// </summary>
     public static Dictionary<string, string> Merge(
@@ -73,7 +73,7 @@ public static class Secrets
 
     /// <summary>
     /// The secret names to record. Whatever the caller declared, plus anything matching a
-    /// well-known credential name — so the list stays true even when the form did not tick it.
+    /// well-known credential name - so the list stays true even when the form did not tick it.
     /// </summary>
     public static List<string> Declare(
         IReadOnlyDictionary<string, string> properties, IEnumerable<string> declared)

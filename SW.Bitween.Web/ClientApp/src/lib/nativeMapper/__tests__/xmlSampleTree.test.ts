@@ -80,7 +80,7 @@ describe("reading an XML sample into the source tree", () => {
     expect(list?.kind).toBe("list");
     expect(list?.count).toBe(2);
 
-    // `sku`, not `order.line.sku` — that is the path a rule inside the list writes.
+    // `sku`, not `order.line.sku` - that is the path a rule inside the list writes.
     expect(list?.children.map((c) => c.path)).toEqual(["sku"]);
     expect(listPaths(root)).toEqual(["order.line"]);
   });
@@ -214,7 +214,7 @@ describe("building rules from a sample of an XML output", () => {
   it("offers a field the first entry left out but a later one has", () => {
     // The failure this stops: `discount` is in the document, the editor never offers
     // it, and the mapping therefore looks complete while dropping it. Optional
-    // elements are the normal case in XML — there is no schema in the sample saying
+    // elements are the normal case in XML - there is no schema in the sample saying
     // which ones every entry carries.
     const root = parseSample(
       `<order>
@@ -233,7 +233,7 @@ describe("building rules from a sample of an XML output", () => {
   it("treats a name repeated in one entry as a list for every entry", () => {
     // One `<tag>` in the first entry and two in the second. The server walks the
     // single occurrence as a list of one, so the shape a rule is written against has
-    // to be the list — offering `tag` as a plain field would be offering a path the
+    // to be the list - offering `tag` as a plain field would be offering a path the
     // mapper never reads that way.
     const root = parseSample(
       `<order>

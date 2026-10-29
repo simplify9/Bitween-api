@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Domain;
 using SW.Bitween.Domain.Gateway;
 using SW.Bitween.Model;
+using SW.Bitween.Services.Mirror;
 using SW.EfCoreExtensions;
 using SW.PrimitiveTypes;
 using System.Linq;
@@ -9,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace SW.Bitween.Resources.BusGateways
 {
-    public class Search(BitweenDbContext dbContext, RequestContext requestContext) : ISearchyHandler
+    public class Search(BitweenDbContext dbContext, RequestContext requestContext, MirrorService mirror) : ISearchyHandler
     {
         public async Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
         {
@@ -17,6 +18,7 @@ namespace SW.Bitween.Resources.BusGateways
             // the full list is the data, so that's what the view permission covers.
             if (!lookup)
                 await requestContext.EnsurePermission(dbContext, Model.Permissions.BusGateways.View);
+            await mirror.FilterAsync(searchyRequest, "busGateways", requestContext, dbContext);
 
             var documents = dbContext.Set<Document>();
             var dataSources = dbContext.Set<Domain.DataSources.DataSource>();
@@ -32,7 +34,7 @@ namespace SW.Bitween.Resources.BusGateways
                                 .Select(d => d.Name).FirstOrDefault(),
 
                             // Null name means the internal bus, which is what the list column
-                            // reads — an operator should be able to tell at a glance which of
+                            // reads - an operator should be able to tell at a glance which of
                             // their gateways reach outside.
                             DataSourceId = gateway.DataSourceId,
                             DataSourceName = dataSources.Where(d => d.Id == gateway.DataSourceId)

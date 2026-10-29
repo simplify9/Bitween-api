@@ -22,6 +22,8 @@ Open either editor from a subscription's Transformation stage with **Open the vi
 
 Every rule is attempted. If any rule fails, the exchange fails with a message listing each failing target and the reason, instead of producing a document with gaps.
 
+The rules are read once per rule set and kept, and the source document is read from the parse the exchange already made of it when there is one. Neither changes what a mapping produces: numbers are still read exactly and dates still as text. See `SharedPayloadParse` and `CacheCompiledTemplates` in [Configuration](configuration.md#bitween-section).
+
 ### Stored properties
 
 | Property | Content |
@@ -143,6 +145,91 @@ When writing XML:
 - A list directly inside another list is refused.
 - Fields named `@xmlns` or `@xmlns:prefix` become namespace declarations. A prefix without a declaration is refused.
 
+### CSV
+
+`sourceFormat` and `targetFormat` can be `csv`, for delimited text, with `sourceCsv` and `targetCsv` saying
+how each side is delimited, since a partner's semicolon file often becomes someone else's comma file:
+
+```json
+{ "version": 1, "sourceFormat": "csv", "targetFormat": "json",
+  "sourceCsv": { "delimiter": ";", "hasHeader": true },
+  "root": { "over": "", "fields": [ { "target": ["sku"], "from": { "kind": "path", "path": "SKU" } } ] } }
+```
+
+| Option | Default | |
+|---|---|---|
+| `delimiter` | `,` | Any characters: `;`, `\|`, `\t` for tab |
+| `hasHeader` | `true` | Whether the first line names the columns. Without a header, columns are named by position: `1`, `2`, `3`. |
+| `byteOrderMark` | `false` | When writing, start the file with a UTF-8 byte-order mark, so Excel opens accented names correctly |
+
+When reading CSV, the document is a list of rows, so a list rule walks it with `"over": ""`, and `root`
+makes the whole output a list, one entry per row. Every field
+is text: nothing turns `041800` into a number, and a rule's own `type` does when one is wanted. A row
+wider than the header gets its extra fields named by position rather than dropped. Blank rows are skipped,
+and a file that is only a header is a list of no rows.
+
+When writing CSV, the output is a list of rows, or one object for a single row. Every column any row has is
+written, in the order they first appear, and a row without one gets an empty field there. A nested field
+becomes a dotted column name, as `destination.city`. A list inside a row is refused rather than folded into
+one cell.
+
+The information type of a CSV document is carried, not read: it has no promoted properties, and only
+subscriptions and routes without a filter pick it up. Its mapping reads it.
+
+### Fixed-width text
+
+`fixedwidth` reads and writes one record per line, each field at a set position. Nothing in such a file
+says where a field ends, so `sourceFixedWidth` and `targetFixedWidth` give the layout, as the partner's
+specification does:
+
+```json
+"sourceFixedWidth": {
+  "columns": [
+    { "name": "type", "start": 1, "length": 1 },
+    { "name": "reference", "start": 2, "length": 8 },
+    { "name": "amount", "start": 10, "length": 7, "align": "right", "pad": "0" }
+  ],
+  "skipLines": 1,
+  "trim": true
+}
+```
+
+| Option | Default | |
+|---|---|---|
+| `columns` | | Each column's `name`, its `start` (the line's first character is 1) and its `length`. Columns can't overlap. |
+| `align`, `pad` | `left`, a space | When writing: which side a value keeps to, and what fills the rest. Amounts are usually `right` with `0`. |
+| `skipLines` | `0` | When reading: lines at the top that aren't records, such as a title |
+| `trim` | `true` | When reading: take the padding off each value |
+
+Read, the document is a list of rows, as CSV's is. A line shorter than the layout is read as far as it
+goes, and blank lines are skipped. When writing, each row has to be an object of the layout's columns
+(a nested field becomes a dotted name, as `destination.city`): a field the layout has no column for is
+refused, and **a value longer than its column is refused rather than cut**, because a cut amount or
+reference would be booked without anyone noticing.
+
+### Excel
+
+`excel` reads and writes Excel workbooks (.xlsx), one sheet at a time. A workbook is binary and a message
+in Bitween is text, so it travels as base64: give the receiver that picks it up (S3, Azure Blob, SFTP, FTP)
+`ResponseEncoding` `base64`, and the upload handler that writes one `DataEncoding` `base64`.
+
+| Option | Default | |
+|---|---|---|
+| `sheet` | first sheet, or `Sheet1` | `sourceExcel`: the sheet to read, by name. `targetExcel`: the name of the one written. |
+| `hasHeader` | `true` | Whether the first row names the columns. Without it, columns are named by position: `1`, `2`, `3`. |
+
+Read, the sheet is a list of rows, as CSV's is, and every cell is text: a reference keeps its leading
+zeros, numbers are written the invariant way (`12.5`), cells formatted as dates become ISO 8601
+(`2026-10-12`, or with a time), booleans are `true` or `false`, and a formula is the value Excel last
+calculated. Empty rows are skipped. The older .xls format isn't read; save it as .xlsx.
+
+Written, the workbook has one sheet, with a header row when `hasHeader` is on. Text is written as text,
+so leading zeros survive, and numbers and booleans as numbers and booleans.
+
+In the editor, the sample of an Excel source is a few rows copied from Excel and pasted, which arrive as
+tab-separated text; the preview reads a pasted sample the same way, and shows an Excel output as its rows,
+tab-separated, rather than as base64. `bitween mapping test` sends an `.xlsx` input file as base64.
+
 ### Preview
 
 `POST /api/mappingpreviews` runs rules against a sample through the same code as the pipeline, without saving anything.
@@ -161,11 +248,34 @@ The rules editor has three panels.
 - **Output.** A tree of target fields and lists. Each row picks a source kind and opens the transform, lookup and type steps. Lists have filters and fixed entries. A new list gets its content from **+ Value**, **+ Field** or **+ List**. Choosing + Value makes a list of plain values, whose value is a row of its own.
 - **Preview.** The server's output for the current rules, with failing rows marked.
 
-**Build from a sample** reads a target sample and adds rules for fields not yet mapped, filling in sources it can recognise. **Preview as** chooses a partner for resolving partner values. Save with Ctrl+S or Cmd+S.
+**Build from a sample** reads a target sample and adds rules for fields not yet mapped, filling in sources it can recognise. **Generate with AI** writes every rule from both samples; see below. **Preview as** chooses a partner for resolving partner values. Save with Ctrl+S or Cmd+S.
+
+The toolbar's format chip, as **JSON → XML**, opens what the mapping reads and writes: each side's format, and its settings for [CSV](#csv) (separator, header, the byte-order mark Excel wants), [fixed-width text](#fixed-width-text) (a table of columns, lines to skip, trimming, and on the written side each column's alignment and padding) and [Excel](#excel) (the sheet and the header).
+
+### Generate with AI
+
+**Generate with AI** asks the provider under [Settings, AI](configuration.md#ai) for the rules that turn a source sample into an output sample. It opens a dialog with both samples, which are the editor's own, and an optional **Instructions** box for what the samples don't show, such as codes a lookup needs that the sample doesn't contain. Until Settings has an API key, the dialog says so and links there.
+
+- What is sent: both samples, the instructions, and the names, never the values, of the previewed partner's properties and the global values. Secret properties aren't named either. A rule the model writes from a name is filled in with the real value when the mapping runs, like any other.
+- The generated rules replace the editor's rules as one step. The formats and their settings are kept as the editor has them. The toolbar then says what was replaced, which model wrote the rules and how long it took, with **Undo** beside it. Rules it wrote differently light up for a moment.
+- Before answering, the server previews the rules against the source sample and compares the result with the output sample. The toolbar says **Matches the output sample**, or lists the differences. Each one marks its row, and clicking it in the list brings the row into view.
+- A fixed value, or the text of a `concat`, `replace` or `defaultIfEmpty`, that the source sample holds as data counts as a difference even when the output matches: it would be the same for every document. A constant the source doesn't have, such as a currency code, is fine.
+- A blank value in the output sample (empty, only spaces, or null) is a placeholder: any value written there counts as a match. The field itself still has to be written.
+- **Fix with AI**, under the differences, sends the editor's rules back with what was wrong, and asks for corrected ones.
+- Samples are limited to 200 KB each and instructions to 4,000 characters. A few records are enough.
+- If a sample or a rule changes while it runs, the answer is dropped and the dialog says so, since it was checked against what was sent.
+- While it runs, the dialog counts the seconds, usually 10 to 30, and **Cancel** stops waiting. The model finishes the call it started; its answer is dropped.
+- One generation is one model call. A second is made only when the first answer isn't readable rules, with the reason.
+- Values from the original document of a response subscription aren't used: the model can't see them. Add those rules by hand.
+- Nothing is saved until you save.
+
+`POST /api/mappingsuggestions` does the work: `{ mappingRules, sourceDocument, targetDocument, partnerId, refine, instructions }`, replying with `mappingRules`, the preview's `outputDocument`, `ruleErrors` and `error`, `differences` (each a `target` path and a `reason`), `matchesTarget` and `model`.
 
 ## Legacy JSON mapper
 
 `NativeJSONMapper` renders a [Scriban](https://github.com/scriban/scriban) template over the JSON payload and stores the result as JSON.
+
+The template is compiled once per text and kept, and the payload is read from the parse the exchange already made of it when nothing was written into it. A template renders exactly as before, including `__partner__` and `__globals__`.
 
 ### Retirement
 

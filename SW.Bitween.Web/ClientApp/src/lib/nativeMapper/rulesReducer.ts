@@ -7,6 +7,9 @@ import {
   emptyListRule,
   emptyRules,
   type CsvOptions,
+  type ExcelOptions,
+  type FixedWidthOptions,
+  sideOptions,
   type DateOrderName,
   type DocumentFormatId,
   type EditorFieldRule,
@@ -39,6 +42,11 @@ export interface RulesEditorState {
   /** What the last "match the source fields" did, for the line under that button. */
   match: MatchTally | null;
   /**
+   * How close the rules "Generate with AI" put in came to the output sample. Only true of
+   * those rules, so any later change to the mapping or the samples clears it.
+   */
+  ai: AiTally | null;
+  /**
    * Whose partner values the preview resolves against.
    *
    * A question about this preview rather than about the mapping, so it is not in
@@ -65,11 +73,27 @@ export const initialRulesEditorState: RulesEditorState = {
   loadError: null,
   scaffold: null,
   match: null,
+  ai: null,
   testPartnerId: null,
   dirty: false,
   past: [],
   future: [],
 };
+
+/** What the server found when it checked generated rules against the samples, and what they replaced. */
+export interface AiTally {
+  matchesTarget: boolean;
+  differences: { target: string; reason: string }[];
+  /** Each row's differences, by the row's error key, for the row to show. */
+  byRow: Record<string, string[]>;
+  /** Rows the AI wrote differently from the rules it replaced, lit for a moment. */
+  changed: string[];
+  /** Rules before and after, for "Replaced 25 rules with 13". */
+  before: number;
+  after: number;
+  model: string | null;
+  seconds: number;
+}
 
 export type RulesEditorAction =
   | { type: "LOAD"; rules: EditorRules; sourceSample: string; targetSample: string; error?: string }
@@ -77,11 +101,14 @@ export type RulesEditorAction =
   | { type: "SET_TARGET_FORMAT"; format: DocumentFormatId }
   | { type: "SET_DATE_ORDER"; order: DateOrderName }
   | { type: "SET_CSV_OPTIONS"; side: "source" | "target"; options: CsvOptions }
+  | { type: "SET_FIXED_WIDTH_OPTIONS"; side: "source" | "target"; options: FixedWidthOptions }
+  | { type: "SET_EXCEL_OPTIONS"; side: "source" | "target"; options: ExcelOptions }
   | { type: "SET_SOURCE_SAMPLE"; text: string }
   | { type: "SET_TARGET_SAMPLE"; text: string }
   | { type: "SCAFFOLD_FROM_TARGET" }
   | { type: "MATCH_SOURCES" }
   | { type: "CLEAR_RULES" }
+  | { type: "APPLY_AI_RULES"; rules: EditorRules; tally: AiTally }
   | { type: "SET_TEST_PARTNER"; partnerId: number | null }
   | { type: "ADD_FIELD"; listId: RuleId | null; target?: string[] }
   | { type: "UPDATE_FIELD"; id: RuleId; changes: Partial<Omit<EditorFieldRule, "id">> }
@@ -111,7 +138,7 @@ export type RulesEditorAction =
 // ─── Finding a rule ───────────────────────────────────────────────────────────
 //
 // Rules are addressed by id rather than by a path of indices. Lists nest, so an
-// index path would have to be rebuilt every time a row moved — which is the kind
+// index path would have to be rebuilt every time a row moved - which is the kind
 // of bookkeeping the old model needed three recursive helpers for.
 
 /**
@@ -155,7 +182,7 @@ function allEntries(
 /**
  * The container with this id, or the mapping itself for null.
  *
- * Undefined means the id names nothing — a container removed while something still
+ * Undefined means the id names nothing - a container removed while something still
  * referred to it, which is a miss rather than a reason to write into the wrong place.
  */
 function findContainer(rules: EditorRules, id: RuleId | null): RuleContainer | undefined {
@@ -225,6 +252,8 @@ function changesTheMapping(action: RulesEditorAction): boolean {
     case "SET_SOURCE_FORMAT":
     case "SET_TARGET_FORMAT":
     case "SET_CSV_OPTIONS":
+    case "SET_FIXED_WIDTH_OPTIONS":
+    case "SET_EXCEL_OPTIONS":
     case "SET_DATE_ORDER":
     case "ADD_FIELD":
     case "UPDATE_FIELD":
@@ -241,6 +270,7 @@ function changesTheMapping(action: RulesEditorAction): boolean {
     case "SCAFFOLD_FROM_TARGET":
     case "MATCH_SOURCES":
     case "CLEAR_RULES":
+    case "APPLY_AI_RULES":
       return true;
     default:
       return false;
@@ -257,6 +287,13 @@ export function rulesEditorReducer(
       draft.future = [];
       draft.dirty = true;
     }
+
+    // The AI's note describes the rules and samples it saw; after any change it would be stale.
+    if (
+      changesTheMapping(action) ||
+      ["LOAD", "SET_SOURCE_SAMPLE", "SET_TARGET_SAMPLE", "UNDO", "REDO"].includes(action.type)
+    )
+      draft.ai = null;
 
     switch (action.type) {
       case "LOAD":
@@ -295,7 +332,17 @@ export function rulesEditorReducer(
         else draft.rules.targetCsv = action.options;
         break;
 
-      // Samples are an editor convenience — runtime never reads them — so changing
+      case "SET_FIXED_WIDTH_OPTIONS":
+        if (action.side === "source") draft.rules.sourceFixedWidth = action.options;
+        else draft.rules.targetFixedWidth = action.options;
+        break;
+
+      case "SET_EXCEL_OPTIONS":
+        if (action.side === "source") draft.rules.sourceExcel = action.options;
+        else draft.rules.targetExcel = action.options;
+        break;
+
+      // Samples are an editor convenience - runtime never reads them - so changing
       // one is not a change to the mapping and does not go on the undo stack.
       case "SET_SOURCE_SAMPLE":
         draft.sourceSample = action.text;
@@ -312,8 +359,8 @@ export function rulesEditorReducer(
       // Both samples are parsed here rather than passed in, so the action carries
       // nothing and the button cannot hand the reducer a tree from a stale render.
       case "SCAFFOLD_FROM_TARGET": {
-        const target = parseSample(draft.targetSample, draft.rules.targetFormat, "target", draft.rules.targetCsv);
-        const source = parseSample(draft.sourceSample, draft.rules.sourceFormat, "source", draft.rules.sourceCsv);
+        const target = parseSample(draft.targetSample, draft.rules.targetFormat, "target", draft.rules.targetCsv, sideOptions(draft.rules, "target"));
+        const source = parseSample(draft.sourceSample, draft.rules.sourceFormat, "source", draft.rules.sourceCsv, sideOptions(draft.rules, "source"));
         draft.scaffold = target.error
           ? { created: 0, matched: 0, problem: target.error }
           : scaffoldFromTarget(draft.rules, target.root, source.root);
@@ -321,7 +368,7 @@ export function rulesEditorReducer(
       }
 
       case "MATCH_SOURCES": {
-        const source = parseSample(draft.sourceSample, draft.rules.sourceFormat, "source", draft.rules.sourceCsv);
+        const source = parseSample(draft.sourceSample, draft.rules.sourceFormat, "source", draft.rules.sourceCsv, sideOptions(draft.rules, "source"));
         draft.match = matchSources(draft.rules, source.root);
         break;
       }
@@ -335,7 +382,21 @@ export function rulesEditorReducer(
           targetFormat: draft.rules.targetFormat,
           sourceCsv: draft.rules.sourceCsv,
           targetCsv: draft.rules.targetCsv,
+          sourceFixedWidth: draft.rules.sourceFixedWidth,
+          targetFixedWidth: draft.rules.targetFixedWidth,
+          sourceExcel: draft.rules.sourceExcel,
+          targetExcel: draft.rules.targetExcel,
         };
+        draft.selectedId = null;
+        draft.scaffold = null;
+        draft.match = null;
+        break;
+
+      // Every rule is replaced, as one step Undo takes back. The server kept the editor's
+      // formats, so the rules arrive already speaking them.
+      case "APPLY_AI_RULES":
+        draft.rules = action.rules;
+        draft.ai = action.tally;
         draft.selectedId = null;
         draft.scaffold = null;
         draft.match = null;
@@ -417,7 +478,7 @@ export function rulesEditorReducer(
         if (found.where === "after") owner.after = owner.after.filter((e) => e.id !== action.id);
         else owner.fixed = owner.fixed.filter((e) => e.id !== action.id);
         // A list that walks nothing is exactly the entries written into it, so with the
-        // last one gone there is nothing left to say it holds values — and leaving the
+        // last one gone there is nothing left to say it holds values - and leaving the
         // mark on would mean the list could never be built out of records instead.
         if (owner.over === undefined && owner.fixed.length === 0 && owner.after.length === 0)
           owner.item = undefined;
@@ -452,7 +513,7 @@ export function rulesEditorReducer(
 
       // A document is either an object with fields in it or a bare array, so turning
       // the root into a list puts the field and list rules aside rather than trying to
-      // keep both — and turning it off brings them back.
+      // keep both - and turning it off brings them back.
       case "SET_ROOT_LIST":
         if (action.enabled && !draft.rules.root) draft.rules.root = emptyListRule();
         else if (!action.enabled) draft.rules.root = undefined;

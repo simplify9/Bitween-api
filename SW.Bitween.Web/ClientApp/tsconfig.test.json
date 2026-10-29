@@ -3,7 +3,7 @@
   //
   // `tsconfig.app.json` excludes `__tests__`, and `e2e` sits outside `src` entirely,
   // so until this existed a test file could reference a property no node in the union
-  // has and only find out by throwing at run time — which is how a walker came to call
+  // has and only find out by throwing at run time - which is how a walker came to call
   // itself with `undefined` for a node that has no children.
   "extends": "./tsconfig.app.json",
   "compilerOptions": {

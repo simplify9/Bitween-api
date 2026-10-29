@@ -32,6 +32,15 @@ namespace SW.Bitween.Web
         /// <summary>Serilog's LogEventLevel: 0 Verbose, 1 Debug, 2 Information, 3 Warning.</summary>
         public int LoggingLevel { get; set; } = 2;
 
+        /// <summary>
+        /// Comma-separated log categories held to Warning when LoggingLevel is lower. By default the
+        /// ones that write a line per database command, outgoing HTTP call and incoming request: on
+        /// staging they were 97% of the output, so a pod's log held about two minutes. Set it empty
+        /// (SwLogger__QuietCategories="") to log them at LoggingLevel again.
+        /// </summary>
+        public string QuietCategories { get; set; } =
+            "Microsoft.EntityFrameworkCore.Database.Command,System.Net.Http.HttpClient,Microsoft.AspNetCore";
+
         public string ApplicationName { get; set; } = "unknownapp";
         public string ApplicationVersion { get; set; }
 
@@ -93,8 +102,12 @@ namespace SW.Bitween.Web
             // Configuration last, so a deployment's environment variables win over code defaults.
             configuration.GetSection(BitweenLoggerOptions.ConfigurationSection).Bind(options);
 
-            var logger = new LoggerConfiguration()
-                .MinimumLevel.Is((LogEventLevel)options.LoggingLevel)
+            var level = (LogEventLevel)options.LoggingLevel;
+            var quietLevel = level > LogEventLevel.Warning ? level : LogEventLevel.Warning;
+            var logger = new LoggerConfiguration().MinimumLevel.Is(level);
+            foreach (var category in (options.QuietCategories ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                logger = logger.MinimumLevel.Override(category, quietLevel);
+            logger = logger
                 .Enrich.FromLogContext()
                 .Enrich.WithProperty("Environment", environment.EnvironmentName)
                 .Enrich.WithProperty("ApplicationVersion", options.ApplicationVersion)
@@ -241,8 +254,8 @@ namespace SW.Bitween.Web
         }
 
         /// <summary>
-        /// Rewrites one template with the retention setting added, leaving the rest of it — the ECS
-        /// mappings the sink depends on — exactly as the sink wrote it.
+        /// Rewrites one template with the retention setting added, leaving the rest of it - the ECS
+        /// mappings the sink depends on - exactly as the sink wrote it.
         /// </summary>
         private static void PointTemplateAtPolicy(IElasticClient client, string templateName, string policyName)
         {

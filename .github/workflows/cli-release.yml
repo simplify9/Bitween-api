@@ -1,0 +1,143 @@
+name: bitween CLI release
+
+# Publishes the bitween command as self-contained binaries on a GitHub release: nothing needs .NET
+# installed to run them. Never run by hand or by a tag: the CI run that publishes this repository
+# calls it with the version it computed (determine-semver: the next patch from the git tags), so the
+# CLI carries the version of the release it ships with. The computed version is the bare x.y.z on
+# develop too, so a develop build says so with prerelease and passes its run number.
+#   a release, 10.0.61                                  cli-v10.0.61          the latest release
+#   a prerelease, 10.0.61 with prerelease and run 121   cli-v10.0.61-dev.121  a pre-release, to try out
+# Called by bitween-api-cicd-gateway.yml: after the release from releases/r10.0, and after each develop build.
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: "The version the calling run computed"
+        type: string
+        required: true
+      prerelease:
+        description: "Release as a pre-release, named after the run"
+        type: boolean
+        default: false
+      run-number:
+        description: "The calling run's number, for a pre-release"
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  channel:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.channel.outputs.version }}
+      prerelease: ${{ steps.channel.outputs.prerelease }}
+    steps:
+      - name: Channel
+        id: channel
+        env:
+          VERSION: ${{ inputs.version }}
+          PRERELEASE: ${{ inputs.prerelease }}
+          RUN_NUMBER: ${{ inputs.run-number }}
+        run: |
+          v="$VERSION"
+          if [ "$PRERELEASE" = "true" ]; then
+            # A pre-release names its run: 10.0.61 from run 121 is 10.0.61-dev.121.
+            v="${v%%-*}-dev.${RUN_NUMBER:-${GITHUB_RUN_NUMBER}}"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$v" == *-* ]]; then
+            # A version that already carries its branch and run: 10.0.61-releases-r10-0-develop.121 is 10.0.61-dev.121.
+            v="${v%%-*}-dev.${v##*.}"
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: channel
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        rid: [linux-x64, linux-arm64, linux-musl-x64, linux-musl-arm64, osx-x64, osx-arm64, win-x64]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Publish
+        run: >
+          dotnet publish SW.Bitween.Cli -c Release -r ${{ matrix.rid }} --self-contained
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:DebugType=none
+          -p:Version=${{ needs.channel.outputs.version }} -o out
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp docs/cli.md out/README.md 2>/dev/null || true
+          if [[ "${{ matrix.rid }}" == win-* ]]; then
+            (cd out && zip -q -r ../dist/bitween-${{ matrix.rid }}.zip .)
+          else
+            tar -czf dist/bitween-${{ matrix.rid }}.tar.gz -C out .
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bitween-${{ matrix.rid }}
+          path: dist/*
+
+  # The data source providers (RabbitMQ, SQS and the database engines) as adapter packages, with the
+  # release's version: installed like any adapter, with bitween adapter publish or apply's adapters
+  # section. Nothing else publishes them, and a Bitween runs no data source without them.
+  providers:
+    needs: channel
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Build
+        env:
+          VERSION: ${{ needs.channel.outputs.version }}
+        run: |
+          dotnet build SW.Bitween.Cli -c Release -o cli
+          mkdir -p dist
+          for project in SW.Bitween.Adapters.Bus.RabbitMq SW.Bitween.Adapters.Bus.Sqs SW.Bitween.Adapters.Db.PostgreSql \
+                         SW.Bitween.Adapters.Db.MySql SW.Bitween.Adapters.Db.SqlServer SW.Bitween.Adapters.Db.Oracle; do
+            jq --arg v "$VERSION" '.version = $v' "$project/adapter.json" > adapter.json.tmp && mv adapter.json.tmp "$project/adapter.json"
+            dotnet cli/bitween.dll adapter build "$project" -o dist
+          done
+          ls -la dist
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bitween-providers
+          path: dist/*.zip
+
+  release:
+    needs: [channel, build, providers]
+    runs-on: ubuntu-latest
+    steps:
+      # Only the CLI builds' own artifacts. Without a pattern this fetched every artifact in the run,
+      # including the build record docker/build-push-action uploads in the deploy job, which can't be
+      # extracted and failed the release (and would have landed in SHA256SUMS if it could).
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bitween-*
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS
+      - name: Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          v="${{ needs.channel.outputs.version }}"
+          install="curl -fsSL https://raw.githubusercontent.com/${{ github.repository }}/releases/r10.0/scripts/install-cli.sh"
+          if [ "${{ needs.channel.outputs.prerelease }}" = "true" ]; then
+            gh release create "cli-v$v" dist/* --title "bitween CLI $v (pre-release)" --target "${{ github.sha }}" --prerelease \
+              --notes "A pre-release of the bitween command, built from ${{ github.ref_name }}, to try out. Install: $install | BITWEEN_CLI_VERSION=$v sh - or download the archive for your platform and check it against SHA256SUMS."
+          else
+            gh release create "cli-v$v" dist/* --title "bitween CLI $v" --target "${{ github.sha }}" --latest \
+              --notes "The bitween command, self-contained for each platform. Install: $install | sh - or download the archive for your platform and check it against SHA256SUMS."
+          fi

@@ -10,10 +10,17 @@ namespace SW.Bitween.Resources.Adapters;
 /// <param name="Key">The adapter id, as a subscription stores it.</param>
 /// <param name="Native">In-process, so it has no published versions of its own.</param>
 /// <param name="VersionPaths">
-/// Published version files, as paths relative to the remote adapter root — the trailing segment is
+/// Published version files, as paths relative to the remote adapter root - the trailing segment is
 /// the version number.
 /// </param>
-public record AdapterEntry(string Key, bool Native, IReadOnlyList<string> VersionPaths);
+/// <param name="Manifest">
+/// What the adapter says about itself - the current package's manifest, or a native adapter's. Null
+/// for a package published before manifests existed.
+/// </param>
+/// <param name="Catalog">The published adapter's catalog entry; null when it has none.</param>
+public record AdapterEntry(string Key, bool Native, IReadOnlyList<string> VersionPaths,
+    SW.Serverless.Contract.Catalog.AdapterManifest Manifest = null,
+    SW.Serverless.Contract.Catalog.AdapterCatalogEntry Catalog = null);
 
 /// <summary>
 /// The list of adapters of one kind: the in-process ones plus whatever is published to storage.
@@ -29,8 +36,17 @@ public class AdapterListing(
     ICloudFilesService cloudFilesService,
     NativeAdapterDiscoveryService nativeAdapterDiscovery,
     BitweenDbContext dbContext,
-    SW.Serverless.AdapterInstaller adapterInstaller)
+    SW.Serverless.AdapterInstaller adapterInstaller,
+    Services.Adapters.AdapterCatalog catalog,
+    Services.Adapters.NativeAdapterManifests nativeManifests)
 {
+    /// <summary>
+    /// How many adapters' metadata the lists may be reading from storage at once, across the whole
+    /// process: a screen asks for its four kinds together, each reads every other kind's adapters,
+    /// and storage services limit their callers.
+    /// </summary>
+    private static readonly System.Threading.SemaphoreSlim MetadataReads = new(16, 16);
+
     /// <param name="prefix">The plural, lowercase kind: <c>receivers</c>, <c>handlers</c>, …</param>
     /// <returns>Native adapters first, then the published ones.</returns>
     public async Task<List<AdapterEntry>> List(string prefix)
@@ -38,7 +54,7 @@ public class AdapterListing(
         var index = serverlessOptions.AdapterRemotePath.Length + 1;
 
         var native = (await nativeAdapterDiscovery.GetNativeAdapters(prefix).ExceptRetiring(dbContext))
-            .Select(key => new AdapterEntry(key, true, []))
+            .Select(key => new AdapterEntry(key, true, [], nativeManifests.Get(key)))
             .ToList();
 
         var files = (await ListByKindAsync(prefix))
@@ -59,7 +75,58 @@ public class AdapterListing(
                     .Select(v => v.Key[index..])
                     .ToList()));
 
-        return native.Concat(published).ToList();
+        // The catalog adds what a package listing cannot: the current version, the history, and
+        // the presentation. An adapter without an entry is listed exactly as before.
+        var withCatalog = await Task.WhenAll(published.Select(async entry =>
+        {
+            var found = await catalog.GetAsync(entry.Key);
+            return found == null ? entry : entry with { Manifest = found.Manifest, Catalog = found };
+        }));
+
+        var listed = withCatalog.Select(e => e.Key).ToHashSet(System.StringComparer.OrdinalIgnoreCase);
+        var catalogOnly = await CatalogOnlyAsync(prefix, listed);
+
+        return native.Concat(withCatalog).Concat(catalogOnly).ToList();
+    }
+
+    /// <summary>
+    /// Adapters that are in the catalog but have no package at <c>adapters/{id}</c>, which is all
+    /// the listing above looks at. An adapter in another runtime than .NET is never put there -
+    /// older hosts would start it with dotnet - and neither is a .NET version published without
+    /// being made current. Each is listed under the kinds its manifests declare, or the old
+    /// naming convention, and only while it has a version that can still be used.
+    /// </summary>
+    private async Task<List<AdapterEntry>> CatalogOnlyAsync(string prefix, ISet<string> listed)
+    {
+        var kind = prefix?.TrimEnd('s') ?? "";
+        var root = serverlessOptions.AdapterRemotePath;
+        var catalogRoot = SW.Serverless.Contract.Catalog.AdapterCatalogPaths.CatalogRoot(root);
+
+        IEnumerable<CloudFileInfo> files;
+        try
+        {
+            files = await cloudFilesService.ListAsync(catalogRoot);
+        }
+        catch
+        {
+            // As everywhere the catalog is read: absent rather than fatal.
+            return [];
+        }
+
+        var ids = files
+            .Where(f => f.Key.EndsWith(".json", System.StringComparison.OrdinalIgnoreCase))
+            .Select(f => f.Key[catalogRoot.Length..^".json".Length])
+            .Where(id => id.Length > 0 && !id.Contains('/') && !listed.Contains(id))
+            .ToList();
+
+        var entries = await Task.WhenAll(ids.Select(id => catalog.GetAsync(id)));
+        return entries
+            .Where(e => e != null && e.Versions.Any(v => !v.Withdrawn))
+            .Where(e => e.Id.StartsWith($"infolink6.{prefix}.", System.StringComparison.OrdinalIgnoreCase) ||
+                        (kind.Length > 0 && e.Versions.Append(new() { Manifest = e.Manifest })
+                            .Any(v => v.Manifest?.Kinds?.Contains(kind, System.StringComparer.OrdinalIgnoreCase) == true)))
+            .Select(e => new AdapterEntry(e.Id, false, [], e.Manifest ?? e.Versions.Last(v => !v.Withdrawn).Manifest, e))
+            .ToList();
     }
 
     /// <summary>
@@ -69,7 +136,7 @@ public class AdapterListing(
     /// Two ways an adapter says what it is for, and both are honoured. The Kind stamped on it at
     /// publish time is the real answer: it comes from the code rather than from whoever typed the
     /// id, it is the only way a third party's adapter can be found at all, and it lets an adapter
-    /// be reclassified without being renamed — a rename is not free, because every subscription
+    /// be reclassified without being renamed - a rename is not free, because every subscription
     /// stores the id.
     ///
     /// The infolink6.&lt;kind&gt;s. prefix is the old convention, and everything published before the
@@ -83,39 +150,53 @@ public class AdapterListing(
         var byConvention = (await cloudFilesService.ListAsync($"{root}/infolink6.{prefix}")).ToList();
         var named = byConvention.Select(i => i.Key).ToHashSet(System.StringComparer.OrdinalIgnoreCase);
 
-        // The plural the UI asks with — "handlers" — against the singular an adapter declares.
+        // The plural the UI asks with - "handlers" - against the singular an adapter declares.
         var kind = prefix?.TrimEnd('s') ?? "";
         if (string.IsNullOrWhiteSpace(kind)) return byConvention;
 
-        foreach (var item in await cloudFilesService.ListAsync($"{root}/"))
-        {
-            if (item.Size <= 0 || named.Contains(item.Key)) continue;
+        var others = (await cloudFilesService.ListAsync($"{root}/"))
+            .Where(item => item.Size > 0 && !named.Contains(item.Key))
+            .ToList();
 
-            var declared = await DeclaredKindsAsync(item.Key, root);
-            if (declared.Contains(kind, System.StringComparer.OrdinalIgnoreCase))
-                byConvention.Add(item);
-        }
+        // Side by side: once the installer's metadata cache runs out, five minutes by default, this
+        // reads every other kind's adapters from storage, and one after another that took half a
+        // minute for a few dozen. Each adapter once, however many of its versions are listed.
+        var declared = (await Task.WhenAll(others.Select(i => AdapterIdOf(i.Key, root)).Distinct(System.StringComparer.Ordinal)
+                .Select(async adapterId =>
+                {
+                    await MetadataReads.WaitAsync();
+                    try { return (Id: adapterId, Kinds: await DeclaredKindsAsync(adapterId)); }
+                    finally { MetadataReads.Release(); }
+                })))
+            .ToDictionary(d => d.Id, d => d.Kinds, System.StringComparer.Ordinal);
 
+        byConvention.AddRange(others.Where(item =>
+            declared[AdapterIdOf(item.Key, root)].Contains(kind, System.StringComparer.OrdinalIgnoreCase)));
         return byConvention;
+    }
+
+    /// <summary>The adapter a listed file is a package of.</summary>
+    private static string AdapterIdOf(string key, string root)
+    {
+        var adapterId = key.StartsWith($"{root}/", System.StringComparison.OrdinalIgnoreCase)
+            ? key[(root.Length + 1)..]
+            : key;
+
+        // Versioned uploads keep the adapter id one segment up from the version.
+        return Semver.IsVersionNumber(adapterId.Split('/').Last())
+            ? string.Join('/', adapterId.Split('/')[..^1])
+            : adapterId;
     }
 
     /// <summary>
     /// The kinds one adapter declared. Metadata reads are cached by the installer, and an adapter
     /// whose metadata cannot be read declares nothing rather than taking the whole catalogue down
-    /// with it — the list is what an operator needs to configure anything at all.
+    /// with it - the list is what an operator needs to configure anything at all.
     /// </summary>
-    private async Task<string[]> DeclaredKindsAsync(string key, string root)
+    private async Task<string[]> DeclaredKindsAsync(string adapterId)
     {
         try
         {
-            var adapterId = key.StartsWith($"{root}/", System.StringComparison.OrdinalIgnoreCase)
-                ? key[(root.Length + 1)..]
-                : key;
-
-            // Versioned uploads keep the adapter id one segment up from the version.
-            if (Semver.IsVersionNumber(adapterId.Split('/').Last()))
-                adapterId = string.Join('/', adapterId.Split('/')[..^1]);
-
             var metadata = await adapterInstaller.GetMetadataAsync(adapterId);
             if (metadata?.AdapterValues == null) return [];
 

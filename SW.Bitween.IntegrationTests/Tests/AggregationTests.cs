@@ -17,6 +17,80 @@ namespace SW.Bitween.IntegrationTests.Tests;
 public class AggregationTests(BitweenFixture fixture)
 {
     [Fact]
+    public async Task A_mirror_test_rolls_up_only_what_tests_ran()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var job = scope.ServiceProvider.GetRequiredService<AggregationJob>();
+
+        var doc = new Document(null, "Agg Prefix Doc", DocumentFormat.Json);
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+        var source = new Subscription("Agg Prefix Source", doc.Id) { Inactive = false };
+        db.Set<Subscription>().Add(source);
+        await db.SaveChangesAsync();
+
+        // One exchange a test ran, one of staging's own.
+        var ids = new List<string>();
+        foreach (var correlation in new[] { "rehearsal-run1", "the-team-s-own" })
+        {
+            var xchange = new Xchange(source, new XchangeFile("{}"), correlationId: correlation);
+            db.Set<Xchange>().Add(xchange);
+            await db.SaveChangesAsync();
+            db.Set<XchangeResult>().Add(new XchangeResult(xchange.Id, null, null));
+            await db.SaveChangesAsync();
+            ids.Add(xchange.Id);
+        }
+        var aggregation = new Subscription("Agg Prefix", source.Id, Partner.SystemId) { Inactive = false, AggregationTarget = XchangeFileType.Input };
+        db.Set<Subscription>().Add(aggregation);
+        await db.SaveChangesAsync();
+        fixture.App.Services.GetRequiredService<IInfolinkCache>().Revoke();
+
+        await job.Execute(new AggregationJobParams(aggregation.Id, null, "rehearsal-agg", "rehearsal-"));
+
+        // The test's is rolled up; the team's waits for its own roll-up.
+        Assert.NotNull(await db.Set<XchangeAggregation>().AsNoTracking().SingleOrDefaultAsync(a => a.Id == ids[0]));
+        Assert.Null(await db.Set<XchangeAggregation>().AsNoTracking().SingleOrDefaultAsync(a => a.Id == ids[1]));
+    }
+
+    [Fact]
+    public async Task On_a_mirror_a_paused_aggregation_waits_out_its_schedule_but_rolls_up_by_hand()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var mirror = new BitweenOptions();
+        mirror.Mirror.Target = true;
+        var job = ActivatorUtilities.CreateInstance<AggregationJob>(scope.ServiceProvider, mirror);
+
+        var doc = new Document(null, "Agg Paused Doc", DocumentFormat.Json);
+        db.Set<Document>().Add(doc);
+        await db.SaveChangesAsync();
+        var source = new Subscription("Agg Paused Source", doc.Id) { Inactive = false };
+        db.Set<Subscription>().Add(source);
+        await db.SaveChangesAsync();
+        var xchange = new Xchange(source, new XchangeFile("{}"));
+        db.Set<Xchange>().Add(xchange);
+        await db.SaveChangesAsync();
+        db.Set<XchangeResult>().Add(new XchangeResult(xchange.Id, null, null));
+        var aggregation = new Subscription("Agg Paused", source.Id, Partner.SystemId) { Inactive = false, AggregationTarget = XchangeFileType.Input };
+        aggregation.SetSchedules(new[] { new Schedule(Recurrence.Hourly, TimeSpan.FromMinutes(30)) });
+        aggregation.Pause();
+        db.Set<Subscription>().Add(aggregation);
+        await db.SaveChangesAsync();
+        fixture.App.Services.GetRequiredService<IInfolinkCache>().Revoke();
+
+        // Its schedule fires: held back, as a brought one arrives paused, but its next run moves on.
+        var next = await db.Subscriptions().AsNoTracking().Where(s => s.Id == aggregation.Id).Select(s => s.AggregateOn).SingleAsync();
+        await job.Execute(new AggregationJobParams(aggregation.Id, "0 0 * * * ?"));
+        Assert.Null(await db.Set<XchangeAggregation>().AsNoTracking().SingleOrDefaultAsync(a => a.Id == xchange.Id));
+        Assert.True(await db.Subscriptions().AsNoTracking().Where(s => s.Id == aggregation.Id).Select(s => s.AggregateOn).SingleAsync() >= next);
+
+        // Roll up now, which has no schedule, runs.
+        await job.Execute(new AggregationJobParams(aggregation.Id, null));
+        Assert.NotNull(await db.Set<XchangeAggregation>().AsNoTracking().SingleOrDefaultAsync(a => a.Id == xchange.Id));
+    }
+
+    [Fact]
     public async Task Aggregation_job_creates_one_xchange_from_successful_source_xchanges()
     {
         await using var scope = fixture.CreateScope();
@@ -86,7 +160,7 @@ public class AggregationTests(BitweenFixture fixture)
         db.Set<Subscription>().Add(sourceSub);
         await db.SaveChangesAsync();
 
-        // Create 2 source Xchanges — one will be pre-aggregated, one will not
+        // Create 2 source Xchanges - one will be pre-aggregated, one will not
         var x1 = new Xchange(sourceSub, new XchangeFile("{\"seq\":1}"));
         var x2 = new Xchange(sourceSub, new XchangeFile("{\"seq\":2}"));
         db.Set<Xchange>().Add(x1);
@@ -182,7 +256,7 @@ public class AggregationTests(BitweenFixture fixture)
 
         var aggSub = new Subscription("Agg Attempt", sourceSub.Id, Partner.SystemId);
         aggSub.Inactive = false;
-        // A real aggregation always has one — SetSchedules throws without it, and the run would
+        // A real aggregation always has one - SetSchedules throws without it, and the run would
         // then report a failure it did not have.
         aggSub.SetSchedules([new Schedule(Recurrence.Daily, TimeSpan.FromHours(2))]);
         db.Set<Subscription>().Add(aggSub);
@@ -201,6 +275,52 @@ public class AggregationTests(BitweenFixture fixture)
     }
 
     [Fact]
+    public async Task Two_replicas_running_one_aggregation_at_once_make_one_roll_up_and_no_failure()
+    {
+        // Two schedules, or a schedule and "aggregate now", firing together: separate Quartz jobs, so
+        // nothing in Quartz stops them overlapping.
+        int aggId;
+        await using (var setup = fixture.CreateScope())
+        {
+            var db = setup.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var sourceDoc = new Document(null, "Agg Two Replicas Doc", DocumentFormat.Json);
+            db.Set<Document>().Add(sourceDoc);
+            await db.SaveChangesAsync();
+            var sourceSub = new Subscription("Agg Two Replicas Source", sourceDoc.Id) { Inactive = false };
+            db.Set<Subscription>().Add(sourceSub);
+            await db.SaveChangesAsync();
+            for (var i = 0; i < 5; i++)
+            {
+                var xchange = new Xchange(sourceSub, new XchangeFile($"{{\"i\":{i}}}"));
+                db.Set<Xchange>().Add(xchange);
+                await db.SaveChangesAsync();
+                db.Set<XchangeResult>().Add(new XchangeResult(xchange.Id, null, null));
+                await db.SaveChangesAsync();
+            }
+            var aggSub = new Subscription("Agg Two Replicas", sourceSub.Id, Partner.SystemId) { Inactive = false };
+            aggSub.SetSchedules([new Schedule(Recurrence.Daily, TimeSpan.FromHours(2))]);
+            db.Set<Subscription>().Add(aggSub);
+            await db.SaveChangesAsync();
+            aggId = aggSub.Id;
+        }
+        fixture.App.Services.GetRequiredService<IInfolinkCache>().Revoke();
+
+        await using var first = fixture.CreateScope();
+        await using var second = fixture.CreateScope();
+        await Task.WhenAll(
+            first.ServiceProvider.GetRequiredService<AggregationJob>().Execute(new AggregationJobParams(aggId, null)),
+            second.ServiceProvider.GetRequiredService<AggregationJob>().Execute(new AggregationJobParams(aggId, null)));
+
+        await using var check = fixture.CreateScope();
+        var read = check.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        Assert.Equal(1, await read.Set<Xchange>().CountAsync(x => x.SubscriptionId == aggId));
+        Assert.DoesNotContain(await read.Set<ReceiveAttempt>().Where(a => a.SubscriptionId == aggId).Select(a => a.Outcome).ToListAsync(),
+            o => o == ReceiveOutcome.Failed);
+        // And the flag is let go: the next run goes ahead, finding nothing left.
+        Assert.False((await read.Set<Subscription>().AsNoTracking().SingleAsync(s => s.Id == aggId)).IsRunning);
+    }
+
+    [Fact]
     public async Task A_run_with_nothing_outstanding_records_no_new_data_rather_than_nothing()
     {
         await using var scope = fixture.CreateScope();
@@ -211,7 +331,7 @@ public class AggregationTests(BitweenFixture fixture)
         var sourceDoc = new Document(null, "Agg Empty Attempt Doc", DocumentFormat.Json);
         db.Set<Document>().Add(sourceDoc);
         await db.SaveChangesAsync();
-        // A source with no exchanges at all — the run has nothing to collect.
+        // A source with no exchanges at all - the run has nothing to collect.
         var sourceSub = new Subscription("Agg Empty Attempt Source", sourceDoc.Id);
         sourceSub.Inactive = false;
         db.Set<Subscription>().Add(sourceSub);
@@ -219,7 +339,7 @@ public class AggregationTests(BitweenFixture fixture)
 
         var aggSub = new Subscription("Agg Empty Attempt", sourceSub.Id, Partner.SystemId);
         aggSub.Inactive = false;
-        // A real aggregation always has one — SetSchedules throws without it, and the run would
+        // A real aggregation always has one - SetSchedules throws without it, and the run would
         // then report a failure it did not have.
         aggSub.SetSchedules([new Schedule(Recurrence.Daily, TimeSpan.FromHours(2))]);
         db.Set<Subscription>().Add(aggSub);
@@ -232,7 +352,7 @@ public class AggregationTests(BitweenFixture fixture)
         var attempt = await db.Set<ReceiveAttempt>().SingleAsync(a => a.SubscriptionId == aggSub.Id);
         Assert.Equal(ReceiveOutcome.NoNewData, attempt.Outcome);
         Assert.Empty(attempt.ExchangeIds);
-        // The quiet outcome still creates no exchange — that part has not changed.
+        // The quiet outcome still creates no exchange - that part has not changed.
         Assert.Equal(0, await db.Set<Xchange>().CountAsync(x => x.SubscriptionId == aggSub.Id));
     }
 
@@ -250,7 +370,7 @@ public class AggregationTests(BitweenFixture fixture)
         db.Set<Subscription>().Add(sourceSub);
         await db.SaveChangesAsync();
 
-        // Inactive by default — the job returns before it does anything, and a run that never
+        // Inactive by default - the job returns before it does anything, and a run that never
         // happened must not appear in the history as a quiet success.
         var aggSub = new Subscription("Agg Skipped Attempt", sourceSub.Id, Partner.SystemId);
         db.Set<Subscription>().Add(aggSub);
@@ -382,7 +502,7 @@ public class AggregationTests(BitweenFixture fixture)
         var row = response.Result.Single(r => r.Id == id);
 
         // ReceiveOn is only ever set for Receiving, and the list page reads one next-run field
-        // for both scheduled types — so without AggregateOn in the projection every aggregation
+        // for both scheduled types - so without AggregateOn in the projection every aggregation
         // row showed no next run at all, for a job that plainly has one.
         Assert.NotNull(row.AggregateOn);
         Assert.Null(row.ReceiveOn);

@@ -5,6 +5,13 @@ public class ConsumerSettings
 {
     public ushort? Prefetch { get; set; }
     public int? Priority { get; set; }
+
+    /// <summary>
+    /// Parallel exchanges: how many exchanges of the work group's lane run at once on each node.
+    /// 1 runs them one at a time in the order they arrive, so a partner gets one call at a time per
+    /// node. Null takes the prefetch. Prefetch caps it.
+    /// </summary>
+    public ushort? Concurrency { get; set; }
 }
 
 public class WorkGroupOptions

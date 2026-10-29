@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using SW.Bitween.Domain;
 using SW.Bitween.Domain.Gateway;
@@ -8,7 +9,16 @@ public interface IInfolinkCache
 {
     public Task<Subscription[]> ListSubscriptionsByDocumentAsync(int documentId);
     public Task<BusGatewayRoute[]> ListBusGatewayRoutesByDocumentAsync(int documentId);
+
+    /// <summary>
+    /// The routes, and those of the switched-off gateways in <paramref name="alsoSwitchedOff"/> too: a
+    /// mirror's copy switches off gateways prod has on, so nothing runs on its own, and its rehearsal's
+    /// traffic still goes where prod's would.
+    /// </summary>
+    public Task<BusGatewayRoute[]> ListBusGatewayRoutesByDocumentAsync(int documentId, IReadOnlySet<int> alsoSwitchedOff) =>
+        ListBusGatewayRoutesByDocumentAsync(documentId);
     public Task<Notifier[]> ListNotifiersAsync();
+    public Task<NotificationChannel> NotificationChannelByIdAsync(int channelId);
 
     public Task<Subscription> SubscriptionByIdAsync(int subscriptionId);
     public Task<Document> DocumentByIdAsync(int documentId);
@@ -24,4 +34,17 @@ public interface IInfolinkCache
     
     Task<GlobalAdapterValuesSet>  GlobalAdapterValuesSetById (string globalAdapterValuesSetId);
     Task<GlobalAdapterValuesSet[]> ListGlobalAdapterValuesSetsAsync();
+
+    Task<Document[]> ListDocumentsAsync();
+
+    /// <summary>
+    /// A partner with its API keys. Shared by every caller: read it, never change it or attach it to a
+    /// context.
+    /// </summary>
+    Task<Partner> PartnerByIdAsync(int partnerId);
+
+    Task<Partner[]> ListPartnersAsync();
+
+    /// <summary>An API gateway with its attachments and their partners, shared like a partner.</summary>
+    Task<ApiGateway> ApiGatewayByUrlNameAsync(string urlName);
 }

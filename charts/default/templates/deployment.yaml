@@ -9,7 +9,9 @@ metadata:
     release: {{ .Release.Name }}
     heritage: {{ .Release.Service }}
 spec:
+  {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
       app: {{ template "project.name" . }}
@@ -29,6 +31,9 @@ spec:
       annotations:
         buildID: {{ .Values.buildID | default "" | quote }}
     spec:
+      # Above the host's 45 s shutdown timeout, which is above the bus's 30 s drain, so exchanges
+      # running when a pod stops finish and acknowledge before Kubernetes kills it.
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds | default 60 }}
       {{- with .Values.serviceAccount.name }}
       serviceAccountName: {{ . | quote }}
       {{- end }}
@@ -46,19 +51,37 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repo }}/{{ .Chart.Name }}:{{ .Chart.Version }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- with .Values.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           ports:
             - name: http
-              containerPort: 80
+              # The port the app listens on. This said 80, so probes aimed at it could never pass.
+              containerPort: 8080
               protocol: TCP
           {{- if .Values.probes.enabled }}
+          # Startup covers the migrations a new version runs before it listens.
+          startupProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            periodSeconds: 5
+            failureThreshold: {{ .Values.probes.startupFailureThreshold }}
+          # Liveness asks only whether the process answers: a database blip must not restart pods.
           livenessProbe:
             httpGet:
-              path: /
+              path: /health/live
               port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          # Readiness also asks the database and RabbitMQ, so traffic waits until both are reachable.
           readinessProbe:
             httpGet:
-              path: /
+              path: /health/ready
               port: http
+            periodSeconds: 10
+            failureThreshold: 3
           {{- end }}
 
           env:
@@ -79,12 +102,27 @@ spec:
 
             - name: Bitween__BusDefaultQueuePrefetch
               value: "{{ .Values.busDefaultQueuePrefetch }}"
+            {{- if .Values.busDefaultConcurrency }}
+
+            # Parallel exchanges for the ungrouped lane and the other bus consumers; unset, the prefetch.
+            - name: Bitween__BusDefaultConcurrency
+              value: "{{ .Values.busDefaultConcurrency }}"
+            {{- end }}
 
             - name: Bitween__RabbitMqManagementUrl
               value: {{ .Values.environmentVariables.Bitween__RabbitMqManagementUrl | quote }}
 
+            # From the chart's Secret rather than in the pod spec, where anyone who can read the
+            # deployment could read it.
             - name: Bitween__RabbitMqManagementPassword
-              value: {{ .Values.environmentVariables.Bitween__RabbitMqManagementPassword | quote }}
+              {{- if .Values.environmentVariables.Bitween__RabbitMqManagementPassword }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ template "project.fullname" . }}
+                  key: rabbitMqManagementPassword
+              {{- else }}
+              value: ""
+              {{- end }}
 
             - name: Bitween__RabbitMqManagementUsername
               value: {{ .Values.environmentVariables.Bitween__RabbitMqManagementUsername | quote }}
@@ -170,7 +208,7 @@ spec:
                   key: db
 
             # As with Bitween__DocumentPrefix above, these three seed the Settings table on
-            # the first boot only. Editing them later has no effect — change Microsoft sign-on
+            # the first boot only. Editing them later has no effect - change Microsoft sign-on
             # under Settings → Single sign-on (Microsoft).
             - name: Bitween__MsalClientId
               value: {{ .Values.msalClientId }}
@@ -311,6 +349,27 @@ spec:
             {{- end }}
           resources:
 {{ toYaml .Values.resources | indent 12 }}
+          # The only places Bitween writes, so its root file system can be read-only (securityContext).
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            - name: adapter-cache
+              mountPath: /app/adapters
+      volumes:
+        - name: tmp
+          {{- if .Values.scratch.tmpSizeLimit }}
+          emptyDir:
+            sizeLimit: {{ .Values.scratch.tmpSizeLimit }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: adapter-cache
+          {{- if .Values.scratch.adapterCacheSizeLimit }}
+          emptyDir:
+            sizeLimit: {{ .Values.scratch.adapterCacheSizeLimit }}
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
 #     {{- with .Values.imagePullSecrets }}
 #       imagePullSecrets:
 # {{ toYaml . | indent 8 }}

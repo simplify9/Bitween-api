@@ -17,7 +17,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 ///
 /// The same suite as PostgreSQL's and Oracle's, which is the point: three engines run on one core,
 /// so the parts that are shared should behave identically and the parts that differ should differ
-/// VISIBLY — in the capability list, and in how a routine returns rows. Everything here goes over
+/// VISIBLY - in the capability list, and in how a routine returns rows. Everything here goes over
 /// the resident transport into a real adapter process and out to a real database.
 /// </summary>
 [Collection("Bitween")]
@@ -79,7 +79,7 @@ public class MySqlAdapterTests : IClassFixture<MySqlDbFixture>
 
     /// <summary>
     /// Where MySQL is honestly different from the other two. A procedure returns rows by SELECTing,
-    /// which PostgreSQL cannot do — but there is no MERGE, no RETURNING, no array type and no
+    /// which PostgreSQL cannot do - but there is no MERGE, no RETURNING, no array type and no
     /// sequence, and claiming any of them would have a statement written against it fail on a real
     /// server.
     /// </summary>
@@ -104,7 +104,7 @@ public class MySqlAdapterTests : IClassFixture<MySqlDbFixture>
         var objects = described["supportedObjects"]!.Select(o => o.Value<string>()).ToList();
         Assert.Contains("procedure", objects);
         Assert.Contains("function", objects);
-        // No sequences in MySQL — AUTO_INCREMENT belongs to a column, not to an object.
+        // No sequences in MySQL - AUTO_INCREMENT belongs to a column, not to an object.
         Assert.DoesNotContain("sequence", objects);
 
         // READ UNCOMMITTED does something here, unlike PostgreSQL where it is silently promoted.
@@ -142,13 +142,13 @@ public class MySqlAdapterTests : IClassFixture<MySqlDbFixture>
         Assert.True(columns[0].Value<bool>("primaryKey"));
         Assert.False(columns[0].Value<bool>("nullable"));
 
-        // tinyint(1) IS the boolean type in MySQL, and the driver returns one — so reporting "int"
+        // tinyint(1) IS the boolean type in MySQL, and the driver returns one - so reporting "int"
         // would mislead whoever writes the mapper.
         var processed = columns.Single(c => c.Value<string>("name") == "processed");
         Assert.Equal("bool", processed.Value<string>("clrType"));
 
         // A CURRENT_TIMESTAMP default reports as DEFAULT_GENERATED in `extra`, which is a value the
-        // database fills in — the only distinction an insert cares about.
+        // database fills in - the only distinction an insert cares about.
         var created = columns.Single(c => c.Value<string>("name") == "created_at");
         Assert.True(created.Value<bool>("generated"));
 
@@ -262,7 +262,7 @@ public class MySqlAdapterTests : IClassFixture<MySqlDbFixture>
 
     /// <summary>
     /// A batch is one transaction: either every statement in it happened or none did. Proven by
-    /// making the second one fail — a duplicate primary key — and then looking for the first.
+    /// making the second one fail - a duplicate primary key - and then looking for the first.
     /// </summary>
     [SkippableFact]
     public async Task A_failed_batch_rolls_back_what_came_before_it()
@@ -300,7 +300,7 @@ public class MySqlAdapterTests : IClassFixture<MySqlDbFixture>
 
     /// <summary>
     /// Ad-hoc SQL is refused unless the data source allows it, whatever the engine. The mapper is a
-    /// template over message content — if it can emit SQL text, every Xchange is an injection
+    /// template over message content - if it can emit SQL text, every Xchange is an injection
     /// vector into the customer's database.
     /// </summary>
     [SkippableFact]

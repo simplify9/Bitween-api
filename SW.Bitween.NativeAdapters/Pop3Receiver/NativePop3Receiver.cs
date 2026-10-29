@@ -6,21 +6,60 @@ using SW.PrimitiveTypes;
 
 namespace SW.Bitween.NativeAdapters.Pop3Receiver;
 
-public class NativePop3Receiver : INativeInfolinkReceiver
+public class NativePop3Receiver : INativeInfolinkReceiver, IDisposable
 {
     private Pop3ReceiverInput _options = new();
     private Pop3Client? _client;
 
-    // Connection defaults matching the standard implicit-SSL POP3 endpoint.
-    // Not user-configurable; exposed internally only so tests can point at a local fake server.
-    internal int Port { get; set; } = 995;
-    internal bool UseSsl { get; set; } = true;
+    // For tests pointing at a local fake server: when set, these win over the settings.
+    internal int? Port { get; set; }
+    internal bool? UseSsl { get; set; }
 
+    /// <summary>
+    /// Implicit TLS on 995 unless the settings say otherwise, as it always was. With TLS, the server's
+    /// certificate must be valid or, when a thumbprint is pinned, be exactly that certificate: how a
+    /// mail server with its own certificate is trusted. Either way it's checked before the password goes.
+    /// </summary>
     public async Task Initialize()
     {
+        var security = UseSsl switch
+        {
+            true => SecureSocketOptions.SslOnConnect,
+            false => SecureSocketOptions.None,
+            null => (_options.Encryption ?? "").Trim().ToLowerInvariant() switch
+            {
+                "" or "implicit" => SecureSocketOptions.SslOnConnect,
+                "explicit" => SecureSocketOptions.StartTls,
+                // No unencrypted option: the receiver always signs in with a password.
+                _ => throw new ArgumentException($"Unknown Encryption '{_options.Encryption}': use implicit or explicit."),
+            },
+        };
+        var port = Port ?? _options.Port ?? (security == SecureSocketOptions.SslOnConnect ? 995 : 110);
+
         _client = new Pop3Client();
-        var sslOptions = UseSsl ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.None;
-        await _client.ConnectAsync(_options.Host, Port, sslOptions);
+        string? refused = null;
+        if (!string.IsNullOrWhiteSpace(_options.CertificateThumbprint))
+        {
+            var pinned = FtpTransfer.NormalizeThumbprint(_options.CertificateThumbprint);
+            _client.ServerCertificateValidationCallback = (_, certificate, _, _) =>
+            {
+                var presented = certificate == null ? "" : FtpTransfer.Thumbprint(certificate);
+                if (presented == pinned) return true;
+                refused = presented;
+                return false;
+            };
+        }
+
+        try
+        {
+            await _client.ConnectAsync(_options.Host, port, security);
+        }
+        catch (Exception) when (refused is not null)
+        {
+            throw new InvalidOperationException(
+                $"The POP3 server's certificate (SHA-256 {refused}) is not the one configured. Refusing to send credentials to it.");
+        }
+
         await _client.AuthenticateAsync(_options.Username, _options.Password);
     }
 
@@ -28,6 +67,7 @@ public class NativePop3Receiver : INativeInfolinkReceiver
     {
         await _client!.DisconnectAsync(true);
         _client.Dispose();
+        _client = null;
     }
 
     public Task<IEnumerable<string>> ListFiles()
@@ -46,7 +86,7 @@ public class NativePop3Receiver : INativeInfolinkReceiver
             return new XchangeFile(message.TextBody ?? message.HtmlBody ?? string.Empty, message.Subject);
 
         using var memoryStream = new MemoryStream();
-        // A part can carry no content at all — a malformed or truncated message. Treating that
+        // A part can carry no content at all - a malformed or truncated message. Treating that
         // as an empty attachment beats a NullReferenceException from inside the receive loop.
         if (attachment is MessagePart { Message: { } embedded })
             await embedded.WriteToAsync(memoryStream);
@@ -77,4 +117,14 @@ public class NativePop3Receiver : INativeInfolinkReceiver
     }
 
     public Type StartupValuesType => typeof(Pop3ReceiverInput);
+
+    /// <summary>
+    /// Closes a connection a run left open - one that failed before Finalize. Without the QUIT that
+    /// Finalize sends, the server keeps the messages this run marked for deletion.
+    /// </summary>
+    public void Dispose()
+    {
+        try { _client?.Dispose(); } catch { /* closing only */ }
+        _client = null;
+    }
 }

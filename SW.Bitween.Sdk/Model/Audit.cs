@@ -39,7 +39,7 @@ public class AuditEntryModel
 
     /// <summary>
     /// The account's display name at the time it is read, or null for a change made with no signed-in
-    /// user — a bus consumer or a scheduled job. Resolved on read rather than stored, so it is
+    /// user - a bus consumer or a scheduled job. Resolved on read rather than stored, so it is
     /// blank rather than wrong once an account is deleted.
     /// </summary>
     public string? UserDisplayName { get; set; }

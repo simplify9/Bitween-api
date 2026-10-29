@@ -6,6 +6,7 @@ using RabbitMQ.Client;
 using RabbitMQ.Client.Exceptions;
 using SW.Bitween.Domain.Cluster;
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,13 +15,13 @@ namespace SW.Bitween.Services.Cluster;
 /// <summary>
 /// Leader election over the internal RabbitMQ, using the one primitive it already gives us:
 /// an EXCLUSIVE QUEUE IS TIED TO A SINGLE CONNECTION. Declaring it succeeds for exactly one node
-/// and fails for every other, and the broker releases it the moment that connection goes — which
+/// and fails for every other, and the broker releases it the moment that connection goes - which
 /// is liveness for free, with no lease renewal to get wrong and no clock to trust.
 ///
 /// The database supplies what the broker cannot: a monotonic term. See <see cref="IResourceLease.Term"/>.
 ///
 /// The connection here is DEDICATED and separate from SW.Bus's. Sharing it would tie every lease
-/// in the process to the same fate as ordinary message traffic — one connection blip would drop
+/// in the process to the same fate as ordinary message traffic - one connection blip would drop
 /// every broker connection this node owns, all at once.
 /// </summary>
 public class RabbitMqLeaderElection : ILeaderElection, IDisposable
@@ -43,7 +44,7 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
 
         // Distinct per process, not per machine: two instances on one host must not believe they
         // are the same owner.
-        nodeName = $"{Environment.MachineName}:{Environment.ProcessId}";
+        nodeName = NodeHeartbeat.NodeName;
 
         var connectionString = configuration.GetConnectionString("RabbitMQ")
             ?? throw new InvalidOperationException(
@@ -55,7 +56,7 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
             Uri = new Uri(connectionString),
             // Recovery must stay OFF. A recovered connection silently re-declares the exclusive
             // queue, so a node that lost ownership during an outage would quietly take it back
-            // without ever bumping the term — two owners, neither aware.
+            // without ever bumping the term - two owners, neither aware.
             AutomaticRecoveryEnabled = false,
             RequestedConnectionTimeout = TimeSpan.FromSeconds(15)
         };
@@ -66,21 +67,27 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
     public async Task<IResourceLease> TryAcquireAsync(string resource,
         CancellationToken cancellationToken = default)
     {
+        // Asked of the database first, so a lease another live node holds costs the broker nothing.
+        // Declaring it anyway is refused, and RabbitMQ logs every refusal as an error: every node
+        // trying every lease it doesn't hold, every thirty seconds, made most of the broker's log.
+        if (await HeldByAnotherLiveNodeAsync(resource, cancellationToken)) return null;
+
         var connection = await GetConnectionAsync(cancellationToken);
         if (connection == null) return null;
 
         var queue = $"{QueuePrefix}{resource}";
-        IModel channel = null;
+        IChannel channel = null;
         try
         {
-            channel = connection.CreateModel();
+            channel = await connection.CreateChannelAsync(cancellationToken: cancellationToken);
 
             // THE LOCK. Exclusive means one connection; every other node's declare fails here.
-            channel.QueueDeclare(queue, durable: false, exclusive: true, autoDelete: true);
+            await channel.QueueDeclareAsync(queue, durable: false, exclusive: true, autoDelete: true,
+                cancellationToken: cancellationToken);
         }
         catch (OperationInterruptedException)
         {
-            // RESOURCE_LOCKED — someone else owns it. Ordinary, and not worth logging above debug.
+            // RESOURCE_LOCKED - someone else owns it. Ordinary, and not worth logging above debug.
             channel?.Dispose();
             _logger.LogDebug("Resource {Resource} is owned by another node.", resource);
             return null;
@@ -94,7 +101,7 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
 
         try
         {
-            // THE FENCE, and only after the lock is held — so exactly one node bumps the term.
+            // THE FENCE, and only after the lock is held - so exactly one node bumps the term.
             var term = await ClaimTermAsync(resource, cancellationToken);
 
             _logger.LogInformation("Node {Node} acquired {Resource} at term {Term}.",
@@ -109,6 +116,36 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
             channel.Dispose();
             _logger.LogError(ex, "Acquired the lock on {Resource} but could not record its term.", resource);
             return null;
+        }
+    }
+
+    /// <summary>
+    /// True when the lease's owner, by the database, is another node whose heartbeat is current. Only
+    /// a hint: the queue is still the lock. A node that released its lease cleared the owner, so the
+    /// next node takes it at once; one that died is tried again once its heartbeat is stale
+    /// (<see cref="NodeHeartbeat.GoneAfter"/>), when the broker has long since freed the queue. Any
+    /// doubt, such as no row or no heartbeat, is answered by trying, as before.
+    /// </summary>
+    private async Task<bool> HeldByAnotherLiveNodeAsync(string resource, CancellationToken cancellationToken)
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var dbContext = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+
+            var owner = await dbContext.Set<ClusterLease>().AsNoTracking()
+                .Where(l => l.Id == resource).Select(l => l.OwnerNode)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (owner == null || owner == nodeName) return false;
+
+            var aliveSince = DateTime.UtcNow - NodeHeartbeat.GoneAfter;
+            return await dbContext.Set<ClusterNode>().AsNoTracking()
+                .AnyAsync(n => n.Id == owner && n.LastSeenOn > aliveSince, cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogDebug(ex, "Could not read the owner of {Resource}; trying the lock.", resource);
+            return false;
         }
     }
 
@@ -144,7 +181,7 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
             if (_connection is { IsOpen: true }) return _connection;
 
             _connection?.Dispose();
-            _connection = _factory.CreateConnection($"bitween-election-{nodeName}");
+            _connection = await _factory.CreateConnectionAsync($"bitween-election-{nodeName}", cancellationToken);
 
             _logger.LogInformation("Election connection open for node {Node}.", nodeName);
             return _connection;
@@ -164,15 +201,15 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
 
     public void Dispose()
     {
-        try { _connection?.Close(TimeSpan.FromSeconds(2)); } catch { }
+        try { _connection?.CloseAsync(TimeSpan.FromSeconds(2)).GetAwaiter().GetResult(); } catch { }
         _connection?.Dispose();
         _connectionGate.Dispose();
     }
 
-    private sealed class RabbitMqLease(string resource, string queue, long term, IModel channel,
+    private sealed class RabbitMqLease(string resource, string queue, long term, IChannel channel,
         IServiceProvider serviceProvider, string nodeName) : IResourceLease
     {
-        private readonly IModel _channel = channel;
+        private readonly IChannel _channel = channel;
         private readonly IServiceProvider _serviceProvider = serviceProvider;
         private bool _released;
 
@@ -181,7 +218,7 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
         public string Resource { get; } = resource;
         public long Term { get; } = term;
 
-        // The channel closing IS the loss of ownership — the broker has already released the queue.
+        // The channel closing IS the loss of ownership - the broker has already released the queue.
         public bool IsHeld => !_released && _channel.IsOpen;
 
         public async Task<bool> ValidateAsync(CancellationToken cancellationToken = default)
@@ -199,22 +236,32 @@ public class RabbitMqLeaderElection : ILeaderElection, IDisposable
             return current != null && current.Term == Term && current.OwnerNode == nodeName;
         }
 
-        public ValueTask DisposeAsync()
+        public async ValueTask DisposeAsync()
         {
             _released = true;
 
             // DELETE the queue, do not merely close the channel.
             //
-            // An exclusive queue belongs to the CONNECTION, not the channel — AMQP deletes it when
+            // An exclusive queue belongs to the CONNECTION, not the channel - AMQP deletes it when
             // the connection closes. Closing the channel released nothing, so a node that gave up
             // a lease still held the lock until its whole election connection dropped, and the
             // next node could never take over. Deleting is allowed for the owning connection and
             // frees it at once.
-            try { _channel.QueueDelete(_queue, ifUnused: false, ifEmpty: false); } catch { }
-            try { _channel.Close(); } catch { }
+            try { await _channel.QueueDeleteAsync(_queue, ifUnused: false, ifEmpty: false); } catch { }
+            try { await _channel.CloseAsync(); } catch { }
             _channel.Dispose();
 
-            return ValueTask.CompletedTask;
+            // And say so, or the other nodes would wait out this node's heartbeat before trying it.
+            // Only this term's ownership: a node that has taken it since keeps it.
+            try
+            {
+                using var scope = _serviceProvider.CreateScope();
+                var dbContext = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+                await dbContext.Set<ClusterLease>()
+                    .Where(l => l.Id == Resource && l.Term == Term && l.OwnerNode == nodeName)
+                    .ExecuteUpdateAsync(set => set.SetProperty(l => l.OwnerNode, (string)null));
+            }
+            catch { }
         }
     }
 }

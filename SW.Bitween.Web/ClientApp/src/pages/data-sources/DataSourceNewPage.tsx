@@ -4,17 +4,20 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { api, ApiRequestError } from "../../api";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Button, FormError, LoadingBlock } from "../../components/ui/basics";
-import { Field, Select, TextInput } from "../../components/ui/forms";
+import { Field, PasswordInput, Select, TextInput } from "../../components/ui/forms";
 import { BackLink } from "../../components/ui/BackLink";
+import { StillNeeds, useFormCheck } from "../../components/ui/formCheck";
 import { keys } from "../../api/queryKeys";
-import { declaredSecrets, initialProperties, useDataSourceProviders } from "./providers";
+import { declaredSecrets, initialProperties, settingLabel, useDataSourceProviders } from "./providers";
+import { SettingHint } from "../../components/config/SettingsSections";
 
 /**
- * Creating asks for a name and a provider, and nothing else.
+ * Creating asks for a name, a provider, and the settings that provider can't connect without.
  *
- * The connection settings depend on the provider — RabbitMQ wants a virtual host, SQS wants a
- * region — so asking for them before that is chosen means either the wrong fields or a blank
- * key/value grid. The provider seeds its own, and the next screen is a form to fill in.
+ * The connection settings depend on the provider - RabbitMQ wants a virtual host, SQS wants a
+ * region - so they appear once it is chosen. Only the required ones are asked here: a data source
+ * created without them sat on its page with a red error and twenty fields, none of which said
+ * which to fill in first. The rest keep their defaults and are on the next screen.
  *
  * Which providers exist, and what each one starts with, comes from the adapters themselves.
  */
@@ -25,6 +28,8 @@ export function DataSourceNewPage() {
   const [name, setName] = useState("");
   const [adapterId, setAdapterId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Typed values, by provider, so switching provider and back keeps what was typed.
+  const [typed, setTyped] = useState<Record<string, Record<string, string>>>({});
 
   const providers = useDataSourceProviders();
   // Nothing is chosen until the catalog arrives, so the first provider stands in for a choice the
@@ -38,7 +43,7 @@ export function DataSourceNewPage() {
         name: name.trim(),
         adapterId: provider.adapterId,
         kind: provider.kind,
-        properties: initialProperties(provider),
+        properties: { ...initialProperties(provider), ...(typed[provider.adapterId] ?? {}) },
         secretProperties: declaredSecrets(provider),
       });
     },
@@ -50,13 +55,31 @@ export function DataSourceNewPage() {
       setError(e instanceof ApiRequestError ? e.message : "Could not create this data source."),
   });
 
+  const required = provider?.settings.filter((s) => s.required) ?? [];
+  const valueOf = (setting: string) =>
+    typed[provider?.adapterId ?? ""]?.[setting] ?? provider?.settings.find((s) => s.name === setting)?.default ?? "";
+  const setValue = (setting: string, value: string) =>
+    setTyped((t) => ({ ...t, [provider!.adapterId]: { ...(t[provider!.adapterId] ?? {}), [setting]: value } }));
+  const check = useFormCheck<string>([
+    {
+      field: "name",
+      failing: !name.trim(),
+      needs: "a name",
+      message: "Give the data source a name, e.g. Acme's RabbitMQ.",
+      focus: "ds-name",
+    },
+    ...required.map((s) => ({
+      field: `setting:${s.name}`,
+      failing: !valueOf(s.name).trim(),
+      needs: s.name,
+      message: `${provider?.label ?? "This provider"} can't connect without its ${s.name}.`,
+      focus: `ds-new-${s.name}`,
+    })),
+  ]);
+
   const submit = () => {
     setError(null);
-    if (!name.trim()) {
-      setError("A name is required.");
-      return;
-    }
-    create.mutate();
+    check.submit(() => create.mutate());
   };
 
   if (providers.isPending) return <LoadingBlock label="Loading providers…" />;
@@ -68,8 +91,8 @@ export function DataSourceNewPage() {
       <div className="max-w-xl">
         <BackLink to="/data-sources" label="Data sources" className="mb-3" />
         <FormError>
-          No data source provider adapters are installed. Publish one — bitween.bus.rabbitmq and
-          bitween.bus.sqs ship with Bitween — and it will appear here.
+          No data source provider adapters are installed. Publish one - bitween.bus.rabbitmq and
+          bitween.bus.sqs ship with Bitween - and it will appear here.
         </FormError>
       </div>
     );
@@ -77,10 +100,19 @@ export function DataSourceNewPage() {
   return (
     <div className="max-w-xl">
       <BackLink to="/data-sources" label="Data sources" className="mb-3" />
-      <PageHeader title="New data source" description="A connection to a broker outside Bitween." />
+      <PageHeader
+        title="New data source"
+        description={
+          provider.kind === "Broker"
+            ? "A connection Bitween keeps open to a message broker outside it."
+            : provider.kind === "Relational"
+              ? "A connection Bitween keeps open to a database outside it."
+              : "A connection Bitween keeps open to a system outside it."
+        }
+      />
 
       <div className="flex flex-col gap-4 rounded-xl border border-ink-200 bg-white p-5">
-        <Field label="Name" htmlFor="ds-name">
+        <Field label="Name" htmlFor="ds-name" error={check.errors.name}>
           <TextInput
             id="ds-name"
             value={name}
@@ -103,13 +135,53 @@ export function DataSourceNewPage() {
           />
         </Field>
 
+        {required.length > 0 && (
+          <div className="flex flex-col gap-4 border-t border-ink-100 pt-4">
+            <p className="text-[13px] text-ink-600">
+              What {provider.label} needs to connect. Everything else starts at its default, on the next screen.
+            </p>
+            {required.map((s) => (
+              <Field
+                key={`${provider.adapterId}-${s.name}`}
+                label={settingLabel(s.name)}
+                hint={
+                  settingLabel(s.name) !== s.name || s.hint ? (
+                    <SettingHint rawKey={s.name} label={settingLabel(s.name)} help={s.hint} />
+                  ) : undefined
+                }
+                htmlFor={`ds-new-${s.name}`}
+                error={check.errors[`setting:${s.name}`]}
+              >
+                {s.allowedValues ? (
+                  <Select
+                    id={`ds-new-${s.name}`}
+                    value={valueOf(s.name)}
+                    onChange={(e) => setValue(s.name, e.target.value)}
+                    options={s.allowedValues.map((v) => ({ value: v, label: v }))}
+                  />
+                ) : s.secret ? (
+                  <PasswordInput id={`ds-new-${s.name}`} value={valueOf(s.name)} onChange={(e) => setValue(s.name, e.target.value)} />
+                ) : (
+                  <TextInput
+                    id={`ds-new-${s.name}`}
+                    type={s.type === "number" ? "number" : "text"}
+                    value={valueOf(s.name)}
+                    onChange={(e) => setValue(s.name, e.target.value)}
+                  />
+                )}
+              </Field>
+            ))}
+          </div>
+        )}
+
         {error && <FormError>{error}</FormError>}
 
         <div className="flex items-center gap-2">
+          <Button onClick={() => navigate("/data-sources")}>Cancel</Button>
           <Button variant="primary" onClick={submit} disabled={create.isPending}>
             {create.isPending ? "Creating…" : "Create"}
           </Button>
-          <Button onClick={() => navigate("/data-sources")}>Cancel</Button>
+          <StillNeeds missing={check.missing} />
         </div>
       </div>
     </div>

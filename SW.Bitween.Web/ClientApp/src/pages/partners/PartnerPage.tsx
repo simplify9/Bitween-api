@@ -3,22 +3,23 @@ import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { api } from "../../api";
-import { Can, useSessionCan } from "../../auth/guards";
+import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
-import { ConfirmDialog } from "../../components/ui/overlays";
+import { Badge, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
+import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
+import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import { EditableTitle, Panel, UnsavedBar } from "../../components/ui/Panel";
 import { MiniTable } from "../../components/ui/Table";
-import { ExchangesList, SetupList, usePartnerSubscriptions } from "../../components/config/shared";
+import { ExchangesList, SetupList } from "../../components/config/shared";
+import { usePartnerSubscriptions } from "../../components/config/lookups";
 import { BackLink } from "../../components/ui/BackLink";
 import { keys } from "../../api/queryKeys";
-import {
-  PartnerFields,
-  partnerChanges,
-  partnerDirty,
-  partnerDraftOf,
-  type PartnerDraft,
-} from "../../components/config/PartnerFields";
+import { useLeaveGuard } from "../../lib/useLeaveGuard";
+import { PartnerFields, type PartnerDraft } from "../../components/config/PartnerFields";
+import { partnerChanges, partnerDirty, partnerDraftOf } from "../../components/config/partnerDraft";
+import { usePageTitle } from "../../lib/pageTitle";
 
 export function PartnerPage() {
   const { id = "" } = useParams();
@@ -26,12 +27,14 @@ export function PartnerPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const canEdit = useSessionCan("partners.edit");
+  const canDelete = useSessionCan("partners.delete");
 
   const partner = useQuery({
     queryKey: keys.partners.detail(partnerId),
     queryFn: () => api.getPartner(partnerId),
     retry: false,
   });
+  usePageTitle(partner.data?.name);
   // Keyed by partner so gateway-linked subscriptions are included, not just the
   // legacy ones that carry their own partnerId.
   const partnerSubscriptions = usePartnerSubscriptions();
@@ -62,11 +65,15 @@ export function PartnerPage() {
     },
   });
 
+  const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
+
   if (partner.isPending) return <LoadingBlock label="Loading partner…" />;
+  if (partner.isError && !isNotFound(partner.error))
+    return <LoadError error={partner.error} what="this partner" onRetry={() => void partner.refetch()} />;
   if (partner.isError)
     return (
       <EmptyState title="This partner no longer exists">
-        <Link to="/partners" className="font-medium text-crimson-700 hover:underline">
+        <Link to="/partners" className="font-medium link">
           Back to partners
         </Link>
       </EmptyState>
@@ -74,7 +81,7 @@ export function PartnerPage() {
 
   const p = partner.data;
 
-  // Both gateway kinds in one table — a partner is reached through gateways,
+  // Both gateway kinds in one table - a partner is reached through gateways,
   // and which mechanism it is belongs in a column, not in a separate list.
   const gatewayUses = [
     ...p.apiGateways.map((g) => ({
@@ -95,6 +102,7 @@ export function PartnerPage() {
 
   return (
     <div className="pb-24">
+      {leaveDialog}
       <BackLink to="/partners" label="Partners" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
@@ -114,13 +122,17 @@ export function PartnerPage() {
             </p>
           )}
         </div>
-        {!p.isSystem && (
-          <Can permission="partners.delete">
-            <Button variant="danger" onClick={() => setDeleting(true)}>
-              <Trash2 className="size-4" /> Delete partner
-            </Button>
-          </Can>
-        )}
+        <MoreActionsMenu
+          actions={[
+            {
+              label: "Delete",
+              icon: <Trash2 className="size-4" />,
+              danger: true,
+              onSelect: () => setDeleting(true),
+              hidden: p.isSystem || !canDelete,
+            },
+          ]}
+        />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -158,7 +170,7 @@ export function PartnerPage() {
                         cell: (g) => (
                           <Link
                             to={g.href}
-                            className="block font-medium text-ink-800 hover:text-crimson-700 hover:underline"
+                            className="block font-medium text-ink-800 hover:link"
                           >
                             {g.name}
                           </Link>
@@ -199,8 +211,14 @@ export function PartnerPage() {
       )}
 
       {deleting && (
-        <ConfirmDialog
+        <DeleteDialog
           title="Delete this partner?"
+          name={p.name}
+          blockers={[
+            counted((partnerSubscriptions.get(partnerId) ?? []).length, "subscription"),
+            counted(p.apiGateways.length, "API gateway attachment"),
+            counted(p.busGatewayRoutes.length, "bus gateway route"),
+          ]}
           body={
             <>
               <strong className="font-medium text-ink-800">{p.name}</strong>, its properties and its
@@ -211,7 +229,7 @@ export function PartnerPage() {
           onConfirm={async () => {
             await api.deletePartner(partnerId);
             void queryClient.invalidateQueries({ queryKey: keys.partners.all });
-            navigate("/partners", { replace: true });
+            leave(() => navigate("/partners", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
         />

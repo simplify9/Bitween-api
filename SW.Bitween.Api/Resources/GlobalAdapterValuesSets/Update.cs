@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using FluentValidation;
@@ -21,7 +22,9 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
             entity.Name = request.Name;
             // A secret the form did not touch comes back as the sentinel; restore it from storage
             // rather than saving the mask.
-            entity.Values = AdapterSecretProperties.Merge(entity.Values, request.Values);
+            entity.Values = AdapterSecretProperties.Merge(entity.Values, request.Values,
+                AdapterSecretProperties.MayKeepStoredSecrets(null, null, entity.Values,
+                    request.Values ?? new Dictionary<string, string>()));
             entity.SecretProperties = request.SecretProperties?.ToList() ?? [];
 
             await dbContext.SaveChangesAsync();

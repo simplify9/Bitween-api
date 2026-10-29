@@ -1,0 +1,46 @@
+=== promoted-json
+hits: 
+gateway: 
+=== promoted-xml
+id = P-1
+price = 1.10
+name = Acme Retail
+sku = S1
+missing = (null)
+hits: 201, 202, 203
+gateway: 601/8
+=== promoted-json-big
+hits: 
+gateway: 
+=== schema-json
+Not valid JSON: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
+=== schema-xml
+(valid)
+=== enriched
+(not an object, not enriched)
+=== enriched-scriban
+!Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
+=== scriban
+!Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
+=== rules-json
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid JSON: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
+=== rules-xml
+{
+  "id": "P-1",
+  "price": "1.10",
+  "priceNumber": 1.10,
+  "currency": null,
+  "when": null,
+  "name": "  Acme Retail  ",
+  "lines": [
+    {
+      "sku": "S1",
+      "qty": 2
+    }
+  ]
+}
+content-type: application/json
+=== url
+!Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
+=== fill
+order-{{ id }}-{{ price }}-{{ orderedAt }}.json

@@ -12,7 +12,7 @@ import { keys } from "../../../api/queryKeys";
  * This subscription's own retry budgets, asked for from its side rather than its policy's.
  *
  * Two reasons it is not enough to read this on the retry policy page. A subscription can carry
- * rules inline instead of a shared policy — those have no policy id, so no policy page reaches
+ * rules inline instead of a shared policy - those have no policy id, so no policy page reaches
  * their counters, and one could sit stopped for good with nothing on screen able to say why or
  * hand it back. And even with a shared policy, "why has this stopped retrying?" gets asked
  * here, where the subscription is, not on a page listing every subscription that shares its rules.
@@ -51,7 +51,7 @@ export function RetryBudget({ subscriptionId, canEdit }: { subscriptionId: numbe
             <>
               <strong className="font-medium">Retries have stopped.</strong>{" "}
               {stopped.map((r) => r.groupName).join(", ")} used up{" "}
-              {stopped.length === 1 ? "its budget" : "their budgets"} — failures are no longer
+              {stopped.length === 1 ? "its budget" : "their budgets"} - failures are no longer
               retried automatically until the budget is reset, or this subscription succeeds again.
             </>
           ) : (
@@ -63,12 +63,12 @@ export function RetryBudget({ subscriptionId, canEdit }: { subscriptionId: numbe
           )}
         </p>
         <span className="flex shrink-0 items-center gap-3">
-          {stopped.some((r) => r.resolvedHandlerId === null) && (
+          {stopped.some((r) => r.resolvedChannelId === null) && (
             <span className="text-[13px]">Nobody was alerted.</span>
           )}
           <Link
             to={`/exchanges?subscriptionId=${subscriptionId}&status=failed`}
-            className="font-medium text-crimson-700 hover:underline"
+            className="font-medium link"
           >
             See failures
           </Link>

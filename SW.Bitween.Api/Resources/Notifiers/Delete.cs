@@ -10,7 +10,7 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext, I
     {
         /// <remarks>
         /// No reference check, unlike an integration's delete: nothing has a foreign key to a
-        /// notifier. <c>RunOnSubscriptions</c> points the other way — the notifier names the
+        /// notifier. <c>RunOnSubscriptions</c> points the other way - the notifier names the
         /// integrations it watches, so deleting it takes the whole list with it.
         /// </remarks>
         public async Task<object> Handle(int key)

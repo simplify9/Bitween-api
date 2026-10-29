@@ -1,0 +1,78 @@
+{
+  "manifestVersion": 1,
+  "id": "natives3receiver",
+  "displayName": "Amazon S3 pickup",
+  "summary": "Picks up files from an S3-compatible bucket on a schedule.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "s3",
+    "aws",
+    "storage",
+    "file"
+  ],
+  "categories": [
+    "Intake"
+  ],
+  "kinds": [
+    "receiver"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "AccessKeyId",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "S3-compatible access key ID."
+    },
+    {
+      "name": "SecretAccessKey",
+      "type": "text",
+      "required": true,
+      "secret": true,
+      "description": "S3-compatible secret access key."
+    },
+    {
+      "name": "ServiceUrl",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "S3-compatible service endpoint URL."
+    },
+    {
+      "name": "BucketName",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "Name of the bucket to read files from."
+    },
+    {
+      "name": "FolderName",
+      "type": "text",
+      "description": "Folder (object key prefix) within the bucket to read files from."
+    },
+    {
+      "name": "BatchSize",
+      "type": "number",
+      "default": "50",
+      "description": "Maximum number of files to fetch per polling batch."
+    },
+    {
+      "name": "ResponseEncoding",
+      "type": "text",
+      "default": "utf8",
+      "description": "Encoding used to decode file contents (e.g. utf8)."
+    },
+    {
+      "name": "DeleteMovesFileTo",
+      "type": "text",
+      "description": "Folder to move a file to after it\u0027s received. If empty, the file is deleted instead."
+    }
+  ]
+}

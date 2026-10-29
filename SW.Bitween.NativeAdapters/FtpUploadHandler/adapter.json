@@ -1,0 +1,91 @@
+{
+  "manifestVersion": 1,
+  "id": "nativeftpuploadhandler",
+  "displayName": "FTP / FTPS upload",
+  "summary": "Uploads the message as a file to an FTP server, plain or over TLS (explicit or implicit FTPS).",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "ftp",
+    "ftps",
+    "file"
+  ],
+  "categories": [
+    "Delivery"
+  ],
+  "kinds": [
+    "handler"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "Host",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "FTP server hostname."
+    },
+    {
+      "name": "Port",
+      "type": "number",
+      "description": "Server port. If empty, 990 is used for implicit FTPS and 21 otherwise."
+    },
+    {
+      "name": "Username",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "FTP account username."
+    },
+    {
+      "name": "Password",
+      "type": "text",
+      "required": true,
+      "secret": true,
+      "description": "FTP account password."
+    },
+    {
+      "name": "Encryption",
+      "type": "text",
+      "default": "none",
+      "description": "none for plain FTP, explicit for FTPS that upgrades the connection with AUTH TLS (usually port 21), or implicit for FTPS that is TLS from the start (usually port 990)."
+    },
+    {
+      "name": "CertificateThumbprint",
+      "type": "text",
+      "description": "For FTPS: the SHA-256 thumbprint of the server's certificate, in hex. When set, exactly that certificate is trusted, a self-signed one included, and any other is refused before credentials are sent. When empty, the certificate must be valid."
+    },
+    {
+      "name": "PassiveMode",
+      "type": "boolean",
+      "default": "True",
+      "description": "Passive mode, where the client opens the data connections; what almost every server behind a firewall needs. Turn off for active mode."
+    },
+    {
+      "name": "TargetPath",
+      "type": "text",
+      "description": "Remote directory to upload the file into."
+    },
+    {
+      "name": "FileNamePrefix",
+      "type": "text",
+      "description": "Prefix added to the uploaded file's name."
+    },
+    {
+      "name": "FileName",
+      "type": "text",
+      "description": "The uploaded file's name, in place of the message's own. For a JSON message it may use the message's fields, as order-{{ orderId }}.json, so each message gets its own file. Empty keeps the message's own name, or the time when it has none."
+    },
+    {
+      "name": "DataEncoding",
+      "type": "text",
+      "default": "utf8",
+      "description": "Encoding used to write the file contents: utf8, or base64 to write the decoded bytes."
+    }
+  ]
+}

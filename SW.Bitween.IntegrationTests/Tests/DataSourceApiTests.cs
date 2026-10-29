@@ -24,8 +24,8 @@ namespace SW.Bitween.IntegrationTests.Tests;
 ///
 /// Until this existed the whole external-bus feature was reachable only by writing rows into the
 /// database by hand, which is how every other test in this suite still sets itself up. The
-/// questions worth asking of it are about credentials — a broker password must not come back out
-/// of an endpoint, and it must survive an edit that never touched it — and about the two ways a
+/// questions worth asking of it are about credentials - a broker password must not come back out
+/// of an endpoint, and it must survive an edit that never touched it - and about the two ways a
 /// gateway can be wrong: pointed at nothing, or pointed at a queue another gateway already reads.
 /// </summary>
 [Collection("Bitween")]
@@ -91,16 +91,39 @@ public class DataSourceApiTests(BitweenFixture fixture)
         var id = await CreateAsync(new Dictionary<string, string>
         {
             ["Host"] = "broker.example.com",
-            ["Password"] = "hunter2"
+            ["Password"] = "hunter2",
+            ["Prefetch"] = "16"
         });
 
         var row = await GetAsync(id);
-        row.Properties["Host"] = "broker2.example.com";   // the only real edit
+        row.Properties["Prefetch"] = "32";   // the only real edit
 
         await UpdateAsync(id, row);
 
         Assert.Equal("hunter2", await StoredPropertyAsync(id, "Password"));
-        Assert.Equal("broker2.example.com", await StoredPropertyAsync(id, "Host"));
+        Assert.Equal("32", await StoredPropertyAsync(id, "Prefetch"));
+    }
+
+    /// <summary>
+    /// Except when the edit points the connection somewhere else. Kept across that, the password
+    /// would go to whoever runs the new host, sent there by someone who never saw it.
+    /// </summary>
+    [Fact]
+    public async Task Pointing_the_connection_elsewhere_drops_the_masked_secret()
+    {
+        var id = await CreateAsync(new Dictionary<string, string>
+        {
+            ["Host"] = "broker.example.com",
+            ["Password"] = "hunter2"
+        });
+
+        var row = await GetAsync(id);
+        row.Properties["Host"] = "broker.attacker.example";
+
+        await UpdateAsync(id, row);
+
+        Assert.Null(await StoredPropertyAsync(id, "Password"));
+        Assert.Equal("broker.attacker.example", await StoredPropertyAsync(id, "Host"));
     }
 
     /// <summary>And a genuine change still goes through, or the field would be uneditable.</summary>
@@ -117,8 +140,8 @@ public class DataSourceApiTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// A data source pasted from a Get response — which is how anyone scripts a second environment
-    /// — must not authenticate with the sentinel. There is nothing stored to restore from, so it
+    /// A data source pasted from a Get response - which is how anyone scripts a second environment
+    /// - must not authenticate with the sentinel. There is nothing stored to restore from, so it
     /// is dropped and the field reads as unset rather than as a password nobody chose.
     /// </summary>
     [Fact]
@@ -260,7 +283,7 @@ public class DataSourceApiTests(BitweenFixture fixture)
 
     /// <summary>
     /// Two gateways on one endpoint would both be candidates for every message and only one would
-    /// ever run — a silent misroute rather than an error, which is the failure mode this whole
+    /// ever run - a silent misroute rather than an error, which is the failure mode this whole
     /// area keeps producing when it is left unguarded.
     /// </summary>
     [Fact]
@@ -314,7 +337,7 @@ public class DataSourceApiTests(BitweenFixture fixture)
     /// <summary>
     /// The ceilings have to reach the adapter's process, not just the database.
     ///
-    /// They are applied at launch — a GC heap hard limit on the child process — so the supervisor
+    /// They are applied at launch - a GC heap hard limit on the child process - so the supervisor
     /// has to fold them into the fingerprint it compares each pass. Otherwise raising a limit
     /// saves cleanly, changes nothing, and the adapter keeps running under the old one with
     /// nothing to say it did not take.
@@ -329,7 +352,7 @@ public class DataSourceApiTests(BitweenFixture fixture)
         var host = fixture.App.Services.GetRequiredService<IResidentAdapterHost>();
 
         // Disposed with the test: the election holds the exclusive queue that IS the lock, so
-        // leaking one leaves this data source owned by a node that no longer exists — and every
+        // leaking one leaves this data source owned by a node that no longer exists - and every
         // later reconcile quietly declines to start it.
         using var election = Node();
         var supervisor = Supervisor(host, election);
@@ -405,7 +428,7 @@ public class DataSourceApiTests(BitweenFixture fixture)
         var host = fixture.App.Services.GetRequiredService<IResidentAdapterHost>();
 
         // Disposed with the test: the election holds the exclusive queue that IS the lock, so
-        // leaking one leaves this data source owned by a node that no longer exists — and every
+        // leaking one leaves this data source owned by a node that no longer exists - and every
         // later reconcile quietly declines to start it.
         using var election = Node();
         var supervisor = Supervisor(host, election);
@@ -440,7 +463,7 @@ public class DataSourceApiTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// The CPU figure is a share of the whole node, so anything above 100 can never be reached —
+    /// The CPU figure is a share of the whole node, so anything above 100 can never be reached -
     /// the ceiling would sit there looking configured and never fire once.
     /// </summary>
     [Fact]
@@ -497,7 +520,7 @@ public class DataSourceApiTests(BitweenFixture fixture)
     /// <summary>
     /// A data source is not only a broker: a resident adapter holding a database session is one
     /// too, and one of those has no queue for a gateway to consume. Refusing it here matters more
-    /// than the menu that hides it — the menu is a courtesy, this is the rule.
+    /// than the menu that hides it - the menu is a courtesy, this is the rule.
     /// </summary>
     [Fact]
     public async Task A_bus_gateway_cannot_read_from_a_non_broker_data_source()
@@ -566,7 +589,27 @@ public class DataSourceApiTests(BitweenFixture fixture)
         return (DataSourceRow)await handler.Handle(id);
     }
 
-    private async Task UpdateAsync(int id, DataSourceRow row)
+    /// <summary>
+    /// Placement was reset to Auto by any save that left it out, which the admin UI always did:
+    /// renaming an Exclusive or PerNode source moved where it ran.
+    /// </summary>
+    [Fact]
+    public async Task A_save_that_leaves_placement_out_keeps_it()
+    {
+        var id = await CreateAsync(new Dictionary<string, string>());
+        await UpdateAsync(id, await GetAsync(id), placement: "PerNode");
+        Assert.Equal("PerNode", (await GetAsync(id)).Placement.ToString());
+
+        var renamed = await GetAsync(id);
+        renamed.Name = Unique("renamed");
+        await UpdateAsync(id, renamed);
+        Assert.Equal("PerNode", (await GetAsync(id)).Placement.ToString());
+
+        await UpdateAsync(id, await GetAsync(id), placement: "Auto");
+        Assert.Equal("Auto", (await GetAsync(id)).Placement.ToString());
+    }
+
+    private async Task UpdateAsync(int id, DataSourceRow row, string placement = null)
     {
         await using var scope = fixture.CreateScope();
         scope.Superuser();
@@ -583,7 +626,8 @@ public class DataSourceApiTests(BitweenFixture fixture)
             SoftMemoryLimitMb = row.SoftMemoryLimitMb,
             HardMemoryLimitMb = row.HardMemoryLimitMb,
             CpuPercentLimit = row.CpuPercentLimit,
-            CpuLimitSamples = row.CpuLimitSamples
+            CpuLimitSamples = row.CpuLimitSamples,
+            Placement = placement
         });
     }
 

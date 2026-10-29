@@ -1,21 +1,26 @@
 import { useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate } from "react-router";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Handshake, Plus, Search } from "lucide-react";
+import { Handshake, Plus } from "lucide-react";
 import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { SubscriptionMultiFilter } from "../../components/config/SubscriptionMultiFilter";
 import { PartnerDialog } from "../../components/config/PartnerDialog";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Pagination } from "../../components/ui/Pagination";
 import { Table } from "../../components/ui/Table";
-import { UsedByCell, useSubscriptionsCache, usePartnerSubscriptions } from "../../components/config/shared";
+import { UsedByCell } from "../../components/config/shared";
+import { useSubscriptionsCache, usePartnerSubscriptions } from "../../components/config/lookups";
 import { keys } from "../../api/queryKeys";
+import { useListParams } from "../../lib/listParams";
+import { SearchBox } from "../../components/ui/SearchBox";
+import { timeAgo } from "../../lib/dates";
+import { compact, percent } from "../../lib/numbers";
 
 const PAGE_SIZE = 25;
 
-/** ?subscriptions=3,5 — no id can be 0, so filter/join round-trip cleanly through this. */
+/** ?subscriptions=3,5 - no id can be 0, so filter/join round-trip cleanly through this. */
 const parseIds = (raw: string | null): number[] =>
   raw
     ? raw
@@ -25,32 +30,24 @@ const parseIds = (raw: string | null): number[] =>
     : [];
 
 export function PartnersPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { params: searchParams, set: setParam, searchText, setSearchText } = useListParams();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const q = searchParams.get("q") ?? "";
   const subscriptionIds = parseIds(searchParams.get("subscriptions"));
   const offset = searchParams.get("offset") ? Number(searchParams.get("offset")) : 0;
 
-  const setParam = (key: string, value: string | null, resetOffset = true) =>
-    setSearchParams(
-      (prev) => {
-        const next = new URLSearchParams(prev);
-        if (value) next.set(key, value);
-        else next.delete(key);
-        if (resetOffset) next.delete("offset");
-        return next;
-      },
-      { replace: key === "q" },
-    );
 
+  // Traffic and last activity per partner, from the hourly metrics.
+  const partnerUsage = useQuery({ queryKey: keys.metrics.partners(7), queryFn: () => api.getPartnerUsage(7) });
+  const usage = new Map((partnerUsage.data?.partners ?? []).map((u) => [u.partnerId, u]));
   const partnerSubscriptions = usePartnerSubscriptions();
   const subscriptions = useSubscriptionsCache().data ?? [];
 
   // The backend's Search endpoint has no "id is in this set" filter, so filtering by
   // which subscriptions a partner is wired to can't be pushed down like the name search
   // can. Every partner is already loaded once for `usePartnerSubscriptions` above, so
-  // reusing the same full list here — and paging it client-side — costs nothing extra
+  // reusing the same full list here - and paging it client-side - costs nothing extra
   // and stays correct across pages. The plain search case keeps the server-paged path,
   // since that's the one that has to scale.
   const filtering = subscriptionIds.length > 0;
@@ -79,36 +76,53 @@ export function PartnersPage() {
   }, [filtering, allPartners.data, partnerSubscriptions, q, subscriptionIds]);
 
   const isPending = filtering ? allPartners.isPending : serverSearch.isPending;
+  const listQuery = filtering ? allPartners : serverSearch;
   const rows = filtering ? filteredSorted.slice(offset, offset + PAGE_SIZE) : (serverSearch.data?.result ?? []);
   const total = filtering ? filteredSorted.length : (serverSearch.data?.total ?? 0);
   const filtered = q || subscriptionIds.length > 0;
+
+  // In the header, and in the empty list where there is nothing else to do.
+  const createAction = (
+    <Can permission="partners.create">
+      <Button variant="primary" onClick={() => setCreating(true)}>
+        <Plus className="size-4" /> New partner
+      </Button>
+    </Can>
+  );
 
   return (
     <div>
       <PageHeader
         title="Partners"
-        description="The external parties you exchange data with — their connection properties and API keys."
-        actions={
-          <Can permission="partners.create">
-            <Button variant="primary" onClick={() => setCreating(true)}>
-              <Plus className="size-4" /> New partner
-            </Button>
-          </Can>
-        }
+        description="The external parties you exchange data with - their connection properties and API keys."
+        actions={createAction}
+        help={{
+          title: "What's on this page?",
+          body: (
+            <>
+              <p>
+                A partner's <strong>properties</strong> are named values adapters can reference, so a
+                subscription can run with that partner's own settings. The Properties column lists their
+                names; the values are on the partner's page.
+              </p>
+              <p>
+                Most subscriptions reach a partner through a gateway: an <strong>API gateway</strong>{" "}
+                attachment or a <strong>bus gateway</strong> route. <strong>Used by</strong> lists those
+                subscriptions. A partner's <strong>API keys</strong> are what it sends to an API gateway,
+                and the key decides which partner the call runs as.
+              </p>
+              <p>
+                <strong>Exchanges, 7 days</strong> counts the last week's exchanges with the share that
+                succeeded. <strong>Built-in</strong> partners are provided by the system and can't be
+                edited or deleted.
+              </p>
+            </>
+          ),
+        }}
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="relative w-full max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setParam("q", e.target.value || null)}
-            placeholder="Search partners"
-            aria-label="Search partners"
-            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-          />
-        </div>
+        <SearchBox value={searchText} onChange={setSearchText} label="Search partners" />
         <div className="w-60">
           <SubscriptionMultiFilter
             subscriptions={subscriptions}
@@ -121,8 +135,10 @@ export function PartnersPage() {
 
       {isPending ? (
         <LoadingBlock label="Loading partners…" />
+      ) : listQuery.isError ? (
+        <LoadError error={listQuery.error} what="partners" onRetry={() => void listQuery.refetch()} />
       ) : rows.length === 0 ? (
-        <EmptyState icon={<Handshake />} title={filtered ? "No partners match" : "No partners yet"}>
+        <EmptyState icon={<Handshake />} title={filtered ? "No partners match" : "No partners yet"} action={filtered ? undefined : createAction}>
           {filtered ? "Try a different search or filter." : "Create the first partner you exchange data with."}
         </EmptyState>
       ) : (
@@ -136,7 +152,7 @@ export function PartnersPage() {
               offset={offset}
               limit={PAGE_SIZE}
               total={total}
-              onOffsetChange={(o) => setParam("offset", String(o), false)}
+              onOffsetChange={(o) => setParam("offset", String(o))}
             />
           }
           columns={[
@@ -146,7 +162,7 @@ export function PartnersPage() {
                 <span className="flex items-center gap-2 font-medium text-ink-900">
                   {p.name}
                   {p.isSystem && (
-                    <Badge tone="ink" title="A system-provided partner used internally — it can't be edited or deleted.">
+                    <Badge tone="ink" title="A system-provided partner used internally - it can't be edited or deleted.">
                       Built-in
                     </Badge>
                   )}
@@ -154,7 +170,7 @@ export function PartnersPage() {
               ),
             },
             {
-              // The property names themselves, not a count — a count tells you
+              // The property names themselves, not a count - a count tells you
               // nothing you can act on, the keys are what adapters reference.
               header: "Properties",
               truncate: true,
@@ -167,13 +183,40 @@ export function PartnersPage() {
                     {p.propertyKeys.join(", ")}
                   </span>
                 ) : (
-                  <span className="text-ink-400">—</span>
+                  <span className="text-ink-500">-</span>
                 ),
             },
             {
               header: "API keys",
               align: "right",
-              cell: (p) => <span className="tabular-nums text-ink-600">{p.credentialCount || "—"}</span>,
+              cell: (p) => <span className="tabular-nums text-ink-600">{p.credentialCount || "-"}</span>,
+            },
+            {
+              header: "Exchanges, 7 days",
+              align: "right",
+              headerTitle: "Exchanges with this partner over the last week, and the share that succeeded.",
+              cell: (p) => {
+                const u = usage.get(p.id);
+                if (!u || u.exchanges === 0) return <span className="text-ink-500">-</span>;
+                return (
+                  <span className="tabular-nums text-ink-700">
+                    {compact(u.exchanges)}
+                    <span className={u.successRate !== null && u.successRate < 99 ? " text-danger-700" : " text-ink-500"}>
+                      {" "}
+                      · {percent(u.successRate)} OK
+                    </span>
+                  </span>
+                );
+              },
+            },
+            {
+              header: "Last activity",
+              headerTitle: "Its latest exchange, or the last time one of its API keys was used, whichever is later.",
+              cell: (p) => {
+                const u = usage.get(p.id);
+                const last = [u?.lastExchangeHour, u?.keyLastUsedOn].filter((d): d is string => !!d).sort().at(-1);
+                return last ? <span className="text-ink-600">{timeAgo(last)}</span> : <span className="text-ink-500">-</span>;
+              },
             },
             {
               header: "Used by",

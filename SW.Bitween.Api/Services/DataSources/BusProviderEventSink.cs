@@ -18,7 +18,7 @@ namespace SW.Bitween.Services.DataSources;
 /// Where a message from an external broker enters Bitween.
 ///
 /// The adapter owns the connection and hands the payload over; everything after that is the path
-/// an internally-bussed message already takes — <see cref="XchangeService.SubmitFilterXchange"/>,
+/// an internally-bussed message already takes - <see cref="XchangeService.SubmitFilterXchange"/>,
 /// which persists the Xchange, writes the payload to cloud storage and lets the filter decide
 /// which subscriptions run. Ingress from a broker and ingress from the API are the same thing
 /// past this point, deliberately.
@@ -43,14 +43,14 @@ public class BusProviderEventSink(IServiceProvider serviceProvider, ILogger<BusP
             return EventOutcome.Rejected($"'{inboundEvent.InstanceKey}' is not a data source id.");
 
         // Which gateway on this data source owns this endpoint. Endpoint is what the adapter was
-        // told to consume — a queue, a topic, an SQS URL.
+        // told to consume - a queue, a topic, an SQS URL.
         var gateway = await dbContext.Set<BusGateway>()
             .Where(g => g.DataSourceId == dataSourceId && !g.Inactive)
             .Where(g => g.Endpoint == inboundEvent.Endpoint || g.Endpoint == null)
             // An exact endpoint match beats the catch-all. Ordering by the endpoint itself does
             // NOT express that: PostgreSQL sorts NULLS FIRST on a descending order, so the
             // catch-all would win every race and every specific endpoint's messages would be
-            // filed against the wrong Document. Order by the match itself instead — true first,
+            // filed against the wrong Document. Order by the match itself instead - true first,
             // and it means the same thing on all three providers.
             .OrderByDescending(g => g.Endpoint == inboundEvent.Endpoint)
             .FirstOrDefaultAsync(cancellationToken);
@@ -120,7 +120,7 @@ public class BusProviderEventSink(IServiceProvider serviceProvider, ILogger<BusP
 
     /// <summary>
     /// Namespaced by data source, always. The adapters already qualify their keys by host and
-    /// queue, but an SP-API key is just the notification id — globally unique, so two data sources
+    /// queue, but an SP-API key is just the notification id - globally unique, so two data sources
     /// subscribed to the same notification would silently deduplicate against each other. That
     /// might occasionally be wanted; it should never be something you get by accident.
     /// </summary>

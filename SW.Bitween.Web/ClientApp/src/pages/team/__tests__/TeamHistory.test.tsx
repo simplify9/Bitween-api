@@ -43,8 +43,8 @@ const catalog = http.get(apiPath("/permissions"), () =>
 
 describe("team history", () => {
   it("a custom role's page carries its history", async () => {
-    // Built-in roles are deliberately excluded — their grants are computed rather than stored,
-    // so nothing ever edits one — which makes a custom role the case worth covering.
+    // Built-in roles are deliberately excluded - their grants are computed rather than stored,
+    // so nothing ever edits one - which makes a custom role the case worth covering.
     const trail = auditTrail([auditRow({ entityName: "Role", entityKey: "12" })]);
     const { user } = renderApp("/team/roles", {
       handlers: [
@@ -57,7 +57,7 @@ describe("team history", () => {
 
     await user.click(await screen.findByRole("link", { name: /Auditors/ }));
     const panel = (await screen.findByRole("heading", { name: "History", level: 2 })).closest("section")!;
-    expect(await within(panel).findByRole("row", { name: /Added/ })).toBeVisible();
+    expect(await within(panel).findByRole("row", { name: /Created/ })).toBeVisible();
     expect(trail.asked.at(-1)?.get("entityName")).toBe("Role");
     expect(trail.asked.at(-1)?.get("entityKey")).toBe("12");
   });
@@ -93,7 +93,7 @@ describe("team history", () => {
     const drawer = await screen.findByRole("dialog", { name: "Member details" });
 
     expect(await within(drawer).findByRole("heading", { name: "History" })).toBeVisible();
-    expect(await within(drawer).findByRole("row", { name: /Added/ })).toBeVisible();
+    expect(await within(drawer).findByRole("row", { name: /Created/ })).toBeVisible();
     expect(trail.asked.at(-1)?.get("entityName")).toBe("Account");
     expect(trail.asked.at(-1)?.get("entityKey")).toBe("7");
     // The other question worth asking about a person: what they changed, not what was done to them.

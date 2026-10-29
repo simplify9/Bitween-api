@@ -1,3 +1,4 @@
+using SW.Bitween.Resources.Accounts;
 using System.Threading.Tasks;
 using FluentValidation;
 using SW.Bitween.Domain.Accounts;
@@ -13,6 +14,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext) :
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Roles.Create);
 
         RoleValidation.EnsureKnownPermissions(model.Permissions);
+        await GrantLimits.EnsureCallerHoldsPermissions(dbContext, requestContext, model.Permissions);
         await RoleValidation.EnsureNameIsFree(dbContext, model.Name);
 
         var role = new Role(model.Name, model.Description, model.Permissions);

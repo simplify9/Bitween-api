@@ -9,7 +9,7 @@ using SW.PrimitiveTypes;
 namespace SW.Bitween.Resources.RetryPolicies;
 
 /// <summary>
-/// Lists the failures one group caught for one subscription — what a row of <see cref="Usage"/>
+/// Lists the failures one group caught for one subscription - what a row of <see cref="Usage"/>
 /// spent its budget on.
 /// </summary>
 /// <remarks>
@@ -40,7 +40,7 @@ public class Attempts(BitweenDbContext dbContext, RequestContext requestContext)
 
         // Both halves of the pair have to belong to the policy in the route. For the subscription
         // that keeps this from becoming a way to read any subscription's failures through any
-        // policy id; for the group it is about the answer being readable — an unknown group would
+        // policy id; for the group it is about the answer being readable - an unknown group would
         // otherwise report zero failures, which is indistinguishable from a group that genuinely
         // has none.
         var policy = await dbContext.Set<RetryPolicy>().AsNoTracking()

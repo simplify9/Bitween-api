@@ -19,7 +19,8 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext)
             {
                 Name = model.Name,
                 UrlName = model.UrlName,
-                Inactive = model.Inactive
+                Inactive = model.Inactive,
+                FailureAnswer = model.FailureAnswer ?? GatewayFailureAnswer.Accurate,
             };
             if (model.Authentication != null)
                 GatewayAuthentication.Apply(entity, model.Authentication);

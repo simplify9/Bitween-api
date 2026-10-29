@@ -45,6 +45,9 @@ Bitween checks each call in this order.
 | The attached subscription is active | 404 |
 | The subscription's validator accepts the body | Validation error |
 
+A payload its information type drops as a [duplicate](concepts.md#duplicates) is answered with the
+exchange it repeats, and the header `Bitween-Duplicate-Of`.
+
 Deactivation is checked after authorization on purpose, so only attached partners learn that the gateway exists.
 
 ### Authentication
@@ -88,10 +91,21 @@ The claim named in the gateway's partner claim, `sub` unless set, must equal a p
 | Success with no response body | `200` with the exchange id |
 | Success with a response | `200` with the response body and its content type |
 | Bad response | `400` with the response body |
-| Failure | `400` with no body |
+| Failure | Depends on the gateway's **When a delivery fails** setting, below |
 | Wait ended before a result | `202` with the exchange id |
 
-The `Wait-Period` header is meant to limit the wait. Bitween checks for the result after 1, 1, 2, 3 and 5 seconds, then every 8 seconds. The loop compares the current step, not the elapsed time, with the header value. Since the step never exceeds 8 seconds, a `Wait-Period` of 8 or more keeps the request open until the exchange has a result. That includes the default of 120. Only values below 8 can end with a `202`. Always set a timeout on the client or proxy.
+What a failure answers is set per gateway, under **When a delivery fails** (`failureAnswer` in the API and in `bitween apply`).
+
+| Setting | Failure, a retry scheduled | Failure, the message couldn't be mapped | Failure, no retry |
+|---|---|---|---|
+| `Accurate` | `202` with `{ exchangeId, status: "retrying", nextAttemptOn }` | `422` with `{ exchangeId, status: "failed", error }` | `502` with `{ exchangeId, status: "failed", error }` |
+| `Legacy` | `400` with no body | `400` with no body | `400` with no body |
+
+Gateways created before the setting existed answer `Legacy`, as they always did; new ones answer `Accurate` unless created with `Legacy`. Legacy tells the caller its request was wrong even when the destination was down and Bitween will deliver the message by retry minutes later, so a caller that acts on the 400 (cancels the order, sends a corrected one) and then sees the message delivered anyway is working from a false answer. With `Accurate`, a `202` means Bitween has the message and will deliver it again: sending it again would make a second one.
+
+The call is answered as soon as the exchange's result is saved: the worker that saved it tells the node holding the call, directly or by a broadcast over RabbitMQ, and the answer comes from that signal. As a backstop, for a signal lost to a restart or a worker on an earlier version that sends none, Bitween also checks the database 2 seconds after the call and every 5 seconds after that. A call that repeats an earlier one, by its `Idempotency-Key` or as a dropped duplicate, gets that exchange's result, checked at once and then polled after 1, 1, 2, 3 and 5 seconds, then every 8.
+
+`Wait-Period` sets the longest wait in seconds: 120 when absent, and never more than `Bitween:MaxResponseWaitSeconds` (300). When it ends first, the answer is `202` with the exchange id.
 
 ## Bus gateways
 
@@ -162,7 +176,7 @@ curl -X POST "https://bitween.example.com/api/xchanges/purchase-order" \
 - The partner may have at most one subscription for the information type.
 - When the key belongs to the SYSTEM partner and no subscription exists, the document goes to the filter as if it had arrived on the bus.
 
-Without a `waitresponse` header, the call returns `200` with the exchange id at once. With one, it waits using the same checking loop as a sync gateway, with the same caveat about long waits.
+Without a `waitresponse` header, the call returns `200` with the exchange id at once. With one, it waits up to that many seconds, never more than `Bitween:MaxResponseWaitSeconds`, checking the database after 1, 1, 2, 3 and 5 seconds, then every 8. It gets no signal from the worker.
 
 | Outcome | Response |
 |---|---|
@@ -173,6 +187,34 @@ Without a `waitresponse` header, the call returns `200` with the exchange id at 
 | Wait ended | `202` with the exchange id |
 
 The partner can read the outcome later with `GET /api/xchanges/{exchangeId}`, which returns whether it succeeded and a URL to the response file.
+
+## When traffic stops
+
+A partner whose system breaks, a carrier that moves its folder, a table that stops filling: none of these fails an exchange, because no exchange is created. A subscription can say how often it expects one, and Bitween sends a notification when none arrives.
+
+On the subscription's page, **Expect traffic** takes:
+
+- **Every** so many minutes, at least 5.
+- **Days**, Sun to Sat. None picked means every day.
+- **From** and **To**, local times of day, both or neither. Without them the whole day counts. A window can't run past midnight.
+- **Time zone**, an IANA name such as `Asia/Riyadh`. Empty means UTC.
+
+Every five minutes (`Bitween:QuietSubscriptionsCron`), Bitween checks each active subscription that isn't paused and has an expectation:
+
+- **Gone quiet.** Inside the window, when no exchange of the subscription started in the last *every* minutes, and the window has been open at least that long, the subscription is marked **Quiet since** that moment. Whole days in a row count as one open stretch, so Sunday's silence carries into Monday. A window with hours opens afresh each day, so the last order of yesterday evening doesn't make it quiet at 08:01.
+- **Back.** When an exchange starts after it was marked, the mark is cleared, inside the window or not.
+- Outside the window nothing is raised.
+
+Each change is sent once, to the subscription's notifiers that have **Run on failed result** on and to its notification channels ticked **Goes quiet**, as the same JSON document a failed exchange sends (see [Subscription notifications](retries-and-alerts.md#subscription-notifications)), with `Event` set as below. Email, Teams and Slack channels send a message Bitween writes from it instead.
+
+| `Event` | `Success` | `Exception` |
+|---|---|---|
+| `gone-quiet` | `false` | `No exchanges since 2026-10-12 08:14 UTC; Orders from marketplace expects at least one every 15 minutes, Sun-Thu 08:00-22:00 Asia/Riyadh.` |
+| `back` | `true` | `Exchanges arriving again after 47 minutes.` |
+
+There is no exchange, so `Id` and `CorrelationId` are an id made for the alert, such as `gone-quiet-42-20261012082900`, and the handler's properties get no `xchangeid`. The sends are logged, not listed in the notification history. The subscription's page shows the mark, and the dashboard's insights list quiet subscriptions.
+
+Removing the expectation clears the mark. Pausing or switching off the subscription stops new marks; one already set stays until traffic returns.
 
 ## Exchanges created by hand
 

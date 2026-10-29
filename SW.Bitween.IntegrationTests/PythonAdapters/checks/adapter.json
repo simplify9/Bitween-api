@@ -1,0 +1,6 @@
+{
+  "id": "infolink6.validators.pychecks",
+  "version": "1.0.0",
+  "runtime": "python",
+  "entry": "main.py"
+}

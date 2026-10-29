@@ -9,7 +9,7 @@ import { keys } from "../api/queryKeys";
  * The Brand & theme settings, resolved through the unsaved draft so edits
  * preview live everywhere before they're saved. Image-ish values only count
  * once someone has actually changed them (`customized`); left at the default,
- * each component picks its own shipped asset — which is how the sign-in page
+ * each component picks its own shipped asset - which is how the sign-in page
  * gets the light-on-dark logo variant rather than the one-size default.
  */
 export interface Branding {
@@ -17,9 +17,12 @@ export interface Branding {
   primaryColor?: string;
   tabTitle?: string;
   companyName?: string;
-  /** Override only — null means "use the shipped copy". */
+  /** "Production", "Staging": shown as a badge on every page. Empty for none. */
+  environmentName?: string;
+  environmentColor?: string;
+  /** Override only - null means "use the shipped copy". */
   loginBlurb: string | null;
-  /** Overrides only — null means "use the shipped asset". */
+  /** Overrides only - null means "use the shipped asset". */
   faviconUrl: string | null;
   loginLogoUrl: string | null;
   sidebarLogoUrl: string | null;
@@ -35,7 +38,7 @@ export interface Branding {
   };
 }
 
-/** `loginLogo` ⇄ `Theme.LoginLogo` — the draft is keyed by catalog key. */
+/** `loginLogo` ⇄ `Theme.LoginLogo` - the draft is keyed by catalog key. */
 const catalogKey = (prop: string) => `Theme.${prop[0].toUpperCase()}${prop.slice(1)}`;
 
 export function useBranding(): Branding {
@@ -64,6 +67,8 @@ export function useBranding(): Branding {
       ready: data !== undefined,
       primaryColor: get("primaryColor"),
       tabTitle: get("tabTitle"),
+      environmentName: get("environmentName"),
+      environmentColor: get("environmentColor"),
       companyName: get("companyName"),
       loginBlurb: customized("bitweenText"),
       faviconUrl: customized("tabIcon"),
@@ -82,17 +87,25 @@ export function useBranding(): Branding {
   }, [data, draft]);
 }
 
-/** Side-effect half: keeps the accent color, tab title and favicon in sync. */
-export function useApplyBranding(): Branding {
+/**
+ * Side-effect half: keeps the accent color, tab title and favicon in sync.
+ *
+ * `page` leads the tab title - "Orders inbound · API gateways" - so a row of Bitween tabs, and the
+ * browser's history, say which page each one is. The instance's own title closes it, with the
+ * environment's name when one is set.
+ */
+export function useApplyBranding(page?: string | null): Branding {
   const branding = useBranding();
+  const app = branding.tabTitle || "Bitween";
+  const environment = branding.environmentName?.trim();
+
+  useEffect(() => {
+    document.title = [page, environment ? `${app} (${environment})` : app].filter(Boolean).join(" · ");
+  }, [page, app, environment]);
 
   useEffect(() => {
     if (branding.primaryColor) applyColorScale(branding.primaryColor);
   }, [branding.primaryColor]);
-
-  useEffect(() => {
-    if (branding.tabTitle) document.title = branding.tabTitle;
-  }, [branding.tabTitle]);
 
   useEffect(() => {
     const existing = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
@@ -102,7 +115,7 @@ export function useApplyBranding(): Branding {
 
     // Replace the element rather than reassigning href. Two reasons: browsers
     // routinely don't re-fetch a favicon when only the href changes, and the
-    // markup ships type="image/svg+xml" — left in place that hint misdescribes a
+    // markup ships type="image/svg+xml" - left in place that hint misdescribes a
     // .png or .ico override, and the browser drops the icon on the floor. The new
     // element declares no type, so the response's content type decides.
     const link = document.createElement("link");

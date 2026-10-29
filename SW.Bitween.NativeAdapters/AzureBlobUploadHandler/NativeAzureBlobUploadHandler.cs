@@ -21,7 +21,7 @@ public class NativeAzureBlobUploadHandler : INativeInfolinkHandler
         }
 
         var blobClient = container.GetBlobClient(blobName);
-        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(xchangeFile.Data));
+        using var stream = new MemoryStream(S3UploadHandler.NativeS3UploadHandler.Bytes(xchangeFile.Data, _options.DataEncoding));
         await blobClient.UploadAsync(stream, overwrite: true);
 
         return new XchangeFile(blobName, xchangeFile.Filename);

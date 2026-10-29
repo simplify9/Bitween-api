@@ -15,13 +15,13 @@ namespace SW.Bitween.Resources.Xchanges;
 /// <remarks>
 /// <para>
 /// Its own endpoint rather than part of the exchange search, because a chain cannot be had from the
-/// same query that lists exchanges — it takes a walk of unknown length, and the search is already
+/// same query that lists exchanges - it takes a walk of unknown length, and the search is already
 /// the expensive one. Callers avoid asking altogether for the common case: <see
 /// cref="XchangeRow.RetryFor"/> and <see cref="XchangeRow.HasRetry"/> come back with every row, and
 /// an exchange with neither has no chain to fetch.
 /// </para>
 /// <para>
-/// Walked iteratively, a level at a time, rather than as a recursive query — the three supported
+/// Walked iteratively, a level at a time, rather than as a recursive query - the three supported
 /// databases would each need their own SQL for that, to save queries on a chain that a retry budget
 /// keeps to single digits in practice. Both walks are indexed lookups on <c>RetryFor</c>.
 /// </para>
@@ -31,7 +31,7 @@ public class RetryTree : IQueryHandler<XchangeRetryTreeRequest, object>
 {
     /// <summary>
     /// How far the walk goes in each direction before giving up and saying so. Far past any real
-    /// chain — a retry policy's budget is the practical limit — so this exists to keep a cycle in
+    /// chain - a retry policy's budget is the practical limit - so this exists to keep a cycle in
     /// the data from becoming an endless loop, not to shorten honest answers.
     /// </summary>
     private const int MaxDepth = 100;
@@ -40,7 +40,7 @@ public class RetryTree : IQueryHandler<XchangeRetryTreeRequest, object>
     /// How many attempts one answer carries. Depth alone does not bound the work: an exchange
     /// retried many times over before the one-retry rule existed has all of those as direct
     /// children, and every one would be loaded and serialized. Far above any real chain, so
-    /// reaching it means the data is unusual — and the answer then says it is partial rather than
+    /// reaching it means the data is unusual - and the answer then says it is partial rather than
     /// quietly costing the database more the older the exchange is.
     /// </summary>
     private const int MaxNodes = 500;
@@ -64,7 +64,7 @@ public class RetryTree : IQueryHandler<XchangeRetryTreeRequest, object>
         var truncated = false;
 
         // Up to the original. Each step reads one pointer, so the exchange asked about does not
-        // have to be the newest attempt — opening any of them shows the same chain.
+        // have to be the newest attempt - opening any of them shows the same chain.
         var rootId = request.Id;
         var ancestors = new HashSet<string> { rootId };
         for (var depth = 0; depth < MaxDepth; depth++)
@@ -75,7 +75,7 @@ public class RetryTree : IQueryHandler<XchangeRetryTreeRequest, object>
                 .FirstOrDefaultAsync();
 
             // Also covers the exchange not existing at all: no row, so no parent, and the walk
-            // down then finds nothing either — an empty tree rather than a 404, because a caller
+            // down then finds nothing either - an empty tree rather than a 404, because a caller
             // asking about an exchange it is looking at wants the chain, not another error to
             // handle.
             if (parent == null || !ancestors.Add(parent))

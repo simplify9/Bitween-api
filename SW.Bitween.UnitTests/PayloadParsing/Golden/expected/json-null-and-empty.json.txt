@@ -1,0 +1,110 @@
+=== promoted-json
+id = (null)
+price = (null)
+orderedAt = (null)
+offset = (null)
+name = (null)
+sku = (null)
+lines = []
+negzero = (null)
+exp = (null)
+dotted = (null)
+missing = (null)
+hits: 103, 104
+gateway: 502/
+=== promoted-xml
+!System.Xml.XmlException: Data at the root level is invalid. Line 1, position 1.
+=== promoted-json-big
+big = (null)
+hits: 
+gateway: 
+=== schema-json
+#/id: StringExpected
+#/price: NumberExpected
+#/orderedAt: DateTimeExpected
+=== schema-xml
+Not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== enriched
+{"id":null,"price":null,"name":"","orderedAt":"   ","order":{"lines":[]},"spaced":"  padded  ","__partner__":{"code":"P1","since":"2026-10-14T10:00:00Z","rate":"1.10","Upper":"U"},"__globals__":{"set1":{"region":"KSA","cutoff":"2026-10-14"}}}
+=== enriched-scriban
+{
+  "id": null,
+  "price": null,
+  "priceText": "",
+  "priceFloat": null,
+  "orderedAt": "   ",
+  "orderedAtText": "   ",
+  "offset": null,
+  "ms": null,
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "name": "",
+  "firstItem": null,
+  "lines": [],
+  "lineCount": 0,
+  "partner": {
+    "code": {
+      "Value": "P1",
+      "IsReadOnly": false
+    },
+    "since": {
+      "Value": "2026-10-14T10:00:00Z",
+      "IsReadOnly": false
+    },
+    "rate": {
+      "Value": "1.10",
+      "IsReadOnly": false
+    },
+    "Upper": {
+      "Value": "U",
+      "IsReadOnly": false
+    },
+    "upper": {
+      "Value": "U",
+      "IsReadOnly": false
+    }
+  },
+  "partnerSince": "14 Oct 2026",
+  "partnerRate": "1.10",
+  "region": "KSA",
+  "orderId": null,
+  "upper": {
+    "name": ""
+  }
+}
+=== scriban
+{
+  "id": null,
+  "price": null,
+  "priceText": "",
+  "priceFloat": null,
+  "orderedAt": "   ",
+  "orderedAtText": "   ",
+  "offset": null,
+  "ms": null,
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "name": "",
+  "firstItem": null,
+  "lines": [],
+  "lineCount": 0,
+  "partner": null,
+  "partnerSince": "",
+  "partnerRate": null,
+  "region": null,
+  "orderId": null,
+  "upper": {
+    "name": ""
+  }
+}
+=== rules-json
+!SW.Bitween.NativeAdapters.Mapper.MappingFailedException: Mapping failed - 1 rule could not be applied: orderedAtFormatted: formatDate could not read '   ' as a date. If the day or the month comes first, say so under the source document.
+=== rules-xml
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid XML: Data at the root level is invalid. Line 1, position 1.
+=== url
+https://partner.test/orders/?price=&at=   &name=&big=&sku=Liquid error: Index was out of range. Must be non-negative and less than the size of the collection. (Parameter 'index')
+https://partner.test/orders/?price=&at=%20%20%20&name=&big=&sku=Liquid%20error:%20Index%20was%20out%20of%20range.%20Must%20be%20non-negative%20and%20less%20than%20the%20size%20of%20the%20collection.%20(Parameter%20'index')
+=== fill
+order---   .json

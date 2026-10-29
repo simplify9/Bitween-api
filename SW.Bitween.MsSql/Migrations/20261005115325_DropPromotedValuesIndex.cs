@@ -10,9 +10,11 @@ namespace SW.Bitween.MsSql.Migrations
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.DropIndex(
-                name: "IX_XchangePromotedProperties_PropertiesRaw",
-                table: "XchangePromotedProperties");
+            // IF EXISTS: before this migration, dropping the index by hand was the way to stop long
+            // values failing to save, and on a database where that was done a plain drop failed and
+            // the app could not start.
+            migrationBuilder.Sql(
+                "DROP INDEX IF EXISTS [IX_XchangePromotedProperties_PropertiesRaw] ON [XchangePromotedProperties];");
 
             migrationBuilder.AlterColumn<string>(
                 name: "PropertiesRaw",

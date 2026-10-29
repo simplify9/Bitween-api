@@ -9,13 +9,15 @@ namespace SW.Bitween.Resources.Accounts;
 internal static class Administrators
 {
     /// <summary>
-    /// How many other enabled accounts still hold the Administrator role. Guards every operation
-    /// that could otherwise leave an instance with nobody able to manage members and roles.
+    /// How many other enabled people still hold the Administrator role. Guards every operation
+    /// that could otherwise leave an instance with nobody able to manage members and roles. A
+    /// service account holding it doesn't count: no person could sign in as it to put things right.
     /// </summary>
     public static Task<int> OtherThan(BitweenDbContext dbContext, int accountId) =>
         (from link in dbContext.Set<AccountRoleLink>()
             join account in dbContext.Set<Account>() on link.AccountId equals account.Id
-            where link.RoleId == Role.AdministratorId && link.AccountId != accountId && !account.Disabled
+            where link.RoleId == Role.AdministratorId && link.AccountId != accountId && !account.Disabled &&
+                  account.Kind == AccountKind.Person
             select link.AccountId).CountAsync();
 
     public static Task<bool> Holds(BitweenDbContext dbContext, int accountId) =>
@@ -24,7 +26,7 @@ internal static class Administrators
 
     /// <summary>
     /// Blocks an operation that would remove the last administrator. Only applies when the account
-    /// actually holds the role — otherwise nothing is being taken away.
+    /// actually holds the role - otherwise nothing is being taken away.
     /// </summary>
     public static async Task EnsureNotTheLast(BitweenDbContext dbContext, int accountId)
     {

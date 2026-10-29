@@ -7,7 +7,7 @@ namespace SW.Bitween.Domain.DataSources;
 /// One named piece of SQL a data source is allowed to run.
 ///
 /// This is deliberately an entity rather than a JSON blob on <see cref="DataSource"/>, and the
-/// reason is permissions before anything else. Statements have to live on the connection — the
+/// reason is permissions before anything else. Statements have to live on the connection - the
 /// alternative, SQL in a subscription's adapter properties, is a live injection surface, because
 /// those property values have <c>{{partner.X}}</c> substituted into them before the adapter ever
 /// sees them, and partner records are ordinary data. But putting the SQL in a field on the data
@@ -20,8 +20,8 @@ namespace SW.Bitween.Domain.DataSources;
 ///   one field, where a bad edit fails the connection test for everyone.
 /// * <b>Namespacing.</b> A unique index on (data source, name) makes a collision an error at the
 ///   point of saving rather than a silent overwrite.
-/// * <b>Dead SQL.</b> A statement nothing references is now a countable fact — see the usage
-///   endpoint — instead of a line nobody dares delete.
+/// * <b>Dead SQL.</b> A statement nothing references is now a countable fact - see the usage
+///   endpoint - instead of a line nobody dares delete.
 ///
 /// What does NOT change is the adapter contract. The supervisor composes these rows into the same
 /// <c>Statements</c> JSON the adapter has always received, so an adapter still resolves a name and
@@ -33,7 +33,7 @@ public class DataSourceStatement : BaseEntity, IAudited
     public DataSource DataSource { get; set; }
 
     /// <summary>
-    /// What a subscription names to run it. Unique within the data source, case-insensitively —
+    /// What a subscription names to run it. Unique within the data source, case-insensitively -
     /// the adapter resolves names that way, so allowing <c>getOrder</c> and <c>GetOrder</c> to
     /// coexist would make which one runs a matter of dictionary ordering.
     /// </summary>
@@ -56,7 +56,7 @@ public class DataSourceStatement : BaseEntity, IAudited
     public int? WorkGroupId { get; set; }
 
     /// <summary>
-    /// Kept out of the composed statement set without being deleted — the same idea as
+    /// Kept out of the composed statement set without being deleted - the same idea as
     /// <see cref="DataSource.Inactive"/>. Useful for retiring a statement while the subscriptions
     /// that used it are still being migrated: they fail loudly on a missing name rather than
     /// quietly running SQL nobody meant to keep.
@@ -64,7 +64,7 @@ public class DataSourceStatement : BaseEntity, IAudited
     public bool Inactive { get; set; }
 
     /// <summary>
-    /// For a statement a receiver polls with: the column carrying the cursor — the incrementing
+    /// For a statement a receiver polls with: the column carrying the cursor - the incrementing
     /// id, or the modified-at timestamp. Its value in the last row read is what gets saved.
     ///
     /// It lives here rather than on the subscription because it describes the SHAPE of what this
@@ -78,7 +78,7 @@ public class DataSourceStatement : BaseEntity, IAudited
 
     /// <summary>
     /// For a polled statement: the column identifying a row, used for mark-processed and for
-    /// deduplication. Here for the same reason as <see cref="CursorColumn"/> — it is a fact about
+    /// deduplication. Here for the same reason as <see cref="CursorColumn"/> - it is a fact about
     /// the query's result, not about who reads it.
     /// </summary>
     public string KeyColumn { get; set; }

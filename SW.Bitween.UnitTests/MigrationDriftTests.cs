@@ -15,7 +15,7 @@ namespace SW.Bitween.UnitTests;
 ///
 /// Every provider is covered deliberately. MsSql and MySql inherit the base context's seed data
 /// (they call base.OnModelCreating; PgSql re-declares the model instead), so a change to shared
-/// seed values silently drifts their snapshots even when PgSql's has been regenerated — which is
+/// seed values silently drifts their snapshots even when PgSql's has been regenerated - which is
 /// exactly what happened when the seed timestamp fix was first applied to PgSql alone.
 ///
 /// No database is touched: this compares the in-memory model against the compiled-in snapshot,
@@ -42,7 +42,7 @@ public class MigrationDriftTests
         {
             Assert.IsFalse(dbContext.Database.HasPendingModelChanges(),
                 $"{dbContext.GetType().FullName} has model changes that no migration covers. "
-                + "The app will refuse to start against this provider. Generate a migration for it — "
+                + "The app will refuse to start against this provider. Generate a migration for it - "
                 + "and remember a shared-model change usually needs one per provider.");
         }
     }
@@ -77,7 +77,7 @@ public class MigrationDriftTests
 
     private static MySql.BitweenDbContext BuildMySql()
     {
-        // An explicit server version, never AutoDetect — the latter opens a connection.
+        // An explicit server version, never AutoDetect - the latter opens a connection.
         var options = new DbContextOptionsBuilder<MySql.BitweenDbContext>()
             .UseMySql("Server=unused;Database=unused;User=unused;Password=unused",
                 new MySqlServerVersion(new Version(8, 0, 18)),

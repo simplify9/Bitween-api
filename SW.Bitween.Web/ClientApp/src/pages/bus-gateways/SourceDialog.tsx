@@ -15,7 +15,7 @@ import { providerOf, useDataSourceProviders } from "../data-sources/providers";
  *
  * A dialog rather than a node on the canvas: the canvas draws what happens to a message once it
  * has arrived, and it draws that per route. Where the messages come from is a property of the
- * gateway, so putting it on every route's diagram would say otherwise — the same reason the
+ * gateway, so putting it on every route's diagram would say otherwise - the same reason the
  * information type was moved out of the canvas and into the toolbar.
  */
 export function SourceDialog({
@@ -38,7 +38,7 @@ export function SourceDialog({
   });
 
   // Brokers only. A data source can also be a database or an object store held open by a resident
-  // adapter, and none of those has a queue for a gateway to read — the API refuses them too, so
+  // adapter, and none of those has a queue for a gateway to read - the API refuses them too, so
   // this is the same rule stated where the operator can see it rather than a second one.
   const available = (sources.data ?? []).filter(
     (s) => (s.kind ?? "Broker").toLowerCase() === "broker",
@@ -108,7 +108,7 @@ export function SourceDialog({
         {available.length === 0 && (
           <InlineNotice>
             No broker data sources exist yet, so there is nothing to point at.{" "}
-            <Link to="/data-sources/new" className="font-medium text-crimson-700 hover:underline">
+            <Link to="/data-sources/new" className="font-medium link">
               Add one first
             </Link>
             .
@@ -124,7 +124,7 @@ export function SourceDialog({
                 onChange={(e) => setDataSourceId(Number(e.target.value))}
                 options={available.map((s) => ({
                   value: String(s.id),
-                  label: `${s.name} — ${providerOf(providers.data, s.adapterId)?.label ?? s.adapterId}${s.inactive ? " (inactive)" : ""}`,
+                  label: `${s.name} - ${providerOf(providers.data, s.adapterId)?.label ?? s.adapterId}${s.inactive ? " (inactive)" : ""}`,
                 }))}
               />
             </Field>
@@ -135,7 +135,7 @@ export function SourceDialog({
                 <ConnectionBadge state={selected.lastKnownState} failures={selected.consecutiveFailures} />
                 <Link
                   to={`/data-sources/${selected.id}`}
-                  className="text-[12px] text-crimson-700 hover:underline"
+                  className="text-[12px] link"
                 >
                   open
                 </Link>
@@ -159,11 +159,11 @@ export function SourceDialog({
 
         {error && <FormError>{error}</FormError>}
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-end gap-2">
+          <Button onClick={onClose}>Cancel</Button>
           <Button variant="primary" onClick={() => save.mutate()} disabled={save.isPending}>
             {save.isPending ? "Saving…" : "Save"}
           </Button>
-          <Button onClick={onClose}>Cancel</Button>
         </div>
       </div>
     </Dialog>

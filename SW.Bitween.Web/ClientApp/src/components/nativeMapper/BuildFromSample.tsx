@@ -1,8 +1,9 @@
 import { useMemo } from "react";
 import { Wand2 } from "lucide-react";
 import { parseSample } from "../../lib/nativeMapper/documentTree";
-import { useRules, useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import type { ScaffoldTally } from "../../lib/nativeMapper/scaffold";
+import { sideOptions } from "../../lib/nativeMapper/types";
 import { FormatButton } from "../ui/FormatButton";
 import { Popover } from "../ui/Popover";
 import { Button } from "../ui/basics";
@@ -19,8 +20,8 @@ export function BuildFromSample() {
   const dispatch = useRulesDispatch();
 
   const parsed = useMemo(
-    () => parseSample(targetSample, rules.targetFormat, "target", rules.targetCsv),
-    [targetSample, rules.targetFormat, rules.targetCsv],
+    () => parseSample(targetSample, rules.targetFormat, "target", rules.targetCsv, sideOptions(rules, "target")),
+    [targetSample, rules],
   );
 
   return (
@@ -44,7 +45,7 @@ export function BuildFromSample() {
         </p>
 
         <textarea
-          className="min-h-[140px] w-full resize-y rounded-lg border border-ink-200 bg-ink-50 px-2 py-1.5 font-mono text-[11px] focus:border-crimson-400 focus:outline-none"
+          className="min-h-[140px] w-full resize-y rounded-lg border border-ink-200 bg-ink-50 px-2 py-1.5 font-mono text-[11px] focus:border-focus-400 focus:outline-none"
           placeholder={'{ "customerName": "", "lines": [{ "code": "" }] }'}
           value={targetSample}
           onChange={(e) => dispatch({ type: "SET_TARGET_SAMPLE", text: e.target.value })}

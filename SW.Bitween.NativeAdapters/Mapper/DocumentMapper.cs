@@ -12,7 +12,7 @@ namespace SW.Bitween.NativeAdapters.Mapper;
 /// writer, not a change here.
 /// </para>
 /// <para>
-/// A pure function, which is the point — it is tested by asserting on the tree it returns, with no
+/// A pure function, which is the point - it is tested by asserting on the tree it returns, with no
 /// format and no document text involved. That is only possible because it builds its own neutral
 /// tree rather than writing into a format's builder as it goes.
 /// </para>
@@ -23,7 +23,7 @@ public static class DocumentMapper
     /// Where a rule reads from: the entry it sits in, and the document that entry came from.
     /// </summary>
     /// <remarks>
-    /// Both are needed because a rule inside a list may want either — <c>sku</c> from the line, or
+    /// Both are needed because a rule inside a list may want either - <c>sku</c> from the line, or
     /// the order's reference from the top of the document. Carrying them together keeps the two
     /// from drifting apart as they are passed down through nested lists.
     /// </remarks>
@@ -37,8 +37,8 @@ public static class DocumentMapper
     /// What the mapper needs to know about the source document beyond the document itself.
     /// </summary>
     /// <remarks>
-    /// Both are facts about the whole source rather than about any one rule — how the partner
-    /// writes dates, and whether their format can tell a list of one from a single value — so they
+    /// Both are facts about the whole source rather than about any one rule - how the partner
+    /// writes dates, and whether their format can tell a list of one from a single value - so they
     /// travel together instead of widening four signatures again for the next one.
     /// </remarks>
     private readonly record struct SourceTraits(DateOrder DateOrder, bool SingleValueIsAList);
@@ -66,7 +66,7 @@ public static class DocumentMapper
         ValueNode output;
         if (rules.Root is not null)
         {
-            // A document is a list or an object, never both — so rules for the other shape are
+            // A document is a list or an object, never both - so rules for the other shape are
             // not merely unused, they are configuration nobody will ever see take effect. The
             // editor puts them aside when the shape is switched; rules written by hand can carry
             // both, and dropping them silently is the kind of missing data nobody goes looking for.
@@ -145,8 +145,8 @@ public static class DocumentMapper
     /// </para>
     /// <para>
     /// Which is why the source entries are matched before anything is built. The number of rows is
-    /// then the same wherever <see cref="ValueSourceKind.Count"/> is read from — the header, a row,
-    /// or the trailer — rather than a running total that means something different depending on
+    /// then the same wherever <see cref="ValueSourceKind.Count"/> is read from - the header, a row,
+    /// or the trailer - rather than a running total that means something different depending on
     /// where it sits.
     /// </para>
     /// </remarks>
@@ -172,7 +172,7 @@ public static class DocumentMapper
                 errors, target, rows.Count);
 
         // A trailer belongs on the file whether the source list had a thousand entries, none, or
-        // was never there at all — a partner expecting a record count still expects to be told
+        // was never there at all - a partner expecting a record count still expects to be told
         // that it is zero.
         foreach (var entry in rule.After)
             AddEntry(list, entry.Item, entry.Fields, entry.Lists, scope, context, traits, errors,
@@ -210,7 +210,7 @@ public static class DocumentMapper
         // without a word, so where the format cannot say, a single value walks as a list of one.
         //
         // Only for a *named* path, though. A document has exactly one root and it is never a
-        // repeated element, so there is no ambiguity to forgive at `over: ""` — that is a
+        // repeated element, so there is no ambiguity to forgive at `over: ""` - that is a
         // deliberate claim that the whole document is a list, and a document that is not one has
         // no entries rather than one entry that is the whole document.
         IReadOnlyList<ValueNode> items = over switch
@@ -243,7 +243,7 @@ public static class DocumentMapper
     /// object built from <paramref name="fields"/> and <paramref name="lists"/>.
     /// </summary>
     /// <remarks>
-    /// Shared by walked and fixed entries, which is the point — the two differ only in what they
+    /// Shared by walked and fixed entries, which is the point - the two differ only in what they
     /// read against, so anything that works in one works in the other.
     /// </remarks>
     private static void AddEntry(
@@ -330,7 +330,7 @@ public static class DocumentMapper
     /// <remarks>
     /// A value out of the document being mapped is safe to quote, and quoting it is most of what
     /// makes the message useful. A partner property or a values-set entry is configuration, and
-    /// some of it is secret — an adapter password reaching a number field would otherwise be
+    /// some of it is secret - an adapter password reaching a number field would otherwise be
     /// written into <c>XchangeResult.Exception</c>, which is stored and shown on the exchange, and
     /// returned by the preview API. So those are described by length instead.
     /// </remarks>
@@ -362,7 +362,7 @@ public static class DocumentMapper
     /// </summary>
     /// <remarks>
     /// Returns false with a null <paramref name="error"/> for "does not match", and false with an
-    /// error for "cannot be compared" — an ordering operator against a value that is not a number.
+    /// error for "cannot be compared" - an ordering operator against a value that is not a number.
     /// A missing field does not match and is not an error, so filtering on an optional field skips
     /// the items that lack it instead of failing the exchange.
     /// </remarks>

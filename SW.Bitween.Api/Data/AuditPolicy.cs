@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Metadata;
 using SW.Bitween.Domain;
 using SW.Bitween.Domain.Accounts;
+using SW.Bitween.Domain.Connections;
 using SW.Bitween.Domain.Gateway;
 using SW.Bitween.Services;
 using SW.EfCoreExtensions;
@@ -34,8 +35,8 @@ public static class AuditPolicy
 {
     /// <summary>
     /// The configuration entities, their owned children, and the account/role records. Runtime
-    /// traffic — every <c>Xchange</c>, result, delivery, receive attempt, retry usage counter and
-    /// refresh token — is deliberately absent.
+    /// traffic - every <c>Xchange</c>, result, delivery, receive attempt, retry usage counter and
+    /// refresh token - is deliberately absent.
     /// </summary>
     private static readonly HashSet<Type> Audited =
     [
@@ -53,17 +54,31 @@ public static class AuditPolicy
         typeof(RetryPolicy),
         typeof(RetryAlertOverride),
         typeof(Notifier),
+        typeof(NotificationChannel),
         typeof(GlobalAdapterValuesSet),
+        // Who added a connection, changed its client, or authorized it. Token renewals bypass the
+        // change tracker, so the hourly refresh of a token isn't an entry.
+        typeof(Connection),
         typeof(Setting),
         typeof(Account),
         typeof(Role),
-        typeof(AccountRoleLink)
+        typeof(AccountRoleLink),
+        // Issued and revoked: who made a credential, and who ended it.
+        typeof(ServiceToken),
+        // Not configuration, but reading an adapter's source is what the trail is for.
+        typeof(AdapterSourceAccess),
+        // Code written in Bitween, and what was published and made current from it.
+        typeof(AdapterDraft),
+        typeof(AdapterRelease),
+        // Retries, exports, requeues and queue deletions: not configuration, but who did them is
+        // what the trail is asked.
+        typeof(OperatorAction)
     ];
 
     /// <summary>
     /// Properties whose values never enter the trail. The adapter property bags are here because
     /// each is stored as a single JSON column, so the change tracker sees one property rather than
-    /// the individual keys — there is no way to keep <c>Host</c> and drop <c>Password</c> without
+    /// the individual keys - there is no way to keep <c>Host</c> and drop <c>Password</c> without
     /// cracking the JSON open and asking the adapter which of its keys are <c>[Secure]</c>, which
     /// would mean starting a serverless adapter in the middle of a save. Recording that a
     /// subscription was edited without saying which adapter key changed is the deliberate trade.
@@ -79,6 +94,7 @@ public static class AuditPolicy
         ],
         [typeof(Partner)] = [nameof(Partner.AdapterProperties)],
         [typeof(Notifier)] = [nameof(Notifier.HandlerProperties)],
+        [typeof(NotificationChannel)] = [nameof(NotificationChannel.HandlerProperties)],
         [typeof(RetryPolicy)] = [nameof(RetryPolicy.AlertHandlerProperties)],
         [typeof(RetryAlertOverride)] = [nameof(RetryAlertOverride.AlertHandlerProperties)],
 
@@ -89,7 +105,22 @@ public static class AuditPolicy
         // The key itself is the credential. Name survives, so adding or revoking one is visible.
         [typeof(ApiCredential)] = [nameof(ApiCredential.Key)],
 
-        [typeof(Account)] = [nameof(Account.Password)]
+        [typeof(Account)] = [nameof(Account.Password)],
+
+        [typeof(Connection)] =
+        [
+            nameof(Connection.ClientSecret),
+            nameof(Connection.Password),
+            nameof(Connection.RefreshToken),
+            nameof(Connection.AccessToken)
+        ],
+
+        // A hash of a random token, so no use to anyone; kept out anyway, like a partner's key.
+        [typeof(ServiceToken)] = [nameof(ServiceToken.Hash)],
+
+        // Not a secret, but the code would be in the trail twice on every save. FilesHash is
+        // recorded instead: each save shows, and the code itself is in the published package.
+        [typeof(AdapterDraft)] = [nameof(AdapterDraft.FilesJson)]
     };
 
     public static readonly AuditOptions Options = new()
@@ -105,7 +136,7 @@ public static class AuditPolicy
             return false;
 
         // A setting's value is only sometimes a secret, and unlike an adapter's properties the
-        // catalog says which — a static lookup, no adapter to start — so the theme colour stays
+        // catalog says which - a static lookup, no adapter to start - so the theme colour stays
         // readable in the trail while the licence key never enters it.
         if (entry.Entity is Setting setting && property.Name == nameof(Setting.Value))
             return SettingsCatalog.Find(setting.Id)?.Secret != true;

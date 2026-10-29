@@ -41,7 +41,7 @@ public class TransformsTests
 
     /// <summary>
     /// Every name the editor can offer must actually resolve, and every implemented function must be
-    /// listed — a name in one and not the other is a dropdown entry that fails at runtime, or a
+    /// listed - a name in one and not the other is a dropdown entry that fails at runtime, or a
     /// working function nobody can find.
     /// </summary>
     [TestMethod]
@@ -131,7 +131,7 @@ public class TransformsTests
     [TestMethod]
     public void Multiply() => Assert.AreEqual(116m, Apply(Rule("multiply", ("by", 1.16)), 100m));
 
-    /// <summary>A number arriving as text — every value from XML or CSV does — still multiplies.</summary>
+    /// <summary>A number arriving as text - every value from XML or CSV does - still multiplies.</summary>
     [TestMethod]
     public void Multiply_OnANumericString() =>
         Assert.AreEqual(116m, Apply(Rule("multiply", ("by", 1.16)), "100"));
@@ -203,7 +203,7 @@ public class TransformsTests
 
     /// <summary>
     /// A real CargoNet shipping date. It is the 4th of September, and the invariant parser
-    /// reads it as the 9th of April without complaining — so a date that is not year-first
+    /// reads it as the 9th of April without complaining - so a date that is not year-first
     /// is refused until the rule says which way round it is.
     /// </summary>
     [TestMethod]
@@ -242,7 +242,7 @@ public class TransformsTests
     }
 
     /// <summary>
-    /// Year-first needs no telling — there is nothing to get wrong — so existing mappings and
+    /// Year-first needs no telling - there is nothing to get wrong - so existing mappings and
     /// every ISO timestamp keep working untouched.
     /// </summary>
     [TestMethod]
@@ -265,7 +265,7 @@ public class TransformsTests
                 DateOrder.DayFirst));
 
     /// <summary>
-    /// 13 cannot be a month, so this one is not actually ambiguous — but accepting it while
+    /// 13 cannot be a month, so this one is not actually ambiguous - but accepting it while
     /// refusing 04.09.2026 would mean the same format worked for some of a partner's rows and
     /// not others. One rule, whatever the values happen to be.
     /// </summary>
@@ -315,7 +315,7 @@ public class TransformsTests
     {
         // A substring index far outside int range, saved in a rule nobody validated on the way
         // in. The cast to int overflows; every other failure in this class comes back through
-        // `error`, and DocumentMapper only aggregates the ones that do — an exception here would
+        // `error`, and DocumentMapper only aggregates the ones that do - an exception here would
         // abort the whole mapping at the first bad rule and surface as a stack trace.
         var rule = new TransformRule { Fn = "substring" };
         rule.Args["start"] = JToken.FromObject(99999999999999m);

@@ -12,7 +12,7 @@ namespace SW.Bitween.Services.DataSources;
 /// <summary>
 /// Forgets dedupe keys once they are older than their data source's window.
 ///
-/// The table only ever grows otherwise — one row per inbound message, for ever. Pruning per data
+/// The table only ever grows otherwise - one row per inbound message, for ever. Pruning per data
 /// source rather than on one global age matters because the window is a property of the customer's
 /// broker: a queue with a seven-day message TTL and one that can be replayed from a dead-letter
 /// months later do not want the same answer.

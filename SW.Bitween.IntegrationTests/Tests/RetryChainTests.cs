@@ -76,7 +76,7 @@ public class RetryChainTests
 
         Assert.Contains(second.Id, error.Message);
 
-        // Still exactly one retry from it — the point of the rule.
+        // Still exactly one retry from it - the point of the rule.
         Assert.Equal(1, await db.Set<Xchange>().CountAsync(x => x.RetryFor == xchange.Id));
     }
 
@@ -151,6 +151,37 @@ public class RetryChainTests
         Assert.Equal(1, await db.Set<Xchange>().CountAsync(x => x.RetryFor == xchange.Id));
     }
 
+    /// <summary>
+    /// Two retries of one exchange at the very same moment both pass the check, since neither has
+    /// saved yet. The claim each adds makes the database refuse the second save, so one is kept.
+    /// The other retry is played here by a claim saved first, from another context.
+    /// </summary>
+    [Fact]
+    public async Task Of_two_retries_at_the_same_moment_the_database_keeps_one()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
+        var ctx = scope.Superuser();
+
+        var (_, xchange) = await FailedXchange(db, xs, "Retry Race Doc");
+
+        await using (var other = _fixture.CreateScope())
+        {
+            var otherDb = other.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            otherDb.Add(new XchangeRetryClaim(xchange.Id, Guid.NewGuid().ToString("N")));
+            await otherDb.SaveChangesAsync();
+        }
+
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() =>
+            new Resources.Xchanges.Retry(db, ctx, xs).Handle(xchange.Id, new XchangeRetry { Reset = false }));
+
+        Assert.Contains("ALREADY_RETRIED", ex.Validations.Select(v => v.Key));
+        await using var check = _fixture.CreateScope();
+        Assert.Equal(0, await check.ServiceProvider.GetRequiredService<BitweenDbContext>()
+            .Set<Xchange>().CountAsync(x => x.RetryFor == xchange.Id));
+    }
+
     [Fact]
     public async Task BulkRetry_retries_a_chain_once_when_two_of_its_attempts_are_selected()
     {
@@ -174,7 +205,7 @@ public class RetryChainTests
     /// <summary>
     /// Every selection in one chain has to resolve to the same end of it. The first version walked
     /// the tree a level at a time with a set of nodes already seen, which made a selection lagging
-    /// behind another stop on a node the leader had stepped over — so it was reported as handing
+    /// behind another stop on a node the leader had stepped over - so it was reported as handing
     /// over to an attempt that had itself been retried, and retrying that threw ALREADY_RETRIED and
     /// took the whole selection down. Needs three or more attempts and two selections at different
     /// depths to show up at all.
@@ -241,7 +272,7 @@ public class RetryChainTests
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
         var ctx = scope.Superuser();
 
-        // Three failures on one subscription — more than a page would show, in miniature.
+        // Three failures on one subscription - more than a page would show, in miniature.
         var (sub, first) = await FailedXchange(db, xs, "Bulk Filter Doc");
         var second = await xs.CreateXchange(sub, new XchangeFile("{}"));
         var third = await xs.CreateXchange(sub, new XchangeFile("{}"));
@@ -287,9 +318,77 @@ public class RetryChainTests
     }
 
     /// <summary>
+    /// A selection bigger than one retry is sent back in rounds of the preview's targets: the attempts
+    /// themselves, already moved to the end of their chains, so a round retries exactly those.
+    /// </summary>
+    [Fact]
+    public async Task The_preview_lists_the_attempts_a_round_retries()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
+        var ctx = scope.Superuser();
+
+        var (sub, retried) = await FailedXchange(db, xs, "Targets Doc");
+        var newest = await RetryOnce(db, xs, ctx, retried.Id);
+        var other = await xs.CreateXchange(sub, new XchangeFile("{}"));
+        await db.SaveChangesAsync();
+        db.Set<XchangeResult>().Add(new XchangeResult(other.Id, null, null, exception: "boom"));
+        await db.SaveChangesAsync();
+
+        var plan = (XchangeBulkRetryPlan)await new Resources.Xchanges.BulkRetryPreview(db, ctx)
+            .Handle(new XchangeBulkRetry { Ids = [retried.Id, newest.Id, other.Id] });
+
+        Assert.Equal(new[] { newest.Id, other.Id }, plan.Targets);
+
+        var round = (XchangeBulkRetryPlan)await new Resources.Xchanges.BulkRetry(db, ctx, xs)
+            .Handle(new XchangeBulkRetry { Ids = plan.Targets });
+        await db.SaveChangesAsync();
+
+        Assert.Equal(2, round.WillRetry);
+        Assert.Empty(round.Substituted);
+        Assert.True(await db.Set<Xchange>().AnyAsync(x => x.RetryFor == newest.Id));
+        Assert.True(await db.Set<Xchange>().AnyAsync(x => x.RetryFor == other.Id));
+    }
+
+    /// <summary>
+    /// Past what one retry carries out, the preview still works the selection out so it can be
+    /// retried in rounds, while the retry itself takes no more than one round. Ids that don't exist
+    /// are enough to count with: the size is checked before any exchange is read.
+    /// </summary>
+    [Fact]
+    public async Task A_selection_past_one_retry_is_planned_whole_but_retried_a_round_at_a_time()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
+        var ctx = scope.Superuser();
+        var preview = new Resources.Xchanges.BulkRetryPreview(db, ctx);
+        var limits = (XchangeBulkRetryPlan)await preview.Handle(new XchangeBulkRetry { Ids = [] });
+        Assert.True(limits.MaxSelection > limits.Limit);
+
+        static System.Collections.Generic.List<string> Ids(int count) =>
+            Enumerable.Range(0, count).Select(_ => Guid.NewGuid().ToString("N")).ToList();
+
+        var pastOneRetry = Ids(limits.Limit + 1);
+        var plan = (XchangeBulkRetryPlan)await preview.Handle(new XchangeBulkRetry { Ids = pastOneRetry });
+        Assert.False(plan.OverLimit);
+        Assert.Equal(limits.Limit + 1, plan.Skipped.Count);
+
+        var refused = await Assert.ThrowsAsync<SWValidationException>(() =>
+            new Resources.Xchanges.BulkRetry(db, ctx, xs).Handle(new XchangeBulkRetry { Ids = pastOneRetry }));
+        Assert.Contains(refused.Validations, v => v.Key == "TOO_MANY");
+
+        var pastAnyRetry = (XchangeBulkRetryPlan)await preview.Handle(
+            new XchangeBulkRetry { Ids = Ids(limits.MaxSelection + 1) });
+        Assert.True(pastAnyRetry.OverLimit);
+        Assert.Equal(limits.MaxSelection + 1, pastAnyRetry.Selected);
+    }
+
+    /// <summary>
     /// Retrying is an operator's action, and until this was added the endpoints took anyone's word
     /// for it: the UI hid the button without a permission, but the API accepted the call from any
-    /// signed-in account. <c>PermissionGuardTests</c> could not have caught it — those exercise
+    /// signed-in account. <c>PermissionGuardTests</c> could not have caught it - those exercise
     /// <c>EnsurePermission</c> itself, and the gap was in never calling it.
     /// </summary>
     [Fact]
@@ -320,7 +419,7 @@ public class RetryChainTests
 
     /// <summary>
     /// The plan has to answer the question actually being asked. Re-resolving properties needs the
-    /// subscription, so for an exchange that has none the answer differs with the choice — and a
+    /// subscription, so for an exchange that has none the answer differs with the choice - and a
     /// plan that promised a retry the retry then skipped would make the confirmation worthless.
     /// </summary>
     [Fact]
@@ -364,7 +463,7 @@ public class RetryChainTests
 
     /// <summary>
     /// A status the filter cannot read used to be dropped, which widened the selection to every
-    /// exchange there is — harmless in a search, but bulk retry runs over whatever this selects.
+    /// exchange there is - harmless in a search, but bulk retry runs over whatever this selects.
     /// </summary>
     [Fact]
     public async Task BulkRetry_refuses_a_filter_carrying_an_unreadable_status()
@@ -421,7 +520,7 @@ public class RetryChainTests
         Assert.Equal(4, listed.GetProperty("Attempts").GetInt32());
         Assert.DoesNotContain(chains, c => c.GetProperty("Id").GetString() == healedRetry.Id);
 
-        // Superseded attempts are not listed either — only where each chain got to.
+        // Superseded attempts are not listed either - only where each chain got to.
         foreach (var stale in new[] { deep.Id, second.Id, third.Id })
             Assert.DoesNotContain(chains, c => c.GetProperty("Id").GetString() == stale);
 
@@ -460,7 +559,7 @@ public class RetryChainTests
 
     /// <summary>
     /// A chain is one piece of work, however many attempts it took. Asking for the newest attempt
-    /// only is what turns a list of failures into a list of things still to deal with — and, used
+    /// only is what turns a list of failures into a list of things still to deal with - and, used
     /// with a bulk retry, means the selection is already the attempts that can be retried.
     /// </summary>
     [Fact]

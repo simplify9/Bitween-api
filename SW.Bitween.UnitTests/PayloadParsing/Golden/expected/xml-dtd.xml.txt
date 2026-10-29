@@ -1,0 +1,32 @@
+=== promoted-json
+hits: 
+gateway: 
+=== promoted-xml
+id = DTD-1
+price = (null)
+name = &who;
+sku = (null)
+missing = (null)
+hits: 203
+gateway: 
+=== promoted-json-big
+hits: 
+gateway: 
+=== schema-json
+Not valid JSON: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
+=== schema-xml
+Not valid XML: For security reasons DTD is prohibited in this XML document. To enable DTD processing set the DtdProcessing property on XmlReaderSettings to Parse and pass the settings into XmlReader.Create method.
+=== enriched
+(not an object, not enriched)
+=== enriched-scriban
+!Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
+=== scriban
+!Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
+=== rules-json
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid JSON: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
+=== rules-xml
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid XML: For security reasons DTD is prohibited in this XML document. To enable DTD processing set the DtdProcessing property on XmlReaderSettings to Parse and pass the settings into XmlReader.Create method.
+=== url
+!Newtonsoft.Json.JsonReaderException: Unexpected character encountered while parsing value: <. Path '', line 0, position 0.
+=== fill
+order-{{ id }}-{{ price }}-{{ orderedAt }}.json

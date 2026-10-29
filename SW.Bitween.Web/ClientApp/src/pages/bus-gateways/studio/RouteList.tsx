@@ -10,12 +10,12 @@ export type Selection = number | "new" | null;
  *
  * It was a full-height column, and with three routes that was a tall empty block
  * of chrome beside the thing you came to look at. Floating, it is only as tall as
- * it needs to be, and the canvas keeps its whole width — the path reserves a
+ * it needs to be, and the canvas keeps its whole width - the path reserves a
  * gutter so nothing is ever hidden underneath.
  *
  * Still a list and not a row of chips: all four facts an operator triages on stay
- * on the row — what it matches, whose values it runs with, what it runs, and
- * whether that is healthy — and at a hundred routes a horizontal strip of chips
+ * on the row - what it matches, whose values it runs with, what it runs, and
+ * whether that is healthy - and at a hundred routes a horizontal strip of chips
  * answers none of them.
  */
 export function RouteList({
@@ -63,13 +63,13 @@ export function RouteList({
     <div className="pointer-events-auto flex max-h-full w-80 flex-col overflow-hidden rounded-xl border border-ink-200 bg-white/95 shadow-md backdrop-blur">
       <div className="flex shrink-0 items-center gap-2 border-b border-ink-100 px-2.5 py-2">
         <div className="relative min-w-0 flex-1">
-          <Search className="pointer-events-none absolute top-2.5 left-2.5 size-3.5 text-ink-400" />
+          <Search className="pointer-events-none absolute top-2.5 left-2.5 size-3.5 text-ink-500" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`Search ${routes.length} route${routes.length === 1 ? "" : "s"}…`}
             aria-label="Search routes"
-            className="w-full rounded-lg border border-ink-200 bg-white py-1.5 pr-2 pl-8 text-[13px] text-ink-800 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+            className="w-full rounded-lg border border-ink-200 bg-white py-1.5 pr-2 pl-8 text-[13px] text-ink-800 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
           />
         </div>
         {canEdit && (
@@ -93,7 +93,7 @@ export function RouteList({
             onSelect={() => onSelect("new")}
             condition={conditionText(pending.matchExpression)}
             partner={pending.partner === "none" ? "Any partner" : "…"}
-            subscriptionName="New route — not saved"
+            subscriptionName="New route - not saved"
             health="unknown"
             dirty
           />
@@ -115,7 +115,7 @@ export function RouteList({
         {rows.length === 0 && !pending && (
           <p className="px-3 py-6 text-[13px] text-ink-500">
             {routes.length === 0
-              ? "No routes yet — every message reaching this gateway is ignored."
+              ? "No routes yet - every message reaching this gateway is ignored."
               : "No route matches that search."}
           </p>
         )}
@@ -172,7 +172,7 @@ function Row({
         )}
       </span>
       <span className="mt-1 flex items-baseline gap-1.5 pl-3 text-[12px]">
-        <span className="shrink-0 truncate text-ink-400" title={partner}>
+        <span className="shrink-0 truncate text-ink-500" title={partner}>
           {partner}
         </span>
         <span className="shrink-0 text-ink-300" aria-hidden>

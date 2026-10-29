@@ -1,0 +1,64 @@
+{
+  "manifestVersion": 1,
+  "id": "nativeazureblobreceiver",
+  "displayName": "Azure Blob pickup",
+  "summary": "Picks up blobs from an Azure Storage container on a schedule.",
+  "publisher": {
+    "name": "Simplify9",
+    "url": "https://simplify9.com"
+  },
+  "license": "Proprietary",
+  "tags": [
+    "azure",
+    "blob",
+    "storage",
+    "file"
+  ],
+  "categories": [
+    "Intake"
+  ],
+  "kinds": [
+    "receiver"
+  ],
+  "runtime": "native",
+  "language": "csharp",
+  "lifecycle": "classic",
+  "properties": [
+    {
+      "name": "ConnectionString",
+      "type": "text",
+      "required": true,
+      "secret": true,
+      "description": "Azure Storage account connection string."
+    },
+    {
+      "name": "ContainerName",
+      "type": "text",
+      "required": true,
+      "default": "",
+      "description": "Name of the blob container to read files from."
+    },
+    {
+      "name": "FolderName",
+      "type": "text",
+      "description": "Folder (blob name prefix) within the container to read files from."
+    },
+    {
+      "name": "BatchSize",
+      "type": "number",
+      "default": "50",
+      "description": "Maximum number of files to fetch per polling batch."
+    },
+    {
+      "name": "ResponseEncoding",
+      "type": "text",
+      "default": "utf8",
+      "description": "Encoding used to decode file contents (e.g. utf8)."
+    },
+    {
+      "name": "DeleteMovesFileTo",
+      "type": "text",
+      "description": "Folder to move a file to after it\u0027s received. If empty, the file is deleted instead."
+    }
+  ]
+}

@@ -1,14 +1,10 @@
-using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
-using Newtonsoft.Json;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
-using SW.Bitween.Services.Adapters;
 
 namespace SW.Bitween;
 
@@ -17,20 +13,20 @@ namespace SW.Bitween;
 /// </summary>
 /// <remarks>
 /// Deliberately a separate consumer rather than another branch inside <c>XchangeService</c>'s
-/// result handling: alerts go through a customer-configured adapter that may be slow or broken, and
-/// on the shared result queue that would hold up — or fail — the ordinary notifiers for the same
+/// result handling: alerts go through a customer-configured channel that may be slow or broken, and
+/// on the shared result queue that would hold up - or fail - the ordinary notifiers for the same
 /// exchange. Its own <see cref="IConsume{TMessage}"/> means its own queue, and the two fail apart.
 /// </remarks>
 public class RetryAlertService(
     BitweenDbContext dbContext,
-    IAdapterInvoker adapterInvoker,
+    NotificationChannelSender channelSender,
     ILogger<RetryAlertService> logger) : IConsume<RetryBudgetExhaustedEvent>
 {
     public async Task Process(RetryBudgetExhaustedEvent message)
     {
         // The bus is at-least-once, and the exhaustion is stamped on the exchange rather than on
         // the send, so a redelivery would otherwise email the same alert twice. A *successful* log
-        // row is the record that it already went out — matching any alert row would let one failed
+        // row is the record that it already went out - matching any alert row would let one failed
         // send stand in for a delivery and silence every later attempt. The name is checked too, so
         // a row written by some other path can never be mistaken for this alert.
         var alreadySent = await dbContext.Set<XchangeNotification>()
@@ -56,11 +52,13 @@ public class RetryAlertService(
         var target = RetryAlertResolver.Resolve(subscriptionOverride, group, subscription.RetryPolicy);
         if (target == null) return;
 
-        var notification = await BuildNotification(message, subscription);
-        await Send(target, notification, message.XchangeId);
+        var (notification, partnerId) = await BuildNotification(message, subscription);
+        await Send(target, notification, message.XchangeId, partnerId);
     }
 
-    private async Task<RetryBudgetExhaustedNotification> BuildNotification(
+    /// <returns>The notification, and the partner the exchange ran for: the one a channel's
+    /// <c>{{partner.…}}</c> values are filled from.</returns>
+    private async Task<(RetryBudgetExhaustedNotification, int?)> BuildNotification(
         RetryBudgetExhaustedEvent message, Subscription subscription)
     {
         var context = await (from xchange in dbContext.Set<Xchange>().AsNoTracking()
@@ -72,12 +70,13 @@ public class RetryAlertService(
                 {
                     document.Name,
                     xchange.CorrelationId,
+                    xchange.PartnerId,
                     result.Exception,
                     result.RetryBlockedReason
                 })
             .FirstOrDefaultAsync();
 
-        return new RetryBudgetExhaustedNotification
+        return (new RetryBudgetExhaustedNotification
         {
             XchangeId = message.XchangeId,
             SubscriptionId = message.SubscriptionId,
@@ -90,44 +89,30 @@ public class RetryAlertService(
             BlockedReason = context?.RetryBlockedReason,
             Exception = context?.Exception,
             OccurredOn = message.OccurredOn
-        };
+        }, context?.PartnerId ?? subscription.PartnerId);
     }
 
     /// <summary>
-    /// Invokes the resolved handler and records the attempt either way.
+    /// Sends through the resolved channel and records the attempt either way.
     /// </summary>
     /// <remarks>
-    /// A throw is logged rather than propagated, and the failure is recorded so someone can answer
-    /// "did the alert actually go out?". Because the guard above only counts a successful row, a
-    /// failed send leaves the way open for a redelivery to try again rather than closing it.
+    /// A failure is logged rather than thrown, and recorded so someone can answer "did the alert
+    /// actually go out?". Because the guard above only counts a successful row, a failed send
+    /// leaves the way open for a redelivery to try again rather than closing it.
     /// </remarks>
     private async Task Send(RetryAlertTarget target, RetryBudgetExhaustedNotification notification,
-        string xchangeId)
+        string xchangeId, int? partnerId)
     {
-        var handlerProperties = new Dictionary<string, string>(
-            target.HandlerProperties ?? new Dictionary<string, string>())
-        {
-            ["xchangeid"] = xchangeId
-        };
+        var partner = partnerId is { } id ? await dbContext.FindAsync<Partner>(id) : null;
+        var error = await channelSender.Send(target.ChannelId, notification, xchangeId,
+            notification.CorrelationId ?? xchangeId, partner);
 
-        var payload = new XchangeFile(JsonConvert.SerializeObject(notification), xchangeId);
+        if (error != null)
+            logger.LogError(error,
+                "Retry budget alert for xchange {XchangeId} could not be delivered through channel {ChannelId}.",
+                xchangeId, target.ChannelId);
 
-        try
-        {
-            await adapterInvoker.InvokeAsync<XchangeFile>(
-                target.HandlerId, AdapterRole.Handler, nameof(IInfolinkHandler.Handle), payload,
-                handlerProperties, notification.CorrelationId ?? xchangeId);
-
-            dbContext.Add(XchangeNotification.ForRetryBudgetAlert(xchangeId));
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex,
-                "Retry budget alert for xchange {XchangeId} could not be delivered through {HandlerId}.",
-                xchangeId, target.HandlerId);
-            dbContext.Add(XchangeNotification.ForRetryBudgetAlert(xchangeId, ex.ToString()));
-        }
-
+        dbContext.Add(XchangeNotification.ForRetryBudgetAlert(xchangeId, target.ChannelId, error?.ToString()));
         await dbContext.SaveChangesAsync();
     }
 }

@@ -1,11 +1,7 @@
 import type React from "react";
 import { useEffect, useRef, useState, useCallback } from "react";
-import {
-  useMappingEditorDispatch,
-  useMappingEditorState,
-  removeFieldMapping,
-  selectMapping,
-} from "../../lib/mapping/MappingEditorContext";
+import { useMappingEditorDispatch, useMappingEditorState } from "../../lib/mapping/mappingEditorHooks";
+import { removeFieldMapping, selectMapping } from "../../lib/mapping/mappingEditorActions";
 import type { ArrayMapping } from "../../lib/mapping/types";
 
 // ─── Path helpers (mirrors OutputTree / ArrayMappingModal) ────────────────────
@@ -52,7 +48,7 @@ const CONNECTION_COLORS = {
   default: '#94a3b8',   // slate-400
   selected: '#3b82f6',  // blue-500
   hovered: '#10b981',   // emerald-500
-  array: '#8b5cf6',     // violet-500 — for array loop connections
+  array: '#8b5cf6',     // violet-500 - for array loop connections
 };
 
 const ConnectionCanvas: React.FC<Props> = ({

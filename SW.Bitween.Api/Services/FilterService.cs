@@ -13,7 +13,8 @@ namespace SW.Bitween
     {
         readonly IInfolinkCache _cache = cache;
 
-        public async Task<FilterResult> Filter(int documentId, XchangeFile xchangeFile)
+        /// <param name="rehearsing">A mirror's rehearsal traffic, which also takes the routes of gateways the copy switched off.</param>
+        public async Task<FilterResult> Filter(int documentId, XchangeFile xchangeFile, bool rehearsing = false)
         {
             if (xchangeFile is null)
                 throw new ArgumentNullException(nameof(xchangeFile));
@@ -25,8 +26,8 @@ namespace SW.Bitween
             // that could pass, so only what asked for the type unconditionally picks it up.
             IExchangePayloadReader propReader = doc.DocumentFormat switch
             {
-                DocumentFormat.Xml => new XmlExchangePayloadReader(xchangeFile.Data),
-                DocumentFormat.Json => new JsonExchangePayloadReader(xchangeFile.Data),
+                DocumentFormat.Xml => new XmlExchangePayloadReader(xchangeFile.Data, NativeAdapters.ParsedPayload.Of(xchangeFile)),
+                DocumentFormat.Json => new JsonExchangePayloadReader(xchangeFile.Data, NativeAdapters.ParsedPayload.Of(xchangeFile)),
                 _ => null,
             };
 
@@ -49,7 +50,7 @@ namespace SW.Bitween
                 catch (Exception ex) when (ex is JsonException || ex is XPathException)
                 {
                     // A path the reader cannot parse throws out of it rather than returning false,
-                    // and unhandled it reached the caller as a bare 400 naming nothing — on every
+                    // and unhandled it reached the caller as a bare 400 naming nothing - on every
                     // message of this information type, since the bad path is on the type itself.
                     // Which property is broken is the one thing needed to fix it.
                     throw new SWValidationException("INVALID_PROMOTED_PROPERTY_PATH",
@@ -61,7 +62,7 @@ namespace SW.Bitween
                 // returning false, leaving the property null. Only an unreadable path throws.
 
                 // Stored as the payload sent it. It used to be lower-cased here, which was
-                // only ever to pair with the lower-cased term in Xchanges/Search — nothing
+                // only ever to pair with the lower-cased term in Xchanges/Search - nothing
                 // matches on this dictionary (match expressions read the payload directly),
                 // so the one thing it changed was what every screen displays: an order for
                 // "Acme Retail" listed as "acme retail". Search now lower-cases the column
@@ -74,15 +75,15 @@ namespace SW.Bitween
             var matches = subs.Where(sub =>
             {
                 // An integration with an entry point of its own is never started by a document
-                // merely arriving on its information type — it is started through that entry
+                // merely arriving on its information type - it is started through that entry
                 // point, which is what decides it should run at all:
                 //
-                //   BusGateway     — its gateway's routes (route filter + optional partner)
-                //   Receiving      — its schedule, via ReceivingJob
-                //   GatewayApiCall — a partner calling the gateway it is attached to
-                //   ApiCall        — its own partner posting to Xchanges/Update, which runs the
+                //   BusGateway     - its gateway's routes (route filter + optional partner)
+                //   Receiving      - its schedule, via ReceivingJob
+                //   GatewayApiCall - a partner calling the gateway it is attached to
+                //   ApiCall        - its own partner posting to Xchanges/Update, which runs the
                 //                    subscription belonging to the caller (legacy GatewayApiCall)
-                //   Response       — the subscription whose delivery response it is handed
+                //   Response       - the subscription whose delivery response it is handed
                 //
                 // All five are started by name. Auto-matching them as well ran them a second time,
                 // on traffic addressed to nobody: a scheduled job publishing the very message type
@@ -93,7 +94,7 @@ namespace SW.Bitween
                 // so every {{partner.…}} in its adapters stayed a literal token.
                 //
                 // Internal keeps matching. Reacting to a document of its type arriving is the
-                // whole definition of the type — it has no other trigger. Aggregation is driven
+                // whole definition of the type - it has no other trigger. Aggregation is driven
                 // by AggregationJob.
                 if (sub.Type is SubscriptionType.BusGateway
                     or SubscriptionType.Receiving
@@ -113,7 +114,9 @@ namespace SW.Bitween
 
             // Bus-gateway routes: run the assigned subscription (optionally with a partner's values)
             // for every route whose filter matches. A null filter matches all messages on the doc.
-            var routes = await _cache.ListBusGatewayRoutesByDocumentAsync(documentId);
+            var routes = rehearsing && Services.Mirror.MirrorTraffic.SwitchedOffGateways is { } switchedOff
+                ? await _cache.ListBusGatewayRoutesByDocumentAsync(documentId, switchedOff)
+                : await _cache.ListBusGatewayRoutesByDocumentAsync(documentId);
             foreach (var route in routes)
             {
                 if (route.MatchExpression == null || (propReader != null && route.MatchExpression.IsMatch(propReader)))

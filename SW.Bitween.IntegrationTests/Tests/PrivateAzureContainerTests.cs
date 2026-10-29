@@ -14,8 +14,8 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// The startup step that keeps Bitween's container private on Azure, against Azurite — the Azure storage
-/// emulator — with the container set up the way the storage library sets it up: open to everyone.
+/// The startup step that keeps Bitween's container private on Azure, against Azurite - the Azure storage
+/// emulator - with the container set up the way the storage library sets it up: open to everyone.
 /// </summary>
 public sealed class PrivateAzureContainerTests : IAsyncLifetime
 {
@@ -70,7 +70,7 @@ public sealed class PrivateAzureContainerTests : IAsyncLifetime
         await Container("refused-container").CreateAsync(PublicAccessType.BlobContainer);
         var access = new StorageAccess(null!, new BitweenOptions(), NullLogger<StorageAccess>.Instance);
 
-        // Signed with the wrong key, Azure refuses — as it does a login without the right role.
+        // Signed with the wrong key, Azure refuses - as it does a login without the right role.
         var wrongKey = Convert.ToBase64String(new byte[64]);
         await Run(new PrivateAzureContainer(Container("refused-container", wrongKey), access,
             NullLogger<PrivateAzureContainer>.Instance));

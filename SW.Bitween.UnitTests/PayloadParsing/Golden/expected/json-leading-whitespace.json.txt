@@ -1,0 +1,116 @@
+=== promoted-json
+hits: 
+gateway: 
+=== promoted-xml
+!System.Xml.XmlException: Data at the root level is invalid. Line 2, position 1.
+=== promoted-json-big
+hits: 
+gateway: 
+=== schema-json
+(valid)
+=== schema-xml
+Not valid XML: Data at the root level is invalid. Line 2, position 1.
+=== enriched
+{"id":"L-1","price":1.1,"__partner__":{"code":"P1","since":"2026-10-14T10:00:00Z","rate":"1.10","Upper":"U"},"__globals__":{"set1":{"region":"KSA","cutoff":"2026-10-14"}}}
+=== enriched-scriban
+{
+  "id": "L-1",
+  "price": 1.1,
+  "priceText": "1.1",
+  "priceFloat": 1.1,
+  "orderedAt": null,
+  "orderedAtText": "",
+  "offset": null,
+  "ms": null,
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "name": null,
+  "firstItem": null,
+  "lines": [],
+  "lineCount": 0,
+  "partner": {
+    "code": {
+      "Value": "P1",
+      "IsReadOnly": false
+    },
+    "since": {
+      "Value": "2026-10-14T10:00:00Z",
+      "IsReadOnly": false
+    },
+    "rate": {
+      "Value": "1.10",
+      "IsReadOnly": false
+    },
+    "Upper": {
+      "Value": "U",
+      "IsReadOnly": false
+    },
+    "upper": {
+      "Value": "U",
+      "IsReadOnly": false
+    }
+  },
+  "partnerSince": "14 Oct 2026",
+  "partnerRate": "1.10",
+  "region": "KSA",
+  "orderId": null,
+  "upper": {
+    "name": null
+  }
+}
+=== scriban
+{
+  "id": "L-1",
+  "price": 1.1,
+  "priceText": "1.1",
+  "priceFloat": 1.1,
+  "orderedAt": null,
+  "orderedAtText": "",
+  "offset": null,
+  "ms": null,
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "name": null,
+  "firstItem": null,
+  "lines": [],
+  "lineCount": 0,
+  "partner": null,
+  "partnerSince": "",
+  "partnerRate": null,
+  "region": null,
+  "orderId": null,
+  "upper": {
+    "name": null
+  }
+}
+=== rules-json
+{
+  "id": "L-1",
+  "price": 1.10,
+  "priceNumber": 1.10,
+  "priceText": "1.1",
+  "priceRounded": 1.1,
+  "big": null,
+  "exp": null,
+  "negzero": null,
+  "negzerof": null,
+  "tenthTimesThree": null,
+  "orderedAt": null,
+  "orderedAtFormatted": null,
+  "offset": null,
+  "dmy": null,
+  "name": null,
+  "flag": null,
+  "fixed": 1.1,
+  "lines": []
+}
+content-type: application/json
+=== rules-xml
+!SW.Bitween.NativeAdapters.Mapper.Formats.DocumentFormatException: The document is not valid XML: Data at the root level is invalid. Line 2, position 1.
+=== url
+https://partner.test/orders/L-1?price=1.1&at=&name=&big=&sku=
+https://partner.test/orders/L-1?price=1.1&at=&name=&big=&sku=
+=== fill
+order-L-1-1.1-.json

@@ -29,7 +29,7 @@ namespace SW.Bitween.Domain
         public string[] References { get; private set; }
 
         /// <summary>
-        /// The partner to run as once released, when it is not the subscription's own — a response
+        /// The partner to run as once released, when it is not the subscription's own - a response
         /// runs as the partner of the subscription that fed it. Null means the subscription's own.
         /// </summary>
         public int? PartnerId { get; private set; }

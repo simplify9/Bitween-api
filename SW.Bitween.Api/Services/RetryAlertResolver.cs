@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
 
@@ -7,10 +6,9 @@ namespace SW.Bitween;
 /// <summary>Where a resolved alert should be delivered, and which level of the hierarchy decided it.</summary>
 public class RetryAlertTarget
 {
-    public required string HandlerId { get; init; }
-    public IReadOnlyDictionary<string, string> HandlerProperties { get; init; }
+    public required int ChannelId { get; init; }
 
-    /// <summary>Which level won — shown in the UI so a surprising destination can be traced.</summary>
+    /// <summary>Which level won - shown in the UI so a surprising destination can be traced.</summary>
     public required RetryAlertLevel Level { get; init; }
 }
 
@@ -20,9 +18,8 @@ public class RetryAlertTarget
 /// </summary>
 /// <remarks>
 /// <para>
-/// A level that overrides <strong>replaces</strong> the level above rather than merging into it, so
-/// whichever level wins must carry the handler and every property it needs. That keeps what the UI
-/// shows for a level identical to what actually gets sent.
+/// A level that overrides <strong>replaces</strong> the level above rather than merging into it:
+/// whichever level wins names the one channel the alert goes through.
 /// </para>
 /// <para>
 /// Resolved at send time rather than stored, so editing a policy's default immediately affects
@@ -39,7 +36,7 @@ public static class RetryAlertResolver
     /// <param name="group">The matched group. <c>null</c> when the group no longer exists in the policy.</param>
     /// <param name="policy">
     /// The named policy, or <c>null</c> when the subscription uses an inline
-    /// <see cref="CustomRetryPolicy"/> — those have no policy row, so only the group and the
+    /// <see cref="CustomRetryPolicy"/> - those have no policy row, so only the group and the
     /// override levels can configure an alert.
     /// </param>
     public static RetryAlertTarget Resolve(RetryAlertOverride subscriptionOverride, RetryGroup group,
@@ -49,11 +46,10 @@ public static class RetryAlertResolver
         {
             case RetryAlertMode.Silent:
                 return null;
-            case RetryAlertMode.Send when !string.IsNullOrWhiteSpace(subscriptionOverride.AlertHandlerId):
+            case RetryAlertMode.Send when subscriptionOverride.AlertChannelId != null:
                 return new RetryAlertTarget
                 {
-                    HandlerId = subscriptionOverride.AlertHandlerId,
-                    HandlerProperties = subscriptionOverride.AlertHandlerProperties,
+                    ChannelId = subscriptionOverride.AlertChannelId.Value,
                     Level = RetryAlertLevel.SubscriptionGroup
                 };
         }
@@ -62,20 +58,18 @@ public static class RetryAlertResolver
         {
             case RetryAlertMode.Silent:
                 return null;
-            case RetryAlertMode.Send when !string.IsNullOrWhiteSpace(group.AlertHandlerId):
+            case RetryAlertMode.Send when group.AlertChannelId != null:
                 return new RetryAlertTarget
                 {
-                    HandlerId = group.AlertHandlerId,
-                    HandlerProperties = group.AlertHandlerProperties,
+                    ChannelId = group.AlertChannelId.Value,
                     Level = RetryAlertLevel.Group
                 };
         }
 
-        if (!string.IsNullOrWhiteSpace(policy?.AlertHandlerId))
+        if (policy?.AlertChannelId != null)
             return new RetryAlertTarget
             {
-                HandlerId = policy.AlertHandlerId,
-                HandlerProperties = policy.AlertHandlerProperties,
+                ChannelId = policy.AlertChannelId.Value,
                 Level = RetryAlertLevel.Policy
             };
 

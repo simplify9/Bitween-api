@@ -1,18 +1,19 @@
 import { describe, expect, it } from "vitest";
 import type { ExchangeFileRef, ExchangeRow, ExchangeStatus } from "../../../api";
-import { journeyStages } from "../shared";
+import { journeyStages } from "../journey";
 
 /**
  * A stage's name is a claim about what happened to the document. The cards used to be named
  * "Mapped" and "Handled" whatever state they were in, so a Processing exchange read as though
- * both stages were behind it — "Mapped" sitting beside a Running badge.
+ * both stages were behind it - "Mapped" sitting beside a Running badge.
  */
 const A_FILE = { name: "doc.json", size: 12 } as ExchangeFileRef;
 
 /** Only the three fields `journeyStages` reads; the rest of the row does not reach it. */
-const row = (status: ExchangeStatus, over: { mapperSkipped?: boolean; mapped?: boolean } = {}) =>
+const row = (status: ExchangeStatus, over: { mapperSkipped?: boolean; mapped?: boolean; warning?: string } = {}) =>
   ({
     status,
+    warning: over.warning ?? null,
     mapperSkipped: over.mapperSkipped ?? false,
     files: { input: A_FILE, mapped: over.mapped ? A_FILE : null, handled: null },
   }) as ExchangeRow;
@@ -29,11 +30,11 @@ describe("journeyStages labels", () => {
     ]);
   });
 
-  it("does not claim a Processing exchange was mapped or handled", () => {
+  it("does not claim a Processing exchange was mapped or handled, nor that both stages run at once", () => {
     expect(labels(row("processing"))).toEqual([
       "Received:done",
       "Mapping:running",
-      "Handling:running",
+      "Handling:notReached",
     ]);
   });
 
@@ -55,11 +56,22 @@ describe("journeyStages labels", () => {
   });
 
   it("keeps the past tense for a delivery the response rejected", () => {
-    // badResponse means it was handled — the far end just did not like it.
+    // badResponse means it was handled - the far end just did not like it.
     expect(labels(row("badResponse", { mapped: true }))).toEqual([
       "Received:done",
       "Mapped:done",
       "Handled:bad",
     ]);
+  });
+
+  it("shows a delivered exchange whose files could not be stored as mapped and handled, saying why", () => {
+    const x = row("success", {
+      warning:
+        "Delivered; the output file could not be stored: disk full\nDelivered; the response file could not be stored: disk full",
+    });
+    expect(labels(x)).toEqual(["Received:done", "Mapped:done", "Handled:done"]);
+    const [, mapped, handled] = journeyStages(x);
+    expect(mapped.note).toContain("could not be stored");
+    expect(handled.note).toContain("could not be stored");
   });
 });

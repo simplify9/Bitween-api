@@ -2,16 +2,16 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <RootNamespace>SW.Bitween.Adapters.Db.MySql</RootNamespace>
     <Nullable>disable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="8.1.23" />
+    <PackageReference Include="SimplyWorks.Serverless.Sdk" Version="10.1.0" />
     <!--
       MySqlConnector, not Oracle's MySql.Data: it is the fully async ADO.NET implementation, and
-      the async in this adapter is not decorative — a resident adapter serves every subscription
+      the async in this adapter is not decorative - a resident adapter serves every subscription
       bound to the connection, so a driver that blocks a thread per call caps the whole data source.
     -->
     <PackageReference Include="MySqlConnector" Version="2.3.7" />

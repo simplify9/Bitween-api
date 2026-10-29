@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using SW.Bitween.Domain;
 using SW.Bitween.IntegrationTests.Fixtures;
 using SW.Bitween.Model;
@@ -13,11 +15,11 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// Instance settings — the values an administrator can change without a redeploy.
+/// Instance settings - the values an administrator can change without a redeploy.
 /// </summary>
 /// <remarks>
 /// Two things make this worth covering. Secrets are encrypted before they are written, so a
-/// database dump never carries a license key in the clear — and an encryption bug is invisible
+/// database dump never carries a license key in the clear - and an encryption bug is invisible
 /// from the UI, which shows the value correctly either way. And only some settings are editable at
 /// all: the page also lists environment-owned ones, and accepting a write to those would report
 /// success for a change that can never take effect.
@@ -29,18 +31,21 @@ public class SettingsTests(BitweenFixture fixture) : IAsyncLifetime
     private const string EditableKey = "Bitween.JwtExpiryMinutes";
     private const string EnvironmentOwnedKey = "Bitween.QueuePrefix";
     private const string CronKey = "Bitween.RetryJobCron";
+    private const string ProdAddressKey = "Bitween.Mirror.SourceUrl";
+    private const string ProdTokenKey = "Bitween.Mirror.SourceToken";
+    private const string ProdPasswordKey = "Bitween.Mirror.SourcePassword";
 
     private readonly Dictionary<string, string> _originals = new();
 
     /// <summary>
     /// Applying a setting mutates a process-wide options singleton that every test in this
     /// collection shares, so anything written here has to be put back. Nothing depends on these
-    /// two today — but the Rebex key decides which adapters are offered at all, and a future test
+    /// two today - but the Rebex key decides which adapters are offered at all, and a future test
     /// of that would pass or fail purely on whether this class happened to run first.
     /// </summary>
     public async Task InitializeAsync()
     {
-        foreach (var key in new[] { SecretKey, EditableKey })
+        foreach (var key in new[] { SecretKey, EditableKey, ProdAddressKey, ProdTokenKey, ProdPasswordKey })
             _originals[key] = await LiveValue(key);
     }
 
@@ -117,7 +122,7 @@ public class SettingsTests(BitweenFixture fixture) : IAsyncLifetime
         await Store(EditableKey, "45");
 
         // Applied to the live options singleton as well as stored, so the very next request
-        // already sees it — there is no restart-required concept in this product.
+        // already sees it - there is no restart-required concept in this product.
         Assert.Equal("45", await LiveValue(EditableKey));
         Assert.Equal("45", await RawStored(EditableKey));
     }
@@ -151,9 +156,36 @@ public class SettingsTests(BitweenFixture fixture) : IAsyncLifetime
     {
         var ex = await Assert.ThrowsAsync<SWValidationException>(() => Store(EditableKey, "not-a-number"));
 
-        // Stored unchecked, this fails much later — when something reads the session length and
+        // Stored unchecked, this fails much later - when something reads the session length and
         // cannot parse it, far from the screen where it was typed.
         Assert.StartsWith("SETTING_INVALID_VALUE", ex.Message);
+    }
+
+    [Fact]
+    public async Task A_new_prod_address_empties_the_login_saved_for_the_old_one()
+    {
+        await Store(ProdAddressKey, "https://bitween.acme.com");
+        await Store(ProdTokenKey, "bwt_saved-for-acme");
+        await Store(ProdPasswordKey, "saved-for-acme");
+
+        // Saving the same address again changes nothing.
+        await Store(ProdAddressKey, "https://bitween.acme.com/");
+        Assert.Equal("bwt_saved-for-acme", await LiveValue(ProdTokenKey));
+
+        // Whoever points staging at another address doesn't get the old login sent there.
+        await Store(ProdAddressKey, "https://elsewhere.example.net");
+        Assert.Equal("", await LiveValue(ProdTokenKey));
+        Assert.Equal("", await LiveValue(ProdPasswordKey));
+    }
+
+    [Theory]
+    [InlineData("https://viewer:pw@bitween.acme.com")]
+    [InlineData("https://bitween.acme.com/?token=x")]
+    [InlineData("https://bitween.acme.com/#x")]
+    public async Task Prod_address_is_only_an_address(string address)
+    {
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() => Store(ProdAddressKey, address));
+        Assert.Contains("more than an address", ex.Message);
     }
 
     [Fact]
@@ -200,5 +232,45 @@ public class SettingsTests(BitweenFixture fixture) : IAsyncLifetime
 
         Assert.StartsWith("SETTING_INVALID_VALUE", ex.Message);
         Assert.Contains("not a valid cron expression", ex.Message);
+    }
+
+    /// <summary>
+    /// The stored value wins, so a deployment that changes only its configuration would otherwise
+    /// see nothing happen and nothing said.
+    /// </summary>
+    [Fact]
+    public async Task A_configured_value_the_stored_one_overrides_is_named_at_startup()
+    {
+        await Store(EditableKey, "60");
+
+        Assert.Contains(await IgnoredConfigurationWarnings(jwtExpiryMinutes: 45),
+            w => w.Contains(EditableKey) && w.Contains("45") && w.Contains("60"));
+        Assert.DoesNotContain(await IgnoredConfigurationWarnings(jwtExpiryMinutes: 60), w => w.Contains(EditableKey));
+    }
+
+    private async Task<List<string>> IgnoredConfigurationWarnings(int jwtExpiryMinutes)
+    {
+        var logger = new WarningLog();
+        var configured = new BitweenOptions { JwtExpiryMinutes = jwtExpiryMinutes };
+        var settings = new SettingsService(configured, new ThemeOptions(), new SettingsProtector(configured), logger);
+
+        await using var scope = fixture.CreateScope();
+        await settings.WarnAboutIgnoredConfiguration(scope.ServiceProvider.GetRequiredService<BitweenDbContext>());
+        return logger.Warnings;
+    }
+
+    private sealed class WarningLog : ILogger<SettingsService>
+    {
+        public List<string> Warnings { get; } = [];
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            if (logLevel == LogLevel.Warning) Warnings.Add(formatter(state, exception));
+        }
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
     }
 }

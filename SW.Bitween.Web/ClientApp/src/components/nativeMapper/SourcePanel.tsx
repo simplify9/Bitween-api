@@ -5,7 +5,7 @@ import {
   type Coverage,
   type DocumentNode,
 } from "../../lib/nativeMapper/documentTree";
-import { useRules, useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import { FormatButton } from "../ui/FormatButton";
 import { TextInput } from "../ui/forms";
 import { RowSelect } from "./rowControls";
@@ -14,8 +14,8 @@ import { DATE_ORDERS, type DateOrderName } from "../../lib/nativeMapper/types";
 /**
  * The shape of the source document, as a tree of paths a rule can read.
  *
- * A list's own contents are shown, named relative to one entry — `sku`, not
- * `order.line.sku` — because that is what a rule inside a list reading that list
+ * A list's own contents are shown, named relative to one entry - `sku`, not
+ * `order.line.sku` - because that is what a rule inside a list reading that list
  * writes. Dragging one onto a rule outside such a list produces a path that names
  * nothing, and the rule says so rather than the tree pretending the field is not
  * there at all.
@@ -51,7 +51,7 @@ export function SourcePanel({
           </span>
         </div>
         <div className="relative">
-          <Search className="absolute top-1.5 left-2 text-ink-400" size={11} />
+          <Search className="absolute top-1.5 left-2 text-ink-500" size={11} />
           <TextInput
             className="h-7 pl-6 font-mono text-xs"
             placeholder="Search fields…"
@@ -63,7 +63,7 @@ export function SourcePanel({
 
       <div className="flex-shrink-0 border-b border-ink-100 px-3 py-2">
         <textarea
-          className="min-h-[72px] w-full resize-y rounded-lg border border-ink-200 bg-ink-50 px-2 py-1.5 font-mono text-[11px] focus:border-crimson-400 focus:outline-none"
+          className="min-h-[72px] w-full resize-y rounded-lg border border-ink-200 bg-ink-50 px-2 py-1.5 font-mono text-[11px] focus:border-focus-400 focus:outline-none"
           placeholder='Paste a sample document, e.g. { "order": { "customer": "Ali" } }'
           value={sourceSample}
           onChange={(e) => dispatch({ type: "SET_SOURCE_SAMPLE", text: e.target.value })}
@@ -79,7 +79,7 @@ export function SourcePanel({
         </div>
 
         {/* Part of the mapping, unlike the sample above it: how this partner writes
-            dates is a fact about their documents, and it is the same for every field —
+            dates is a fact about their documents, and it is the same for every field -
             so it is asked once here rather than on each rule that formats a date. */}
         <label className="mt-1.5 flex items-center gap-1.5 text-[11px] text-ink-500">
           Dates
@@ -103,7 +103,7 @@ export function SourcePanel({
 
       <div data-mapper-scroll className="flex-1 overflow-y-auto py-1">
         {!root ? (
-          <p className="px-3 py-4 text-xs text-ink-400">
+          <p className="px-3 py-4 text-xs text-ink-500">
             Paste a sample document to see its fields.
           </p>
         ) : (
@@ -196,9 +196,9 @@ function NodeRow({
         onMouseLeave={() => dispatch({ type: "HOVER_PATH", path: null })}
         // The row shows only the last segment, because the indentation carries the
         // rest. That leaves the accessible name as a bare "customer", which is not
-        // enough to tell one field from another — so the name is the full path.
+        // enough to tell one field from another - so the name is the full path.
         aria-label={node.path}
-        title={`${node.path} — drag it onto a rule, or click to fill the selected one`}
+        title={`${node.path} - drag it onto a rule, or click to fill the selected one`}
         className={`flex w-full items-center gap-2 py-0.5 pr-2 text-left font-mono text-[11px] hover:bg-ink-50 ${
           dim ? "opacity-40" : ""
         } ${hoveredPath === node.path ? "bg-crimson-50" : ""}`}
@@ -210,7 +210,7 @@ function NodeRow({
         <span className={`truncate ${matches ? "font-semibold text-crimson-700" : "text-ink-800"}`}>
           {node.key}
         </span>
-        <span className="ml-auto flex-shrink-0 truncate text-ink-400">
+        <span className="ml-auto flex-shrink-0 truncate text-ink-500">
           {describeSample(node.sample)}
         </span>
       </button>
@@ -231,26 +231,26 @@ function NodeRow({
         className="flex w-full items-center gap-1.5 py-0.5 pr-2 text-left font-mono text-[11px] text-ink-600 hover:bg-ink-50"
       >
         {folded ? (
-          <ChevronRight size={11} className="flex-shrink-0 text-ink-400" aria-hidden />
+          <ChevronRight size={11} className="flex-shrink-0 text-ink-500" aria-hidden />
         ) : (
-          <ChevronDown size={11} className="flex-shrink-0 text-ink-400" aria-hidden />
+          <ChevronDown size={11} className="flex-shrink-0 text-ink-500" aria-hidden />
         )}
         <span className="truncate font-semibold">{node.key || "(root)"}</span>
         {isList ? (
           <span
             className="flex-shrink-0 rounded bg-warn-100 px-1 text-[9px] font-semibold tracking-wide text-warn-700 uppercase"
-            title="A list. Add a list on the output side to walk it — the fields below are read one entry at a time."
+            title="A list. Add a list on the output side to walk it - the fields below are read one entry at a time."
           >
             list · {node.count}
           </span>
         ) : (
-          <span className="flex-shrink-0 text-ink-400" title="An object">
+          <span className="flex-shrink-0 text-ink-500" title="An object">
             {"{}"}
           </span>
         )}
         {covered.total > 0 && (
           <span
-            className="ml-auto flex-shrink-0 text-[10px] text-ink-400"
+            className="ml-auto flex-shrink-0 text-[10px] text-ink-500"
             title={`${covered.mapped} of ${covered.total} fields in here are read by a rule`}
           >
             {covered.mapped}/{covered.total}
@@ -259,7 +259,7 @@ function NodeRow({
       </button>
 
       {/* A list's fields are shown too, and named the way a rule inside that list
-          names them — `sku`, not `order.line.sku`. Hiding them meant the only way to
+          names them - `sku`, not `order.line.sku`. Hiding them meant the only way to
           see what was in a list was to paste the sample somewhere else. */}
       {!folded && (
         <NodeRows

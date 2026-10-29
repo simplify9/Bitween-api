@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import {
+  API,
   FIRST_PASSWORD,
   addMember,
   createRole,
@@ -8,6 +9,7 @@ import {
   signIn,
   signInAsAdmin,
   signOut,
+  sessionToken,
 } from "./helpers";
 
 /**
@@ -19,15 +21,15 @@ import {
 const sidebarLinks = (page: Page) =>
   page.getByRole("navigation").getByRole("link").filter({ hasNotText: /^$/ });
 
-/** Calls the API directly with the signed-in member's own token — no UI in the way. */
+/** Calls the API directly with the signed-in member's own token - no UI in the way. */
 async function apiStatus(
   page: Page,
   method: "GET" | "POST",
   path: string,
   body?: unknown,
 ): Promise<number> {
-  const token = await page.evaluate(() => localStorage.getItem("access_token"));
-  const res = await page.request.fetch(`https://localhost:7155/api${path}`, {
+  const token = await sessionToken(page);
+  const res = await page.request.fetch(`${API}${path}`, {
     method,
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     ...(body === undefined ? {} : { data: body }),
@@ -67,9 +69,9 @@ test("a custom role grants exactly what was ticked, in the nav, by URL, and at t
   await expect(page.getByRole("button", { name: /^Retry/ })).toHaveCount(0);
 
   // 4. And the API refuses the same things, so a crafted request gains nothing.
-  expect(await apiStatus(page, "POST", "/partners", { name: "sneaky" })).toBe(401);
-  expect(await apiStatus(page, "GET", "/accounts?limit=5")).toBe(401);
-  expect(await apiStatus(page, "POST", "/roles", { name: "x", description: "", permissions: [] })).toBe(401);
+  expect(await apiStatus(page, "POST", "/partners", { name: "sneaky" })).toBe(403);
+  expect(await apiStatus(page, "GET", "/accounts?limit=5")).toBe(403);
+  expect(await apiStatus(page, "POST", "/roles", { name: "x", description: "", permissions: [] })).toBe(403);
 
   await signOut(page);
   await signInAsAdmin(page);
@@ -99,10 +101,10 @@ test("Viewer can read but not write", async ({ page }) => {
   await expect(page.getByText("You don't have access to this page")).toBeVisible();
 
   // Writes are refused at the source, not just hidden.
-  expect(await apiStatus(page, "POST", "/partners", { name: "nope" })).toBe(401);
-  expect(await apiStatus(page, "POST", "/retrypolicies", { name: "nope" })).toBe(401);
+  expect(await apiStatus(page, "POST", "/partners", { name: "nope" })).toBe(403);
+  expect(await apiStatus(page, "POST", "/retrypolicies", { name: "nope" })).toBe(403);
   // Work groups had no guard of any kind until the handlers were given one.
-  expect(await apiStatus(page, "POST", "/workgroups", { name: "nope", busMessageName: "nope" })).toBe(401);
+  expect(await apiStatus(page, "POST", "/workgroups", { name: "nope", busMessageName: "nope" })).toBe(403);
 
   await signOut(page);
   await signInAsAdmin(page);

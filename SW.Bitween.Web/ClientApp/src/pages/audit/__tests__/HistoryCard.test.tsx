@@ -116,7 +116,8 @@ const areas: {
     entityName: "RetryPolicy",
     entityKey: "13",
     handlers: [
-      json("/retrypolicies/13", { name: "Default", groups: [], alertHandlerId: null, alertHandlerProperties: null }),
+      json("/retrypolicies/13", { name: "Default", groups: [], alertChannelId: null }),
+      json("/notificationchannels", {}),
       none("/subscriptions"),
       http.post(apiPath("/retrypolicies/13/usage"), () => HttpResponse.json([])),
     ],
@@ -150,6 +151,7 @@ const areas: {
     entityKey: "15",
     handlers: [
       json("/apigateways/15", { id: 15, name: "Public", urlName: "public", partnersCount: 0, inactive: false, partners: [] }),
+      json("/apigateways/15/rejections", { node: "web-1:12", since: "2026-10-10T08:00:00Z", counts: {}, recent: [] }),
       none("/apigateways/attachments"),
       // What the attachments table resolves each wired subscription's columns from.
       ...["/subscriptions", "/documents", "/partners", "/workgroups", "/retrypolicies"].map((p) => none(p)),
@@ -212,14 +214,22 @@ describe("the history card", () => {
     renderApp(area.path, { handlers: [...area.handlers, trail.handler] });
 
     const panel = await historyPanel();
-    expect(await within(panel).findByRole("row", { name: /Added/ })).toBeVisible();
+    expect(await within(panel).findByRole("row", { name: /Created/ })).toBeVisible();
     // The card is one line per page, so the thing each page can get wrong is which row it asks about.
     expect(trail.asked.at(-1)?.get("entityName")).toBe(area.entityName);
     expect(trail.asked.at(-1)?.get("entityKey")).toBe(area.entityKey);
   });
 
   it("is on the settings page, covering the whole area", async () => {
-    const trail = auditTrail([auditRow({ entityName: "Setting", entityKey: "Bitween.JwtExpiryMinutes" })]);
+    const trail = auditTrail([
+      auditRow({
+        entityName: "Setting",
+        entityKey: "Bitween.JwtExpiryMinutes",
+        userId: null,
+        userDisplayName: null,
+        changes: { Value: { old: null, new: "60" } },
+      }),
+    ]);
     renderApp("/settings", {
       handlers: [
         json("/settings", [
@@ -242,10 +252,63 @@ describe("the history card", () => {
       ],
     });
 
-    // Settings has no per-row page, so its card covers the whole area.
+    // Settings has no per-row page, so its card covers the whole area, and each line says which
+    // setting it changed, by the label the form above gives it.
     const panel = await historyPanel();
-    expect(await within(panel).findByRole("row", { name: /Added/ })).toBeVisible();
+    expect(await within(panel).findByRole("row", { name: /Created/ })).toBeVisible();
+    expect(within(panel).getByRole("row", { name: /Sign-in session length \(minutes\)/ })).toBeVisible();
     expect(trail.asked.at(-1)?.get("entityName")).toBe("Setting");
     expect(trail.asked.at(-1)?.has("entityKey")).toBe(false);
+  });
+
+  it("folds the scheduler's repeated writes into one line, and opens it on request", async () => {
+    const nextRun = (i: number) =>
+      auditRow({
+        entityName: "Subscription",
+        entityKey: "16",
+        state: "Modified",
+        userId: "scheduled-job",
+        userDisplayName: null,
+        occurredOn: `2026-09-20T1${i}:00:00Z`,
+        changes: { ReceiveOn: { old: `2026-09-20T1${i}:00:00Z`, new: `2026-09-20T1${i + 1}:00:00Z` } },
+      });
+    const trail = auditTrail([
+      nextRun(4),
+      nextRun(3),
+      nextRun(2),
+      nextRun(1),
+      auditRow({
+        entityName: "Subscription",
+        entityKey: "16",
+        changes: {
+          Id: { old: null, new: 16 },
+          IsRunning: { old: null, new: false },
+          AggregateOn: { old: null, new: null },
+          Name: { old: null, new: "Push orders" },
+          HandlerId: { old: null, new: "http" },
+          DocumentId: { old: null, new: 5 },
+          Temporary: { old: null, new: true },
+          Description: { old: null, new: "Orders to the ERP" },
+        },
+      }),
+    ]);
+    const subscription = areas.find((a) => a.label === "subscription")!;
+    const { user } = renderApp(subscription.path, { handlers: [...subscription.handlers, trail.handler] });
+
+    const panel = within(await historyPanel());
+    const run = await panel.findByRole("row", { name: /Scheduler, 4 times/ });
+    expect(run).toHaveTextContent("Next run");
+    expect(run).toHaveTextContent(/last/);
+    expect(panel.getAllByRole("row", { name: /Next run/ })).toHaveLength(1);
+
+    // The creation names what was chosen, most telling first, and leaves the system's own fields out.
+    const created = panel.getByRole("row", { name: /Created/ });
+    expect(created).toHaveTextContent("Name, Information type, Delivery adapter +2 more");
+    expect(created).not.toHaveTextContent("Running mark");
+
+    await user.click(within(run).getByRole("button", { name: "Show each" }));
+    expect(panel.getAllByRole("row", { name: /Next run/ })).toHaveLength(5);
+    await user.click(within(run).getByRole("button", { name: "Hide" }));
+    expect(panel.getAllByRole("row", { name: /Next run/ })).toHaveLength(1);
   });
 });

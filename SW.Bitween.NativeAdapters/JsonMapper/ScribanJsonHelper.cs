@@ -12,17 +12,32 @@ public static class ScribanJsonHelper
     /// <summary>
     /// Renders a Scriban template against the provided input JSON and returns the mapped output JSON.
     /// </summary>`
-    public static string Render(string scribanTemplate, string inputJson)
+    public static string Render(string scribanTemplate, string inputJson) =>
+        Tidy(RenderText(scribanTemplate, inputJson));
+
+    /// <summary>
+    /// <see cref="Render(string, string)"/> for the mapper: the model is built from the payload's
+    /// shared parse when the pipeline has one for this text, parsed here otherwise.
+    /// </summary>
+    internal static string Render(string scribanTemplate, SW.PrimitiveTypes.XchangeFile input)
     {
-        var rendered = RenderText(scribanTemplate, inputJson);
+        var shared = ParsedPayload.Of(input);
+        return Tidy(shared != null && shared.TryGet(ParseProfiles.Defaults, input.Data, out var tree)
+            ? RenderText(scribanTemplate, tree)
+            : RenderText(scribanTemplate, input.Data));
+    }
 
+    /// <summary>The rendered text as a mapper's output: valid JSON, trailing commas gone, dotted keys expanded.</summary>
+    private static string Tidy(string rendered)
+    {
         // 6. Strip trailing commas that may appear after the last field/element
-        rendered = Regex.Replace(rendered, @",(\s*[}\]])", "$1");
+        rendered = StripTrailingCommas(rendered);
 
-        // 7. Parse rendered output — root may be an object OR an array
+        // 7. Parse rendered output - root may be an object OR an array
         JToken renderedToken;
         try
         {
+            PayloadParseTally.Parsed();
             renderedToken = JToken.Parse(rendered);
         }
         catch (JsonException ex)
@@ -39,15 +54,56 @@ public static class ScribanJsonHelper
     /// without requiring the result to be JSON.
     /// </summary>
     /// <remarks>
-    /// For templates whose output is prose rather than a payload — an email subject or body, say.
-    /// <see cref="Render"/> builds on this and adds the JSON validation and dotted-key expansion
+    /// For templates whose output is prose rather than a payload - an email subject or body, say.
+    /// <see cref="Render(string, string)"/> builds on this and adds the JSON validation and dotted-key expansion
     /// that a mapper needs and a sentence does not.
     /// </remarks>
+    /// <summary>
+    /// The template filled from a JSON message, or as written when the message isn't JSON: a CSV or a
+    /// flat file has no fields to fill. A broken template still throws, so a typo isn't used literally.
+    /// </summary>
+    /// <remarks>
+    /// The payload is parsed once: the parse that tells it is JSON is the one the template is filled
+    /// from. They used to be two parses of the same text with the same settings.
+    /// </remarks>
+    public static string FillIfJson(string template, string? payload)
+    {
+        if (string.IsNullOrEmpty(template)) return template;
+        var token = ParseIfJson(payload);
+        return token is null ? template : RenderText(template, token);
+    }
+
+    public static bool LooksLikeJson(string? payload) => ParseIfJson(payload) is not null;
+
+    /// <summary>The payload parsed, when it is an object or an array that parses; null otherwise.</summary>
+    private static JToken? ParseIfJson(string? payload)
+    {
+        if (string.IsNullOrWhiteSpace(payload)) return null;
+        if (payload.TrimStart()[0] is not ('{' or '[')) return null;
+        try
+        {
+            PayloadParseTally.Parsed();
+            return JToken.Parse(payload);
+        }
+        catch (Newtonsoft.Json.JsonReaderException)
+        {
+            return null;
+        }
+    }
+
     public static string RenderText(string scribanTemplate, string inputJson)
     {
-        // 1. Parse input JSON — handle both root object and root array
-        var rootToken = JToken.Parse(inputJson);
+        // 1. Parse input JSON - handle both root object and root array
+        PayloadParseTally.Parsed();
+        return RenderText(scribanTemplate, JToken.Parse(inputJson));
+    }
 
+    /// <summary>
+    /// <see cref="RenderText(string, string)"/> from a payload already parsed with Newtonsoft's
+    /// defaults, as <c>JToken.Parse</c> parses it. The tree is only read.
+    /// </summary>
+    internal static string RenderText(string scribanTemplate, JToken rootToken)
+    {
         // 2. Build top-level ScriptObject from input (recursive)
         ScriptObject scriptObj;
         if (rootToken is JArray rootArray)
@@ -89,25 +145,91 @@ public static class ScribanJsonHelper
                 System.Globalization.CultureInfo.InvariantCulture, out var d) ? d : (object?)null;
         }));
 
-        // 4. Create template context
-        var context = new TemplateContext { StrictVariables = false };
+        // 4. Create template context. Each loop is already capped (LoopLimit, 1000 by default),
+        // but loops nest, so three of them are a billion iterations inside the API process - and
+        // the preview endpoint renders a template the caller writes. The time limit bounds that.
+        using var timeout = new CancellationTokenSource(RenderTimeout);
+        var context = new TemplateContext { StrictVariables = false, CancellationToken = timeout.Token };
         context.PushGlobal(scriptObj);
         context.PushGlobal(functions);
 
         // 5. Parse and render Scriban template
-        var template = Template.Parse(scribanTemplate);
+        var template = CompiledTemplate(scribanTemplate);
         if (template.HasErrors)
         {
             var errors = string.Join("; ", template.Messages.Select(m => m.Message));
             throw new InvalidOperationException($"Template parse error: {errors}");
         }
 
-        return template.Render(context);
+        try
+        {
+            return template.Render(context);
+        }
+        catch (Scriban.Syntax.ScriptAbortException) when (timeout.IsCancellationRequested)
+        {
+            throw new InvalidOperationException(
+                $"The mapping template took longer than {RenderTimeout.TotalSeconds:0} seconds to render and was stopped.");
+        }
     }
+
+    internal static readonly CompiledCache<Template> Templates = new(CompiledTemplates.Capacity);
+
+    /// <summary>
+    /// The template parsed, kept by its text unless <c>Bitween:CacheCompiledTemplates</c> is off. A
+    /// template with errors is not kept, so it is parsed, and refused, on every call as before.
+    /// </summary>
+    /// <remarks>
+    /// Shared by concurrent renders: a parsed template is its syntax tree, and every render gets a
+    /// context of its own above, which is where Scriban keeps the state of a run.
+    /// </remarks>
+    internal static Template CompiledTemplate(string scribanTemplate) =>
+        CompiledTemplates.Enabled
+            ? Templates.GetOrAdd(scribanTemplate, text => Template.Parse(text), template => !template.HasErrors)
+            : Template.Parse(scribanTemplate);
+
+    /// <summary>Far beyond any real mapping; there only to stop a runaway one.</summary>
+    internal static TimeSpan RenderTimeout { get; set; } = TimeSpan.FromSeconds(30);
 
     // ─── Helpers ──────────────────────────────────────────────────────────────
 
-    /// <summary>Custom | json Scriban pipe — serializes any value to its JSON representation.</summary>
+    /// <summary>
+    /// Drops a comma that is followed only by whitespace and a closing bracket, outside string
+    /// values. The regex this replaced did not know where strings were, so a value such as
+    /// <c>"a, }"</c> was rewritten to <c>"a }"</c> on its way to the partner.
+    /// </summary>
+    internal static string StripTrailingCommas(string json)
+    {
+        var output = new System.Text.StringBuilder(json.Length);
+        var inString = false;
+        for (var i = 0; i < json.Length; i++)
+        {
+            var c = json[i];
+            if (inString)
+            {
+                output.Append(c);
+                if (c == '\\' && i + 1 < json.Length) output.Append(json[++i]);
+                else if (c == '"') inString = false;
+                continue;
+            }
+
+            if (c == '"')
+            {
+                inString = true;
+            }
+            else if (c == ',')
+            {
+                var next = i + 1;
+                while (next < json.Length && char.IsWhiteSpace(json[next])) next++;
+                if (next < json.Length && json[next] is '}' or ']') continue;
+            }
+
+            output.Append(c);
+        }
+
+        return output.ToString();
+    }
+
+    /// <summary>Custom | json Scriban pipe - serializes any value to its JSON representation.</summary>
     private static string JsonFilter(object? value)
     {
         return value switch

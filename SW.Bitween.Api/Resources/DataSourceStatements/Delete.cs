@@ -9,7 +9,7 @@ namespace SW.Bitween.Resources.DataSourceStatements;
 
 /// <summary>
 /// Refused while anything names it, and the refusal lists what. A statement deleted out from under
-/// a live subscription does not fail at delete time — it fails on the next message, as "not a
+/// a live subscription does not fail at delete time - it fails on the next message, as "not a
 /// statement this data source defines", somewhere nobody is watching.
 /// </summary>
 public class Delete(BitweenDbContext dbContext, RequestContext requestContext,

@@ -9,7 +9,7 @@ namespace SW.Bitween.Resources.Ops;
 
 /// <summary>
 /// What a consumed queue is for. The bus names queues after the consumer class and the
-/// bus message type — <c>xchangeservice.48low-result</c> — and only Bitween knows that
+/// bus message type - <c>xchangeservice.48low-result</c> - and only Bitween knows that
 /// <c>48low</c> is work group 48. Resolving it here keeps the answer next to
 /// <see cref="WorkGroup.GetBusMessageName"/>, which is the formula's owner; the UI used
 /// to rebuild that formula in TypeScript and match on the string.
@@ -25,7 +25,7 @@ public enum QueueLane
     /// <summary>A work group's <c>-Result</c> lane. Evaluates notifiers.</summary>
     Notifications,
 
-    /// <summary>A legacy event type, consumed only while that setting is on.</summary>
+    /// <summary>A legacy event type, consumed only while its queue still holds something.</summary>
     Legacy,
 
     /// <summary>Bookkeeping. No integration traffic.</summary>
@@ -42,7 +42,7 @@ public record LaneIdentity(QueueLane Lane, string Title, int? WorkGroupId, int? 
 /// Decodes the message-type half of a queue name into the thing it belongs to. One database
 /// read for all rows, so callers should resolve a whole snapshot at once.
 /// </summary>
-public class LaneResolver(BitweenDbContext dbContext)
+public class LaneResolver(BitweenDbContext dbContext, BitweenOptions options)
 {
     /// <summary><see cref="XchangeService"/>'s non-lane message types.</summary>
     private static readonly Dictionary<string, string> Control = new(System.StringComparer.OrdinalIgnoreCase)
@@ -50,7 +50,7 @@ public class LaneResolver(BitweenDbContext dbContext)
         ["SubscriptionUnpausedEvent"] = "Resumed integrations",
     };
 
-    /// <summary>Only declared while <c>Bitween.ConsumeLegacyEventMessages</c> is on.</summary>
+    /// <summary>Only read while their queues still hold something; see <see cref="SW.Bitween.Services.LegacyEventQueues"/>.</summary>
     private static readonly Dictionary<string, string> Legacy = new(System.StringComparer.OrdinalIgnoreCase)
     {
         ["ApiXchangeCreatedEvent"] = "API exchange created",
@@ -79,7 +79,7 @@ public class LaneResolver(BitweenDbContext dbContext)
                 string.Equals(d.BusMessageTypeName, messageName, System.StringComparison.OrdinalIgnoreCase));
 
             // A bus message only gets a queue while its information type is bus-enabled, so a
-            // name that resolves to nothing means the queue outlived it — and queues are never
+            // name that resolves to nothing means the queue outlived it - and queues are never
             // deleted. Reported as-is rather than hidden.
             return new LaneIdentity(QueueLane.FrontDoor, document?.Name ?? messageName, null, document?.Id);
         }
@@ -100,7 +100,7 @@ public class LaneResolver(BitweenDbContext dbContext)
             ? messageName[..^XchangeService.ResultQueueSuffix.Length]
             : messageName;
 
-        // WorkGroup.None — id 0, so it can never collide with a real group. This is the lane
+        // WorkGroup.None - id 0, so it can never collide with a real group. This is the lane
         // everything without a work group shares.
         if (string.Equals(groupName, WorkGroup.None.GetBusMessageName(), System.StringComparison.OrdinalIgnoreCase))
             return new LaneIdentity(lane, "Ungrouped", null, null);
@@ -109,5 +109,21 @@ public class LaneResolver(BitweenDbContext dbContext)
             string.Equals(wg.GetBusMessageName(), groupName, System.StringComparison.OrdinalIgnoreCase));
 
         return new LaneIdentity(lane, workGroup?.Name ?? messageName, workGroup?.Id, null);
+    }
+
+    /// <summary>
+    /// The parallel exchanges a queue was attached with, by the rule
+    /// <see cref="XchangeService.GetMessageTypeNamesWithOptions"/> applies: a work lane its group's,
+    /// a notifications lane 1, everything else the default. Not capped by prefetch.
+    /// </summary>
+    public ushort Concurrency(LaneIdentity identity)
+    {
+        if (identity.Lane == QueueLane.Notifications) return 1;
+        if (identity.Lane == QueueLane.Work && identity.WorkGroupId is { } id)
+        {
+            var workGroup = workGroups.FirstOrDefault(wg => wg.Id == id);
+            if (workGroup != null) return workGroup.WorkLaneConcurrency(options.BusDefaultQueuePrefetch ?? 12);
+        }
+        return options.ResolvedBusDefaultConcurrency;
     }
 }

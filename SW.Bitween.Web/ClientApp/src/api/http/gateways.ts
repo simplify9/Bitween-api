@@ -9,17 +9,20 @@ import type {
   BusGatewayRoute,
   BusGatewayRow,
   GatewayAuthentication,
+  GatewayFailureAnswer,
   GatewayAuthMethod,
   InlineSubscriptionDraft,
   MatchGroup,
+  MirrorListFilter,
   Paged,
+  GatewayRejections,
 } from "../types";
 import { toMatchGroup, toRawMatchExpression, type RawMatchSpec } from "./matchExpression";
 import { inlineSubscriptionBody } from "./subscriptionBody";
 import { get, post, request } from "./request";
 import { buildListQuery, SEARCHY_RULE } from "./searchQuery";
 
-// ——— backend shapes (camelCase over the wire) ———
+// --- backend shapes (camelCase over the wire) ---
 interface SearchyResponse<T> {
   result: T[];
   totalCount: number;
@@ -45,11 +48,12 @@ interface RawApiGateway {
   partnersCount: number | null;
   inactive: boolean | null;
   // Search's list projection includes this too (backend change made alongside
-  // this batch) — but keep it optional since Create's bare POST response has none.
+  // this batch) - but keep it optional since Create's bare POST response has none.
   partners: RawApiGatewayPartner[] | null;
   // Only the detail endpoint sends these.
   authentication?: RawGatewayAuthentication | null;
   defaultKeyHeader?: string | null;
+  failureAnswer?: GatewayFailureAnswer | null;
 }
 interface RawBusGatewayRoute {
   id: number;
@@ -109,6 +113,7 @@ const toApiGatewayDetail = (raw: RawApiGateway): ApiGatewayDetail => ({
     partnerClaim: raw.authentication?.partnerClaim ?? "",
   },
   defaultKeyHeader: raw.defaultKeyHeader ?? "partnerkey",
+  failureAnswer: raw.failureAnswer ?? undefined,
 });
 
 const toBusGatewayRoute = (r: RawBusGatewayRoute): BusGatewayRoute => ({
@@ -152,14 +157,14 @@ const toBusGatewayDetail = (raw: RawBusGateway): BusGatewayDetail => ({
   ...toSource(raw),
 });
 
-/** The attachment always points at a subscription that already exists — a new one is
+/** The attachment always points at a subscription that already exists - a new one is
  * created on its own page first, not inline here (unlike a bus gateway route, which
- * still creates one in the same transaction — see `AddBusRouteInput`). */
+ * still creates one in the same transaction - see `AddBusRouteInput`). */
 export type AttachPartnerInput = { partnerId: number; subscriptionId: number };
 
 /**
  * A route points at a subscription that already exists, or defines one. Exactly one,
- * which the endpoint enforces — the union makes that unrepresentable rather than
+ * which the endpoint enforces - the union makes that unrepresentable rather than
  * merely wrong.
  */
 export type AddBusRouteInput = {
@@ -168,7 +173,7 @@ export type AddBusRouteInput = {
 } & ({ subscriptionId: number } | { newSubscription: InlineSubscriptionDraft });
 
 export const gatewayMethods = {
-  // ——— API gateways ———
+  // --- API gateways ---
 
   async listApiGateways(): Promise<ApiGatewayRow[]> {
     const res = await get<SearchyResponse<RawApiGateway>>("/apigateways");
@@ -178,6 +183,8 @@ export const gatewayMethods = {
   async searchApiGateways(query: {
     search: string;
     inactive?: boolean | null;
+    /** On a mirror: only those prod has too, or only those whose test says this. */
+    mirror?: MirrorListFilter | null;
     offset: number;
     limit: number;
   }): Promise<Paged<ApiGatewayRow>> {
@@ -185,6 +192,7 @@ export const gatewayMethods = {
       filters: [
         ["Name", SEARCHY_RULE.contains, query.search.trim()],
         ["Inactive", SEARCHY_RULE.equalsTo, query.inactive === null || query.inactive === undefined ? "" : String(query.inactive)],
+        ["Mirror", SEARCHY_RULE.equalsTo, query.mirror ?? ""],
       ],
       offset: query.offset,
       limit: query.limit,
@@ -193,12 +201,16 @@ export const gatewayMethods = {
     return { total: res.totalCount, result: (res.result ?? []).map(toApiGatewayRow) };
   },
 
+  getGatewayRejections(id: number): Promise<GatewayRejections> {
+    return get<GatewayRejections>(`/apigateways/${id}/rejections`);
+  },
+
   async getApiGateway(id: number): Promise<ApiGatewayDetail> {
     return toApiGatewayDetail(await get<RawApiGateway>(`/apigateways/${id}`));
   },
 
   /** Paged, searched view of one gateway's attachments, for the gateway page's own
-   * table — `getApiGateway` keeps returning the full list, still needed by the
+   * table - `getApiGateway` keeps returning the full list, still needed by the
    * attach-partner picker's exclude list. */
   async searchGatewayAttachments(
     apiGatewayId: number,
@@ -221,9 +233,15 @@ export const gatewayMethods = {
 
   async updateApiGateway(
     id: number,
-    changes: { name: string; urlName: string; inactive: boolean; authentication?: GatewayAuthentication },
+    changes: {
+      name: string;
+      urlName: string;
+      inactive: boolean;
+      authentication?: GatewayAuthentication;
+      failureAnswer?: GatewayFailureAnswer;
+    },
   ): Promise<ApiGateway> {
-    // Update replaces the record, so every field it accepts has to be sent back —
+    // Update replaces the record, so every field it accepts has to be sent back -
     // omitting `inactive` would quietly reactivate a paused gateway on a rename.
     // Authentication is the exception: left out, the gateway keeps what it has.
     await post(`/apigateways/${id}`, {
@@ -231,6 +249,8 @@ export const gatewayMethods = {
       urlName: changes.urlName,
       inactive: changes.inactive,
       ...(changes.authentication && { authentication: changes.authentication }),
+      // Left out, like authentication, the gateway keeps what it has.
+      ...(changes.failureAnswer && { failureAnswer: changes.failureAnswer }),
     });
     return { id, name: changes.name, urlName: changes.urlName, inactive: changes.inactive, createdOn: "" };
   },
@@ -249,7 +269,7 @@ export const gatewayMethods = {
   async updateGatewayAttachment(id: number, input: { partnerId: number; subscriptionId: number }): Promise<void> {
     // Not a plain POST to updatepartner: ApiGatewayPartner's PK is the composite
     // (gatewayId, partnerId, subscriptionId), and the backend's UpdatePartner
-    // handler tries to mutate subscriptionId in place on a tracked entity — EF
+    // handler tries to mutate subscriptionId in place on a tracked entity - EF
     // Core rejects changes to a key column. Remove-then-add sidesteps it.
     await post(`/apigateways/${id}/removepartner`, { partnerId: input.partnerId });
     await post(`/apigateways/${id}/addpartner`, { partnerId: input.partnerId, subscriptionId: input.subscriptionId });
@@ -259,7 +279,7 @@ export const gatewayMethods = {
     await post(`/apigateways/${id}/removepartner`, { partnerId });
   },
 
-  // ——— bus gateways ———
+  // --- bus gateways ---
 
   async listBusGateways(): Promise<BusGatewayRow[]> {
     const res = await get<SearchyResponse<RawBusGateway>>("/busgateways");
@@ -270,6 +290,8 @@ export const gatewayMethods = {
     search: string;
     informationTypeId?: number | null;
     inactive?: boolean | null;
+    /** On a mirror: only those prod has too, or only those whose test says this. */
+    mirror?: MirrorListFilter | null;
     offset: number;
     limit: number;
   }): Promise<Paged<BusGatewayRow>> {
@@ -278,6 +300,7 @@ export const gatewayMethods = {
         ["Name", SEARCHY_RULE.contains, query.search.trim()],
         ["DocumentId", SEARCHY_RULE.equalsTo, query.informationTypeId ?? ""],
         ["Inactive", SEARCHY_RULE.equalsTo, query.inactive == null ? "" : String(query.inactive)],
+        ["Mirror", SEARCHY_RULE.equalsTo, query.mirror ?? ""],
       ],
       offset: query.offset,
       limit: query.limit,
@@ -303,7 +326,7 @@ export const gatewayMethods = {
       inactive: false,
     });
     // A gateway is created on the internal bus and moved onto a broker afterwards, on its own
-    // page — the source is a decision about an existing gateway, not a hurdle to creating one.
+    // page - the source is a decision about an existing gateway, not a hurdle to creating one.
     return {
       id,
       name,
@@ -321,8 +344,8 @@ export const gatewayMethods = {
     id: number,
     changes: { name: string; inactive: boolean; dataSourceId?: number | null; endpoint?: string | null },
   ): Promise<BusGateway> {
-    // The bound information type is fixed at creation — Update.cs silently
-    // ignores documentId — but the request DTO still requires a value, so
+    // The bound information type is fixed at creation - Update.cs silently
+    // ignores documentId - but the request DTO still requires a value, so
     // fetch the current one to round-trip it rather than sending a bogus 0.
     const current = await get<RawBusGateway>(`/busgateways/${id}`);
 

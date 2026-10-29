@@ -14,10 +14,20 @@ namespace SW.Bitween.Resources.Accounts
     [HandlerName("login")]
     [Unprotect]
     public class Login(JwtTokenParameters jwtTokenParameters, BitweenDbContext dbContext,
-        BitweenOptions BitweenSettings, IHttpContextAccessor httpContextAccessor, ILogger<Login> logger) : ICommandHandler<UserLogin, object>
+        BitweenOptions BitweenSettings, IHttpContextAccessor httpContextAccessor, ILogger<Login> logger,
+        SignInThrottle throttle, Services.OidcSignIn oidc, Services.AccountMail mail) : ICommandHandler<UserLogin, object>
     {
-        private const int MaxFailedLoginAttempts = 5;
+        // Account-wide, across every address: the backstop for guessing spread over many of them.
+        // Five from any one address already locks that address out - see SignInThrottle.
+        private const int MaxFailedLoginAttempts = 20;
         private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
+        private static readonly TimeSpan RefreshTokenLifetime = TimeSpan.FromDays(30);
+        private static readonly TimeSpan RefreshGrace = TimeSpan.FromSeconds(30);
+
+        // Verified against when no account matches, so an unknown email costs the same PBKDF2 work
+        // as a known one. Without it the response time alone said which addresses have accounts.
+        private static readonly Lazy<string> UnknownAccountHash =
+            new(() => SecurePasswordHasher.Hash(Guid.NewGuid().ToString("N")));
 
         public async Task<object> Handle(UserLogin request)
         {
@@ -26,17 +36,67 @@ namespace SW.Bitween.Resources.Accounts
             var accountQ = dbContext
                 .Set<Account>()
                 .AsQueryable();
+            AccountExtensions.MicrosoftIdentity microsoftIdentity = null;
+            Services.OidcSignIn.OidcIdentity oidcIdentity = null;
 
-            // Prefer refresh token from HttpOnly cookie (secure), fall back to body (legacy)
-            var refreshTokenValue = httpContextAccessor.HttpContext?.Request.Cookies["refresh_token"];
-            if (string.IsNullOrEmpty(refreshTokenValue))
+            // Single sign-on, with Microsoft or an OpenID Connect provider: the provider vouched for
+            // who this is, so there is no password to check.
+            var ssoLogin = !string.IsNullOrEmpty(request.MsToken) || !string.IsNullOrEmpty(request.OidcCode);
+
+            // Credentials sent with the request are what the caller is asking to sign in as. A refresh
+            // cookie can still be in the browser from the previous session - a sign-out whose request
+            // never completed leaves it there - and preferring it signed the next person in as the
+            // previous one. So the cookie is only read when nothing else was sent.
+            var signingInWithCredentials = ssoLogin ||
+                                           !string.IsNullOrEmpty(request.Username) ||
+                                           !string.IsNullOrEmpty(request.Password);
+
+            // Refresh token from the HttpOnly cookie (secure), falling back to the body (legacy).
+            var refreshTokenValue = signingInWithCredentials
+                ? null
+                : httpContextAccessor.HttpContext?.Request.Cookies["refresh_token"];
+            if (string.IsNullOrEmpty(refreshTokenValue) && !signingInWithCredentials)
                 refreshTokenValue = request.RefreshToken;
 
             if (!string.IsNullOrEmpty(refreshTokenValue))
             {
-                var refreshToken = await dbContext.Set<RefreshToken>()
+                var refreshToken = await dbContext.Set<RefreshToken>().AsNoTracking()
                     .SingleOrDefaultAsync(x => x.Id == refreshTokenValue);
-                if (refreshToken is null)
+                var now = DateTime.UtcNow;
+
+                // Marked superseded rather than deleted, with one conditional UPDATE so two requests
+                // with the same token can't both be the first. A token superseded moments ago still
+                // works, for the browser whose copy of the new one went missing; one superseded longer
+                // ago is refused. Deleting it outright used to make the loser of a race throw a
+                // concurrency error - a 500 from the sign-in endpoint - and a lost response sign out.
+                var spent = false;
+                if (refreshToken is not null)
+                {
+                    spent = await dbContext.Set<RefreshToken>()
+                        .Where(t => t.Id == refreshTokenValue && t.SupersededOn == null)
+                        .ExecuteUpdateAsync(u => u.SetProperty(t => t.SupersededOn, now)) == 1;
+
+                    if (!spent)
+                        spent = await dbContext.Set<RefreshToken>().AsNoTracking()
+                            .AnyAsync(t => t.Id == refreshTokenValue && t.SupersededOn > now - RefreshGrace);
+
+                    // Superseded ones past their grace are of no further use to anyone.
+                    var graceEnded = now - RefreshGrace;
+                    await dbContext.Set<RefreshToken>()
+                        .Where(t => t.AccountId == refreshToken.AccountId && t.SupersededOn < graceEnded)
+                        .ExecuteDeleteAsync();
+                }
+
+                // The cookie expires after 30 days, but the row did not, and a refresh token sent in
+                // the body has no cookie to expire. Each refresh issues a new token, so this is an
+                // idle limit: a session in use keeps renewing, one left alone for 30 days ends.
+                if (spent && refreshToken.CreatedOn < now - RefreshTokenLifetime)
+                {
+                    logger.LogInformation("Refresh token older than {Days} days refused.", RefreshTokenLifetime.TotalDays);
+                    spent = false;
+                }
+
+                if (!spent)
                 {
                     logger.LogWarning("Refresh token not found in DB, clearing cookie and falling back to credentials.");
                     httpContextAccessor.HttpContext?.Response.Cookies.Delete("refresh_token");
@@ -44,22 +104,30 @@ namespace SW.Bitween.Resources.Accounts
                 }
                 else
                 {
-                    dbContext.Remove(refreshToken);
                     accountQ = accountQ.Where(u => u.Id == refreshToken.AccountId);
                 }
             }
+            else if (signingInWithCredentials &&
+                     httpContextAccessor.HttpContext?.Request.Cookies["refresh_token"] is { Length: > 0 } leftover)
+            {
+                // The previous session's token, left behind: it is replaced below, so it goes now
+                // rather than lingering as a second way in.
+                await dbContext.Set<RefreshToken>().Where(t => t.Id == leftover).ExecuteDeleteAsync();
+            }
 
-            if (string.IsNullOrEmpty(refreshTokenValue) && string.IsNullOrEmpty(request.MsToken) &&
+            if (string.IsNullOrEmpty(refreshTokenValue) && !ssoLogin &&
                 BitweenSettings.DisableEmailPasswordLogin)
             {
                 logger.LogWarning("Email/password login attempt rejected: DisableEmailPasswordLogin is enabled.");
-                throw new SWException("Email and password login is disabled. Please sign in with Microsoft.");
+                throw new SWException(oidc.IsConfigured && string.IsNullOrWhiteSpace(BitweenSettings.MsalClientId)
+                    ? "Email and password login is disabled. Please sign in with single sign-on."
+                    : "Email and password login is disabled. Please sign in with Microsoft.");
             }
 
             // A credential login must carry both a username and a password. Without this guard a
             // request with a valid username but empty/missing password would skip verification
             // below and still be issued a token.
-            if (string.IsNullOrEmpty(refreshTokenValue) && string.IsNullOrEmpty(request.MsToken) &&
+            if (string.IsNullOrEmpty(refreshTokenValue) && !ssoLogin &&
                 (string.IsNullOrEmpty(request.Username) || string.IsNullOrEmpty(request.Password)))
             {
                 logger.LogWarning("Login rejected: missing username or password on a credential login.");
@@ -72,14 +140,56 @@ namespace SW.Bitween.Resources.Accounts
             }
             else if (!string.IsNullOrEmpty(request.MsToken))
             {
-                var email = (await request.GetEmailFromAzureJwtDefault(logger))?.ToLower();
-                if (string.IsNullOrEmpty(email))
+                if (string.IsNullOrWhiteSpace(BitweenSettings.MsalClientId))
+                    throw new SWException("Microsoft sign-in is not configured.");
+
+                microsoftIdentity = await AccountExtensions.ValidateMicrosoftTokenAsync(
+                    request.MsToken, BitweenSettings.MsalClientId, BitweenSettings.MsalTenantId, logger);
+                if (microsoftIdentity is null)
                 {
-                    logger.LogWarning("MS login failed: could not extract email from token.");
-                    throw new SWException("Could not retrieve your email from Microsoft. Please ensure your Microsoft account has a valid email address and try again.");
+                    logger.LogWarning("MS login failed: the token was not valid for this application.");
+                    throw new SWException("Could not sign you in with Microsoft. Please try again, or contact your administrator.");
                 }
-                logger.LogInformation("MS login attempt. Extracted email from token: '{Email}'", email);
-                accountQ = accountQ.Where(u => u.Email.ToLower() == email);
+
+                // The bound identity first; the address only for an account that has none yet.
+                var identity = microsoftIdentity.ObjectAndTenant;
+                var email = microsoftIdentity.Email;
+                var accountId = await dbContext.Set<Account>().AsNoTracking()
+                                    .Where(u => u.MicrosoftIdentity == identity)
+                                    .Select(u => (int?)u.Id).FirstOrDefaultAsync()
+                                ?? await dbContext.Set<Account>().AsNoTracking()
+                                    .Where(u => u.Email.ToLower() == email)
+                                    .Select(u => (int?)u.Id).FirstOrDefaultAsync();
+                accountQ = accountQ.Where(u => u.Id == accountId);
+            }
+            else if (!string.IsNullOrEmpty(request.OidcCode))
+            {
+                try
+                {
+                    oidcIdentity = await oidc.CompleteAsync(request.OidcCode, request.OidcState);
+                }
+                catch (Services.OidcSignIn.Refused ex)
+                {
+                    logger.LogWarning("Single sign-on refused: {Reason}", ex.Message);
+                    throw new SWException(ex.Message);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning("Single sign-on refused: {Reason}", ex.Message);
+                    throw new SWException("Could not sign you in with single sign-on. Please try again, or contact your administrator.");
+                }
+
+                // The bound identity first; the address, when the provider vouches for it, only for
+                // an account that has none yet.
+                var identity = oidcIdentity.SubjectAndIssuer;
+                var email = oidcIdentity.Email;
+                var accountId = await dbContext.Set<Account>().AsNoTracking()
+                                    .Where(u => u.OidcIdentity == identity)
+                                    .Select(u => (int?)u.Id).FirstOrDefaultAsync()
+                                ?? (email == null ? null : await dbContext.Set<Account>().AsNoTracking()
+                                    .Where(u => u.Email.ToLower() == email)
+                                    .Select(u => (int?)u.Id).FirstOrDefaultAsync());
+                accountQ = accountQ.Where(u => u.Id == accountId);
             }
             else
             {
@@ -89,18 +199,35 @@ namespace SW.Bitween.Resources.Accounts
             var account = await accountQ
                 .SingleOrDefaultAsync();
 
+            // Service accounts sign in only with their tokens. They have no email or password to
+            // match, so this is the second lock on that door, not the first.
+            if (account is { IsService: true }) account = null;
+
+            var credentialLogin = string.IsNullOrEmpty(refreshTokenValue) && !ssoLogin;
+
             if (account is null)
             {
+                if (credentialLogin)
+                    SecurePasswordHasher.Verify(request.Password, UnknownAccountHash.Value);
+
                 if (!string.IsNullOrEmpty(request.MsToken))
                 {
                     logger.LogWarning("MS login failed: no account found matching the token email.");
                     throw new SWException("Your Microsoft account is not registered in the system. Please contact your administrator to be added.");
                 }
 
+                if (oidcIdentity is not null)
+                {
+                    logger.LogWarning("Single sign-on failed: no account is bound to the identity or has its verified address.");
+                    throw new SWException("Your account is not registered in the system. Please contact your administrator to be added.");
+                }
+
                 throw new SWException("Invalid username or password.");
             }
 
-            if (account.Disabled)
+            // A password sign-in learns the account is disabled only once the password is right -
+            // see below - so the message can't be used to find out which addresses exist.
+            if (account.Disabled && !credentialLogin)
             {
                 if (!string.IsNullOrEmpty(request.MsToken))
                 {
@@ -111,20 +238,46 @@ namespace SW.Bitween.Resources.Accounts
                 throw new SWException("Your account has been disabled. Please contact your administrator.");
             }
 
+            if (microsoftIdentity is not null)
+            {
+                if (account.MicrosoftIdentity is null)
+                    account.BindMicrosoftIdentity(microsoftIdentity.ObjectAndTenant);
+                else if (account.MicrosoftIdentity != microsoftIdentity.ObjectAndTenant)
+                {
+                    logger.LogWarning("MS login refused: account {AccountId} is bound to a different Microsoft identity.", account.Id);
+                    throw new SWException("This account is linked to a different Microsoft account. Please contact your administrator.");
+                }
+            }
+
+            if (oidcIdentity is not null)
+            {
+                if (account.OidcIdentity is null)
+                    account.BindOidcIdentity(oidcIdentity.SubjectAndIssuer);
+                else if (account.OidcIdentity != oidcIdentity.SubjectAndIssuer)
+                {
+                    logger.LogWarning("Single sign-on refused: account {AccountId} is bound to a different identity.", account.Id);
+                    throw new SWException("This account is linked to a different single sign-on identity. Please contact your administrator.");
+                }
+            }
+
             if (string.IsNullOrEmpty(refreshTokenValue) && !string.IsNullOrEmpty(request.Username) &&
-                !string.IsNullOrEmpty(request.Password) && string.IsNullOrEmpty(request.MsToken))
+                !string.IsNullOrEmpty(request.Password) && !ssoLogin)
             {
                 var nowUtc = DateTime.UtcNow;
-                if (account.IsLockedOut(nowUtc))
+                var address = httpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                var lockedUntil = new[] { account.IsLockedOut(nowUtc) ? account.LockoutEnd : null,
+                        throttle.LockedUntil(account.Id, address, nowUtc) }
+                    .Max();
+                if (lockedUntil is not null)
                 {
-                    var minutes = (int)Math.Ceiling((account.LockoutEnd!.Value - nowUtc).TotalMinutes);
+                    var minutes = (int)Math.Ceiling((lockedUntil.Value - nowUtc).TotalMinutes);
                     logger.LogWarning("Login rejected: account '{Email}' is temporarily locked.", account.Email);
                     throw new SWException(
                         $"Your account is temporarily locked due to multiple failed login attempts. " +
                         $"Please try again in {minutes} minute{(minutes == 1 ? "" : "s")}.");
                 }
 
-                // An account can have no stored password at all — that is how one created while
+                // An account can have no stored password at all - that is how one created while
                 // Microsoft-only sign-in was on looks, and that setting can be turned back off.
                 // Verify dereferences the stored hash, so without this the attempt is a 500 from
                 // an unauthenticated endpoint instead of an ordinary failed sign-in.
@@ -132,6 +285,8 @@ namespace SW.Bitween.Resources.Accounts
                     string.IsNullOrEmpty(account.Password) ||
                     !SecurePasswordHasher.Verify(request.Password, account.Password))
                 {
+                    throttle.RegisterFailure(account.Id, address, nowUtc);
+
                     // Atomic DB-side update so concurrent wrong-password attempts can't read the
                     // same count and lose increments, which would let them slip past the lockout.
                     var lockoutEnd = nowUtc.Add(LockoutDuration);
@@ -142,16 +297,30 @@ namespace SW.Bitween.Resources.Accounts
                                 a => a.FailedLoginCount + 1 >= MaxFailedLoginAttempts ? lockoutEnd : a.LockoutEnd)
                             .SetProperty(a => a.FailedLoginCount,
                                 a => a.FailedLoginCount + 1 >= MaxFailedLoginAttempts ? 0 : a.FailedLoginCount + 1));
+
+                    // It wasn't locked a moment ago - that was checked above - so a lock now is this
+                    // attempt's, and the owner should know someone is guessing.
+                    if (await dbContext.Set<Account>().AnyAsync(a => a.Id == account.Id && a.LockoutEnd > nowUtc))
+                        mail.SendInBackground(account.Email, Services.AccountEmails.Locked(
+                            account.Email, mail.PublicBase, MaxFailedLoginAttempts, lockoutEnd));
                     throw new SWException("Invalid username or password.");
                 }
 
+                if (account.Disabled)
+                    throw new SWException("Your account has been disabled. Please contact your administrator.");
+
+                throttle.Clear(account.Id, address);
                 account.RegisterSuccessfulLogin();
+                account.UpgradePasswordHash(request.Password);
             }
+
+            // A sign-in, not a session renewing itself: the member's last sign-in, and the trail's.
+            if (string.IsNullOrEmpty(refreshTokenValue)) account.SignedIn();
 
             var newRefreshToken = CreateRefreshToken(account, LoginMethod.EmailAndPassword);
             await dbContext.SaveChangesAsync();
 
-            // Set refresh token as a secure, HttpOnly cookie — not accessible to JavaScript.
+            // Set refresh token as a secure, HttpOnly cookie - not accessible to JavaScript.
             // Secure is always on: the app is served over HTTPS, and TLS is terminated at the
             // reverse proxy, so Request.IsHttps would otherwise be false and drop the attribute.
             httpContextAccessor.HttpContext?.Response.Cookies.Append("refresh_token", newRefreshToken, new CookieOptions
@@ -159,10 +328,10 @@ namespace SW.Bitween.Resources.Accounts
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.Lax,
-                Expires = DateTimeOffset.UtcNow.AddDays(30)
+                Expires = DateTimeOffset.UtcNow.Add(RefreshTokenLifetime)
             });
 
-            // Return only the JWT — refresh token stays in the cookie, not in the response body.
+            // Return only the JWT - refresh token stays in the cookie, not in the response body.
             // MustChangePassword rides along so the client can send them straight to the change
             // form; the token grants nothing until they do, so this is a courtesy, not the control.
             return new

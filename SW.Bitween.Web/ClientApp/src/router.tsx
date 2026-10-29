@@ -1,468 +1,210 @@
-import { Navigate, createBrowserRouter, type RouteObject } from "react-router";
+import { createBrowserRouter, type RouteObject } from "react-router";
 import { RequireAuth, RequirePermission } from "./auth/guards";
-import { useSession } from "./auth/SessionContext";
+import { PAGES, type PageId } from "./pages";
 import { AppShell } from "./components/layout/AppShell";
-import { NAV_GROUPS, homePath } from "./nav";
 import { LoginPage } from "./pages/auth/Login";
 import { ChangePasswordPage } from "./pages/auth/ChangePassword";
-import { NotFoundPage, PlaceholderPage } from "./pages/PlaceholderPage";
-import { ProfilePage } from "./pages/ProfilePage";
-import { AuditPage } from "./pages/audit/AuditPage";
-import { SettingsPage } from "./pages/settings/SettingsPage";
-import MapperEditorRoute from "./components/nativeMapper/MapperEditorRoute";
-import { DashboardPage } from "./pages/dashboard/DashboardPage";
-import { ExchangeNewPage } from "./pages/exchanges/ExchangeNewPage";
-import { ExchangesPage } from "./pages/exchanges/ExchangesPage";
-import { QueueHealthPage } from "./pages/queue-health/QueueHealthPage";
-import { ScheduledRetriesPage } from "./pages/scheduled-retries/ScheduledRetriesPage";
-import { ApiGatewayNewPage } from "./pages/api-gateways/ApiGatewayNewPage";
-import { ApiGatewaysPage } from "./pages/api-gateways/ApiGatewaysPage";
-import { ApiGatewayPage } from "./pages/api-gateways/ApiGatewayPage";
-import { AttachPartnerPage } from "./pages/api-gateways/AttachPartnerPage";
-import { NewGatewaySubscriptionPage } from "./pages/api-gateways/NewGatewaySubscriptionPage";
-import { EditAttachmentPage } from "./pages/api-gateways/EditAttachmentPage";
-import { BusGatewayNewPage } from "./pages/bus-gateways/BusGatewayNewPage";
-import { BusGatewayPage } from "./pages/bus-gateways/BusGatewayPage";
-import { BusGatewaysPage } from "./pages/bus-gateways/BusGatewaysPage";
-import { DataSourceNewPage } from "./pages/data-sources/DataSourceNewPage";
-import { DataSourcePage } from "./pages/data-sources/DataSourcePage";
-import { DataSourcesPage } from "./pages/data-sources/DataSourcesPage";
-import { FlowPage } from "./pages/flow/FlowPage";
-import { GlobalValueSetPage } from "./pages/global-values/GlobalValueSetPage";
-import { GlobalValueSetsPage } from "./pages/global-values/GlobalValueSetsPage";
-import { InformationTypePage } from "./pages/information-types/InformationTypePage";
-import { InformationTypesPage } from "./pages/information-types/InformationTypesPage";
-import { SubscriptionPage } from "./pages/subscriptions/SubscriptionPage";
-import { SubscriptionsPage } from "./pages/subscriptions/SubscriptionsPage";
-import { NotifierPage } from "./pages/notifiers/NotifierPage";
-import { NotifiersPage } from "./pages/notifiers/NotifiersPage";
-import { PartnerPage } from "./pages/partners/PartnerPage";
-import { PartnersPage } from "./pages/partners/PartnersPage";
-import { NewScheduledJobPage } from "./pages/scheduled-jobs/NewScheduledJobPage";
-import { ScheduledJobsPage } from "./pages/scheduled-jobs/ScheduledJobsPage";
-import { AggregationsPage } from "./pages/aggregations/AggregationsPage";
-import { NewAggregationPage } from "./pages/aggregations/NewAggregationPage";
-import { ResponseSubscriptionsPage } from "./pages/response-subscriptions/ResponseSubscriptionsPage";
-import { NewResponseSubscriptionPage } from "./pages/response-subscriptions/NewResponseSubscriptionPage";
-import { RetryPoliciesPage } from "./pages/retry-policies/RetryPoliciesPage";
-import { RetryPolicyPage } from "./pages/retry-policies/RetryPolicyPage";
-import { MembersPage } from "./pages/team/MembersPage";
-import { RoleEditor } from "./pages/team/RoleEditor";
-import { RolesPage } from "./pages/team/RolesPage";
-import { WorkGroupPage } from "./pages/work-groups/WorkGroupPage";
-import { WorkGroupsPage } from "./pages/work-groups/WorkGroupsPage";
+import { CliLoginPage } from "./pages/auth/CliLogin";
+import { OidcCallbackPage } from "./pages/auth/OidcCallback";
+import { ForgotPasswordPage } from "./pages/auth/ForgotPassword";
+import { SetPasswordPage } from "./pages/auth/SetPassword";
+import { NotFoundPage } from "./pages/NotFoundPage";
+import { RouteError } from "./pages/RouteError";
+import { Suspense, type ReactNode } from "react";
+import {
+  AdapterEditorPage,
+  AdaptersPage,
+  AggregationsPage,
+  ApiGatewayNewPage,
+  ApiGatewayPage,
+  ApiGatewaysPage,
+  AttachPartnerPage,
+  AuditPage,
+  BusGatewayNewPage,
+  BusGatewayPage,
+  BusGatewaysPage,
+  DashboardPage,
+  DataSourceNewPage,
+  DataSourcePage,
+  DataSourcesPage,
+  EditAttachmentPage,
+  ExchangeNewPage,
+  ExchangesPage,
+  FlowPage,
+  ConnectionPage,
+  ConnectionsPage,
+  OAuthCallbackPage,
+  GlobalValueSetPage,
+  GlobalValueSetsPage,
+  HomeRedirect,
+  InformationTypePage,
+  InformationTypesPage,
+  MapperEditorRoute,
+  MembersPage,
+  NewAggregationPage,
+  NewGatewaySubscriptionPage,
+  NewResponseSubscriptionPage,
+  NewScheduledJobPage,
+  NodesPage,
+  NotifierPage,
+  NotifiersPage,
+  PartnerPage,
+  PartnersPage,
+  ProfilePage,
+  QueueHealthPage,
+  ResponseSubscriptionsPage,
+  RetryPoliciesPage,
+  RetryPolicyPage,
+  RetryGroupPage,
+  NotificationChannelPage,
+  RoleEditor,
+  RolesPage,
+  ServiceAccountsPage,
+  ScheduledJobsPage,
+  ScheduledRetriesPage,
+  SettingsPage,
+  SubscriptionPage,
+  SubscriptionsPage,
+  TeamRedirect,
+  WorkGroupPage,
+  WorkGroupsPage,
+} from "./routePages";
 
-/** "/" lands on the first page this session is allowed to see. */
-function HomeRedirect() {
-  const { session } = useSession();
-  if (!session) return null; // RequireAuth already handled this
-  return <Navigate to={homePath(session)} replace />;
-}
-
-/** An old "/team" link lands on whichever of the two pages this session can open. */
-function TeamRedirect() {
-  const { can } = useSession();
-  return <Navigate to={can("users.view") ? "/team/members" : "/team/roles"} replace />;
-}
-
-const placeholderRoutes = NAV_GROUPS.flatMap((group) => group.items)
-  .filter((item) => item.planned)
-  .map((item) => ({
-    path: item.path.slice(1),
-    element: <PlaceholderPage item={item} />,
-  }));
+import { LoadingBlock } from "./components/ui/basics";
 
 /** "/" → undefined (no basename); "/prefix/" → "/prefix" if ever remounted. */
 const basename = import.meta.env.BASE_URL.replace(/\/+$/, "") || undefined;
 
+/**
+ * Which component each page in the registry (src/pages.ts) renders. A `Record` over every page id:
+ * a page declared there and not given a component here doesn't compile.
+ */
+const PAGE_ELEMENTS: Record<PageId, ReactNode> = {
+  dashboard: <DashboardPage />,
+  exchanges: <ExchangesPage />,
+  exchangeNew: <ExchangeNewPage />,
+  scheduledRetries: <ScheduledRetriesPage />,
+  queueHealth: <QueueHealthPage />,
+  flow: <FlowPage />,
+  apiGateways: <ApiGatewaysPage />,
+  apiGatewayNew: <ApiGatewayNewPage />,
+  apiGateway: <ApiGatewayPage />,
+  attachPartner: <AttachPartnerPage />,
+  gatewaySubscriptionNew: <NewGatewaySubscriptionPage />,
+  gatewayAttachment: <EditAttachmentPage />,
+  busGateways: <BusGatewaysPage />,
+  busGatewayNew: <BusGatewayNewPage />,
+  busGateway: <BusGatewayPage />,
+  scheduledJobs: <ScheduledJobsPage />,
+  scheduledJobNew: <NewScheduledJobPage />,
+  scheduledJob: <SubscriptionPage />,
+  aggregations: <AggregationsPage />,
+  aggregationNew: <NewAggregationPage />,
+  aggregation: <SubscriptionPage />,
+  responseSubscriptions: <ResponseSubscriptionsPage />,
+  responseSubscriptionNew: <NewResponseSubscriptionPage />,
+  responseSubscription: <SubscriptionPage />,
+  subscriptions: <SubscriptionsPage />,
+  subscription: <SubscriptionPage />,
+  subscriptionMapper: <MapperEditorRoute />,
+  partners: <PartnersPage />,
+  partner: <PartnerPage />,
+  dataSources: <DataSourcesPage />,
+  dataSourceNew: <DataSourceNewPage />,
+  dataSource: <DataSourcePage />,
+  informationTypes: <InformationTypesPage />,
+  informationType: <InformationTypePage />,
+  adapters: <AdaptersPage />,
+  adapterDraft: (
+    <Suspense fallback={<LoadingBlock label="Opening the editor…" />}>
+      <AdapterEditorPage />
+    </Suspense>
+  ),
+  globalValues: <GlobalValueSetsPage />,
+  globalValueSet: <GlobalValueSetPage />,
+  connections: <ConnectionsPage />,
+  connection: <ConnectionPage />,
+  workGroups: <WorkGroupsPage />,
+  workGroup: <WorkGroupPage />,
+  retryPolicies: <RetryPoliciesPage />,
+  retryPolicy: <RetryPolicyPage />,
+  retryGroupNew: <RetryGroupPage isNew />,
+  retryGroup: <RetryGroupPage />,
+  notifiers: <NotifiersPage />,
+  notifier: <NotifierPage />,
+  members: <MembersPage />,
+  member: <MembersPage />,
+  serviceAccounts: <ServiceAccountsPage />,
+  serviceAccount: <ServiceAccountsPage />,
+  roles: <RolesPage />,
+  roleNew: <RoleEditor />,
+  role: <RoleEditor />,
+  settings: <SettingsPage />,
+  notificationChannelNew: <NotificationChannelPage isNew />,
+  notificationChannel: <NotificationChannelPage />,
+  nodes: <NodesPage />,
+  audit: <AuditPage />,
+  profile: <ProfilePage />,
+};
+
+/** What a route carries for the shell: which registry page is showing. */
+export interface PageHandle {
+  page: PageId;
+}
+
+const pageRoutes: RouteObject[] = (Object.keys(PAGES) as PageId[]).map((id) => {
+  const { path, permission, alsoFor } = PAGES[id];
+  const element = PAGE_ELEMENTS[id];
+  return {
+    path,
+    handle: { page: id } satisfies PageHandle,
+    element: permission ? (
+      <RequirePermission permission={permission} alsoFor={alsoFor}>
+        {element}
+      </RequirePermission>
+    ) : (
+      element
+    ),
+  };
+});
+
 /** Exported apart from the router so the component tests can mount the same routes in memory. */
 export const routes: RouteObject[] = [
-  { path: "/login", element: <LoginPage /> },
+  { path: "/login", element: <LoginPage />, errorElement: <RouteError /> },
+  // Where an OpenID Connect provider sends the browser back; it signs in, so it needs no session.
+  { path: "/oidc-callback", element: <OidcCallbackPage />, errorElement: <RouteError /> },
+  // Where invite and reset emails lead, and where a reset is asked for: no session, by definition.
+  { path: "/forgot-password", element: <ForgotPasswordPage />, errorElement: <RouteError /> },
+  { path: "/set-password", element: <SetPasswordPage />, errorElement: <RouteError /> },
   {
     element: <RequireAuth />,
+    // A page that crashes shows this, with a way back, rather than react-router's developer screen.
+    errorElement: <RouteError />,
     children: [
       // Inside the auth guard because it needs a session, outside the shell because the session
-      // it serves grants nothing — a sidebar built from those permissions would be empty.
+      // it serves grants nothing - a sidebar built from those permissions would be empty.
       { path: "change-password", element: <ChangePasswordPage /> },
+      // Where bitween login sends the browser; a session is all it needs, whatever it may do.
+      { path: "cli-login", element: <CliLoginPage /> },
+      // Where a provider sends the browser back after approving a connection.
+      {
+        path: "oauth-callback",
+        element: (
+          <RequirePermission permission="global-values.edit">
+            <Suspense fallback={<LoadingBlock />}>
+              <OAuthCallbackPage />
+            </Suspense>
+          </RequirePermission>
+        ),
+      },
       {
         element: <AppShell />,
         children: [
           { index: true, element: <HomeRedirect /> },
-          {
-            // No sidebar entry — the logo links here instead.
-            path: "dashboard",
-            element: (
-              <RequirePermission permission="dashboard.view">
-                <DashboardPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "exchanges",
-            element: (
-              <RequirePermission permission="exchanges.view">
-                <ExchangesPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "exchanges/new",
-            element: (
-              <RequirePermission permission="exchanges.operate">
-                <ExchangeNewPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "scheduled-retries",
-            element: (
-              <RequirePermission permission="exchanges.view">
-                <ScheduledRetriesPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "queue-health",
-            element: (
-              <RequirePermission permission="monitoring.view">
-                <QueueHealthPage />
-              </RequirePermission>
-            ),
-          },
-          // Members and Roles are two sidebar entries, not tabs inside a "Team" page, so
-          // "/team" itself is no longer a page — only a bookmark people may still hold.
+          // Members and Roles are two sidebar entries, not tabs inside a "Team" page, so "/team"
+          // itself is no longer a page - only a bookmark people may still hold.
           { path: "team", element: <TeamRedirect /> },
-          {
-            path: "team/members",
-            element: (
-              <RequirePermission permission="users.view">
-                <MembersPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "team/members/:id",
-            element: (
-              <RequirePermission permission="users.view">
-                <MembersPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "team/roles",
-            element: (
-              <RequirePermission permission="roles.view">
-                <RolesPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "team/roles/new",
-            element: (
-              <RequirePermission permission="roles.create">
-                <RoleEditor />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "team/roles/:id",
-            element: (
-              <RequirePermission permission="roles.view">
-                <RoleEditor />
-              </RequirePermission>
-            ),
-          },
-          { path: "profile", element: <ProfilePage /> },
-          {
-            path: "subscriptions",
-            element: (
-              <RequirePermission permission="subscriptions.view">
-                <SubscriptionsPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "subscriptions/:id",
-            element: (
-              <RequirePermission permission="subscriptions.view">
-                <SubscriptionPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "subscriptions/:id/mapper",
-            element: (
-              <RequirePermission permission="subscriptions.edit">
-                <MapperEditorRoute />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "api-gateways",
-            element: (
-              <RequirePermission permission="api-gateways.view">
-                <ApiGatewaysPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "bus-gateways",
-            element: (
-              <RequirePermission permission="bus-gateways.view">
-                <BusGatewaysPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "data-sources",
-            element: (
-              <RequirePermission permission="data-sources.view">
-                <DataSourcesPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "flow",
-            element: (
-              <RequirePermission permission="bus-gateways.view">
-                <FlowPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "scheduled-jobs",
-            element: (
-              <RequirePermission permission="subscriptions.view">
-                <ScheduledJobsPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "aggregations",
-            element: (
-              <RequirePermission permission="subscriptions.view">
-                <AggregationsPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "aggregations/new",
-            element: (
-              <RequirePermission permission="subscriptions.create">
-                <NewAggregationPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "response-subscriptions",
-            element: (
-              <RequirePermission permission="subscriptions.view">
-                <ResponseSubscriptionsPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "response-subscriptions/new",
-            element: (
-              <RequirePermission permission="subscriptions.create">
-                <NewResponseSubscriptionPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "api-gateways/new",
-            element: (
-              <RequirePermission permission="api-gateways.create">
-                <ApiGatewayNewPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "api-gateways/:id",
-            element: (
-              <RequirePermission permission="api-gateways.view">
-                <ApiGatewayPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "api-gateways/:id/attach",
-            element: (
-              <RequirePermission permission="api-gateways.edit">
-                <AttachPartnerPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "api-gateways/:id/attach/new-subscription",
-            element: (
-              <RequirePermission permission="subscriptions.create">
-                <NewGatewaySubscriptionPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "api-gateways/:id/attachments/:partnerId",
-            element: (
-              <RequirePermission permission="api-gateways.edit">
-                <EditAttachmentPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "bus-gateways/new",
-            element: (
-              <RequirePermission permission="bus-gateways.create">
-                <BusGatewayNewPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "bus-gateways/:id",
-            element: (
-              <RequirePermission permission="bus-gateways.view">
-                <BusGatewayPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            // Before the :id route, or "new" is read as an id.
-            path: "data-sources/new",
-            element: (
-              <RequirePermission permission="data-sources.create">
-                <DataSourceNewPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "data-sources/:id",
-            element: (
-              <RequirePermission permission="data-sources.view">
-                <DataSourcePage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "scheduled-jobs/new",
-            element: (
-              <RequirePermission permission="subscriptions.create">
-                <NewScheduledJobPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "partners",
-            element: (
-              <RequirePermission permission="partners.view">
-                <PartnersPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "partners/:id",
-            element: (
-              <RequirePermission permission="partners.view">
-                <PartnerPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "information-types",
-            element: (
-              <RequirePermission permission="documents.view">
-                <InformationTypesPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "information-types/:id",
-            element: (
-              <RequirePermission permission="documents.view">
-                <InformationTypePage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "global-values",
-            element: (
-              <RequirePermission permission="global-values.view">
-                <GlobalValueSetsPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "global-values/:id",
-            element: (
-              <RequirePermission permission="global-values.view">
-                <GlobalValueSetPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "notifiers",
-            element: (
-              <RequirePermission permission="notifiers.view">
-                <NotifiersPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "notifiers/:id",
-            element: (
-              <RequirePermission permission="notifiers.view">
-                <NotifierPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "retry-policies",
-            element: (
-              <RequirePermission permission="retry-policies.view">
-                <RetryPoliciesPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "retry-policies/:id",
-            element: (
-              <RequirePermission permission="retry-policies.view">
-                <RetryPolicyPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "work-groups",
-            element: (
-              <RequirePermission permission="workgroups.view">
-                <WorkGroupsPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "work-groups/:id",
-            element: (
-              <RequirePermission permission="workgroups.view">
-                <WorkGroupPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "settings",
-            element: (
-              <RequirePermission permission="settings.view">
-                <SettingsPage />
-              </RequirePermission>
-            ),
-          },
-          {
-            path: "audit",
-            element: (
-              <RequirePermission permission="audit.view">
-                <AuditPage />
-              </RequirePermission>
-            ),
-          },
-          ...placeholderRoutes,
+          ...pageRoutes,
           { path: "*", element: <NotFoundPage /> },
         ],
       },

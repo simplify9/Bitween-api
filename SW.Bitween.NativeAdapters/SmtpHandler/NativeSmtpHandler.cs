@@ -16,12 +16,14 @@ namespace SW.Bitween.NativeAdapters.SmtpHandler;
 /// Sends the payload as an email, with the subject and body written as templates over it.
 /// </summary>
 /// <remarks>
-/// Built for cases where the recipient is a person rather than a system — a retry budget running
-/// out, a notifier on a failed exchange — which is why the subject and body are templated instead
+/// Built for cases where the recipient is a person rather than a system - a retry budget running
+/// out, a notifier on a failed exchange - which is why the subject and body are templated instead
 /// of the payload being emailed raw. A JSON blob in an inbox tells nobody anything.
 /// </remarks>
-public class NativeSmtpHandler : INativeInfolinkHandler
+public class NativeSmtpHandler(DestinationCircuits? circuits = null) : INativeInfolinkHandler
 {
+    readonly DestinationCircuits circuits = circuits ?? DestinationCircuits.None;
+
     private SmtpHandlerInput _options = new();
 
     public string Name => "NativeSmtpHandler";
@@ -50,33 +52,93 @@ public class NativeSmtpHandler : INativeInfolinkHandler
         if (message.To.Count == 0 && message.Cc.Count == 0 && message.Bcc.Count == 0)
             throw new InvalidOperationException("No recipients were configured for the SMTP handler.");
 
+        await Deliver(circuits, message, _options.Host, _options.Port, _options.UseTls, _options.Username,
+            _options.Password, _options.From, _options.CertificateThumbprint);
+
+        return new XchangeFile(subject, xchangeFile.Filename);
+    }
+
+    /// <summary>
+    /// Connects, signs in when there is a password, and sends. Shared with the Email channel's
+    /// adapter, so both make the same choices about encryption, certificates and the circuit breaker.
+    /// </summary>
+    /// <param name="username">Empty signs in as <paramref name="from"/>.</param>
+    /// <param name="connectLimit">How long reaching the server may take; <see cref="ConnectLimit"/> unless a test says otherwise.</param>
+    internal static async Task Deliver(DestinationCircuits circuits, MimeMessage message, string host, int port,
+        bool useTls, string? username, string? password, string from, string? certificateThumbprint,
+        TimeSpan? connectLimit = null)
+    {
         using var client = new SmtpClient();
 
         // Revocation stays switched on, so a certificate the CA has actually revoked is still refused.
         // What the callback softens is the other outcome: the lookup needs the CA's OCSP or CRL server
         // to be reachable, which the corporate networks Bitween runs inside routinely block, and
         // MailKit's default treats "could not find out" exactly like "revoked". That rejected a
-        // perfectly good Gmail certificate — one OpenSSL accepts on the same machine — and the alert
+        // perfectly good Gmail certificate - one OpenSSL accepts on the same machine - and the alert
         // never went out. Soft-failing an undeterminable status is what browsers and mail clients do;
         // every other defect, revocation included, still fails.
         client.CheckCertificateRevocation = true;
-        client.ServerCertificateValidationCallback = (_, _, chain, errors) =>
-            IsCertificateAcceptable(errors,
-                chain?.ChainStatus.Select(s => s.Status) ?? Enumerable.Empty<X509ChainStatusFlags>());
+        // A pinned certificate is trusted for exactly what it is, a self-signed one included: how a
+        // relay with its own certificate is used without trusting every certificate.
+        var pinned = string.IsNullOrWhiteSpace(certificateThumbprint)
+            ? null
+            : FtpTransfer.NormalizeThumbprint(certificateThumbprint);
+        client.ServerCertificateValidationCallback = (_, certificate, chain, errors) =>
+            pinned != null
+                ? certificate != null && FtpTransfer.Thumbprint(certificate) == pinned
+                : IsCertificateAcceptable(errors,
+                    chain?.ChainStatus.Select(s => s.Status) ?? Enumerable.Empty<X509ChainStatusFlags>());
 
         // Named rather than left to Auto: on any port but 465, Auto means "encrypt if the server
-        // offers it", so a server that does not offer STARTTLS — or an offer stripped in transit —
+        // offers it", so a server that does not offer STARTTLS - or an offer stripped in transit -
         // silently continues in the clear. StartTls demands it and fails if it is not there. 465 is
         // the implicit-TLS port, where the handshake happens before any of that is negotiable.
-        var security = _options.UseTls
-            ? _options.Port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls
+        var security = useTls
+            ? port == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls
             : SecureSocketOptions.None;
 
-        await client.ConnectAsync(_options.Host, _options.Port, security);
+        // Admitted once the message is built: one that can't be built fails the same whether the relay is up or not.
+        using var pass = circuits.Enter($"smtp://{host}:{port}");
+        try
+        {
+            await Send(client, security, message, host, port, username, password, from, connectLimit ?? ConnectLimit);
+        }
+        catch (Exception e)
+        {
+            pass.Failed(e);
+            throw;
+        }
+        pass.Succeeded();
+    }
+
+    /// <summary>
+    /// How long connecting may take: reaching the server, its greeting and the TLS handshake. Left to
+    /// MailKit it is two minutes, which is what a test message sat through when a server expecting TLS
+    /// from the first byte was set on a port other than 465: each side waited for the other to speak.
+    /// </summary>
+    internal static readonly TimeSpan ConnectLimit = TimeSpan.FromSeconds(30);
+
+    private static async Task Send(SmtpClient client, SecureSocketOptions security, MimeMessage message,
+        string host, int port, string? username, string? password, string from, TimeSpan connectLimit)
+    {
+        using (var limit = new CancellationTokenSource(connectLimit))
+        {
+            try
+            {
+                await client.ConnectAsync(host, port, security, limit.Token);
+            }
+            catch (OperationCanceledException) when (limit.IsCancellationRequested)
+            {
+                throw new TimeoutException(
+                    $"The mail server {host}:{port} didn't answer within {connectLimit.TotalSeconds:0} seconds. Either it can't be reached, " +
+                    "or it expects TLS from the first byte: Bitween does that only on port 465, and on any other port " +
+                    "starts plainly and asks for STARTTLS.");
+            }
+        }
 
         // A relay that accepts unauthenticated mail from inside the network is a normal setup, so
         // only authenticate when a password was actually supplied.
-        if (!string.IsNullOrWhiteSpace(_options.Password))
+        if (!string.IsNullOrWhiteSpace(password))
         {
             // Refusing beats sending the credential over a connection anyone on the path can read.
             if (!client.IsSecure)
@@ -84,18 +146,14 @@ public class NativeSmtpHandler : INativeInfolinkHandler
                     "The SMTP handler will not send a password over an unencrypted connection. " +
                     "Set UseTls to true, or clear the password if the relay does not need one.");
 
-            await client.AuthenticateAsync(
-                string.IsNullOrWhiteSpace(_options.Username) ? _options.From : _options.Username,
-                _options.Password);
+            await client.AuthenticateAsync(string.IsNullOrWhiteSpace(username) ? from : username, password);
         }
 
         await client.SendAsync(message);
         await client.DisconnectAsync(true);
-
-        return new XchangeFile(subject, xchangeFile.Filename);
     }
 
-    private static void AddAddresses(InternetAddressList list, string? addresses)
+    internal static void AddAddresses(InternetAddressList list, string? addresses)
     {
         if (string.IsNullOrWhiteSpace(addresses)) return;
 
@@ -108,16 +166,11 @@ public class NativeSmtpHandler : INativeInfolinkHandler
     /// Renders a template against the payload, or returns it unchanged when the payload is not JSON.
     /// </summary>
     /// <remarks>
-    /// Non-JSON payloads are normal for a pipeline handler — a CSV or a flat file on its way out —
+    /// Non-JSON payloads are normal for a pipeline handler - a CSV or a flat file on its way out -
     /// and those have no fields to substitute. A broken template still throws, so a typo in a
     /// placeholder is not quietly emailed as literal text.
     /// </remarks>
-    internal static string Fill(string template, string payload)
-    {
-        if (string.IsNullOrEmpty(template) || !LooksLikeJson(payload)) return template;
-
-        return ScribanJsonHelper.RenderText(template, payload);
-    }
+    internal static string Fill(string template, string payload) => ScribanJsonHelper.FillIfJson(template, payload);
 
     /// <summary>
     /// Whether a server certificate should be accepted, given what validation found wrong with it.
@@ -125,7 +178,7 @@ public class NativeSmtpHandler : INativeInfolinkHandler
     /// <remarks>
     /// Only one defect is tolerated: a revocation status that could not be established, because the
     /// CA's OCSP or CRL server was unreachable. A certificate the CA has revoked, an untrusted root,
-    /// a wrong hostname and an expired certificate are all still refused — as is any chain flag not
+    /// a wrong hostname and an expired certificate are all still refused - as is any chain flag not
     /// named here, so a defect nobody thought about fails closed rather than slipping through.
     /// </remarks>
     internal static bool IsCertificateAcceptable(SslPolicyErrors errors,
@@ -143,23 +196,5 @@ public class NativeSmtpHandler : INativeInfolinkHandler
         // Masked rather than compared: one entry can carry several flags at once, and "revoked" set
         // alongside "could not check" has to fail.
         return chainStatus.All(status => (status & ~undeterminable) == X509ChainStatusFlags.NoError);
-    }
-
-    private static bool LooksLikeJson(string payload)
-    {
-        if (string.IsNullOrWhiteSpace(payload)) return false;
-
-        var trimmed = payload.TrimStart();
-        if (trimmed[0] is not ('{' or '[')) return false;
-
-        try
-        {
-            JToken.Parse(payload);
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
     }
 }

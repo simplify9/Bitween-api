@@ -5,11 +5,12 @@ import { render } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse, type RequestHandler } from "msw";
 import { RouterProvider, createMemoryRouter } from "react-router";
-import { TOKEN_KEY } from "../../api";
+import { setToken } from "../../api/http/request";
 import type { AppConfig } from "../../api/http/appConfig";
 import { SessionProvider } from "../../auth/SessionContext";
 import { routes } from "../../router";
 import { server } from "./server";
+import { defaultMetrics } from "./metricsFixtures";
 
 /**
  * Every permission key there is, read from the C# catalog rather than copied, so an administrator
@@ -62,15 +63,35 @@ export interface RenderAppOptions {
 }
 
 /**
- * Mounts the whole app — session, router, data layer — at one URL, against the mock network.
+ * Mounts the whole app - session, router, data layer - at one URL, against the mock network.
  *
  * The real routes and the real API client run; only the server is fake. So a test here reads like
  * the Playwright spec it replaced, minus the backend and the database that made those slow and
  * dependent on whatever data happened to be lying around.
  */
 export function renderApp(path: string, { as = {}, config = {}, handlers = [] }: RenderAppOptions = {}) {
-  if (as) localStorage.setItem(TOKEN_KEY, "test-token");
-  server.use(...handlers, appConfig(config), ...(as ? [profile(as)] : []));
+  if (as) setToken("test-token");
+  server.use(
+    ...handlers,
+    appConfig(config),
+    ...(as ? [profile(as)] : []),
+    // A lookup most subscription screens make and few tests care about: none, unless a test says.
+    http.get(apiPath("/subscriptioncategories"), () => HttpResponse.json({ result: [], totalCount: 0 })),
+    // A subscription's versions, which its overview lists: none recorded, unless a test says.
+    http.get(apiPath("/subscriptions/history"), () => HttpResponse.json([])),
+    // A receiver's bookmark, which a receiving subscription's runs show: none, unless a test says.
+    http.get(apiPath("/subscriptions/bookmark"), () => HttpResponse.json({ value: null, updatedOn: null })),
+    // The registry check, which adapter and subscription pages flag revoked versions from: none set.
+    http.get(apiPath("/marketplace/updates"), () =>
+      HttpResponse.json({ configured: false, checkedOn: null, error: null, adapters: [] }),
+    ),
+    // Metrics, which many pages show beside what they are about: none yet, unless a test says.
+    ...defaultMetrics(),
+    // Whether this Bitween mirrors prod, which list pages ask before offering to bring from it: it doesn't, unless a test says.
+    http.get(apiPath("/mirror"), () => HttpResponse.json({ target: false, sourceUrl: null, signIn: null, configured: false })),
+    // Which of a list's items prod has too, which a list on a mirror shows: none, unless a test says.
+    http.get(apiPath("/mirror/listed"), () => HttpResponse.json({ items: [], testing: null, waiting: [], error: null })),
+  );
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const router = createMemoryRouter(routes, { initialEntries: [path] });

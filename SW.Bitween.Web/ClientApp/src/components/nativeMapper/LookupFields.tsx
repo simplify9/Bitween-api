@@ -1,13 +1,14 @@
 import { useEffect, useState } from "react";
 import type { LookupRule } from "../../lib/nativeMapper/types";
-import { KeyValueEditor, toRecord, toRows, type KvRow } from "../ui/KeyValueEditor";
+import { KeyValueEditor, type KvRow } from "../ui/KeyValueEditor";
+import { toRecord, toRows } from "../ui/keyValueRows";
 import { Checkbox } from "../ui/forms";
 import { RowInput } from "./rowControls";
 
 /**
  * A substitution table: this incoming value becomes that outgoing one.
  *
- * The mapper compares keys as text — a table is written by hand, and the document
+ * The mapper compares keys as text - a table is written by hand, and the document
  * it matches may be XML or CSV where 1 and "1" are the same thing. So the editor
  * stores text on both sides and the field's own type cast turns "116" into a
  * number if that is what the output wants.
@@ -39,13 +40,13 @@ export function LookupFields({
 /**
  * The rows are held here rather than derived from the rule on every render.
  *
- * `toRecord` drops a row whose key is still empty — which is right for a table
+ * `toRecord` drops a row whose key is still empty - which is right for a table
  * keyed by name, and means a row the user has only just added cannot survive a
  * trip through the rule. Every other user of KeyValueEditor keeps draft rows and
  * converts them when saving; this editor has no save step, so it keeps them here.
  *
- * The rule is still the truth: if it stops agreeing with these rows — an undo, or
- * the mapping being reloaded — the draft is stale and gets replaced.
+ * The rule is still the truth: if it stops agreeing with these rows - an undo, or
+ * the mapping being reloaded - the draft is stale and gets replaced.
  */
 function LookupTable({
   lookup,

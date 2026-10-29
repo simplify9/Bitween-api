@@ -2,7 +2,7 @@ import { Link } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronDown, ChevronUp, Plus, X } from "lucide-react";
 import { api, type InformationTypeFormat, type SubscriptionType } from "../../../api";
-import { useSessionCan } from "../../../auth/guards";
+import { useSessionCan } from "../../../auth/useSessionCan";
 import { Badge } from "../../../components/ui/basics";
 import { Checkbox, Field, TextInput } from "../../../components/ui/forms";
 import { InfoTypePicker } from "../../../components/config/pickers";
@@ -14,6 +14,7 @@ import { HealthBadge } from "../../../components/config/shared";
 import { ResponseFields } from "../../subscriptions/studio/ResponseFields";
 import { keys } from "../../../api/queryKeys";
 import { workGroupQueueName } from "../../../lib/busMessageName";
+import { ExceptionBlock } from "../../../components/ui/Exception";
 import {
   BUS_NODES,
   type BusNodeId,
@@ -24,7 +25,7 @@ import {
 /**
  * The configuration surface: one node's form, docked under the canvas.
  *
- * Docked rather than a drawer over the diagram — the whole point of the canvas is
+ * Docked rather than a drawer over the diagram - the whole point of the canvas is
  * seeing where you are while you edit. It hides to give the canvas the screen,
  * but never while it holds unsaved edits: a panel that can conceal a half-finished
  * handler is how an operator loses work, which is why the drawer was rejected in
@@ -48,9 +49,9 @@ export function Inspector({
   if (node === null)
     return (
       <div className="shrink-0 border-t border-ink-200 bg-white px-4 py-2.5">
-        <p className="text-[13px] text-ink-400">
-          Pick a node on the canvas to configure it. Everything about this route — its filter, its
-          partner, and the subscription it runs — is edited here.
+        <p className="text-[13px] text-ink-500">
+          Pick a node on the canvas to configure it. Everything about this route - its filter, its
+          partner, and the subscription it runs - is edited here.
         </p>
       </div>
     );
@@ -76,13 +77,13 @@ export function Inspector({
           disabled={dirty && !collapsed}
           title={
             dirty && !collapsed
-              ? "Save or discard this step's changes first — hiding it would put them out of sight."
+              ? "Save or discard this step's changes first - hiding it would put them out of sight."
               : collapsed
                 ? "Show this step"
                 : "Hide this step and give the canvas the screen"
           }
           aria-label={collapsed ? "Show this step" : "Hide this step"}
-          className="shrink-0 rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
+          className="shrink-0 rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {collapsed ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
         </button>
@@ -91,7 +92,7 @@ export function Inspector({
           onClick={onClose}
           aria-label="Close this step"
           title="Close  Esc"
-          className="shrink-0 rounded-md p-1.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+          className="shrink-0 rounded-md p-1.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
         >
           <X className="size-4" />
         </button>
@@ -125,7 +126,7 @@ export function RouteBody({
   disabled: boolean;
   /**
    * Adapter slots on the subscription this route runs whose properties contain a
-   * `{{partner.…}}` token — empty when none do.
+   * `{{partner.…}}` token - empty when none do.
    */
   partnerTokenSlots: string[];
   onNewPartner: () => void;
@@ -197,7 +198,7 @@ export function RouteBody({
             Said here, at save time, because the alternative is finding out at run time:
             with no partner the token is never substituted and reaches the adapter as the
             literal text "{{partner.x}}", which surfaces as "UriFormatException: Invalid
-            URI" — an error naming nothing that appears on this screen.
+            URI" - an error naming nothing that appears on this screen.
           */}
           {draft.partner === "none" && partnerTokenSlots.length > 0 && (
             <p className="mt-1.5 rounded-lg bg-warn-100 px-2.5 py-2 text-[12px] text-warn-700">
@@ -240,7 +241,7 @@ export function SubscriptionBody({
   disabled,
   health,
   lastException,
-  /** Set while the subscription is being defined here — the name is the first thing asked. */
+  /** Set while the subscription is being defined here - the name is the first thing asked. */
   autoFocusName = false,
   response,
 }: {
@@ -252,7 +253,7 @@ export function SubscriptionBody({
   autoFocusName?: boolean;
   /**
    * A response subscription's own two questions. What it carries is asked only while it is
-   * being defined — nothing imposes it, unlike a route's, and it is fixed once it exists.
+   * being defined - nothing imposes it, unlike a route's, and it is fixed once it exists.
    */
   response?: {
     informationType?: { value: number | null; onChange: (id: number | null) => void };
@@ -314,7 +315,7 @@ export function SubscriptionBody({
             value={draft.retryPolicyId === null ? "" : String(draft.retryPolicyId)}
             disabled={disabled}
             onChange={(v) => onChange({ retryPolicyId: v === "" ? null : Number(v) })}
-            clearLabel="None — failures are not retried"
+            clearLabel="None - failures are not retried"
             options={(retryPolicies.data ?? []).map((p) => ({ value: String(p.id), label: p.name }))}
           />
         </Field>
@@ -347,9 +348,7 @@ export function SubscriptionBody({
         </p>
       )}
       {lastException && (
-        <pre className="max-h-32 overflow-auto rounded-xl border border-danger-200 bg-danger-50 px-4 py-3 font-mono text-[11px] leading-relaxed whitespace-pre-wrap text-danger-800">
-          {lastException}
-        </pre>
+        <ExceptionBlock text={lastException} title="Last error" />
       )}
     </div>
   );
@@ -373,7 +372,7 @@ export function TransformationBody({
       properties={draft.mapperProperties}
       onChange={(mapperId, mapperProperties) => onChange({ mapperId, mapperProperties })}
       disabled={disabled}
-      noneLabel="None — the message passes through unchanged"
+      noneLabel="None - the message passes through unchanged"
       mapperEditorHref={mapperEditorHref}
     />
   );
@@ -398,7 +397,7 @@ export function DeliveryBody({
       properties={draft.handlerProperties}
       onChange={(handlerId, handlerProperties) => onChange({ handlerId, handlerProperties })}
       disabled={disabled}
-      noneLabel="None — the message stops here"
+      noneLabel="None - the message stops here"
       sourceValues={sourceValues}
     />
   );
@@ -435,7 +434,7 @@ export function ResponseBody({
       />
       {draft.handlerId !== null && (
         <p className="text-[12px] text-ink-500">
-          A bus message is a fan-out — every route bound to that message's information type picks
+          A bus message is a fan-out - every route bound to that message's information type picks
           it up, on this gateway and any other.
         </p>
       )}
@@ -461,7 +460,7 @@ function PanelLinks({
   return (
     <div className="mt-1 flex items-center gap-3">
       {view && (
-        <Link to={view} className="text-[13px] font-medium text-crimson-700 hover:underline">
+        <Link to={view} className="text-[13px] font-medium link">
           View
         </Link>
       )}
@@ -469,7 +468,7 @@ function PanelLinks({
         <button
           type="button"
           onClick={onEdit}
-          className="text-[13px] font-medium text-crimson-700 hover:underline"
+          className="text-[13px] font-medium link"
         >
           {editLabel}
         </button>
@@ -478,7 +477,7 @@ function PanelLinks({
         <button
           type="button"
           onClick={onCreate}
-          className="inline-flex items-center gap-1 text-[13px] font-medium text-crimson-700 hover:underline"
+          className="inline-flex items-center gap-1 text-[13px] font-medium link"
         >
           <Plus className="size-3" /> {createLabel}
         </button>

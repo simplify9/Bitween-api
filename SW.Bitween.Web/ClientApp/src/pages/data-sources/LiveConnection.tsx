@@ -1,20 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
-import { Badge, LoadingBlock } from "../../components/ui/basics";
+import { Badge, LoadingBlock, ProblemText } from "../../components/ui/basics";
 import { keys } from "../../api/queryKeys";
 
 /**
  * What the connection is doing, as opposed to how it is configured.
  *
  * Two independent sources, kept visually apart because they fail differently.
- * **Adapter-reported** — queue depths, messages handled — arrives on the heartbeat and stops
- * arriving the moment the adapter wedges. **Host-observed** — memory, CPU, restarts — needs no
+ * **Adapter-reported** - queue depths, messages handled - arrives on the heartbeat and stops
+ * arriving the moment the adapter wedges. **Host-observed** - memory, CPU, restarts - needs no
  * cooperation from the adapter at all, so it still answers when the other half has gone quiet.
  * That distinction is the whole reason an operator can tell "the broker is idle" from "the adapter
  * is stuck", which no single health badge can say.
  *
  * Rendered inside the page's Connection card, which already shows the state badge and the last
- * error — so neither is repeated here unless the live figure says something different.
+ * error - so neither is repeated here unless the live figure says something different.
  */
 export function LiveConnection({
   dataSourceId,
@@ -69,7 +69,7 @@ export function LiveConnection({
       {!t.runningHere ? (
         <p className="text-sm text-ink-600">
           {t.ownedByNode
-            ? `Held by ${t.ownedByNode}, which is not this node — a broker connection is exclusive, so only that node can see its live figures.`
+            ? `Held by ${t.ownedByNode}, which is not this node - a broker connection is exclusive, so only that node can see its live figures.`
             : "Not running on any node. External bus providers are opt-in per node, so this is a setting rather than a fault."}
         </p>
       ) : (
@@ -119,7 +119,7 @@ export function LiveConnection({
               reporting.
             </p>
             <div className="flex flex-wrap gap-x-6 gap-y-1">
-              <Stat label="pid" value={t.processId ? String(t.processId) : "—"} />
+              <Stat label="pid" value={t.processId ? String(t.processId) : "-"} />
               <Stat label="memory" value={mb(t.workingSetBytes)} />
               <Stat label="cpu" value={`${t.cpuPercent.toFixed(1)}%`} />
               <Stat label="threads" value={String(t.threadCount)} />
@@ -147,7 +147,7 @@ export function LiveConnection({
           )}
 
           {t.lastError && t.lastError !== knownError && (
-            <p className="text-sm text-danger-800">{t.lastError}</p>
+            <ProblemText>{t.lastError}</ProblemText>
           )}
         </div>
       )}
@@ -164,12 +164,12 @@ function Stat({ label, value }: { label: string; value: string }) {
   );
 }
 
-const mb = (bytes: number) => (bytes > 0 ? `${(bytes / 1024 / 1024).toFixed(0)} MB` : "—");
+const mb = (bytes: number) => (bytes > 0 ? `${(bytes / 1024 / 1024).toFixed(0)} MB` : "-");
 
 /** The backend serializes a TimeSpan as "d.hh:mm:ss.fffffff" or "hh:mm:ss.fffffff". */
 const duration = (value: string): string => {
   const m = /^(?:(\d+)\.)?(\d{2}):(\d{2}):(\d{2})/.exec(value ?? "");
-  if (!m) return "—";
+  if (!m) return "-";
   const [, d, hh, mm, ss] = m;
   if (d && Number(d) > 0) return `${d}d ${Number(hh)}h`;
   if (Number(hh) > 0) return `${Number(hh)}h ${Number(mm)}m`;

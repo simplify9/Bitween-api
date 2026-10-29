@@ -10,6 +10,9 @@ public interface IDynamicHttpProxy
 }
 public class DynamicHttpProxy(IHttpClientFactory httpClientFactory) : BackgroundService, IDynamicHttpProxy
 {
+    /// <summary>The named client every adapter call goes through; it carries the address guard.</summary>
+    public const string ClientName = "bitween-adapters";
+
     private readonly ConcurrentDictionary<string, HttpClient> _cache = new();
     private readonly Channel<string> _usageChannel = Channel.CreateUnbounded<string>();
     
@@ -24,8 +27,11 @@ public class DynamicHttpProxy(IHttpClientFactory httpClientFactory) : Background
 
         // Fast path: No lock, thread-safe read
         var client = _cache.GetOrAdd(origin, key => {
-            var newClient = httpClientFactory.CreateClient(key);
+            var newClient = httpClientFactory.CreateClient(ClientName);
             newClient.BaseAddress = new Uri(key);
+            // Shared by every subscription calling this origin, so a timeout here would be one size
+            // for all of them; each request sets its own instead (HttpHandlerInput.TimeoutSeconds).
+            newClient.Timeout = Timeout.InfiniteTimeSpan;
             return newClient;
         });
 

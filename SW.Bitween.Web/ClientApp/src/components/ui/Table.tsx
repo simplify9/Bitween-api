@@ -1,6 +1,9 @@
 import { useMemo, useState, type ReactNode } from "react";
+import { clickableRow, clickableRowClass } from "./clickableRow";
 import { Search } from "lucide-react";
 import { Button } from "./basics";
+import { CardList, type RowCardSpec } from "./RowCard";
+import { usePhone } from "../../lib/useMediaQuery";
 
 export interface Column<T> {
   /** Header text. Empty string for action/icon columns. */
@@ -9,13 +12,13 @@ export interface Column<T> {
    * What the column means, shown on hovering the header.
    *
    * Required reading for any header whose value is derived, abbreviated or otherwise not
-   * self-explanatory — "Reliability" reading `3/10` told nobody anything, and the header is
+   * self-explanatory - "Reliability" reading `3/10` told nobody anything, and the header is
    * what a person reads before they think to hover a cell. Plain words, not the formula.
    */
   headerTitle?: string;
   /** Cell renderer. */
   cell: (row: T) => ReactNode;
-  /** Extra classes on both header and cells — width, alignment, wrapping. */
+  /** Extra classes on both header and cells - width, alignment, wrapping. */
   className?: string;
   /** Right-align the column (counts, times, actions). */
   align?: "right";
@@ -25,7 +28,7 @@ export interface Column<T> {
    * cell still needs `truncate` on its own child element to show the ellipsis,
    * and a `title` carrying the whole string.
    *
-   * Only for text nobody needs in full at a glance. A name is never that —
+   * Only for text nobody needs in full at a glance. A name is never that -
    * use `wrap`.
    */
   truncate?: boolean;
@@ -43,7 +46,7 @@ export interface Column<T> {
  * `max-width: 0` lets a cell shrink below its content so `truncate` can bite,
  * but in an auto-layout table several such columns all collapse to their
  * minimum and the row turns into a line of ellipses. So every *other* column
- * gets `w-px whitespace-nowrap` — the standard shrink-to-content trick — which
+ * gets `w-px whitespace-nowrap` - the standard shrink-to-content trick - which
  * leaves all the slack for the truncating ones to share.
  *
  * `wrap` columns take that same slack but carry no `max-w-0`, so the table
@@ -67,7 +70,7 @@ const cellClass = <T,>(c: Column<T>) =>
 /**
  * The page-level table: a bordered card holding every row of a list page.
  *
- * Density is owned here rather than per page — `px-3 py-1.5` throughout, so
+ * Density is owned here rather than per page - `px-3 py-1.5` throughout, so
  * a screen shows as many rows as it can rather than padding a handful out to
  * fill it. Never truncate the table itself; wide content scrolls sideways
  * inside the card while the page body stays put.
@@ -79,21 +82,32 @@ export function Table<T>({
   onRowClick,
   minWidth = "min-w-160",
   footer,
+  card,
 }: {
   columns: Column<T>[];
   rows: T[];
   rowKey: (row: T) => string | number;
   onRowClick?: (row: T) => void;
-  /** Tailwind min-width class — the point at which horizontal scroll kicks in. */
+  /** Tailwind min-width class - the point at which horizontal scroll kicks in. */
   minWidth?: string;
   /** Rendered under the table inside the same card, e.g. pagination. */
   footer?: ReactNode;
+  /**
+   * The row as a card, for a phone. Without one the table keeps its columns there too and
+   * scrolls sideways, which is fine for a short list of short names; a list whose names are long
+   * squeezed every name one syllable to a line instead, and a 40-row page ran to metres.
+   */
+  card?: (row: T) => RowCardSpec;
 }) {
+  const phone = usePhone();
+  if (card && phone)
+    return <CardList rows={rows} rowKey={rowKey} card={card} onRowClick={onRowClick} footer={footer} />;
+
   return (
     <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
       <table className={`w-full ${minWidth} text-left text-sm`}>
         <thead>
-          <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+          <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
             {columns.map((c, i) => (
               <th key={i} className={cellClass(c)} title={c.headerTitle}>
                 <span className={c.headerTitle ? "cursor-help decoration-ink-300 decoration-dotted underline-offset-4 hover:underline" : undefined}>
@@ -107,9 +121,9 @@ export function Table<T>({
           {rows.map((row) => (
             <tr
               key={rowKey(row)}
-              onClick={onRowClick ? () => onRowClick(row) : undefined}
+              {...(onRowClick ? clickableRow(() => onRowClick(row)) : {})}
               className={`border-b border-ink-50 last:border-b-0 ${
-                onRowClick ? "cursor-pointer hover:bg-ink-50/60" : ""
+                onRowClick ? `cursor-pointer hover:bg-ink-50/60 ${clickableRowClass}` : ""
               }`}
             >
               {columns.map((c, i) => (
@@ -127,14 +141,14 @@ export function Table<T>({
 }
 
 /**
- * The in-panel table — same data-density rules, no card of its own, since it
+ * The in-panel table - same data-density rules, no card of its own, since it
  * already sits inside a `Panel`. This is what replaced the old icon-and-link
  * lists ("Acme Logistics runs Acme invoice submission"): a sentence per row
  * reads fine at three rows and is useless at thirty, and it wasted the whole
  * right half of the row on nothing.
  *
- * It fits its panel rather than growing past it. It used to do the opposite —
- * grow and scroll sideways — on the reasoning that squeezing a column in a
+ * It fits its panel rather than growing past it. It used to do the opposite -
+ * grow and scroll sideways - on the reasoning that squeezing a column in a
  * ~360px panel gives a row of "3c8…". `wrap` retired that reasoning: a narrow
  * column can now be read in full over two lines, and growing was costing more
  * than it saved, because what it pushed out of sight was the Status and When
@@ -166,7 +180,7 @@ export function MiniTable<T>({
    * searching is a list too long to read. `noun` names what is in it, because
    * "Search 45 rows" tells nobody what they are about to search.
    *
-   * Only for lists the server hands over whole — filtering one that is already
+   * Only for lists the server hands over whole - filtering one that is already
    * just the latest eight reads as a search over everything, and isn't.
    */
   search?: { text: (row: T) => string; noun: string };
@@ -203,7 +217,7 @@ export function MiniTable<T>({
     <div className="space-y-2">
       {searchable && (
         <div className="relative">
-          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-400" />
+          <Search className="pointer-events-none absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-ink-500" />
           <input
             type="search"
             value={query}
@@ -213,7 +227,7 @@ export function MiniTable<T>({
             }}
             placeholder={`Search ${rows.length} ${search.noun}`}
             aria-label={`Search ${search.noun}`}
-            className="h-8 w-full rounded-lg border border-ink-200 bg-white pr-2.5 pl-8 text-[13px] placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+            className="h-8 w-full rounded-lg border border-ink-200 bg-white pr-2.5 pl-8 text-[13px] placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
           />
         </div>
       )}
@@ -224,7 +238,7 @@ export function MiniTable<T>({
         <div className="-mx-2 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-400 uppercase">
+              <tr className="border-b border-ink-100 text-[11px] font-medium tracking-wide text-ink-500 uppercase">
                 {columns.map((c, i) => (
                   <th key={i} className={`pb-1 ${cell(c)}`} title={c.headerTitle}>
                     <span className={c.headerTitle ? "cursor-help decoration-ink-300 decoration-dotted underline-offset-4 hover:underline" : undefined}>
@@ -238,9 +252,9 @@ export function MiniTable<T>({
               {shown.map((row) => (
                 <tr
                   key={rowKey(row)}
-                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  {...(onRowClick ? clickableRow(() => onRowClick(row)) : {})}
                   className={`border-b border-ink-50 last:border-b-0 ${
-                    onRowClick ? "cursor-pointer hover:bg-ink-50/60" : ""
+                    onRowClick ? `cursor-pointer hover:bg-ink-50/60 ${clickableRowClass}` : ""
                   }`}
                 >
                   {columns.map((c, i) => (
@@ -258,7 +272,7 @@ export function MiniTable<T>({
       {paged && (
         <div className="flex items-center justify-between gap-2 pt-0.5 text-[12px] text-ink-500">
           <span className="tabular-nums">
-            {start + 1}–{Math.min(start + pageSize, matches.length)} of {matches.length}
+            {start + 1}-{Math.min(start + pageSize, matches.length)} of {matches.length}
           </span>
           <span className="flex gap-1.5">
             <Button size="sm" disabled={start === 0} onClick={() => setPage(Math.max(0, page - 1))}>

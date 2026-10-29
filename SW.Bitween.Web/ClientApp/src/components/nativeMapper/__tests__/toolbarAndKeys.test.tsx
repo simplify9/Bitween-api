@@ -30,7 +30,7 @@ describe("the toolbar and the keyboard", { timeout: 20000 }, () => {
     await expectPreview('"customer": "Ali"');
 
     await user.click(screen.getByRole("button", { name: "Hide the preview" }));
-    expect(screen.queryByText("— what a partner would receive")).not.toBeInTheDocument();
+    expect(screen.queryByText("- what a partner would receive")).not.toBeInTheDocument();
 
     // Hidden, not switched off: the rules are untouched and it comes back as it was.
     await user.click(screen.getByRole("button", { name: "Show the preview" }));
@@ -99,7 +99,7 @@ describe("the toolbar and the keyboard", { timeout: 20000 }, () => {
     // own space takes it back.
     await user.click(screen.getByText("Output", { exact: true }));
 
-    // One step is one change, so this undoes pointing the rule somewhere — not the whole rule,
+    // One step is one change, so this undoes pointing the rule somewhere - not the whole rule,
     // which was three changes ago.
     await user.keyboard("{Control>}z{/Control}");
     expect(source).toHaveValue("");

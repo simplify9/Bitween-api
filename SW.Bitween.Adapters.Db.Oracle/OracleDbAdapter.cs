@@ -16,8 +16,8 @@ namespace SW.Bitween.Adapters.Db.Oracle;
 /// <summary>
 /// Bitween's Oracle data source provider.
 ///
-/// Everything generic — the command surface, paging, the statement allow-list, the polling receiver
-/// — lives in <see cref="DbResidentAdapterBase"/>. What is here is the part that is genuinely
+/// Everything generic - the command surface, paging, the statement allow-list, the polling receiver
+/// - lives in <see cref="DbResidentAdapterBase"/>. What is here is the part that is genuinely
 /// Oracle: how a connection string is spelled, what the data dictionary is called, which privileges
 /// are worth probing, and REF CURSOR.
 /// </summary>
@@ -98,14 +98,14 @@ public class OracleDbAdapter(IOptions<OracleOptions> options, ILogger<OracleDbAd
 
         if (hasService && hasSid)
             throw new InvalidOperationException(
-                "Both ServiceName and Sid are set, and they are alternatives — a service name names "
+                "Both ServiceName and Sid are set, and they are alternatives - a service name names "
                 + "a database service, a SID names an instance. Set whichever the DBA gave you and "
                 + "clear the other.");
 
         if (!hasService && !hasSid)
             throw new InvalidOperationException(
                 "Neither ServiceName nor Sid is set, so there is nothing to connect to on "
-                + $"{_options.Host}:{_options.Port}. A modern Oracle wants the SERVICE name — what "
+                + $"{_options.Host}:{_options.Port}. A modern Oracle wants the SERVICE name - what "
                 + "`lsnrctl services` lists, e.g. FREEPDB1.");
 
         // Easy Connect. The slash form is the service name, the colon form is the SID.
@@ -116,7 +116,7 @@ public class OracleDbAdapter(IOptions<OracleOptions> options, ILogger<OracleDbAd
 
     protected override void PrepareCommand(DbCommand command)
     {
-        // Without this ODP.NET binds by POSITION, in the order parameters were added — so a
+        // Without this ODP.NET binds by POSITION, in the order parameters were added - so a
         // statement whose parameters are written in a different order than the caller supplied them
         // binds the wrong values, silently, with no type error to catch it.
         if (command is OracleCommand oracle) oracle.BindByName = _options.BindByName;
@@ -126,20 +126,60 @@ public class OracleDbAdapter(IOptions<OracleOptions> options, ILogger<OracleDbAd
 
     // ------------------------------------------------------------------ checking
 
+    private static readonly HashSet<string> DdlKeywords = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "CREATE", "ALTER", "DROP", "TRUNCATE", "GRANT", "REVOKE", "RENAME", "COMMENT", "AUDIT",
+        "NOAUDIT", "ANALYZE", "FLASHBACK", "PURGE", "ASSOCIATE", "DISASSOCIATE",
+    };
+
+    /// <summary>The first word of the statement, past whitespace and comments.</summary>
+    internal static string LeadingKeyword(string sql)
+    {
+        var i = 0;
+        while (i < sql.Length)
+        {
+            if (char.IsWhiteSpace(sql[i])) { i++; continue; }
+            if (sql.AsSpan(i).StartsWith("--"))
+            {
+                var end = sql.IndexOf('\n', i);
+                i = end < 0 ? sql.Length : end + 1;
+                continue;
+            }
+            if (sql.AsSpan(i).StartsWith("/*"))
+            {
+                var end = sql.IndexOf("*/", i + 2, StringComparison.Ordinal);
+                i = end < 0 ? sql.Length : end + 2;
+                continue;
+            }
+            break;
+        }
+
+        var start = i;
+        while (i < sql.Length && char.IsLetter(sql[i])) i++;
+        return i > start ? sql[start..i] : null;
+    }
+
     /// <summary>
     /// Oracle is checked with <c>DBMS_SQL.PARSE</c> rather than by preparing.
     ///
-    /// ODP.NET's <c>Prepare</c> is a client-side no-op — Oracle validates when a statement is
-    /// executed, not when it is prepared — so the shared check passed everything here, including a
+    /// ODP.NET's <c>Prepare</c> is a client-side no-op - Oracle validates when a statement is
+    /// executed, not when it is prepared - so the shared check passed everything here, including a
     /// select from a table that does not exist. A statement reported as verified without being
     /// looked at is worse than no check, because it is the one nobody goes back to.
     ///
     /// PARSE is the real thing: it compiles the statement and resolves every name in it, raising
     /// ORA-00942 for a missing table and ORA-00936 for a syntax error, and it runs nothing. Bind
-    /// placeholders need no values — parsing is exactly the step before binding.
+    /// placeholders need no values - parsing is exactly the step before binding.
     /// </summary>
     protected override async Task CheckSyntaxAsync(DbConnection connection, string sql)
     {
+        // Except for DDL: Oracle executes a DDL statement the moment it is parsed, so checking
+        // "drop table orders" would drop it, from a Save or Test button, with no exchange behind it.
+        if (LeadingKeyword(sql) is { } keyword && DdlKeywords.Contains(keyword))
+            throw new InvalidOperationException(
+                $"{keyword} statements can't be checked on Oracle: parsing one runs it. " +
+                "Statements are for reading and writing data; run schema changes outside Bitween.");
+
         using var command = connection.CreateCommand();
         command.CommandText = @"
             declare
@@ -172,7 +212,7 @@ public class OracleDbAdapter(IOptions<OracleOptions> options, ILogger<OracleDbAd
         catch (Exception ex)
         {
             // Rethrown without the PL/SQL stack. Running the parse inside a block means the driver
-            // reports where in OUR block it failed — three ORA-06512 frames through SYS.DBMS_SQL —
+            // reports where in OUR block it failed - three ORA-06512 frames through SYS.DBMS_SQL -
             // underneath the one line that is about the operator's SQL. Keeping them would bury
             // "table does not exist" under the mechanism used to discover it.
             throw new InvalidOperationException(FirstOracleError(ex.Message), ex);
@@ -215,7 +255,7 @@ public class OracleDbAdapter(IOptions<OracleOptions> options, ILogger<OracleDbAd
         IsolationLevels = ["ReadCommitted", "Serializable"],
 
         // Array binding exists in ODP.NET, but as a different call shape rather than a flag on this
-        // path — so it is honestly false until BulkLoad is implemented for it.
+        // path - so it is honestly false until BulkLoad is implemented for it.
         BulkCopy = false,
         Merge = true,
         Returning = true,
@@ -232,13 +272,13 @@ public class OracleDbAdapter(IOptions<OracleOptions> options, ILogger<OracleDbAd
         ReceiveModes = ["bulk", "incrementing", "timestamp", "timestamp+incrementing", "marker"],
 
         // `fetch first N rows only`, since 12c. `rownum` is the older idiom and is a trap with an
-        // ORDER BY — it is applied before the sort, so it takes an arbitrary N and then sorts those.
+        // ORDER BY - it is applied before the sort, so it takes an arbitrary N and then sorts those.
         LimitStyle = "fetchFirst"
     };
 
     /// <summary>
     /// What this login can actually do. Read from the session's own privileges rather than assumed
-    /// from the engine — an integration account is usually granted a narrow slice, and finding that
+    /// from the engine - an integration account is usually granted a narrow slice, and finding that
     /// out at configure time is worth a round trip.
     /// </summary>
     protected override async Task<List<string>> ProbePrivilegesAsync(DbConnection connection,
@@ -259,7 +299,7 @@ public class OracleDbAdapter(IOptions<OracleOptions> options, ILogger<OracleDbAd
         }
         catch (Exception ex)
         {
-            // A login without SELECT on session_privs is unusual but not broken — it just cannot
+            // A login without SELECT on session_privs is unusual but not broken - it just cannot
             // tell us what it can do. Saying so beats failing the connection test over it.
             Logger.LogDebug(ex, "Could not read session_privs.");
             privileges.Add($"(could not be read: {ex.Message})");
@@ -306,7 +346,7 @@ public class OracleDbAdapter(IOptions<OracleOptions> options, ILogger<OracleDbAd
     /// <summary>
     /// Read from the data dictionary rather than through <c>GetSchema</c>. ODP.NET's collections
     /// cover tables and columns, but not comments, not routine parameter direction, and not
-    /// estimated row counts — and the ALL_* views answer all of it in one query per object type.
+    /// estimated row counts - and the ALL_* views answer all of it in one query per object type.
     ///
     /// ALL_, never DBA_: ALL_ is what this login can see, which is the honest answer and the one
     /// that does not need a privilege an integration account should not have.
@@ -380,7 +420,7 @@ public class OracleDbAdapter(IOptions<OracleOptions> options, ILogger<OracleDbAd
                     Comment = reader.IsDBNull(3) ? null : reader.GetString(3),
 
                     // From the optimiser's statistics, so it is as fresh as the last gather. Stated
-                    // as an estimate everywhere it surfaces — the alternative is COUNT(*) on a
+                    // as an estimate everywhere it surfaces - the alternative is COUNT(*) on a
                     // stranger's table, which is not a thing a menu should do.
                     RowCount = !request.IncludeRowCounts || reader.IsDBNull(4)
                         ? null
@@ -525,7 +565,7 @@ public class OracleDbAdapter(IOptions<OracleOptions> options, ILogger<OracleDbAd
                 DbType = dataType,
 
                 // Surfaced as RefCursor rather than Out, because a caller has to declare it
-                // differently — this is the field that tells them to.
+                // differently - this is the field that tells them to.
                 Direction = dataType == "REF CURSOR" ? "RefCursor" : DirectionOf(inOut),
                 Ordinal = reader.IsDBNull(3) ? 0 : Convert.ToInt32(reader.GetValue(3))
             });
@@ -578,7 +618,7 @@ public class OracleDbAdapter(IOptions<OracleOptions> options, ILogger<OracleDbAd
     };
 
     /// <summary>
-    /// What a value of this column arrives as in a result row. Coarse on purpose — it is here so a
+    /// What a value of this column arrives as in a result row. Coarse on purpose - it is here so a
     /// mapper author knows whether to expect a string or a number, not to be a type system.
     /// </summary>
     static string ClrTypeOf(string oracleType) => oracleType switch

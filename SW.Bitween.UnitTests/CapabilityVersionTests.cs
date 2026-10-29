@@ -7,7 +7,7 @@ namespace SW.Bitween.UnitTests;
 /// <summary>
 /// A capability list is written per engine and is therefore about the engine at its NEWEST. Where
 /// a feature arrived in a specific release, the list has to be narrowed once the server version is
-/// known — otherwise it promises something an older server will refuse, and the promise is found
+/// known - otherwise it promises something an older server will refuse, and the promise is found
 /// out on the first message rather than on the screen that made it.
 /// </summary>
 [TestClass]

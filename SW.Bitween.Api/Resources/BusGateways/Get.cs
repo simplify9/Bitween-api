@@ -35,7 +35,7 @@ namespace SW.Bitween.Resources.BusGateways
                 : await dbContext.Set<Domain.DataSources.DataSource>()
                     .AsNoTracking()
                     .Where(d => d.Id == gateway.DataSourceId)
-                    .Select(d => new { d.Name, d.LastKnownState })
+                    .Select(d => new { d.Name, d.LastKnownState, d.SecretProperties })
                     .FirstOrDefaultAsync();
 
             return new BusGatewayRow
@@ -49,7 +49,9 @@ namespace SW.Bitween.Resources.BusGateways
                 DataSourceName = dataSource?.Name,
                 DataSourceState = dataSource?.LastKnownState,
                 Endpoint = gateway.Endpoint,
-                EndpointProperties = gateway.EndpointProperties ?? new(),
+                // Masked as the data source's own properties are: what it declares secret, and any
+                // well-known credential name. Saving the sentinel back keeps the stored value.
+                EndpointProperties = DataSources.Secrets.Mask(gateway.EndpointProperties, dataSource?.SecretProperties),
                 RoutesCount = gateway.Routes.Count,
                 Routes = gateway.Routes.Select(r => new BusGatewayRouteDto
                 {

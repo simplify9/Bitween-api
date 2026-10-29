@@ -12,7 +12,7 @@ namespace SW.Bitween.Resources.DelayedRetries
     {
         public async Task<object> Handle(string key, DelayedRetryRunNow request)
         {
-            // What's being operated on is an exchange, not the policy that scheduled the retry —
+            // What's being operated on is an exchange, not the policy that scheduled the retry -
             // and this is the same page the UI gates on exchange permissions.
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Exchanges.Operate);
 
@@ -34,6 +34,7 @@ namespace SW.Bitween.Resources.DelayedRetries
                     : "This retry could not be carried out: the exchange it belonged to no longer exists.");
             }
 
+            dbContext.Record(requestContext, OperatorAction.RunRetryNow, key);
             await dbContext.SaveChangesAsync();
             return null;
         }

@@ -2,7 +2,7 @@ import type React from "react";
 import { useState } from "react";
 import { SquarePen, Trash2 } from "lucide-react";
 import type { TreeNode } from "../../../lib/mapping/mappingPreview";
-import { useMappingEditorState } from "../../../lib/mapping/MappingEditorContext";
+import { useMappingEditorState } from "../../../lib/mapping/mappingEditorHooks";
 import {
   FIXED_ITEM_MAX_DEPTH,
   initDraftFieldsFromNode,
@@ -14,7 +14,7 @@ import { LeafValueInput } from "../LeafValueInput";
 import { LookupDictionaryPanel } from "../LookupDictionaryPanel";
 import { useGlobalSets } from "../data";
 
-// ─── FixedItemFieldRows — recursive form for one fixed item's fields ──────────
+// ─── FixedItemFieldRows - recursive form for one fixed item's fields ──────────
 
 export interface FixedItemFieldRowsProps {
   fields: DraftField[];
@@ -51,6 +51,7 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-[10px] font-semibold text-crimson-700 font-mono">{df.key}[]</span>
                 <button className="text-ink-300 hover:text-crimson-500 transition"
+                  aria-label={`Remove ${df.key}`} title={`Remove ${df.key}`}
                   onClick={() => onFieldsChange(fields.filter((_, j) => j !== i))}>
                   <Trash2 size={11} />
                 </button>
@@ -89,10 +90,12 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
                         <span className="text-[9px] font-semibold text-crimson-600">item #{itemIdx + 1}</span>
                         <div className="flex items-center gap-1">
                           <button className="text-ink-300 hover:text-crimson-500 transition"
+                            aria-label={`Edit item ${itemIdx + 1}`} title={`Edit item ${itemIdx + 1}`}
                             onClick={() => updateField(i, { editingSubIdx: itemIdx })}>
                             <SquarePen size={11} />
                           </button>
                           <button className="text-ink-300 hover:text-crimson-500 transition"
+                            aria-label={`Remove item ${itemIdx + 1}`} title={`Remove item ${itemIdx + 1}`}
                             onClick={() => updateField(i, { nestedItems: (df.nestedItems ?? []).filter((_, ii) => ii !== itemIdx) })}>
                             <Trash2 size={11} />
                           </button>
@@ -107,7 +110,7 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
                               {f.mode === 'source' ? (f.transform ? `fx(${f.value})` : f.value)
                                 : f.mode === 'partner' ? `__partner__.${f.partnerPropKey ?? ''}`
                                 : f.mode === 'global' ? `__globals__.${f.globalSetId ?? ''}["${f.globalKey ?? ''}"]`
-                                : (f.value || '—')}
+                                : (f.value || '-')}
                             </span>
                           </div>
                         ) : (
@@ -162,7 +165,7 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
             <div className="flex items-center gap-1.5">
               {hasFreeKey ? (
                 <input
-                  className="w-20 flex-shrink-0 border border-ink-200 bg-transparent rounded px-1.5 py-0.5 text-xs font-mono focus:outline-none focus:border-crimson-400"
+                  className="w-20 flex-shrink-0 border border-ink-200 bg-transparent rounded px-1.5 py-0.5 text-xs font-mono focus:outline-none focus:border-focus-400"
                   placeholder="key" value={df.key}
                   onChange={(e) => updateField(i, { key: e.target.value })} />
               ) : (
@@ -181,7 +184,7 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
                 }}
               />
 
-              {/* Lookup button — only in source mode, matches OutputLeaf styling */}
+              {/* Lookup button - only in source mode, matches OutputLeaf styling */}
               {df.mode === 'source' && (
                 <button
                   onClick={() => {
@@ -195,7 +198,7 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
                     'flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded border transition',
                     hasLookup || isLookupOpen
                       ? 'border-crimson-400 bg-crimson-50 text-crimson-600'
-                      : 'border-ink-200 text-ink-400 hover:border-crimson-300 hover:text-crimson-500',
+                      : 'border-ink-200 text-ink-500 hover:border-crimson-300 hover:text-crimson-500',
                   ].join(' ')}
                 >Lookup</button>
               )}
@@ -220,9 +223,11 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
                 onGlobalKeyChange={(key) => updateField(i, { globalKey: key })}
               />
 
-              {/* Delete row — only for free-key fields */}
+              {/* Delete row - only for free-key fields */}
               {hasFreeKey && (
                 <button
+                  aria-label="Remove this field"
+                  title="Remove this field"
                   className="flex-shrink-0 text-ink-300 hover:text-crimson-500 transition"
                   onClick={() => { onFieldsChange(fields.filter((_, j) => j !== i)); if (lookupOpenIdx === i) setLookupOpenIdx(null); }}>
                   <Trash2 size={12} />
@@ -244,10 +249,10 @@ export const FixedItemFieldRows: React.FC<FixedItemFieldRowsProps> = ({
           </div>
         );
       })}
-      {/* Nested array dropdown — schema-only, depth-gated */}
+      {/* Nested array dropdown - schema-only, depth-gated */}
       {depth < FIXED_ITEM_MAX_DEPTH && availableArrayNodes.length > 0 && (
         <select
-          className="w-full border border-crimson-200 bg-white rounded px-1.5 py-0.5 text-[10px] font-mono text-crimson-700 focus:outline-none focus:border-crimson-400"
+          className="w-full border border-crimson-200 bg-white rounded px-1.5 py-0.5 text-[10px] font-mono text-crimson-700 focus:outline-none focus:border-focus-400"
           value=""
           onChange={(e) => {
             const childNode = childArrayNodes.find((c) => c.key === e.target.value);

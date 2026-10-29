@@ -1,4 +1,4 @@
-import { cleanup, screen, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it } from "vitest";
 import type { RetentionStatus, SettingRow } from "../../../api";
@@ -37,7 +37,7 @@ const environment = (
   ...row,
 });
 
-/** A few rows from each section, in catalog order — which is the order the page lists them in. */
+/** A few rows from each section, in catalog order - which is the order the page lists them in. */
 const ROWS: SettingRow[] = [
   editable({
     key: "Bitween.DocumentPrefix",
@@ -82,6 +82,13 @@ const ROWS: SettingRow[] = [
     access: "readonly",
     value: "adapters",
     hasValue: true,
+  }),
+  editable({
+    key: "Bitween.MailServer.Host",
+    section: "Mail server",
+    label: "Server",
+    kind: "string",
+    defaultValue: "",
   }),
   editable({
     key: "Bitween.RetryJobCron",
@@ -176,10 +183,10 @@ const openSettings = (section?: string) =>
     handlers: pageHandlers,
   });
 
-/** Sections are real links — a section is a URL you can paste into a ticket — not buttons. */
+/** Sections are real links - a section is a URL you can paste into a ticket - not buttons. */
 const sectionNav = async () => within(await screen.findByRole("navigation", { name: "Settings sections" }));
 
-// The draft is module state mirrored to sessionStorage, which setup.ts doesn't clear — so a test
+// The draft is module state mirrored to sessionStorage, which setup.ts doesn't clear - so a test
 // that fails with an edit staged would otherwise hand it to the next one. Unmounted first, so
 // clearing it doesn't re-render a page nobody is looking at any more.
 afterEach(() => {
@@ -188,7 +195,7 @@ afterEach(() => {
 });
 
 describe("the settings page", () => {
-  it("lists a section per catalog section, in catalog order, with no restart-required rows", async () => {
+  it("lists a section per catalog section, in catalog order, with channels after the mail server", async () => {
     openSettings();
 
     const links = (await sectionNav()).getAllByRole("link");
@@ -197,11 +204,17 @@ describe("the settings page", () => {
       "API behavior",
       "Single sign-on (Microsoft)",
       "Adapters",
+      "Mail server",
+      // Not a catalog section: channels are records with their own pages, next to the mail server
+      // every Email channel sends through.
+      "Notification channels",
       "Reliability & jobs",
       "Messaging",
       "Database",
       "Security",
       "Brand & theme",
+      // Not from the catalog: the read-only view of the instance, always last.
+      "About this instance",
     ]);
 
     // Nothing carries a restart badge: a setting that couldn't take effect immediately is shown
@@ -209,11 +222,34 @@ describe("the settings page", () => {
     expect(screen.queryByText("Restart", { exact: true })).not.toBeInTheDocument();
   });
 
+  it("opens on the notification channels alone for a member without the Settings permission", async () => {
+    let askedForSettings = false;
+    renderApp("/settings", {
+      as: { permissions: ["notifiers.view", "subscriptions.view"] },
+      handlers: [
+        http.get(apiPath("/settings"), () => {
+          askedForSettings = true;
+          return HttpResponse.json(ROWS);
+        }),
+        http.get(apiPath("/notificationchannels"), () => HttpResponse.json({ result: [], totalCount: 0 })),
+        http.get(apiPath("/notifiers"), () => HttpResponse.json({ result: [], totalCount: 0 })),
+        http.get(apiPath("/adapters/Catalog"), () => HttpResponse.json([])),
+      ],
+    });
+
+    const links = (await sectionNav()).getAllByRole("link");
+    expect(links.map((l) => l.textContent)).toEqual(["Notification channels"]);
+    expect(screen.getByRole("heading", { name: "Notification channels" })).toBeVisible();
+    expect(askedForSettings).toBe(false);
+    // And the sidebar leads there.
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("href", "/settings");
+  });
+
   it("shows environment settings but doesn't offer them as edits", async () => {
     const { user } = openSettings();
     await user.click((await sectionNav()).getByRole("link", { name: "Database" }));
 
-    // A read-only row renders its value as text — there's no control carrying its label…
+    // A read-only row renders its value as text - there's no control carrying its label…
     expect(await screen.findByText("Use Azure managed identity")).toBeVisible();
     expect(screen.getByText("Off", { exact: true })).toBeVisible();
     expect(screen.queryByRole("textbox", { name: "Use Azure managed identity" })).not.toBeInTheDocument();
@@ -231,7 +267,7 @@ describe("the settings page", () => {
   it("offers Microsoft-only sign-in as a toggle, not an environment value", async () => {
     openSettings("Single sign-on (Microsoft)");
 
-    // It applies per request — the Login handler and the config endpoint both read it live — so it
+    // It applies per request - the Login handler and the config endpoint both read it live - so it
     // belongs in the catalog as an edit rather than a read-only environment row.
     const toggle = await screen.findByRole("checkbox", { name: "Off" });
     expect(toggle).toBeEnabled();
@@ -318,6 +354,36 @@ describe("the settings page", () => {
     expect(dialog.getByRole("button", { name: "Save changes" })).toBeEnabled();
   });
 
+  it("offers a setting with fixed choices as a dropdown, and saves the one picked", async () => {
+    let posted: unknown;
+    const { user } = renderApp(`/settings?section=AI`, {
+      handlers: [
+        http.get(apiPath("/settings"), () =>
+          HttpResponse.json([
+            {
+              ...editable({ key: "Bitween.Ai.Provider", section: "AI", label: "Provider", kind: "string", defaultValue: "Anthropic" }),
+              choices: ["Anthropic", "OpenAI"],
+            },
+          ]),
+        ),
+        http.post(apiPath("/settings/Bitween.Ai.Provider"), async ({ request }) => {
+          posted = await request.json();
+          return new HttpResponse(null, { status: 204 });
+        }),
+        ...pageHandlers.slice(1),
+      ],
+    });
+
+    const provider = await screen.findByRole("combobox", { name: "Provider" });
+    expect(provider).toHaveValue("Anthropic");
+    expect(within(provider).getAllByRole("option").map((o) => o.textContent)).toEqual(["Anthropic", "OpenAI"]);
+
+    await user.selectOptions(provider, "OpenAI");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(posted).toEqual({ value: "OpenAI" }));
+  });
+
   it("keeps an invalid retry schedule as an unsaved draft when the backend refuses it", async () => {
     let posted: unknown;
     server.use(
@@ -338,7 +404,7 @@ describe("the settings page", () => {
     expect(cron).toHaveValue(DEFAULT_CRON);
 
     // The backend validates the expression before storing it, because a bad one would break the
-    // startup job seeding — so a rejected save leaves the draft dirty rather than silently passing.
+    // startup job seeding - so a rejected save leaves the draft dirty rather than silently passing.
     await user.clear(cron);
     await user.type(cron, "not a cron");
     await user.tab();

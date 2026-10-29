@@ -8,13 +8,12 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
-using SW.Bitween.Resources.RetryPolicies;
 
 namespace SW.Bitween.Resources.Subscriptions
 {
     public class Update(BitweenDbContext dbContext, IInfolinkCache BitweenCache,
         RequestContext requestContext, SubscriptionSchedulerService subScheduler,
-        AdapterRequirements adapterRequirements) : ICommandHandler<int, SubscriptionUpdate, object>
+        AdapterRequirements adapterRequirements, SubscriptionRevisions revisions) : ICommandHandler<int, SubscriptionUpdate, object>
     {
         private readonly BitweenDbContext _dbContext = dbContext;
 
@@ -28,6 +27,8 @@ namespace SW.Bitween.Resources.Subscriptions
 
             // Capture before SetSchedules replaces the collection.
             var oldSchedules = entity.Schedules.ToList();
+            // And before SetProperties copies the model's adapter ids over the stored ones.
+            var storedAdapters = SubscriptionConfigurationApplier.StoredAdapters.Of(entity);
 
             // Name and the runtime-state fields, which only an update may set.
             _dbContext.Entry(entity).SetProperties(model);
@@ -37,11 +38,8 @@ namespace SW.Bitween.Resources.Subscriptions
                 throw new SWValidationException("RETRY_POLICY_NOT_FOUND",
                     $"Retry policy {model.RetryPolicyId} was not found.");
 
-            if (model.CustomRetryPolicy != null)
-                RetryGroupValidation.EnsureCanFire(model.CustomRetryPolicy.Groups);
-
             // Everything a person configures, through the same code the create handler runs.
-            await SubscriptionConfigurationApplier.Apply(_dbContext, adapterRequirements, entity, model);
+            await SubscriptionConfigurationApplier.Apply(_dbContext, adapterRequirements, entity, model, storedAdapters);
 
             await _dbContext.SaveChangesAsync();
             await BitweenCache.BroadcastRevoke();
@@ -49,6 +47,7 @@ namespace SW.Bitween.Resources.Subscriptions
             // Sync Quartz: unschedule removed entries, schedule new/kept ones.
             await subScheduler.Sync(entity, oldSchedules);
 
+            await revisions.RecordAsync(key);
             return null;
         }
 
@@ -105,7 +104,8 @@ namespace SW.Bitween.Resources.Subscriptions
 
                 return dbContext.FindAsync<Subscription>(subId);
             }
-            public Validate(BitweenDbContext dbContext, IHttpContextAccessor httpContextAccessor, AdapterRequirements adapterRequirements)
+            public Validate(BitweenDbContext dbContext, IHttpContextAccessor httpContextAccessor, AdapterRequirements adapterRequirements,
+                Services.Mirror.MirrorCopyGate mirrorCopy)
             {
                 RuleFor(i => i.Name).NotEmpty();
                 RuleFor(i => i.MatchExpression).Must(ValidateMatch);
@@ -120,8 +120,10 @@ namespace SW.Bitween.Resources.Subscriptions
                 {
                     RuleFor(i => i.MapperProperties).CustomAsync(async (provided, context, _) =>
                     {
+                        var update = (SubscriptionUpdate)context.InstanceToValidate;
+                        // The pinned version's properties, which may differ from the current one's.
                         var missing = await adapterRequirements.MissingFor(
-                            ((SubscriptionUpdate)context.InstanceToValidate).MapperId, provided);
+                            SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(update.MapperId, update.MapperVersion), provided);
                         if (missing.Count > 0)
                             context.AddFailure($"Missing: {string.Join(",", missing)}");
                     });
@@ -131,8 +133,9 @@ namespace SW.Bitween.Resources.Subscriptions
                 {
                     RuleFor(i => i.HandlerProperties).CustomAsync(async (provided, context, _) =>
                     {
+                        var update = (SubscriptionUpdate)context.InstanceToValidate;
                         var missing = await adapterRequirements.MissingFor(
-                            ((SubscriptionUpdate)context.InstanceToValidate).HandlerId, provided);
+                            SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(update.HandlerId, update.HandlerVersion), provided);
                         if (missing.Count > 0)
                             context.AddFailure($"Missing: {string.Join(",", missing)}");
                     });
@@ -152,7 +155,7 @@ namespace SW.Bitween.Resources.Subscriptions
                 {
                     var subscription = await GetSub(dbContext, httpContextAccessor);
                     var failure = await ResponseRoutingValidation.CheckDestination(dbContext, responseSubId,
-                        subscription?.Id, subscription?.ResponseSubscriptionId);
+                        subscription?.Id, subscription?.ResponseSubscriptionId, mirrorCopy.RecreatingProd);
                     if (failure != null)
                         context.AddFailure(nameof(SubscriptionUpdate.ResponseSubscriptionId), failure);
                 });
@@ -169,7 +172,8 @@ namespace SW.Bitween.Resources.Subscriptions
                         if (model.Schedules == null || !model.Schedules.Any())
                             context.AddFailure(nameof(model.Schedules), "Schedules are required for Receiving subscriptions");
 
-                        var missing = await adapterRequirements.MissingFor(model.ReceiverId, model.ReceiverProperties);
+                        var missing = await adapterRequirements.MissingFor(
+                            SW.Serverless.Contract.Catalog.AdapterCatalogPaths.Ref(model.ReceiverId, model.ReceiverVersion), model.ReceiverProperties);
                         if (missing.Count > 0)
                             context.AddFailure(nameof(model.ReceiverProperties), $"Missing properties: {string.Join(",", missing)}");
                     }

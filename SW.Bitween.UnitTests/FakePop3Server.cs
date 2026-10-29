@@ -23,12 +23,19 @@ public sealed class FakePop3Server : IDisposable
     private readonly string _expectedPassword;
     private readonly CancellationTokenSource _cts = new();
     private readonly Task _acceptTask;
+    private readonly System.Security.Cryptography.X509Certificates.X509Certificate2? _tls;
+
+    /// <summary>Whether anyone got as far as sending a password.</summary>
+    public bool PasswordSent { get; private set; }
 
     public int Port { get; }
     public IReadOnlyCollection<int> DeletedMessageNumbers => _deleted;
 
-    public FakePop3Server(IEnumerable<string> messages, string expectedUser = "user", string expectedPassword = "pass")
+    /// <param name="tls">With a certificate, TLS from the first byte, as on port 995.</param>
+    public FakePop3Server(IEnumerable<string> messages, string expectedUser = "user", string expectedPassword = "pass",
+        System.Security.Cryptography.X509Certificates.X509Certificate2? tls = null)
     {
+        _tls = tls;
         _messages = messages.ToList();
         _expectedUser = expectedUser;
         _expectedPassword = expectedPassword;
@@ -61,7 +68,15 @@ public sealed class FakePop3Server : IDisposable
     private async Task HandleClient(TcpClient client, CancellationToken ct)
     {
         using var _ = client;
-        await using var stream = client.GetStream();
+        await using var network = client.GetStream();
+        Stream stream = network;
+        if (_tls != null)
+        {
+            var ssl = new System.Net.Security.SslStream(network, leaveInnerStreamOpen: true);
+            try { await ssl.AuthenticateAsServerAsync(_tls); }
+            catch { return; }
+            stream = ssl;
+        }
         var reader = new StreamReader(stream, Encoding.ASCII, false, 1024, leaveOpen: true);
         var writer = new StreamWriter(stream, Encoding.ASCII, 1024, leaveOpen: true) { NewLine = "\r\n", AutoFlush = true };
 
@@ -90,6 +105,7 @@ public sealed class FakePop3Server : IDisposable
                     break;
 
                 case "PASS":
+                    PasswordSent = true;
                     if (authenticatedUser == _expectedUser && argument == _expectedPassword)
                         await writer.WriteLineAsync("+OK logged in");
                     else

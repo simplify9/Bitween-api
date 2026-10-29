@@ -1,19 +1,30 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, KeyRound, LockOpen, Trash2, UserRoundCheck, UserRoundX, X } from "lucide-react";
-import { api } from "../../api";
+import { Check, KeyRound, LockOpen, Send, Trash2, UserRoundCheck, UserRoundX, X } from "lucide-react";
+import { api, getAppConfig, type InviteResult, type User } from "../../api";
 import { Can } from "../../auth/guards";
-import { useSession } from "../../auth/SessionContext";
+import { useSession } from "../../auth/useSession";
 import { HistoryList } from "../../components/config/HistoryCard";
 import { Avatar } from "../../components/ui/Avatar";
 import { CopyField } from "../../components/ui/CopyField";
-import { Badge, Button, FormError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { isNotFound } from "../../components/ui/isNotFound";
 import { Checkbox, PasswordInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
-import { formatDate, timeAgo, timeUntil } from "../../lib/dates";
-import { statusBadge } from "./MembersPage";
+import { useModalFocus } from "../../components/ui/useModalFocus";
+import { formatDate, formatDateTime, timeAgo, timeUntil } from "../../lib/dates";
+import { inviteActive, statusBadge } from "./memberStatus";
 import { keys } from "../../api/queryKeys";
+
+/** Where a member's invite stands, in a sentence. */
+function inviteLine(u: User) {
+  if (!u.invite) return "They have no password yet, and no invite has been made.";
+  if (!inviteActive(u)) return `Their invite expired ${timeAgo(u.invite.expiresOn)}.`;
+  if (u.invite.emailedOn)
+    return `Invite emailed ${timeAgo(u.invite.emailedOn)}. The link works until ${formatDateTime(u.invite.expiresOn)}.`;
+  return `An invite link was made to send by hand. It works until ${formatDateTime(u.invite.expiresOn)}.`;
+}
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -30,13 +41,22 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
 
   const user = useQuery({ queryKey: keys.users.detail(userId), queryFn: () => api.getUser(userId), retry: false });
   const roles = useQuery({ queryKey: keys.roles.list, queryFn: () => api.listRoles() });
+  const appConfig = useQuery({ queryKey: keys.appConfig, queryFn: getAppConfig });
+  const mailOn = Boolean(appConfig.data?.mailServerConfigured);
+  const passwordsOff = Boolean(appConfig.data?.disableEmailPasswordLogin);
+  const resetAvailable = Boolean(appConfig.data?.passwordResetAvailable);
   const [draftRoleIds, setDraftRoleIds] = useState<string[] | null>(null);
+  // The invite just made: a link to pass on is shown once, as a password just set is.
+  const [issuedInvite, setIssuedInvite] = useState<InviteResult | null>(null);
   const [confirming, setConfirming] = useState<"remove" | null>(null);
   const [newPassword, setNewPassword] = useState("");
   // The password that was just set, kept on screen deliberately. Bitween sends no
-  // mail, so the admin has to pass it on themselves — clearing the field on success
+  // mail, so the admin has to pass it on themselves - clearing the field on success
   // threw away the one thing they still needed, with nothing to say it had worked.
   const [issuedPassword, setIssuedPassword] = useState<string | null>(null);
+
+  const panel = useRef<HTMLElement>(null);
+  useModalFocus(panel);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -65,6 +85,14 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
     onSuccess: invalidate,
   });
 
+  const invite = useMutation({
+    mutationFn: () => api.inviteUser(userId),
+    onSuccess: (result) => {
+      setIssuedInvite(result);
+      invalidate();
+    },
+  });
+
   const setPassword = useMutation({
     mutationFn: (password: string) => api.setUserPassword(userId, password),
     onSuccess: (_result, password) => {
@@ -78,6 +106,12 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
 
   const body = () => {
     if (user.isPending) return <LoadingBlock label="Loading member…" />;
+    if (user.isError && !isNotFound(user.error))
+      return (
+        <div className="p-5">
+          <LoadError error={user.error} what="this member" onRetry={() => void user.refetch()} />
+        </div>
+      );
     if (user.isError)
       return <p className="px-5 py-8 text-sm text-ink-500">This member no longer exists.</p>;
     const u = user.data;
@@ -98,9 +132,46 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
               {isSelf && <Badge tone="crimson">You</Badge>}
             </div>
             <p className="truncate font-mono text-[13px] text-ink-500">{u.email}</p>
-            <div className="mt-1.5">{statusBadge(u.status, u.lockedUntil)}</div>
+            <div className="mt-1.5">{statusBadge(u, passwordsOff)}</div>
           </div>
         </div>
+
+        {!u.hasPassword && !passwordsOff && !isSelf && can("users.create") && (
+          <Section title="Invite">
+            <div className="space-y-2.5">
+              <p className="text-sm text-ink-700">{inviteLine(u)}</p>
+              {u.invite?.emailError && !issuedInvite && (
+                <FormError>The invite email couldn&apos;t be sent: {u.invite.emailError}</FormError>
+              )}
+              {issuedInvite?.emailed && (
+                <p className="flex items-center gap-1.5 text-[13px] font-medium text-ok-800">
+                  <Check className="size-4 shrink-0" aria-hidden />
+                  Sent to {u.email}
+                </p>
+              )}
+              {issuedInvite?.link && (
+                <div className="space-y-2 rounded-lg border border-ok-200 bg-ok-50 p-3">
+                  {issuedInvite.emailError && (
+                    <FormError>The email couldn&apos;t be sent: {issuedInvite.emailError}</FormError>
+                  )}
+                  <CopyField value={issuedInvite.link} label="Invite link" />
+                  <p className="text-[13px] text-ink-600">
+                    Send it to them yourself. It works once, and Bitween keeps no copy, so it won&apos;t be
+                    shown again once you close this.
+                  </p>
+                </div>
+              )}
+              <Button size="sm" busy={invite.isPending} onClick={() => invite.mutate()}>
+                <Send className="size-3.5" />
+                {mailOn ? (u.invite ? "Resend invite" : "Send invite") : "Make a new invite link"}
+              </Button>
+              <p className="text-[13px] text-ink-500">
+                A new invite stops the earlier link working.
+              </p>
+              <FormError>{invite.error?.message}</FormError>
+            </div>
+          </Section>
+        )}
 
         <Section title="Roles">
           {editable ? (
@@ -148,7 +219,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
               <dd className="text-ink-800">{formatDate(u.createdOn)}</dd>
             </div>
             <div className="flex justify-between gap-4">
-              <dt className="text-ink-500">Last active</dt>
+              <dt className="text-ink-500">Last signed in</dt>
               <dd className="text-ink-800">{u.lastActiveOn ? timeAgo(u.lastActiveOn) : "Never"}</dd>
             </div>
           </dl>
@@ -165,14 +236,13 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                   </p>
                   <CopyField value={issuedPassword} label="New password" />
                   <p className="text-[13px] text-ink-600">
-                    Bitween sends no email, so copy it and pass it on yourself — it won't be shown
-                    again once you dismiss this.
+                    Copy it and pass it on yourself - it won't be shown again once you dismiss this.
                   </p>
                   {u.lockedUntil ? (
                     <div className="space-y-2 rounded-md border border-warn-400 bg-warn-100 p-2.5">
                       <p className="text-[13px] text-warn-700">
                         They still can't sign in. The account is locked after repeated failed
-                        sign-ins, and a new password doesn't clear that — this is the other half.
+                        sign-ins, and a new password doesn't clear that - this is the other half.
                       </p>
                       <Button size="sm" busy={unlock.isPending} onClick={() => unlock.mutate()}>
                         <LockOpen className="size-3.5" /> Unlock account
@@ -183,7 +253,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                     <div className="space-y-2 rounded-md border border-warn-400 bg-warn-100 p-2.5">
                       <p className="text-[13px] text-warn-700">
                         They still can't sign in. The account is disabled, and a new password
-                        doesn't change that — re-enable it below to let them back in.
+                        doesn't change that - re-enable it below to let them back in.
                       </p>
                     </div>
                   ) : (
@@ -218,7 +288,9 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                     </Button>
                   </div>
                   <p className="text-[13px] text-ink-500">
-                    There's no reset email, so set it here and pass it on yourself.
+                    {resetAvailable
+                      ? "Pass it on yourself. They can also reset it themselves with Forgot password on the sign-in page."
+                      : "There's no reset email, so set it here and pass it on yourself."}
                   </p>
                   <FormError>{setPassword.error?.message}</FormError>
                 </form>
@@ -230,7 +302,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                   </Button>
                   <p className="mt-1 text-[13px] text-ink-500">
                     Locked after repeated failed sign-ins; it clears on its own{" "}
-                    {timeUntil(u.lockedUntil)}. Unlocking clears it now — setting a password does
+                    {timeUntil(u.lockedUntil)}. Unlocking clears it now - setting a password does
                     not.
                   </p>
                   <FormError>{unlock.error?.message}</FormError>
@@ -275,7 +347,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                 about a person is usually the other one, which the trail can also answer. */}
             <Link
               to={`/audit?userId=${userId}`}
-              className="mt-2 inline-block text-[13px] font-medium text-crimson-700 hover:underline"
+              className="mt-2 inline-block text-[13px] font-medium link"
             >
               What this member changed
             </Link>
@@ -289,15 +361,17 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-ink-950/40" onClick={onClose} />
       <aside
+        ref={panel}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label="Member details"
-        className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl"
+        className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl outline-none"
       >
         <button
           onClick={onClose}
           aria-label="Close"
-          className="absolute top-4 right-4 rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+          className="absolute top-4 right-4 rounded-md p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
         >
           <X className="size-5" />
         </button>

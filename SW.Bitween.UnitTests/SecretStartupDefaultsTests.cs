@@ -9,7 +9,7 @@ namespace SW.Bitween.UnitTests;
 
 /// <summary>
 /// An adapter's description goes to the browser to draw its form, and a secret property's default
-/// went with it — shown as the field's placeholder. One adapter shipped a production storage key
+/// went with it - shown as the field's placeholder. One adapter shipped a production storage key
 /// that way.
 /// </summary>
 [TestClass]

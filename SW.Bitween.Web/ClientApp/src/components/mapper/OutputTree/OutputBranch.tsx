@@ -1,14 +1,13 @@
 import React, { useState } from "react";
 import { SquarePen, Trash2 } from "lucide-react";
 import type { TreeNode } from "../../../lib/mapping/mappingPreview";
+import { useMappingEditorDispatch, useMappingEditorState } from "../../../lib/mapping/mappingEditorHooks";
 import {
-  useMappingEditorDispatch,
-  useMappingEditorState,
   addArrayMapping,
   openArrayModal,
   toggleNodeCollapsed,
   updateArrayMapping,
-} from "../../../lib/mapping/MappingEditorContext";
+} from "../../../lib/mapping/mappingEditorActions";
 import { getFullTargetPrefix } from "../../../lib/mapping/mappingTreeUtils";
 import { OutputLeaf } from "./OutputLeaf";
 import {
@@ -73,11 +72,11 @@ export const OutputBranch: React.FC<OutputBranchProps> = ({ node, depth = 0, sou
     return `${fullPrefix}[*]` === node.path;
   });
 
-  // Count nesting depth by number of [*] in the path — max 3 levels allowed
+  // Count nesting depth by number of [*] in the path - max 3 levels allowed
   const nestingDepth = (node.path.match(/\[\*\]/g) ?? []).length;
   const canConfigureLoop = nestingDepth <= 3;
 
-  // Scalar (non-array) leaf paths from the root input JSON — for source field suggestions
+  // Scalar (non-array) leaf paths from the root input JSON - for source field suggestions
   const inputScalarProps = React.useMemo(() => {
     try {
       const parsed = JSON.parse(inputJson);
@@ -159,7 +158,7 @@ export const OutputBranch: React.FC<OutputBranchProps> = ({ node, depth = 0, sou
           onClick={() => dispatch(toggleNodeCollapsed(`out:${node.path}`))}
           className="flex items-center gap-1 flex-1 text-left"
         >
-          <span className="text-ink-400 text-xs w-3 flex-shrink-0">{isOpen ? '▾' : '▸'}</span>
+          <span className="text-ink-500 text-xs w-3 flex-shrink-0">{isOpen ? '▾' : '▸'}</span>
           <span className="text-xs font-medium text-ink-700 font-mono truncate">
             {isRootArrayNode ? <span className="text-crimson-500 italic">root array</span> : node.key}
           </span>
@@ -178,7 +177,7 @@ export const OutputBranch: React.FC<OutputBranchProps> = ({ node, depth = 0, sou
             </span>
           )}
           {node.type === 'object' && (
-            <span className="text-xs text-ink-400 font-mono ml-0.5">{'{}'}</span>
+            <span className="text-xs text-ink-500 font-mono ml-0.5">{'{}'}</span>
           )}
         </button>
 
@@ -252,12 +251,16 @@ export const OutputBranch: React.FC<OutputBranchProps> = ({ node, depth = 0, sou
                       <span className="truncate">{JSON.stringify(item)}</span>
                       <div className="flex items-center gap-1 ml-2 flex-shrink-0">
                         <button
+                          aria-label={`Edit item ${idx + 1}`}
+                          title={`Edit item ${idx + 1}`}
                           className="text-ink-300 hover:text-crimson-500 transition"
                           onClick={() => { setEditDraftFields(recordToDraftFields(item as Record<string, unknown>, node)); setEditingFixedIdx(idx); }}
                         >
                           <SquarePen size={12} />
                         </button>
                         <button
+                          aria-label={`Remove item ${idx + 1}`}
+                          title={`Remove item ${idx + 1}`}
                           className="text-ink-300 hover:text-crimson-500 transition"
                           onClick={() =>
                             dispatch(updateArrayMapping({

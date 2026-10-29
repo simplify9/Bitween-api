@@ -2,7 +2,9 @@ import type { ApiClient } from "../client";
 import type {
   BulkRetryPlan,
   BulkRetrySelection,
+  ExchangeBreakdown,
   ExchangeQuery,
+  NegatableExchangeFilter,
   ExchangeRow,
   ExchangeStatus,
   ExportFilesCheck,
@@ -12,10 +14,10 @@ import type {
   ScheduledRetryRow,
 } from "../types";
 import { partnerMethods } from "./partners";
-import { download, get, post } from "./request";
+import { download, get, post, request } from "./request";
 import { searchyQueryString } from "./searchQuery";
 
-// ——— backend shapes (camelCase over the wire) ———
+// --- backend shapes (camelCase over the wire) ---
 interface SearchyResponse<T> {
   result: T[];
   totalCount: number;
@@ -50,6 +52,8 @@ interface RawXchangeRow {
   partnerId: number | null;
   scheduledRetryOn: string | null;
   hasRetry: boolean;
+  /** Absent from servers that predate it. */
+  warning?: string | null;
 }
 
 interface RawRetryNode {
@@ -76,7 +80,9 @@ interface RawBulkRetryPlan {
   selected: number;
   willRetry: number;
   limit: number;
+  maxSelection: number;
   overLimit: boolean;
+  targets: string[] | null;
   substituted: { selectedId: string; retryId: string }[] | null;
   skipped: { id: string; reason: string }[] | null;
   properties: Record<string, Record<string, string | null>> | null;
@@ -85,6 +91,7 @@ interface RawBulkRetryPlan {
 interface RawDelayedRetryRow {
   id: string;
   on: string;
+  held?: boolean;
   subscriptionId: number | null;
   subscriptionName: string | null;
   documentId: number;
@@ -97,7 +104,7 @@ interface RawDelayedRetryRow {
 }
 
 /**
- * The backend has no real ExchangeStatus enum — it's derived from two
+ * The backend has no real ExchangeStatus enum - it's derived from two
  * nullable booleans. `status == null` while still running; once set, a bad
  * *response* (the handler delivered but the receiver answered with an error)
  * is distinct from an outright failure.
@@ -129,6 +136,7 @@ const toExchangeRow = (raw: RawXchangeRow, partnerNameById: Map<number, string>)
   aggregationXchangeId: raw.aggregationXchangeId,
   scheduledRetryOn: raw.scheduledRetryOn,
   exception: raw.exception,
+  warning: raw.warning ?? null,
   promotedProperties: raw.promotedProperties,
   sourceXchangeId: raw.sourceXchangeId ?? null,
   sourceValues: raw.sourceValues ?? null,
@@ -152,6 +160,7 @@ const toExchangeRow = (raw: RawXchangeRow, partnerNameById: Map<number, string>)
 const toScheduledRetryRow = (raw: RawDelayedRetryRow): ScheduledRetryRow => ({
   id: raw.id,
   on: raw.on,
+  held: raw.held ?? false,
   subscriptionId: raw.subscriptionId,
   subscriptionName: raw.subscriptionName,
   informationTypeId: raw.documentId,
@@ -167,36 +176,53 @@ const toScheduledRetryRow = (raw: RawDelayedRetryRow): ScheduledRetryRow => ({
  * The backend's date-`Range` filter (rule 21) is unconditionally broken: its
  * shared parser (`SearchyFilter.cs`, SW-PrimitiveTypes) does `DateTime.Parse`
  * with no `DateTimeStyles`, which can only produce `Local` or `Unspecified`
- * `Kind` — Npgsql then refuses to bind it to a `timestamptz` column and the
+ * `Kind` - Npgsql then refuses to bind it to a `timestamptz` column and the
  * whole search 500s, regardless of what the client sends. Two scalar
  * comparisons (`GreaterThanOrEquals`/`LessThanOrEquals`, rules 6/8) go
- * through a different code path and work correctly — use those instead.
+ * through a different code path and work correctly - use those instead.
  */
 /**
- * Just the filters, without paging — what "select all matching" sends, so a bulk retry acts on
+ * Just the filters, without paging - what "select all matching" sends, so a bulk retry acts on
  * the same set the list was showing rather than on the 25 rows that happened to be on screen.
  */
 function buildExchangeFilters(query: ExchangeQuery): URLSearchParams {
   const params = new URLSearchParams();
+  const not = (filter: NegatableExchangeFilter) => query.not?.includes(filter) ?? false;
+  const oneOf = (field: string, values: number[] | undefined, negated: boolean) => {
+    if (!values?.length) return;
+    // "is none of" is one "is not" (rule 2) per value, all of which have to hold.
+    if (negated) for (const v of values) params.append("filter", `${field}:2:${v}`);
+    else if (values.length === 1) params.append("filter", `${field}:1:${values[0]}`);
+    else params.append("filter", `${field}:9:numeric|${values.join("|")}`);
+  };
+
   if (query.status) params.append("filter", `StatusFilter:1:${STATUS_FILTER[query.status]}`);
-  if (query.subscriptionId !== undefined) params.append("filter", `SubscriptionId:1:${query.subscriptionId}`);
-  if (query.partnerId !== undefined) params.append("filter", `PartnerId:1:${query.partnerId}`);
-  if (query.informationTypeId !== undefined) params.append("filter", `DocumentId:1:${query.informationTypeId}`);
+  oneOf("SubscriptionId", query.subscriptionIds, not("subscription"));
+  oneOf("PartnerId", query.partnerIds, not("partner"));
+  oneOf("DocumentId", query.informationTypeIds, not("informationType"));
   if (query.ids?.trim()) {
     const ids = query.ids.split(/[\s,|]+/).filter(Boolean);
     params.append("filter", `Id:4:text|${ids.join("|")}`);
   }
   // The server turns this into the same Id filter above, from the run's own record of what it
-  // created — so a run of any size is one short parameter rather than every id in the URL.
+  // created - so a run of any size is one short parameter rather than every id in the URL.
   if (query.receiveAttemptId !== undefined)
     params.append("filter", `ReceiveAttemptId:1:${query.receiveAttemptId}`);
   if (query.correlationId?.trim()) params.append("filter", `CorrelationId:1:${query.correlationId.trim()}`);
   if (query.latest) params.append("filter", "LatestOnly:1:true");
-  // The key goes apart from the value so the server can look anywhere inside that key's value.
-  // Sent as one "key:value" term it only matched values starting with what was typed.
-  if (query.propertyKey) params.append("filter", `PromotedPropertyKey:1:${query.propertyKey}`);
-  const propertyValue = query.property?.trim();
-  if (propertyValue) params.append("filter", `PromotedPropertiesRaw:4:${propertyValue}`);
+  // Each named property carries its own key and text, so the server looks for the text inside that
+  // key's value, and every one has to hold. Text to find in any property has no key to pair with.
+  // Rule 2 turns each of the server's own filters round.
+  for (const p of query.properties ?? []) {
+    const text = p.text?.trim();
+    if (p.key) params.append("filter", `PromotedProperty:${p.negated ? 2 : text ? 4 : 1}:${p.key}${text ? `:${text}` : ""}`);
+    else if (text) params.append("filter", `PromotedPropertiesRaw:${p.negated ? 2 : 4}:${text}`);
+  }
+  if (query.errorContains?.trim())
+    params.append("filter", `ErrorContains:${not("error") ? 2 : 4}:${query.errorContains.trim()}`);
+  if (query.isRetry) params.append("filter", `IsRetry:${not("retry") ? 2 : 1}:true`);
+  if (query.scheduledRetry) params.append("filter", `HasScheduledRetry:${not("scheduled") ? 2 : 1}:true`);
+  if (query.aggregated) params.append("filter", `Aggregated:${not("aggregated") ? 2 : 1}:true`);
   if (query.from) params.append("filter", `StartedOn:6:${query.from}`);
   if (query.to) params.append("filter", `StartedOn:8:${query.to}`);
   return params;
@@ -224,7 +250,7 @@ function buildScheduledRetryQuery(query: ScheduledRetryQuery): string {
 /**
  * A selection as the bulk endpoints take it. The filter goes over as the same query-string
  * fragment the list itself sends, percent-encoded the way the backend's parser expects (see
- * `searchyQueryString`), and the backend re-runs it — the client never has to enumerate ids it
+ * `searchyQueryString`), and the backend re-runs it - the client never has to enumerate ids it
  * has not loaded.
  */
 const selectionBody = (selection: BulkRetrySelection) => {
@@ -252,7 +278,9 @@ async function postBulkRetry(
     selected: plan.selected,
     willRetry: plan.willRetry,
     limit: plan.limit,
+    maxSelection: plan.maxSelection,
     overLimit: plan.overLimit,
+    targets: plan.targets ?? [],
     substituted: plan.substituted ?? [],
     skipped: plan.skipped ?? [],
     properties: plan.properties ?? {},
@@ -278,9 +306,36 @@ export const exchangeMethods = {
     return { result: res.result.map((r) => toExchangeRow(r, partnerNameById)), total: res.totalCount };
   },
 
+  /**
+   * The status counts and volume over time behind the list's tabs and chart. The status is left
+   * out of the filter on purpose: the tabs are the choice between statuses, so each needs its
+   * count under every other filter.
+   */
+  async getExchangeBreakdown(query: ExchangeQuery): Promise<ExchangeBreakdown> {
+    const params = buildExchangeFilters({ ...query, status: undefined });
+    const res = await get<ExchangeBreakdown>(`/xchanges/summary${params.toString() ? `?${searchyQueryString(params)}` : ""}`);
+    return {
+      counts: {
+        processing: res.counts?.processing ?? 0,
+        success: res.counts?.success ?? 0,
+        badResponse: res.counts?.badResponse ?? 0,
+        failed: res.counts?.failed ?? 0,
+      },
+      buckets: res.buckets ?? [],
+      bucketMinutes: res.bucketMinutes ?? 0,
+    };
+  },
+
+  explainExchange(
+    xchangeId: string,
+    signal?: AbortSignal,
+  ): Promise<{ summary: string; cause: string; fix: string; model: string | null; sent: string }> {
+    return request("/xchangeexplanations", { method: "POST", body: { xchangeId }, signal });
+  },
+
   async retryExchange(id: string, { reset }: { reset: boolean }): Promise<{ id: string }> {
     await post(`/xchanges/${id}/retry`, { reason: "Manual retry", reset });
-    // Retry.cs returns null — look up the retry it just created (the newest
+    // Retry.cs returns null - look up the retry it just created (the newest
     // xchange with retryFor == id) for a real id to hand back to the caller.
     const res = await get<SearchyResponse<RawXchangeRow>>(
       `/xchanges?filter=${encodeURIComponent(`RetryFor:1:${id}`)}&sort=StartedOn:2&size=1`,
@@ -290,7 +345,7 @@ export const exchangeMethods = {
 
   /**
    * Every attempt related to one exchange. Worth asking for only when the row says there is
-   * something to see — `retryFor` or `hasRetry` — since most exchanges have neither.
+   * something to see - `retryFor` or `hasRetry` - since most exchanges have neither.
    */
   async getRetryTree(id: string): Promise<RetryTree> {
     const raw = await get<RawRetryTree>(`/xchanges/retrytree?id=${encodeURIComponent(id)}`);
@@ -332,6 +387,14 @@ export const exchangeMethods = {
     return post<ExportFilesCheck>("/xchanges/export/check", selectionBody(selection));
   },
 
+  async askExchanges(question: string, signal?: AbortSignal) {
+    const res = await request<{ query: string; answer: string; notes?: string[]; model?: string | null; sent: string }>(
+      "/xchangequeries",
+      { method: "POST", body: { question, timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone }, signal },
+    );
+    return { query: res.query, answer: res.answer, notes: res.notes ?? [], model: res.model ?? null, sent: res.sent };
+  },
+
   async createExchange(input: {
     target: "subscription" | "informationType";
     subscriptionId?: number;
@@ -348,7 +411,7 @@ export const exchangeMethods = {
       documentId: input.target === "informationType" ? input.informationTypeId : null,
       data: input.data,
     });
-    // Create.cs returns null too — look up the exchange it just created. When
+    // Create.cs returns null too - look up the exchange it just created. When
     // addressed at an information type, every matching subscription gets its
     // own exchange; we can only link to one, so take the newest.
     const res = await get<SearchyResponse<RawXchangeRow>>(

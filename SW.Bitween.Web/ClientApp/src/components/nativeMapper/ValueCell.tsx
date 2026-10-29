@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api } from "../../api";
 import { keys } from "../../api/queryKeys";
-import { useRules } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules } from "../../lib/nativeMapper/rulesEditorHooks";
 import type { ValueSource, ValueTypeName } from "../../lib/nativeMapper/types";
 import { lackingPath, lackingPathWarning } from "../config/sourceValues";
 import { RowInput, RowSelect, RowSuggestInput } from "./rowControls";
@@ -46,7 +46,7 @@ export function ValueCell({
   /**
    * What an empty path means, where it means something rather than nothing.
    *
-   * On a list of plain values it is "the entry itself" — the ordinary case, and what
+   * On a list of plain values it is "the entry itself" - the ordinary case, and what
    * the scaffolder writes. Given a label, the empty box reads as that answer instead
    * of as a box nobody has filled in yet.
    */
@@ -63,7 +63,7 @@ export function ValueCell({
   });
 
   // The keys of whichever partner the preview is running as. Without one there is
-  // nothing to suggest, and the box is then simply a box — a partner the mapping
+  // nothing to suggest, and the box is then simply a box - a partner the mapping
   // will run against later may have keys this one does not.
   const { data: partnerProps } = useQuery({
     queryKey: keys.partners.adapterProperties(testPartnerId),
@@ -78,14 +78,14 @@ export function ValueCell({
       const fromDocument = source.kind === "rootPath";
       const known = fromDocument ? (paths.document ?? paths.entry) : paths.entry;
       // Flagged rather than refused: the sample is an aid, and a path it does not
-      // happen to contain — a field absent from this one document, or any field at
-      // all when the sample's list is empty — may still be the right mapping.
+      // happen to contain - a field absent from this one document, or any field at
+      // all when the sample's list is empty - may still be the right mapping.
       const orphan = path !== "" && !known.includes(path);
       // Not a hint about what to type but the answer itself, so it is set in the
       // colour of a value rather than the grey of a placeholder.
       //
       // Only ever true of a path read from the entry. Switch the box to "document"
-      // and an empty path is the whole incoming document, not the entry — a mapping
+      // and an empty path is the whole incoming document, not the entry - a mapping
       // that writes the same document into every slot of the list, and the last
       // thing to label as the ordinary answer.
       const meansWholeEntry =
@@ -125,8 +125,8 @@ export function ValueCell({
               meansWholeEntry
                 ? `Empty means ${emptyPathLabel}. Type a path to read a field of it instead.`
                 : paths.document
-                  ? "A path on this entry, or on the whole document — type it, or pick from the sample"
-                  : "A path into the incoming document — type it, or pick one from the sample"
+                  ? "A path on this entry, or on the whole document - type it, or pick from the sample"
+                  : "A path into the incoming document - type it, or pick one from the sample"
             }
             suggestions={known}
             value={path}
@@ -147,7 +147,7 @@ export function ValueCell({
 
     case "fixed":
       // Typed to the field, so a boolean is a choice of two and a number cannot be
-      // given letters — rather than free text that fails once the exchange runs.
+      // given letters - rather than free text that fails once the exchange runs.
       if (valueType === "boolean")
         return (
           <RowSelect
@@ -156,7 +156,7 @@ export function ValueCell({
             value={String(source.value ?? "")}
             onChange={(e) => onChange({ kind: "fixed", value: e.target.value })}
             options={[
-              { value: "", label: "— pick —" },
+              { value: "", label: "- pick -" },
               { value: "true", label: "true" },
               { value: "false", label: "false" },
             ]}
@@ -174,13 +174,13 @@ export function ValueCell({
         />
       );
 
-    // Nothing to fill in — the question is the whole rule. Said in words rather than left as
+    // Nothing to fill in - the question is the whole rule. Said in words rather than left as
     // an empty box, which would read as a control nobody had got round to filling in.
     case "count":
       return (
         <span
           className="min-w-0 flex-1 truncate px-1 text-[11px] text-ink-500"
-          title="How many rows the source list produced — the same number wherever it is read in this list. Entries written by hand are not counted."
+          title="How many rows the source list produced - the same number wherever it is read in this list. Entries written by hand are not counted."
         >
           how many rows
         </span>
@@ -201,7 +201,7 @@ export function ValueCell({
             placeholder="merchantSlug"
             title={
               known.length > 0
-                ? "A key from the partner's adapter properties — type it, or pick one the previewed partner has"
+                ? "A key from the partner's adapter properties - type it, or pick one the previewed partner has"
                 : "A key from the partner's adapter properties. Choose a partner above to see which it has."
             }
             suggestions={known}

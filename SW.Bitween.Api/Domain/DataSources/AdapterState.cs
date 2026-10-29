@@ -5,7 +5,7 @@ namespace SW.Bitween.Domain.DataSources;
 /// <summary>
 /// A bookmark a resident adapter asked Bitween to hold for it.
 ///
-/// The motivating case is a polling database receiver's cursor — the last incrementing id or
+/// The motivating case is a polling database receiver's cursor - the last incrementing id or
 /// timestamp it consumed. The adapter cannot keep it: the supervisor restarts it, the next instance
 /// may come up on another node, and a pooled one is not the same process twice. Any of those resets
 /// a cursor held in a field back to the beginning, which means replaying every row already
@@ -26,7 +26,7 @@ public class AdapterState
     public string AdapterId { get; set; }
 
     /// <summary>
-    /// Which instance owns it — the data source id for an exclusive resident. Part of the key
+    /// Which instance owns it - the data source id for an exclusive resident. Part of the key
     /// because two instances of one adapter are two different connections, and one reading the
     /// other's cursor would skip rows that were never processed.
     /// </summary>

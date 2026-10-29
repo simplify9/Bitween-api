@@ -12,7 +12,7 @@ public class ApiGateway : BaseEntity,IAudited
 
     /// <summary>
     /// Turns the gateway off without deleting it. Deleting is the only alternative today,
-    /// and it takes the partner attachments with it — so a gateway that needs stopping for
+    /// and it takes the partner attachments with it - so a gateway that needs stopping for
     /// an afternoon gets rebuilt by hand afterwards, or left running.
     /// </summary>
     public bool Inactive { get; set; }
@@ -33,6 +33,12 @@ public class ApiGateway : BaseEntity,IAudited
     public string JwtIssuer { get; set; }
     public string JwtAudience { get; set; }
     public string JwtPartnerClaim { get; set; }
+
+    /// <summary>
+    /// What a sync call is told when the delivery behind it fails. Legacy (400, no body) for gateways
+    /// made before this existed: a caller may be written against it.
+    /// </summary>
+    public GatewayFailureAnswer FailureAnswer { get; set; }
 
     public ICollection<ApiGatewayPartner> Partners { get; set; }
     public DateTime CreatedOn { get; set; }

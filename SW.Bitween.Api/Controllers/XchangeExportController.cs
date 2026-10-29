@@ -22,7 +22,7 @@ namespace SW.Bitween.Controllers;
 /// <summary>
 /// The files of several exchanges as one zip, for the exchange list's "Export files": one folder per
 /// exchange, named like its archive (<c>{main value}_{id}</c>), holding <c>input</c>, <c>mapped</c>
-/// and <c>handled</c> — whichever it has. <see cref="Check"/> says beforehand how many exchanges are
+/// and <c>handled</c> - whichever it has. <see cref="Check"/> says beforehand how many exchanges are
 /// older than storage keeps their files, so the person hears it before choosing to export. Files missing
 /// anyway, or for another reason, are listed in <c>missing.txt</c>, so one of them never costs the rest.
 /// </summary>
@@ -33,8 +33,8 @@ namespace SW.Bitween.Controllers;
 /// <c>{prefix}/{resource}/{token}</c>, the way <see cref="FileLinksController"/>'s does.
 /// </para>
 /// <para>
-/// Refusals answer the way CqApi does — 401 without the permission, 400 with <c>{ code: [message] }</c>
-/// — so the client reads them like any other call. They're all decided before the first byte is sent.
+/// Refusals answer the way CqApi does - 401 without the permission, 400 with <c>{ code: [message] }</c>
+/// - so the client reads them like any other call. They're all decided before the first byte is sent.
 /// </para>
 /// </remarks>
 [ApiController]
@@ -44,7 +44,7 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
     : ControllerBase
 {
     /// <summary>
-    /// The most exchanges one zip takes — the bulk retry's ceiling, for the same reason: every file is
+    /// The most exchanges one zip takes - the bulk retry's ceiling, for the same reason: every file is
     /// read from storage in sequence, inside the one request.
     /// </summary>
     public const int Limit = 500;
@@ -102,6 +102,11 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
         var missing = ids.Except(xchanges.Select(x => x.Id))
             .Select(id => $"{id}: this exchange no longer exists.").ToList();
 
+        // Exchange files leave Bitween here, so who took which is recorded before they do.
+        await dbContext.RecordNowAsync(requestContext, OperatorAction.Export,
+            xchanges.Count == 1 ? xchanges[0].Id : $"{xchanges.Count} exchanges",
+            string.Join(", ", xchanges.Take(20).Select(x => x.Id)) + (xchanges.Count > 20 ? ", …" : ""));
+
         Response.ContentType = "application/zip";
         Response.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment")
         {
@@ -124,9 +129,11 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
 
                 if (!results.TryGetValue(xchange.Id, out var result)) continue;
                 await Add(zip, xchange, XchangeFileType.Output, $"{folder}/mapped",
-                    result.OutputName, result.OutputSize, result.OutputContentType, missing, aborted);
+                    result.OutputName, result.OutputSize, result.OutputContentType, missing, aborted,
+                    result.NotStoredReason(XchangeFileType.Output));
                 await Add(zip, xchange, XchangeFileType.Response, $"{folder}/handled",
-                    result.ResponseName, result.ResponseSize, result.ResponseContentType, missing, aborted);
+                    result.ResponseName, result.ResponseSize, result.ResponseContentType, missing, aborted,
+                    result.NotStoredReason(XchangeFileType.Response));
             }
 
             if (missing.Count > 0)
@@ -143,11 +150,18 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
 
     /// <summary>
     /// One file into the zip, named <paramref name="path"/> plus the extension its own name or content type
-    /// gives. A file the exchange never had is left out; one storage no longer has goes on the missing list.
+    /// gives. A file the exchange never had is left out; one storage no longer has, or never got because it
+    /// couldn't be stored after the delivery (<paramref name="notStored"/>), goes on the missing list.
     /// </summary>
     private async Task Add(ZipArchive zip, Xchange xchange, XchangeFileType type, string path, string name, int size,
-        string contentType, List<string> missing, CancellationToken aborted)
+        string contentType, List<string> missing, CancellationToken aborted, string notStored = null)
     {
+        if (notStored != null)
+        {
+            missing.Add($"{path + ExtensionOf(name, contentType)}: it was delivered, but could not be stored: {notStored}");
+            return;
+        }
+
         if (size == 0) return;
         path += ExtensionOf(name, contentType);
 

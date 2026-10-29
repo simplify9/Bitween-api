@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ChevronDown, ChevronRight, Trash2 } from "lucide-react";
-import { useRules, useRulesDispatch } from "../../lib/nativeMapper/RulesEditorContext";
+import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHooks";
 import { isAssigned, isItemAssigned } from "../../lib/nativeMapper/rulesReducer";
 import type { OutputRowNode } from "../../lib/nativeMapper/outputTree";
 import { TYPE_BADGES, freshSource, sourceKindsFor } from "../../lib/nativeMapper/types";
@@ -14,8 +14,8 @@ import { useSourceValues } from "./sourceValuesContext";
  * One rule, on one line.
  *
  * Two kinds of rule are drawn this way. A field has a name, shown as its last
- * segment only — the indentation carries the rest, the way the source side already
- * did — and typing dots into it still nests, because the rule stores segments. The
+ * segment only - the indentation carries the rest, the way the source side already
+ * did - and typing dots into it still nests, because the rule stores segments. The
  * single value each entry of a list of plain values produces has no name to show,
  * because `["A1","B7"]` has nowhere to put one; everything else about the row is
  * the same, which is the point of it being a row at all.
@@ -42,12 +42,16 @@ export function OutputRow({
 }) {
   const { rule, errorKey } = node;
   const dispatch = useRulesDispatch();
-  const { selectedId, ruleErrors, hoveredPath } = useRules();
+  const { selectedId, ruleErrors, hoveredPath, ai } = useRules();
   const original = useSourceValues() !== null;
   const [open, setOpen] = useState(false);
 
   const isItem = node.kind === "item";
   const error = ruleErrors[errorKey];
+  // Where the rules "Generate with AI" wrote miss the output sample, and whether it wrote
+  // this row differently from what was there - both only until the mapping changes again.
+  const missed = ai?.byRow[errorKey];
+  const flash = ai?.changed.includes(errorKey) ?? false;
   const selected = selectedId === rule.id;
   // Only a path read in this scope has a source row to draw a line to; one read
   // from the top of the document inside a list has no single row to point at.
@@ -67,7 +71,7 @@ export function OutputRow({
         })
       : dispatch({ type: "UPDATE_FIELD", id: rule.id, changes });
 
-  // Removing a list's value does not remove a row from the list — it puts the list
+  // Removing a list's value does not remove a row from the list - it puts the list
   // back to having decided nothing, so it can be built out of fields instead.
   const remove = () =>
     node.kind === "item"
@@ -94,7 +98,7 @@ export function OutputRow({
         dispatch({ type: "SELECT", id: rule.id });
         // `label` matters as much as `input`: a checkbox's text is a label that
         // forwards the click to its box, so treating it as the row's own click
-        // toggled the box and folded the panel away in the same tick — which read
+        // toggled the box and folded the panel away in the same tick - which read
         // as the box refusing to tick at all.
         if (
           (e.target as HTMLElement).closest(
@@ -109,14 +113,17 @@ export function OutputRow({
       // The canvas finds its endpoints by these attributes rather than by a ref
       // map the panels have to keep in step.
       data-rule-id={rule.id}
-      className={`rounded border ${
+      data-error-key={errorKey}
+      className={`rounded border ${flash ? "ai-flash" : ""} ${
         error
           ? "border-danger-300 bg-danger-50"
           : selected
             ? "border-crimson-300 bg-crimson-50"
-            : hoveredPath && hoveredPath === sourcePath
-              ? "border-ink-200 bg-crimson-50/40"
-              : "border-transparent hover:border-ink-200 hover:bg-ink-50"
+            : missed
+              ? "border-warn-300 bg-warn-100/40"
+              : hoveredPath && hoveredPath === sourcePath
+                ? "border-ink-200 bg-crimson-50/40"
+                : "border-transparent hover:border-ink-200 hover:bg-ink-50"
       }`}
     >
       <div className="flex items-center gap-1.5 px-1.5 py-0.5">
@@ -182,7 +189,7 @@ export function OutputRow({
               ? "Has a transform or a table"
               : "Change it, substitute it, or set its type"
           }
-          className={`flex flex-shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-ink-400 hover:bg-ink-100 hover:text-ink-700 ${
+          className={`flex flex-shrink-0 items-center gap-0.5 rounded px-1 py-0.5 text-ink-500 hover:bg-ink-100 hover:text-ink-700 ${
             extras > 0 ? "text-crimson-600" : ""
           }`}
         >
@@ -217,6 +224,13 @@ export function OutputRow({
           {error}
         </p>
       )}
+
+      {!error &&
+        missed?.map((difference) => (
+          <p key={difference} className="px-1.5 pb-1 font-mono text-[10px] text-warn-700">
+            {difference}
+          </p>
+        ))}
     </div>
   );
 }

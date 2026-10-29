@@ -1,3 +1,4 @@
+using SW.Bitween.Resources.Accounts;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,8 @@ public class Delete(BitweenDbContext dbContext, RequestContext requestContext) :
         if (role.IsSystem)
             throw new SWValidationException("ROLE_IS_BUILT_IN",
                 $"'{role.Name}' is a built-in role and can't be deleted.");
+
+        await GrantLimits.EnsureCallerHoldsPermissions(dbContext, requestContext, role.Permissions);
 
         var memberCount = await dbContext.Set<AccountRoleLink>().CountAsync(l => l.RoleId == key);
         if (memberCount > 0)

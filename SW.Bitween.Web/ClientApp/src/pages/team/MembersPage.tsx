@@ -1,30 +1,30 @@
 import { useMemo } from "react";
-import { useNavigate, useParams, useSearchParams } from "react-router";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Search, UserPlus, UsersRound } from "lucide-react";
-import { api, type User, type UserStatus } from "../../api";
+import { UserPlus, UsersRound } from "lucide-react";
+import { api, getAppConfig, type User } from "../../api";
 import { Can } from "../../auth/guards";
+import { useSession } from "../../auth/useSession";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Avatar } from "../../components/ui/Avatar";
-import { Badge, Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { clickableRow, clickableRowClass } from "../../components/ui/clickableRow";
+import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { timeAgo } from "../../lib/dates";
 import { AddMemberDialog } from "./AddMemberDialog";
 import { MemberDrawer } from "./MemberDrawer";
 import { keys } from "../../api/queryKeys";
+import { useSearchText } from "../../lib/useSearchText";
+import { statusBadge } from "./memberStatus";
+import { SearchBox } from "../../components/ui/SearchBox";
+import { CardList } from "../../components/ui/RowCard";
+import { usePhone } from "../../lib/useMediaQuery";
+import { usePageTitle } from "../../lib/pageTitle";
 
 const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "all", label: "All" },
   { value: "active", label: "Active" },
   { value: "disabled", label: "Disabled" },
 ];
-
-export function statusBadge(status: UserStatus, lockedUntil?: string | null) {
-  if (status !== "active") return <Badge tone="neutral">Disabled</Badge>;
-  // A lockout expires on its own, so it is reported with its own tone rather than
-  // as a failure — and never as "Active", which would say the opposite of the truth.
-  if (lockedUntil) return <Badge tone="warn">Locked</Badge>;
-  return <Badge tone="ok">Active</Badge>;
-}
 
 export function MembersPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -37,6 +37,12 @@ export function MembersPage() {
 
   const users = useQuery({ queryKey: keys.users.list, queryFn: () => api.listUsers() });
   const roles = useQuery({ queryKey: keys.roles.list, queryFn: () => api.listRoles() });
+  const appConfig = useQuery({ queryKey: keys.appConfig, queryFn: getAppConfig });
+  const passwordsOff = Boolean(appConfig.data?.disableEmailPasswordLogin);
+  const { can } = useSession();
+  const phone = usePhone();
+  // The open member's drawer has its own address, so the breadcrumb names them.
+  usePageTitle(openMemberId ? users.data?.find((u) => u.id === openMemberId)?.displayName : null);
 
   const setParam = (key: string, value: string | null) => {
     setSearchParams(
@@ -49,6 +55,7 @@ export function MembersPage() {
       { replace: key === "q" },
     );
   };
+  const [searchText, setSearchText] = useSearchText(q, (text) => setParam("q", text || null));
 
   const roleName = (id: string) => roles.data?.find((r) => r.id === id)?.name ?? "…";
 
@@ -77,12 +84,13 @@ export function MembersPage() {
             <>
               <p>
                 Every member holds one or more <strong>roles</strong>, and every role is a list of{" "}
-                <strong>permissions</strong> — page by page, action by action. A member can do
+                <strong>permissions</strong> - page by page, action by action. A member can do
                 something if any of their roles allows it; everything else is hidden from them.
               </p>
               <p>
                 To bring someone in: create or pick a role under <strong>Roles</strong>, then add
-                them here. You set their first password and pass it on — Bitween doesn't send mail.
+                them here with an invite. They choose their own password from a link: Bitween emails
+                it once a mail server is set up in Settings, and otherwise gives it to you to send.
               </p>
             </>
           ),
@@ -90,17 +98,7 @@ export function MembersPage() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative min-w-56 flex-1 sm:max-w-xs">
-          <Search className="pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2 text-ink-400" />
-          <input
-            type="search"
-            value={q}
-            onChange={(e) => setParam("q", e.target.value || null)}
-            placeholder="Search by name or email"
-            aria-label="Search members"
-            className="h-9 w-full rounded-lg border border-ink-200 bg-white pr-3 pl-9 text-sm placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
-          />
-        </div>
+        <SearchBox value={searchText} onChange={setSearchText} label="Search members" placeholder="Search by name or email" className="min-w-56 flex-1 sm:max-w-xs" />
 
         <div className="flex rounded-lg border border-ink-200 bg-white p-0.5">
           {STATUS_FILTERS.map((f) => (
@@ -125,8 +123,24 @@ export function MembersPage() {
         </div>
       </div>
 
+      {/* Without a mail server an invite is a link the admin sends by hand, and nobody can reset a
+          forgotten password themselves. Said once, here, where people are added. */}
+      {appConfig.data && !appConfig.data.mailServerConfigured && can("users.create") && (
+        <p className="mb-4 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-[13px] text-ink-600">
+          Bitween can&apos;t email members yet, so invites give you a link to send yourself, and there&apos;s
+          no Forgot password on the sign-in page.{" "}
+          {can("settings.view") && (
+            <Link to="/settings?section=Mail%20server" className="font-medium link">
+              Set up a mail server
+            </Link>
+          )}
+        </p>
+      )}
+
       {users.isPending ? (
         <LoadingBlock label="Loading members…" />
+      ) : users.isError ? (
+        <LoadError error={users.error} what="members" onRetry={() => void users.refetch()} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<UsersRound />}
@@ -147,6 +161,33 @@ export function MembersPage() {
             ? "Try a different search or filter."
             : "Add the first person to your team."}
         </EmptyState>
+      ) : phone ? (
+        <CardList
+          rows={filtered}
+          rowKey={(u) => u.id}
+          label="Members"
+          onRowClick={openMember}
+          card={(user) => ({
+            title: (
+              <span className="flex items-center gap-2.5">
+                <Avatar name={user.displayName} dimmed={user.status === "disabled"} />
+                <span className={user.status === "disabled" ? "text-ink-500" : undefined}>{user.displayName}</span>
+              </span>
+            ),
+            status: statusBadge(user, passwordsOff),
+            technical: user.email,
+            subtitle: (
+              <span className="flex flex-wrap items-center gap-1">
+                {user.roleIds.map((rid) => (
+                  <Badge key={rid}>{roleName(rid)}</Badge>
+                ))}
+                <span className="text-[12px] text-ink-500">
+                  {user.lastActiveOn ? `signed in ${timeAgo(user.lastActiveOn)}` : "never signed in"}
+                </span>
+              </span>
+            ),
+          })}
+        />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-ink-200 bg-white">
           <table className="w-full min-w-160 text-sm">
@@ -155,21 +196,21 @@ export function MembersPage() {
                 <th className="px-4 py-2.5 font-medium">Member</th>
                 <th className="px-4 py-2.5 font-medium">Roles</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
-                <th className="px-4 py-2.5 font-medium">Last active</th>
+                <th className="px-4 py-2.5 font-medium">Last signed in</th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((user) => (
                 <tr
                   key={user.id}
-                  onClick={() => openMember(user)}
-                  className="cursor-pointer border-b border-ink-100 last:border-b-0 hover:bg-ink-50"
+                  {...clickableRow(() => openMember(user))}
+                  className={`cursor-pointer border-b border-ink-100 last:border-b-0 hover:bg-ink-50 ${clickableRowClass}`}
                 >
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-3">
                       <Avatar name={user.displayName} dimmed={user.status === "disabled"} />
                       <div className="min-w-0">
-                        <p className={`truncate font-medium ${user.status === "disabled" ? "text-ink-400" : "text-ink-900"}`}>
+                        <p className={`truncate font-medium ${user.status === "disabled" ? "text-ink-500" : "text-ink-900"}`}>
                           {user.displayName}
                         </p>
                         <p className="truncate font-mono text-xs text-ink-500">{user.email}</p>
@@ -183,9 +224,9 @@ export function MembersPage() {
                       ))}
                     </div>
                   </td>
-                  <td className="px-4 py-2.5">{statusBadge(user.status, user.lockedUntil)}</td>
+                  <td className="px-4 py-2.5">{statusBadge(user, passwordsOff)}</td>
                   <td className="px-4 py-2.5 text-ink-500">
-                    {user.lastActiveOn ? timeAgo(user.lastActiveOn) : "—"}
+                    {user.lastActiveOn ? timeAgo(user.lastActiveOn) : "-"}
                   </td>
                 </tr>
               ))}

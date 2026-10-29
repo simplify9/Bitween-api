@@ -15,7 +15,7 @@ Data sources need three things on the nodes that run them.
 
 1. **`Bitween__BusProvidersEnabled=true`.** The name predates database sources, but the flag gates every data source. Nodes without it can still configure data sources in the UI, but cannot run them or any delivery that goes through one.
 2. **`ConnectionStrings:RabbitMQ`.** Bitween's own RabbitMQ decides which node holds each connection. See [Placement](#placement).
-3. **The adapter packages.** Each provider is a separate package, installed in storage under `{Bitween:AdapterPath}/{adapterId}` like a custom adapter, with the metadata that marks it as a resident adapter. The pipelines in this repository do not publish these packages.
+3. **The adapter packages.** Each provider is a separate resident adapter package. The simplest way to install one is the **Marketplace** tab on the Adapters page, where Simplify9 publishes all six under their own ids: Oracle, PostgreSQL, MySQL, SQL Server, RabbitMQ and Amazon SQS. One installed by hand earlier is upgraded in place from there ([Installing from the marketplace](adapters.md#installing-from-the-marketplace)). Every bitween CLI release also carries them as assets beside its binaries, with the release's version and in its `SHA256SUMS`: `bitween.bus.rabbitmq-<version>.zip`, `bitween.bus.sqs-…`, `bitween.db.postgresql-…`, `bitween.db.mysql-…`, `bitween.db.sqlserver-…` and `bitween.db.oracle-…`. Install them like any adapter, with `bitween adapter publish <zip> --current` or an `adapters:` entry in a configuration that `bitween apply` publishes. To build one from source, run `bitween adapter build SW.Bitween.Adapters.Bus.RabbitMq`; each provider project has its `adapter.json`.
 
 | Key | Default | Meaning |
 |---|---|---|
@@ -23,7 +23,7 @@ Data sources need three things on the nodes that run them.
 | `Bitween:BusProviderMaxInFlight` | `16` | Unacknowledged messages one adapter may have in flight with Bitween |
 | `Bitween:InboundMessagePruneCron` | `0 30 3 * * ?` | When expired deduplication keys are deleted |
 
-The Helm chart has no dedicated values for these. Set them through `environmentVariables`.
+The Helm chart has no dedicated values for these. Set them through `environmentVariables`, for example `--set environmentVariables.Bitween__BusProvidersEnabled=true`: every key there becomes an environment variable.
 
 ## Resident adapters
 
@@ -35,7 +35,7 @@ Bitween now runs adapters in three ways, and picks the first that claims an adap
 | Resident | Packages marked as resident | A long-lived process that keeps its connection or pool open between messages |
 | Classic | Everything else | A new process for each call, as described in [Adapters](adapters.md#custom-adapters) |
 
-Every stage of the pipeline goes through the same invoker, so any role (receiver, validator, mapper, handler, notifier) can use any runtime. A resident adapter is worth its extra complexity when opening a connection is expensive, as it is for brokers and database pools.
+Every stage of the pipeline goes through the same invoker, so any role (receiver, validator, mapper, handler, notification channel) can use any runtime. A resident adapter is worth its extra complexity when opening a connection is expensive, as it is for brokers and database pools.
 
 ## Settings
 
@@ -44,7 +44,7 @@ Every stage of the pipeline goes through the same invoker, so any role (receiver
 | Name | Unique name |
 | Provider | The adapter id. Its settings form is built from what the adapter declares, in the adapter's order. |
 | Settings | Provider-specific connection settings. Secret settings are masked in the API. |
-| Placement | `Auto`, `Exclusive` or `PerNode`. Set only through the API. |
+| Placement | `Auto`, `Exclusive` or `PerNode`: **Runs on** on the data source page. A save that leaves it out, through the API, keeps it as it was. |
 | Inactive | Stops the adapter everywhere |
 | Deduplication window (days) | Brokers only. How long inbound message keys are remembered. Default 30; 0 turns deduplication off. |
 | Soft memory limit (MB) | Crossing it makes the host recycle the adapter between messages |

@@ -47,6 +47,6 @@ public class BusTests(BitweenFixture fixture)
         {
             await publish.Publish("TestSequenceEvent", $"{{\"seq\":{i}}}");
         }
-        // Passes if no exception is thrown — confirms the channel stays open
+        // Passes if no exception is thrown - confirms the channel stays open
     }
 }

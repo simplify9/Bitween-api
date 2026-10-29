@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO.Compression;
 using System.Linq;
 using System.Security.Claims;
@@ -8,7 +9,13 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Http;
+using OpenTelemetry.Trace;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Metrics;
+using OpenTelemetry;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
@@ -67,17 +74,73 @@ namespace SW.Bitween.Web
             var themeOptions = new ThemeOptions();
             Configuration.GetSection(BitweenOptions.ConfigurationSection).Bind(bitweenOptions);
             Configuration.GetSection(ThemeOptions.ConfigurationSection).Bind(themeOptions);
+
+            // Configuration mistakes are collected here, not thrown one at a time; Program logs them
+            // with the ones only the database can show, and refuses to start.
+            var problems = new StartupProblems();
+            services.AddSingleton(problems);
+            problems.Check(RejectSampleSigningKey);
+            if (string.Equals(bitweenOptions.StorageProvider, "Local", StringComparison.OrdinalIgnoreCase) &&
+                !Environment.IsDevelopment())
+                problems.Add("StorageProvider 'Local' stores files on the local filesystem and is only allowed when " +
+                             "ASPNETCORE_ENVIRONMENT is 'Development'.");
+            var unregistrable = false;
+            foreach (var (name, example) in new[]
+                     {
+                         (BitweenDbContext.ConnectionString, "the database's connection string"),
+                         ("RabbitMQ", "the broker's amqp:// address, with its user and password")
+                     })
+            {
+                if (!string.IsNullOrWhiteSpace(Configuration.GetConnectionString(name))) continue;
+                problems.Add($"ConnectionStrings:{name} is not configured. Set it (env: ConnectionStrings__{name}) to {example}.");
+                unregistrable = true;
+            }
+            // Nothing past this point can be registered without them: report them with the rest now.
+            if (unregistrable) throw new StartupProblemException(problems.ToString());
             services.AddSingleton(themeOptions);
             services.AddSingleton(bitweenOptions);
+            // The built-in mappers cannot see these options; the shared-parse switch reaches them here.
+            CompiledTemplates.Enabled = bitweenOptions.CacheCompiledTemplates;
+
+            // The same passphrase the settings secrets use, now also for the credential columns.
+            SecretColumnCipher.Configure(bitweenOptions.SettingsEncryptionKey,
+                Configuration["Bitween:PreviousSettingsEncryptionKey"],
+                Configuration.GetValue<bool>(StoredSecretsKey.KeyLostSetting));
             // Keeps both option objects in sync with the Settings table, which owns every editable
             // setting; Program hands configuration over to it at boot. The protector encrypts
             // secret settings before they're stored.
             services.AddSingleton<SettingsProtector>();
             services.AddSingleton<SettingsService>();
             services.AddMemoryCache();
+            services.AddSingleton<SignInThrottle>();
+            services.AddSingleton<CliSignInCodes>();
+            services.AddSingleton<GatewayActivity>();
+            // The bell a sync gateway call waits on for its exchange's result.
+            services.AddSingleton<ResultSignals>();
+            services.AddSingleton<LegacyEventQueues>();
+            // Metrics: counted in memory as work happens, added to hourly rows once a minute per node.
+            services.AddSingleton<SW.Bitween.Services.Metrics.MetricsRecorder>();
+            services.AddSingleton<SW.Bitween.Services.Metrics.MetricsFlusher>();
+            services.AddHostedService(sp => sp.GetRequiredService<SW.Bitween.Services.Metrics.MetricsFlusher>());
+            services.AddHostedService<SW.Bitween.Services.Metrics.MetricsBackfill>();
+            // Every node says it's here, so the Nodes view can list the cluster from any of them.
+            services.AddHostedService<SW.Bitween.Services.Cluster.NodeHeartbeat>();
             services.AddSingleton<IInfolinkCache, InMemoryBitweenCache>();
             services.AddSingleton<FilterService>();
             services.AddScoped<NativeAdapterDiscoveryService>();
+            services.AddScoped<SW.Bitween.Services.Adapters.NativeAdapterManifests>();
+            services.AddScoped<SW.Bitween.Services.Adapters.AdapterCatalog>();
+            services.AddScoped<SW.Bitween.Services.Adapters.AdapterSourceReader>();
+            services.AddScoped<SW.Bitween.Services.Adapters.AdapterWorkshop>();
+            services.AddScoped<SW.Bitween.Services.Marketplace.RegistryClient>();
+            services.AddScoped<SW.Bitween.Services.Marketplace.MarketplaceInstaller>();
+            // Once a day: newer versions and revocations for what was installed from the registry.
+            services.AddScoped<SW.Bitween.Services.Marketplace.RegistryUpdates>();
+            services.AddScoped<SW.Bitween.Services.Marketplace.RegistryLicences>();
+            services.AddScoped<SW.Bitween.Services.Marketplace.UsageReporter>();
+            services.AddHostedService<SW.Bitween.Services.Marketplace.RegistryUpdateChecker>();
+            services.AddScoped<SubscriptionRevisions>();
+            services.AddScoped<SW.Bitween.Services.Adapters.AdapterChanges>();
             services.AddSingleton<ServerlessAdapterDescriber>();
             services.AddScoped<AdapterStartupValues>();
             services.AddScoped<Resources.Adapters.AdapterListing>();
@@ -90,8 +153,19 @@ namespace SW.Bitween.Web
             services.AddScoped<IAdapterRuntime, ClassicAdapterRuntime>();
             services.AddScoped<IAdapterInvoker, AdapterInvoker>();
             services.AddScoped<MappingContextFactory>();
+            services.AddScoped<SW.Bitween.Services.Ai.AiModels>();
             services.AddScoped<XchangeService>();
+            services.AddScoped<NotificationChannelSender>();
+            services.AddSingleton<AccountMail>();
             services.AddSingleton<FileLinks>();
+            services.AddScoped<OidcSignIn>();
+            services.AddScoped<ReceiverBookmarks>();
+            services.AddScoped<SW.Bitween.Services.Marketplace.KitInstaller>();
+            services.AddScoped<SW.Bitween.Services.Mirror.MirrorService>();
+            services.AddSingleton<SW.Bitween.Services.Mirror.MirrorCopyGate>();
+            services.AddSingleton<SW.Bitween.Services.Mirror.MirrorWork>();
+            services.AddSingleton<SealedState>();
+            services.AddScoped<Services.Connections.ConnectionTokens>();
             services.AddSingleton<StorageRetention>();
             services.AddSingleton<StorageAccess>();
             services.AddScoped<ExchangeArchive>();
@@ -100,11 +174,19 @@ namespace SW.Bitween.Web
             services.AddSingleton<IGatewayIssuers, OpenIdGatewayIssuers>();
             services.AddScoped<Resources.Ops.LaneResolver>();
             services.AddScoped<Resources.Ops.BrokerQueues>();
+            services.AddScoped<Resources.Ops.DeadLetterQueues>();
             services.AddScoped<AdapterRequirements>();
             services.AddHttpContextAccessor();
 
             services.AddScoped<SubscriptionSchedulerService>();
             services.AddHostedService<SchedulerSeedService>();
+            // Publishes what didn't go out straight after its commit; see OutboxMessage.
+            services.AddHostedService<OutboxDispatcher>();
+            // Deletes published outbox rows in batches, off the exchange's path; see OutboxAcknowledger.
+            services.AddSingleton<OutboxAcknowledger>();
+            services.AddHostedService(sp => sp.GetRequiredService<OutboxAcknowledger>());
+            // Encrypts credential columns written before encryption was on; see SecretColumnCipher.
+            services.AddHostedService<SecretColumnEncryptionPass>();
 
             services.AddBitweenLogging(Configuration, Environment, options =>
             {
@@ -117,6 +199,8 @@ namespace SW.Bitween.Web
             {
                 config.ApplicationName = bitweenOptions.QueuePrefix;
                 config.DefaultQueuePrefetch = bitweenOptions.BusDefaultQueuePrefetch!.Value;
+                config.DefaultConsumerConcurrency = bitweenOptions.ResolvedBusDefaultConcurrency;
+                config.PublisherConfirms = bitweenOptions.BusPublisherConfirms;
                 config.ManagementUrl = bitweenOptions.RabbitMqManagementUrl;
                 config.ManagementUsername = bitweenOptions.RabbitMqManagementUsername;
                 config.ManagementPassword = bitweenOptions.RabbitMqManagementPassword;
@@ -124,6 +208,9 @@ namespace SW.Bitween.Web
             });
             services.AddBusPublish();
             services.AddBusConsume(typeof(BitweenDbContext).Assembly);
+            // A stop lets running exchanges finish for up to the bus's drain (30 s). The host's own
+            // 30 s default would cut that short, so the host waits 45; the chart gives the pod 60.
+            services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(45));
 
             var serializer = new JsonSerializer();
             serializer.Converters.Add(new PropertyMatchSpecificationJsonConverter());
@@ -153,28 +240,36 @@ namespace SW.Bitween.Web
             );
 
             services.AddApiClient<BitweenClient, BitweenClientOptions>();
-            switch (bitweenOptions.StorageProvider.ToUpper())
+            // The storage libraries create the bucket and its deletion rules as they register, so
+            // wrong storage settings stop the start here, before anything else could be registered.
+            try
             {
-                case "AS":
-                    services.AddAsCloudFiles();
-                    // Azure decides privacy per container, and the storage library creates it public.
-                    services.AddHostedService<PrivateAzureContainer>();
-                    break;
-                case "OC":
-                    services.AddOracleCloudFiles();
-                    break;
-                case "S3":
-                    services.AddS3CloudFiles();
-                    break;
-                case "LOCAL":
-                    if (!Environment.IsDevelopment())
-                        throw new InvalidOperationException(
-                            "StorageProvider 'Local' stores files on the local filesystem and is only allowed when ASPNETCORE_ENVIRONMENT is 'Development'.");
-                    services.AddLocalTestsCloudFiles();
-                    break;
-                default:
-                    services.AddS3CloudFiles();
-                    break;
+                switch (bitweenOptions.StorageProvider.ToUpper())
+                {
+                    case "AS":
+                        services.AddAsCloudFiles();
+                        // Azure decides privacy per container, and the storage library creates it public.
+                        services.AddHostedService<PrivateAzureContainer>();
+                        break;
+                    case "OC":
+                        services.AddOracleCloudFiles();
+                        break;
+                    case "S3":
+                        services.AddS3CloudFiles();
+                        break;
+                    case "LOCAL":
+                        services.AddLocalTestsCloudFiles();
+                        break;
+                    default:
+                        services.AddS3CloudFiles();
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                problems.Add(StorageCheck.Problem(
+                    $"{bitweenOptions.StorageProvider}, bucket {Configuration["CloudFiles:BucketName"]}", ex.Message));
+                throw new StartupProblemException(problems.ToString());
             }
 
             services.AddServerless(configure =>
@@ -192,40 +287,49 @@ namespace SW.Bitween.Web
             services.AddScoped<StatementUsageReader>();
 
             // Scoped for the same reason: it reads the data source through the request's DbContext.
-            // IResidentAdapterHost is an optional dependency, so this resolves on a node with
-            // resident adapters turned off too — it just never has anyone to ask.
+            // On a node with data sources turned off no instance runs, so it has nobody to ask and
+            // saves the statement unchecked.
             services.AddScoped<StatementValidator>();
 
-            // Resident data source providers — brokers and databases both. Off by default because
-            // it is opt-in, not because it is unsafe to run on more than one node: a broker
-            // connection is exclusive, and every
-            // data source is held through a lease with a database-issued fencing term, so only
-            // one node consumes any given source. See BusProviderSupervisor and ILeaderElection.
+            // The resident adapter host, on every node. Python, Node and other non-.NET adapters
+            // run on it even as classic adapters - SW-Serverless calls them over gRPC - so without
+            // it they failed at their first call on any node without data sources turned on.
+            services.AddResidentAdapters<BusProviderEventSink, BitweenAdapterStateStore>(configure =>
+            {
+                configure.HeartbeatInterval = TimeSpan.FromSeconds(15);
+                configure.MaxInFlight = bitweenOptions.BusProviderMaxInFlight;
+                // The same ceiling classic adapters get, so a resident handler or mapper is not
+                // allowed longer than the classic one it replaces (both default to 300 seconds).
+                if (bitweenOptions.ServerlessCommandTimeout > 0)
+                    configure.InvokeTimeout = TimeSpan.FromSeconds(bitweenOptions.ServerlessCommandTimeout);
+            });
+
+            // Resident data source providers - brokers and databases both - and resident adapters
+            // in the pipeline. Off by default because it is opt-in, not because it is unsafe to run
+            // on more than one node: a broker connection is exclusive, and every data source is held
+            // through a lease with a database-issued fencing term, so only one node consumes any
+            // given source. See BusProviderSupervisor and ILeaderElection.
             if (bitweenOptions.BusProvidersEnabled)
             {
-                services.AddResidentAdapters<BusProviderEventSink, BitweenAdapterStateStore>(configure =>
-                {
-                    configure.HeartbeatInterval = TimeSpan.FromSeconds(15);
-                    configure.MaxInFlight = bitweenOptions.BusProviderMaxInFlight;
-                });
-                // One election implementation, deliberately — see ILeaderElection's remarks.
+                // One election implementation, deliberately - see ILeaderElection's remarks.
                 services.AddSingleton<ILeaderElection, RabbitMqLeaderElection>();
                 services.AddHostedService<BusProviderSupervisor>();
             }
             services.AddScoped<RequestContext>();
 
-            // Get and validate connection string
+            // Present: checked with the rest of the configuration at the top.
             var connectionString = Configuration.GetConnectionString(BitweenDbContext.ConnectionString);
-            if (string.IsNullOrWhiteSpace(connectionString))
-            {
-                throw new InvalidOperationException(
-                    $"Connection string '{BitweenDbContext.ConnectionString}' is not configured. " +
-                    "Please check your appsettings.json or environment configuration.");
-            }
+
+            // MySQL connections are encrypted unless the connection string chooses otherwise: the driver's
+            // default, Preferred, falls back to plain text against a server without TLS. Set here so the
+            // scheduler, the migrations and the DbContext all use it. SslMode in the string still wins.
+            if (!string.Equals(bitweenOptions.DatabaseType, RelationalDbType.PgSql.ToString(), StringComparison.OrdinalIgnoreCase) &&
+                !string.Equals(bitweenOptions.DatabaseType, RelationalDbType.MsSql.ToString(), StringComparison.OrdinalIgnoreCase))
+                connectionString = MySqlTls.RequiredUnlessChosen(connectionString);
 
             // For SQL Server + managed identity, augment the connection string up front so both
             // the Quartz scheduler below and the DbContext registered later use the exact same
-            // (fully authenticated) value — previously this was only applied after the scheduler
+            // (fully authenticated) value - previously this was only applied after the scheduler
             // had already captured the un-augmented string, so Quartz would fail to authenticate.
             if (bitweenOptions.UseAzureManagedIdentity &&
                 bitweenOptions.DatabaseType.Equals(RelationalDbType.MsSql.ToString(), StringComparison.OrdinalIgnoreCase) &&
@@ -235,15 +339,13 @@ namespace SW.Bitween.Web
             }
 
             // Register the persistent Quartz scheduler using the same DB as Bitween.
-            // NOTE: clustering is only guaranteed once SimplyWorks.Scheduler.* is bumped past
-            // 8.1.1 (the version pinned in the .csproj files as of this comment) — the fix that
-            // makes clustering unconditional (unique auto-generated SchedulerId per instance)
-            // hasn't been published yet. Until that bump happens, these packages run
-            // NON-clustered (EnableClustering defaulted to false and no longer settable here).
+            // Every provider runs it clustered, with an instance id generated per process, so each
+            // fire runs on one replica only and a stopped replica's jobs carry on elsewhere. See
+            // QuartzClusteringTests, which fails if a package bump ever turns that off.
             if (string.Equals(bitweenOptions.DatabaseType, RelationalDbType.PgSql.ToString(), StringComparison.OrdinalIgnoreCase))
             {
                 // For PostgreSQL + managed identity, Npgsql has no "Authentication=" connection
-                // string keyword equivalent to SQL Server's — SW.Scheduler.PgSql's
+                // string keyword equivalent to SQL Server's - SW.Scheduler.PgSql's
                 // AzureManagedIdentityNpgsqlDbProvider handles this by fetching a fresh AAD token
                 // and supplying it as Password= on every physical connection Quartz opens, so no
                 // password needs to be (or should be) present in the connection string itself.
@@ -286,10 +388,11 @@ namespace SW.Bitween.Web
                 if (!connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase) &&
                     !connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase))
                 {
-                    throw new InvalidOperationException(
+                    problems.Add(
                         $"PostgreSQL connection string is missing 'Host=' or 'Server=' parameter. " +
-                        $"Connection string: '{connectionString}'. " +
+                        // Never the connection string itself: it carries the password, and this goes to the log.
                         "Please check your ConnectionStrings:BitweenDb configuration.");
+                    throw new StartupProblemException(problems.ToString());
                 }
 
                 // Configure connection with Azure Managed Identity for PostgreSQL if enabled
@@ -310,7 +413,9 @@ namespace SW.Bitween.Web
 
                     services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>
                     {
-                        c.EnableSensitiveDataLogging();
+                        // Parameter values in EF's logs are passwords, partner keys and payloads; only
+                        // a developer's own machine should ever write them out.
+                        if (bitweenOptions.LogSqlParameterValues) c.EnableSensitiveDataLogging();
                         c.UseSnakeCaseNamingConvention();
                         c.UseNpgsql(dataSource, b =>
                         {
@@ -329,7 +434,9 @@ namespace SW.Bitween.Web
 
                     services.AddDbContext<BitweenDbContext, PgSql.BitweenDbContext>(c =>
                     {
-                        c.EnableSensitiveDataLogging();
+                        // Parameter values in EF's logs are passwords, partner keys and payloads; only
+                        // a developer's own machine should ever write them out.
+                        if (bitweenOptions.LogSqlParameterValues) c.EnableSensitiveDataLogging();
                         c.UseSnakeCaseNamingConvention();
                         c.UseNpgsql(dataSource, b =>
                         {
@@ -347,7 +454,9 @@ namespace SW.Bitween.Web
             {
                 services.AddDbContext<BitweenDbContext, MsSql.BitweenDbContext>(c =>
                 {
-                    c.EnableSensitiveDataLogging();
+                    // Parameter values in EF's logs are passwords, partner keys and payloads: written
+                    // only when asked for (Bitween:LogSqlParameterValues), never by environment.
+                    if (bitweenOptions.LogSqlParameterValues) c.EnableSensitiveDataLogging();
                     c.UseSqlServer(connectionString,
                         b => { b.MigrationsAssembly(typeof(MsSql.DbType).Assembly.FullName); });
                 });
@@ -358,7 +467,9 @@ namespace SW.Bitween.Web
                 // MySql (default)
                 services.AddDbContext<BitweenDbContext, MySql.BitweenDbContext>(c =>
                 {
-                    c.EnableSensitiveDataLogging();
+                    // Parameter values in EF's logs are passwords, partner keys and payloads: written
+                    // only when asked for (Bitween:LogSqlParameterValues), never by environment.
+                    if (bitweenOptions.LogSqlParameterValues) c.EnableSensitiveDataLogging();
                     c.UseMySql(connectionString, new MySqlServerVersion(new Version(8, 0, 18)),
                         b => { b.MigrationsAssembly(typeof(MySql.DbType).Assembly.FullName); });
                 });
@@ -366,7 +477,33 @@ namespace SW.Bitween.Web
             }
 
 
-            services.AddHealthChecks();
+            services.AddHealthChecks().AddDependencyChecks();
+
+            // Metrics and traces over OTLP, only where a collector is configured - the standard
+            // OTEL_EXPORTER_OTLP_ENDPOINT, or OpenTelemetry:Endpoint. Nothing changes for a
+            // deployment that sets neither.
+            var otlpEndpoint = Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] ?? Configuration["OpenTelemetry:Endpoint"];
+            if (!string.IsNullOrWhiteSpace(otlpEndpoint))
+            {
+                services.AddOpenTelemetry()
+                    .ConfigureResource(resource => resource.AddService(
+                        Configuration["OTEL_SERVICE_NAME"] ?? "bitween"))
+                    .WithMetrics(metrics => metrics
+                        .AddMeter(BitweenTelemetry.Name)
+                        .AddAspNetCoreInstrumentation()
+                        .AddHttpClientInstrumentation()
+                        .AddRuntimeInstrumentation())
+                    .WithTracing(tracing => tracing
+                        .AddSource(BitweenTelemetry.Name)
+                        .AddAspNetCoreInstrumentation(o =>
+                            o.Filter = context => !context.Request.Path.StartsWithSegments("/health"))
+                        .AddHttpClientInstrumentation())
+                    .UseOtlpExporter(
+                        Configuration["OTEL_EXPORTER_OTLP_PROTOCOL"] == "http/protobuf"
+                            ? OpenTelemetry.Exporter.OtlpExportProtocol.HttpProtobuf
+                            : OpenTelemetry.Exporter.OtlpExportProtocol.Grpc,
+                        new Uri(otlpEndpoint));
+            }
 
             // services.AddRazorPages(options =>
             // {
@@ -381,7 +518,6 @@ namespace SW.Bitween.Web
             // {
             //     config.DefaultApiClientFactory = sp => sp.GetService<BitweenClient>();
             // });
-            RejectSampleSigningKey();
             AddRateLimiting(services);
             services.AddJwtTokenParameters();
             services.AddAuthorization();
@@ -399,7 +535,7 @@ namespace SW.Bitween.Web
             // offered, so registering it at Fastest would actively make the common case worse. The
             // remaining 54 KB is only worth chasing by pre-compressing at build time.
             //
-            // The explicit "text/javascript" matters — the static file middleware labels .js files
+            // The explicit "text/javascript" matters - the static file middleware labels .js files
             // that way, while the framework's default list only names "application/javascript", so
             // relying on the defaults would silently skip the single largest response we serve.
             //
@@ -407,7 +543,7 @@ namespace SW.Bitween.Web
             // deployment that doesn't front the pod with a proxy), so leaving it off would mean no
             // compression at all in exactly the place we test it. The BREACH risk it guards against
             // needs a secret and attacker-controlled text in the same response body; the API returns
-            // neither — auth tokens travel in headers and the Set-Cookie, never in a GET body.
+            // neither - auth tokens travel in headers and the Set-Cookie, never in a GET body.
             services.AddResponseCompression(options =>
             {
                 options.EnableForHttps = true;
@@ -465,8 +601,20 @@ namespace SW.Bitween.Web
                     });
             });
 
-            // Resolved per adapter instance so a license key saved in Settings applies without a restart.
-            services.AddNativeAdapters(sp => sp.GetRequiredService<BitweenOptions>().RebexLicenseKey);
+            // Resolved per adapter instance so a license key or mail server saved in Settings applies
+            // without a restart.
+            services.AddNativeAdapters(
+                sp => sp.GetRequiredService<BitweenOptions>().RebexLicenseKey,
+                sp => sp.GetRequiredService<BitweenOptions>().BlockPrivateNetworkAddresses,
+                sp =>
+                {
+                    var options = sp.GetRequiredService<BitweenOptions>();
+                    return new CircuitBreakerSettings(options.CircuitBreakerFailures,
+                        options.CircuitBreakerWindowSeconds, options.CircuitBreakerOpenSeconds,
+                        options.CircuitBreakerPerEndpoint);
+                },
+                sp => sp.GetRequiredService<BitweenOptions>().MailServer,
+                sp => sp.GetRequiredService<ThemeOptions>().PrimaryColor);
 
             // services.AddScoped<INativeInfolinkHandler, NativeUpdatePartnerPropsHandler>();
             // services.AddScoped<INativeAdapter, NativeUpdatePartnerPropsHandler>();
@@ -475,14 +623,14 @@ namespace SW.Bitween.Web
 
 
         /// <summary>
-        /// Enforced. Proven Report-Only first across every page in the admin UI — a wrong
+        /// Enforced. Proven Report-Only first across every page in the admin UI - a wrong
         /// enforced policy blanks the app, so the order matters. Switch back to
         /// "Content-Security-Policy-Report-Only" before widening the policy again.
         /// </summary>
         private const string ContentSecurityPolicyHeader = "Content-Security-Policy";
 
         /// <summary>
-        /// Where the Microsoft sign-in popup lands — the page registered as the Azure AD
+        /// Where the Microsoft sign-in popup lands - the page registered as the Azure AD
         /// redirect URI. Deliberately not the app root: index.html boots the admin UI, which
         /// finds no session and navigates to /login, dropping the "#code=..." fragment the
         /// sign-in depends on.
@@ -513,7 +661,7 @@ namespace SW.Bitween.Web
         /// An upgrade cannot move a deployment onto the right redirect URI by itself. A stored setting
         /// wins over configuration once its row exists (see SettingsService), so editing Helm or
         /// appsettings has no effect, and the URI has to be registered on the Azure AD app by hand
-        /// regardless — rewriting the value here would only trade a hung popup for AADSTS50011.
+        /// regardless - rewriting the value here would only trade a hung popup for AADSTS50011.
         /// A warning is all this can honestly do, and it beats leaving a sign-in that hangs with no
         /// explanation as the only symptom.
         /// </para>
@@ -543,7 +691,7 @@ namespace SW.Bitween.Web
         /// <remarks>
         /// The sample below ships as the default in our public deployment chart, which is exactly
         /// why it has to be rejected: a deployment that never overrode it looked completely healthy
-        /// — tokens were issued, signatures verified — while anyone who had read the chart could
+        /// - tokens were issued, signatures verified - while anyone who had read the chart could
         /// mint their own. A penetration test did precisely that.
         /// <para>
         /// Checked in every environment, deliberately. Exempting Development would have made this
@@ -566,21 +714,21 @@ namespace SW.Bitween.Web
             var key = Configuration["Token:Key"];
 
             if (string.IsNullOrWhiteSpace(key))
-                throw new InvalidOperationException(
-                    "Token:Key is not configured. Generate a random secret unique to this " +
-                    "deployment — tokens cannot be trusted without one.");
+                throw new StartupProblemException(
+                    "Token:Key is not configured. Set it (env: Token__Key) to a random secret unique to " +
+                    "this deployment - tokens cannot be trusted without one.");
 
             // The length our own configuration documents. A short key is brute-forceable offline
             // against any token the holder has seen, which is every token they were ever issued.
             if (key.Length < MinimumSigningKeyLength)
-                throw new InvalidOperationException(
+                throw new StartupProblemException(
                     $"Token:Key is {key.Length} characters; it must be at least " +
                     $"{MinimumSigningKeyLength}. Generate a random secret rather than choosing one.");
 
             if (key == SampleSigningKey)
-                throw new InvalidOperationException(
+                throw new StartupProblemException(
                     "Token:Key is still the sample value that ships as the default in the " +
-                    "deployment chart, and it is published in a public repository — anyone can " +
+                    "deployment chart, and it is published in a public repository - anyone can " +
                     "mint a valid token with it. Set Token:Key (env: Token__Key) to a random " +
                     "secret unique to this deployment. Doing so signs out everyone holding a " +
                     "token issued under the old key, which is the intended outcome.");
@@ -593,7 +741,7 @@ namespace SW.Bitween.Web
         /// <remarks>
         /// A penetration test ran forty-six passwords at the login endpoint in a single
         /// uninterrupted burst; nothing throttled, delayed or blocked any of them, and response
-        /// times stayed flat throughout. Nothing else in the API behaved differently — the whole
+        /// times stayed flat throughout. Nothing else in the API behaved differently - the whole
         /// dataset could be pulled as fast as it could be asked for.
         /// <para>
         /// Partitioned by account where there is one and by address otherwise. Partitioning
@@ -622,9 +770,41 @@ namespace SW.Bitween.Web
             var requestLimit = limits.GetValue("RequestsPerMinute", 600);
             var fileLinkLimit = limits.GetValue("FileLinksPerMinute", 60000);
 
+            // UseForwardedHeaders does nothing until it is told which headers to read, so every
+            // request looked like it came from the ingress: one shared sign-in budget for the whole
+            // world, which a single client could spend for everyone. ForwardLimit 1 reads only the
+            // address the nearest proxy appended, so whatever a client writes into the header
+            // itself is ignored. Any proxy is trusted unless Bitween:TrustedProxies names them,
+            // since an ingress's address is rarely known ahead of time.
+            services.Configure<ForwardedHeadersOptions>(options =>
+            {
+                options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+                options.ForwardLimit = 1;
+                options.KnownIPNetworks.Clear();
+                options.KnownProxies.Clear();
+                foreach (var entry in (Configuration["Bitween:TrustedProxies"] ?? "")
+                             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    options.KnownIPNetworks.Add(System.Net.IPNetwork.Parse(entry.Contains('/') ? entry : entry + (entry.Contains(':') ? "/128" : "/32")));
+            });
+
             services.AddRateLimiter(options =>
             {
                 options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+                // A partner calling too fast is told 429 and nothing else records it; the gateway's
+                // page lists it among the calls turned away.
+                options.OnRejected = (context, _) =>
+                {
+                    var path = context.HttpContext.Request.Path.Value ?? "";
+                    const string prefix = "/api/gateway/";
+                    if (path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        var rest = path[prefix.Length..].Trim('/');
+                        var split = rest.LastIndexOf('/');
+                        context.HttpContext.RequestServices.GetRequiredService<GatewayActivity>().Refused(
+                            split > 0 ? rest[..split] : rest, "rate-limited", 429, ClientAddress(context.HttpContext));
+                    }
+                    return ValueTask.CompletedTask;
+                };
 
                 options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
                 {
@@ -638,7 +818,7 @@ namespace SW.Bitween.Web
                             });
 
                     // File links have a budget of their own: an aggregation's handler downloads every
-                    // link in a roll-up — up to 10,000 — and the storage URLs they replace had no limit.
+                    // link in a roll-up - up to 10,000 - and the storage URLs they replace had no limit.
                     // Still bounded, and a bad seal is turned away before storage is touched.
                     if (context.Request.Path.StartsWithSegments("/" + FileLinks.RoutePrefix))
                         return RateLimitPartition.GetFixedWindowLimiter(
@@ -677,12 +857,51 @@ namespace SW.Bitween.Web
             if (!path.HasValue) return false;
 
             // Routing treats "/api/accounts/login/" as the same endpoint, so the limit has to as
-            // well — otherwise one trailing character moves an attempt to the general budget.
+            // well - otherwise one trailing character moves an attempt to the general budget.
             var value = path.Value!.TrimEnd('/');
 
+            // A service token traded for a session is a sign-in too, and gets the same budget, as
+            // does starting a single sign-on, which asks the provider for its metadata.
             return value.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
-                && value.EndsWith("/login", StringComparison.OrdinalIgnoreCase);
+                && (value.EndsWith("/login", StringComparison.OrdinalIgnoreCase)
+                    || value.EndsWith("/accounts/servicetoken", StringComparison.OrdinalIgnoreCase)
+                    || value.EndsWith("/accounts/oidcstart", StringComparison.OrdinalIgnoreCase)
+                    // The password links: asking for one, reading one, and using one, all open to anyone.
+                    || value.EndsWith("/accounts/forgotpassword", StringComparison.OrdinalIgnoreCase)
+                    || value.EndsWith("/accounts/passwordlink", StringComparison.OrdinalIgnoreCase)
+                    || value.EndsWith("/accounts/usepasswordlink", StringComparison.OrdinalIgnoreCase));
         }
+
+        /// <summary>
+        /// What a token that still has to change its password may call: the sign-in and
+        /// self-service endpoints the change-password page needs, and nothing else.
+        /// </summary>
+        /// <remarks>
+        /// <c>POST /api/xchanges</c> is left open on purpose. Whether and how to guard it is being
+        /// studied separately, because it has been reachable this way since r6 and how deployments
+        /// use it is not yet known.
+        /// </remarks>
+        private static bool MustChangePasswordAllows(HttpRequest request)
+        {
+            var path = request.Path.Value!.TrimEnd('/');
+
+            if (path.Equals("/api/xchanges", StringComparison.OrdinalIgnoreCase) &&
+                HttpMethods.IsPost(request.Method))
+                return true;
+
+            return MustChangePasswordPaths.Contains(path);
+        }
+
+        private static readonly HashSet<string> MustChangePasswordPaths = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "/api/accounts/login",
+            "/api/accounts/logout",
+            "/api/accounts/profile",
+            "/api/accounts/changepassword",
+            "/api/settings/config",
+            "/api/settings/myversion",
+            "/api/permissions",
+        };
 
         private static string ClientAddress(HttpContext context) =>
             context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -695,8 +914,8 @@ namespace SW.Bitween.Web
             WarnIfMsalRedirectUriIsStale(app);
             app.UseForwardedHeaders();
 
-            // The API description is a map of the whole surface — every route, every request and
-            // response shape — and nobody who should have it needs to fetch it from a running
+            // The API description is a map of the whole surface - every route, every request and
+            // response shape - and nobody who should have it needs to fetch it from a running
             // deployment. Closed here, ahead of everything else, because the two halves are served
             // by different things: the UI page below, and /api/swagger.json by CqApi itself, which
             // offers no switch of its own. One gate covers both.
@@ -716,8 +935,8 @@ namespace SW.Bitween.Web
                 });
             }
 
-            // Early, so everything downstream — static files, the SPA fallback, every API
-            // response — is compressed on the way out.
+            // Early, so everything downstream - static files, the SPA fallback, every API
+            // response - is compressed on the way out.
             app.UseResponseCompression();
 
             app.Use(async (context, next) =>
@@ -737,7 +956,7 @@ namespace SW.Bitween.Web
                 // The landing page itself has to stay "unsafe-none". The popup arrives there
                 // directly from login.microsoftonline.com, which sends no COOP, and a document
                 // whose COOP does not match the one it is replacing forces a browsing context
-                // group switch — which severs the opener's handle. The symptom is deceptive:
+                // group switch - which severs the opener's handle. The symptom is deceptive:
                 // popup.closed reads true while the popup is plainly still on screen, so MSAL
                 // takes the poll's closed branch and fails the sign-in with "user_cancelled".
                 headers["Cross-Origin-Opener-Policy"] =
@@ -749,11 +968,11 @@ namespace SW.Bitween.Web
                 //
                 // The legacy deployment set this in nginx, which only ever served the SPA.
                 // Here the same host also serves Swagger UI, which needs inline scripts and
-                // styles of its own, so the policy is scoped to everything else — applied
+                // styles of its own, so the policy is scoped to everything else - applied
                 // globally it would simply take Swagger down.
                 //
                 // 'unsafe-inline' is present for styles only: the brand colour is applied at
-                // runtime as custom properties. Scripts need no such exemption — the built
+                // runtime as custom properties. Scripts need no such exemption - the built
                 // index.html carries no inline script, only the module bundle.
                 if (!context.Request.Path.StartsWithSegments("/swagger"))
                     headers[ContentSecurityPolicyHeader] = ContentSecurityPolicy;
@@ -775,7 +994,7 @@ namespace SW.Bitween.Web
                     else if (context.Request.Path.StartsWithSegments("/assets"))
                     {
                         // Vite content-hashes every filename under /assets, so the bytes behind a
-                        // given URL never change — a new build produces new URLs. Saying so lets a
+                        // given URL never change - a new build produces new URLs. Saying so lets a
                         // returning browser skip the request entirely. Without this header it isn't
                         // told anything and falls back to guessing a freshness window from the
                         // file's age, which differs between browsers and shrinks after each deploy.
@@ -809,6 +1028,47 @@ namespace SW.Bitween.Web
             // rather than against whatever address it shares with everyone else in the building.
             app.UseRateLimiter();
             app.UseAuthorization();
+
+            // A signed-in caller who is refused gets 403, not 401. Handlers refuse with
+            // SWUnauthorizedException, which CqApi renders as 401 - the answer for a missing or expired
+            // token - so the admin UI took every permission denial for an expired session and spent a
+            // refresh on it. Each refresh rotates the refresh cookie, and one whose response was lost
+            // to a navigation left the browser holding a cookie that no longer worked: signed out. A
+            // request whose token is missing or expired is not authenticated here and keeps its 401.
+            app.Use(async (context, next) =>
+            {
+                if (context.Request.Path.StartsWithSegments("/api") &&
+                    context.User.Identity?.IsAuthenticated == true)
+                {
+                    context.Response.OnStarting(() =>
+                    {
+                        if (context.Response.StatusCode == StatusCodes.Status401Unauthorized)
+                            context.Response.StatusCode = StatusCodes.Status403Forbidden;
+                        return Task.CompletedTask;
+                    });
+                }
+
+                await next();
+            });
+
+            // A token for an account whose password nobody has chosen reaches self-service and
+            // nothing else. GetPermissions already grants such a token nothing, but that only
+            // protects handlers that ask for a permission; a handler that forgets to ask was open
+            // to it, and the seeded administrator's password is published. Enforced here, once,
+            // so the next handler that forgets cannot reopen it.
+            app.Use(async (context, next) =>
+            {
+                if (context.User.FindFirst(RequestContextExtensions.MustChangePasswordClaim) is not null &&
+                    context.Request.Path.StartsWithSegments("/api") &&
+                    !MustChangePasswordAllows(context.Request))
+                {
+                    context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                    return;
+                }
+
+                await next();
+            });
+
             app.UseHttpAsRequestContext();
             SW.Logger.Console.IAppBuilderExtensions.UseRequestContextLogEnricher(app);
 
@@ -819,7 +1079,15 @@ namespace SW.Bitween.Web
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
-                endpoints.MapHealthChecks("/health");
+                // /health keeps answering as it always has - the process is up - because probes
+                // already point at it. /health/live says the same under the conventional name, and
+                // /health/ready also asks the database and the broker; see DependencyHealthChecks.
+                endpoints.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false });
+                endpoints.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+                endpoints.MapHealthChecks("/health/ready", new HealthCheckOptions
+                {
+                    Predicate = check => check.Tags.Contains(DependencyHealthChecks.ReadyTag)
+                });
 
                 // SPA fallback: unmatched, non-file routes get the UI's index.html
                 // so client-side routes (e.g. /team/members) survive refresh.

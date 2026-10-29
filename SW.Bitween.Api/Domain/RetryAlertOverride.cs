@@ -27,9 +27,15 @@ public class RetryAlertOverride
     /// </summary>
     public RetryAlertMode AlertMode { get; set; }
 
-    /// <summary>Adapter that delivers the alert. Required when <see cref="AlertMode"/> is Send.</summary>
+    /// <summary>Channel that delivers the alert. Required when <see cref="AlertMode"/> is Send.</summary>
+    public int? AlertChannelId { get; set; }
+
+    /// <summary>
+    /// Retired: alerts go through <see cref="AlertChannelId"/>. Only the one-time move onto a
+    /// channel reads it, and clears it.
+    /// </summary>
     public string AlertHandlerId { get; set; }
 
-    /// <summary>That adapter's own settings — api key, recipients, subject.</summary>
+    /// <summary>Retired along with <see cref="AlertHandlerId"/>.</summary>
     public IReadOnlyDictionary<string, string> AlertHandlerProperties { get; set; }
 }

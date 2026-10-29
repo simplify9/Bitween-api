@@ -5,7 +5,7 @@
 // parse error with an empty catch, and left all of them unassigned.
 //
 // This one creates a real list for each list, reads each field's type off the
-// sample, fills in the source fields it can identify, and only ever adds — on a
+// sample, fills in the source fields it can identify, and only ever adds - on a
 // document with two hundred fields the structure was never the slow part.
 //
 // The sample seeds the rules and is then only a note for the next reader. It is
@@ -93,7 +93,7 @@ export function scaffoldFromTarget(
 }
 
 /**
- * Whether a target names an XML namespace declaration — `@xmlns` or `@xmlns:something`.
+ * Whether a target names an XML namespace declaration - `@xmlns` or `@xmlns:something`.
  *
  * Only ever the last segment, because that is where an attribute sits.
  */
@@ -106,7 +106,7 @@ function isNamespaceDeclaration(segments: string[]): boolean {
  * Adds what is missing from one container.
  *
  * `holder` is the sample node whose contents the container produces: an object's
- * members, or — for a list — the shape of one list entry. `scope` is the matching
+ * members, or - for a list - the shape of one list entry. `scope` is the matching
  * half of that on the source side, and it narrows on the way down: a list's rules
  * are written against one entry, so that is what its names are matched against.
  */
@@ -128,7 +128,7 @@ function fill(
     if (type) rule.type = type;
 
     // An XML namespace declaration is part of what the document *is*, not something a
-    // partner's data fills in — and a URI is exactly the kind of thing nobody should be
+    // partner's data fills in - and a URI is exactly the kind of thing nobody should be
     // retyping from memory. So the sample supplies it, which is the whole reason
     // namespaces are ordinary `@xmlns` fields rather than a setting of their own.
     if (isNamespaceDeclaration(slot.segments)) {
@@ -230,7 +230,7 @@ function slotsOf(nodes: DocumentNode[]): { values: Slot[]; lists: Slot[] } {
 /**
  * The type to write the field as, read off the sample.
  *
- * A null in the sample says nothing about the type, so nothing is pinned — and a
+ * A null in the sample says nothing about the type, so nothing is pinned - and a
  * cast is never applied to a missing value anyway, so pinning a type here cannot
  * turn an absent optional field into a failure.
  */
@@ -264,7 +264,7 @@ export interface MatchTally {
  * already there. A mapping built by hand, or one whose source sample arrived after
  * the rules did, needs only the second.
  *
- * Rules that already read something are never touched — including ones pointing at
+ * Rules that already read something are never touched - including ones pointing at
  * a path the sample does not contain, which is a mapping this document cannot
  * confirm rather than a mistake.
  *
@@ -293,7 +293,7 @@ export function matchSources(rules: EditorRules, source: DocumentNode | null): M
     for (const list of container.lists) {
       const inside = itemScopeOf(scope, list.over ?? "");
       // A written entry produces no entry of its own, so its rules read what the
-      // list reads — the same rule the mapper applies when it runs them.
+      // list reads - the same rule the mapper applies when it runs them.
       for (const entry of list.fixed) walk(entry, scope);
       if (list.item === undefined) walk(list, inside);
     }
@@ -301,7 +301,7 @@ export function matchSources(rules: EditorRules, source: DocumentNode | null): M
 
   if (rules.root) {
     // Its written entries read from where the list sits, which for the root list is the
-    // document itself — and they are reached here rather than by `walk`, which only sees
+    // document itself - and they are reached here rather than by `walk`, which only sees
     // the `fixed` of lists nested inside a container.
     for (const entry of rules.root.fixed) walk(entry, source);
     if (rules.root.item === undefined)

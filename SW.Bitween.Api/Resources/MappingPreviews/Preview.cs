@@ -35,7 +35,7 @@ public class MappingPreviewResponse
     /// </summary>
     public List<MappingPreviewError> RuleErrors { get; set; } = new();
 
-    /// <summary>Set when the mapping could not be attempted at all — unreadable document or rules.</summary>
+    /// <summary>Set when the mapping could not be attempted at all - unreadable document or rules.</summary>
     public string? Error { get; set; }
 }
 
@@ -50,7 +50,7 @@ public class MappingPreviewError
 /// </summary>
 /// <remarks>
 /// <para>
-/// Runs the same three steps the exchange pipeline runs — read, map, write — against the same
+/// Runs the same three steps the exchange pipeline runs - read, map, write - against the same
 /// context factory. That is deliberate and it is the point: the old preview generated its own
 /// template and assembled its own partner values, and the two drifted, so a mapping that previewed
 /// correctly could fail in production.
@@ -60,11 +60,17 @@ public class MappingPreviewError
 /// yet.
 /// </para>
 /// </remarks>
-public class Preview(MappingContextFactory contextFactory)
+public class Preview(RequestContext requestContext, BitweenDbContext dbContext,
+        MappingContextFactory contextFactory)
     : ICommandHandler<MappingPreviewRequest, MappingPreviewResponse>
 {
     public async Task<MappingPreviewResponse> Handle(MappingPreviewRequest request)
     {
+        // The editor opens while creating a subscription as well as while editing one, so either
+        // right will do. Without a guard any signed-in token could map any partner's values.
+        await requestContext.EnsurePermission(dbContext,
+            Model.Permissions.Subscriptions.Create, Model.Permissions.Subscriptions.Edit);
+
         MappingRules rules;
         try
         {
@@ -83,10 +89,10 @@ public class Preview(MappingContextFactory contextFactory)
                         $"Bitween understands up to version {MappingRules.CurrentVersion}.",
             };
 
-        if (!DocumentFormats.TryGet(rules.SourceFormat, out var source, rules.SourceCsv))
+        if (SourceFormat(rules, request.SourceDocument) is not { } source)
             return new MappingPreviewResponse { Error = DocumentFormats.Unsupported(rules.SourceFormat, "source") };
 
-        if (!DocumentFormats.TryGet(rules.TargetFormat, out var target, rules.TargetCsv))
+        if (TargetFormat(rules) is not { } target)
             return new MappingPreviewResponse { Error = DocumentFormats.Unsupported(rules.TargetFormat, "target") };
 
         ValueNode input;
@@ -99,7 +105,7 @@ public class Preview(MappingContextFactory contextFactory)
             return new MappingPreviewResponse { Error = ex.Message };
         }
 
-        var context = await contextFactory.Build(request.PartnerId);
+        var context = await contextFactory.Build(request.PartnerId, maskSecrets: true);
 
         try
         {
@@ -128,5 +134,37 @@ public class Preview(MappingContextFactory contextFactory)
             // rather than to any one rule, so it is reported the same way a bad sample is.
             return new MappingPreviewResponse { Error = ex.Message };
         }
+    }
+
+    /// <summary>What reads an editor's source sample, or null for a format no reader answers to.</summary>
+    internal static IDocumentFormat? SourceFormat(MappingRules rules, string? sample)
+    {
+        if (!DocumentFormats.TryGet(rules.SourceFormat, out var source, rules.SourceOptions())) return null;
+
+        // A workbook can't be pasted into the editor, so its sample is cells copied from Excel,
+        // which arrive as tab-separated text. Read that way when it isn't a workbook in base64;
+        // the exchange pipeline only ever reads the workbook itself.
+        return source is ExcelFormat && !LooksLikeBase64(sample ?? "")
+            ? new CsvFormat(new CsvOptions { Delimiter = "\t", HasHeader = rules.SourceExcel?.HasHeader != false })
+            : source;
+    }
+
+    /// <summary>What writes the preview's output, and reads an editor's output sample.</summary>
+    internal static IDocumentFormat? TargetFormat(MappingRules rules)
+    {
+        if (!DocumentFormats.TryGet(rules.TargetFormat, out var target, rules.TargetOptions())) return null;
+
+        // And a workbook can't be shown, so the preview shows its rows the same way.
+        return target is ExcelFormat
+            ? new CsvFormat(new CsvOptions { Delimiter = "\t", HasHeader = rules.TargetExcel?.HasHeader != false })
+            : target;
+    }
+
+    static bool LooksLikeBase64(string text)
+    {
+        var trimmed = (text ?? "").Trim();
+        if (trimmed.Length == 0 || trimmed.Length % 4 != 0) return false;
+        Span<byte> buffer = new byte[trimmed.Length];
+        return Convert.TryFromBase64String(trimmed, buffer, out _);
     }
 }

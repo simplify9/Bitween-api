@@ -7,7 +7,7 @@ import type { EntryPoint } from "./model";
  * whether a bad one counts.
  *
  * Shared by its studio page and its create page, so the node says the same thing in both.
- * The feeders are not chosen here — each one picks this subscription in its own Response
+ * The feeders are not chosen here - each one picks this subscription in its own Response
  * step, because that is where the response is.
  */
 export function ResponseTrigger({
@@ -29,7 +29,7 @@ export function ResponseTrigger({
       />
       <Checkbox
         label="Also run on a bad response"
-        description="Off, it only runs when the delivery that fed it succeeded. On, it also gets the error bodies — an HTTP 4xx, say — so its mapper has to be able to read them."
+        description="Off, it only runs when the delivery that fed it succeeded. On, it also gets the error bodies - an HTTP 4xx, say - so its mapper has to be able to read them."
         checked={runOnBadResponses}
         disabled={disabled}
         onChange={(e) => onChange(e.target.checked)}

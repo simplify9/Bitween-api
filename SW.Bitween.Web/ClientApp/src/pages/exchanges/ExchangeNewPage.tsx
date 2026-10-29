@@ -4,14 +4,15 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { api, ApiRequestError } from "../../api";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { FormatButton } from "../../components/ui/FormatButton";
-import { Button, FormError } from "../../components/ui/basics";
+import { Button, FormError, ProblemText } from "../../components/ui/basics";
 import { Field } from "../../components/ui/forms";
 import { SearchSelect } from "../../components/ui/SearchSelect";
-import { useSubscriptionsCache } from "../../components/config/shared";
+import { useSubscriptionsCache } from "../../components/config/lookups";
 import { keys } from "../../api/queryKeys";
+import { payloadProblem } from "../../lib/payloadCheck";
 
 /**
- * Manually inject a payload — useful for testing a pipeline without waiting
+ * Manually inject a payload - useful for testing a pipeline without waiting
  * for real traffic. Addressed either at one subscription, or at an
  * information type (every matching subscription picks it up).
  */
@@ -33,6 +34,15 @@ export function ExchangeNewPage() {
   const infoTypes =
     useQuery({ queryKey: keys.informationTypes.list, queryFn: () => api.listInformationTypes() }).data ?? [];
 
+  // The format the payload has to be in: the information type's, picked directly or behind the
+  // subscription chosen.
+  const expectedTypeId =
+    target === "informationType"
+      ? Number(informationTypeId) || null
+      : (subscriptions.find((s) => String(s.id) === subscriptionId)?.informationTypeId ?? null);
+  const expectedFormat = infoTypes.find((t) => t.id === expectedTypeId)?.format ?? null;
+  const problem = payloadProblem(data, expectedFormat);
+
   const create = useMutation({
     mutationFn: () =>
       api.createExchange({
@@ -52,6 +62,7 @@ export function ExchangeNewPage() {
     if (target === "informationType" && !informationTypeId)
       return setError("Pick the information type to send.");
     if (!data.trim()) return setError("Paste the payload the exchange should carry.");
+    if (problem) return setError(problem);
     create.mutate();
   };
 
@@ -59,7 +70,7 @@ export function ExchangeNewPage() {
     <div className="mx-auto max-w-2xl">
       <PageHeader
         title="New exchange"
-        description="Inject a payload by hand — it runs through the pipeline exactly like real traffic."
+        description="Inject a payload by hand - it runs through the pipeline exactly like real traffic."
       />
 
       <div className="space-y-5 rounded-xl border border-ink-200 bg-white p-5">
@@ -91,6 +102,7 @@ export function ExchangeNewPage() {
             hint="The pipeline that will process this payload."
           >
             <SearchSelect
+              aria-label="Subscription"
               value={subscriptionId}
               onChange={setSubscriptionId}
               placeholder="Pick a subscription…"
@@ -103,6 +115,7 @@ export function ExchangeNewPage() {
             hint="Every subscription listening for this type picks the payload up."
           >
             <SearchSelect
+              aria-label="Information type"
               value={informationTypeId}
               onChange={setInformationTypeId}
               placeholder="Pick an information type…"
@@ -111,16 +124,30 @@ export function ExchangeNewPage() {
           </Field>
         )}
 
-        <Field label="Payload" hint="JSON or XML — whatever the pipeline expects as its input document.">
+        <Field
+          label="Payload"
+          htmlFor="exchange-payload"
+          hint={
+            expectedFormat === "Json"
+              ? "JSON, as the information type says. It is checked as you type."
+              : expectedFormat === "Xml"
+                ? "XML, as the information type says. It is checked as you type."
+                : "JSON or XML - whatever the pipeline expects as its input document."
+          }
+        >
           <textarea
+            id="exchange-payload"
             value={data}
             onChange={(e) => setData(e.target.value)}
             rows={10}
             spellCheck={false}
             placeholder='{"order": { … }}'
-            className="w-full resize-y rounded-lg border border-ink-200 bg-white px-3 py-2 font-mono text-xs text-ink-900 placeholder:text-ink-400 focus:border-crimson-400 focus:ring-2 focus:ring-crimson-100 focus:outline-none"
+            className="w-full resize-y rounded-lg border border-ink-200 bg-white px-3 py-2 font-mono text-xs text-ink-900 placeholder:text-ink-400 focus:border-focus-400 focus:ring-2 focus:ring-focus-100 focus:outline-none"
           />
-          <div className="flex justify-end">
+          <div className="flex items-start justify-between gap-3">
+            <p role={problem ? "alert" : undefined} className="min-w-0 break-words">
+              {problem && <ProblemText>{problem}</ProblemText>}
+            </p>
             <FormatButton value={data} onChange={setData} />
           </div>
         </Field>
@@ -131,7 +158,7 @@ export function ExchangeNewPage() {
           <Button variant="ghost" onClick={() => navigate("/exchanges", { replace: true })}>
             Cancel
           </Button>
-          <Button variant="primary" busy={create.isPending} onClick={submit}>
+          <Button variant="primary" busy={create.isPending} onClick={submit} disabled={!!problem}>
             Create exchange
           </Button>
         </div>

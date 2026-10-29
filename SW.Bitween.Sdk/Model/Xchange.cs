@@ -66,7 +66,7 @@ namespace SW.Bitween.Model
         public string Filter { get; set; }
 
         /// <summary>
-        /// Exchanges to leave out of a <see cref="Filter"/> selection — the rows unticked after
+        /// Exchanges to leave out of a <see cref="Filter"/> selection - the rows unticked after
         /// selecting everything.
         /// </summary>
         public List<string> ExcludeIds { get; set; }
@@ -113,15 +113,28 @@ namespace SW.Bitween.Model
         /// <summary>Distinct exchanges that will be (or were) retried.</summary>
         public int WillRetry { get; set; }
 
-        /// <summary>The largest selection this endpoint will carry out in one request.</summary>
+        /// <summary>
+        /// The largest selection one retry request carries out. A bigger one is retried in rounds of
+        /// this many, from <see cref="Targets"/>.
+        /// </summary>
         public int Limit { get; set; }
 
+        /// <summary>The largest selection a preview works out; past it, narrow the selection.</summary>
+        public int MaxSelection { get; set; }
+
         /// <summary>
-        /// <c>true</c> when the selection is past <see cref="Limit"/>. Nothing else is filled in
-        /// then — resolving thousands of chains to describe a request that will be refused
-        /// costs more than the answer is worth.
+        /// <c>true</c> when the selection is past <see cref="MaxSelection"/> for a preview, or past
+        /// <see cref="Limit"/> for a retry. Nothing else is filled in then - resolving thousands of
+        /// chains to describe a request that will be refused costs more than the answer is worth.
         /// </summary>
         public bool OverLimit { get; set; }
+
+        /// <summary>
+        /// The attempts that will run: each selection's newest attempt, once per chain, minus the
+        /// skipped. Sent back as <c>ids</c> in rounds of <see cref="Limit"/> when there are
+        /// more than one retry carries out.
+        /// </summary>
+        public List<string> Targets { get; set; } = new List<string>();
 
         /// <summary>
         /// Selections that had already been retried, and the later attempt standing in for each.
@@ -143,7 +156,7 @@ namespace SW.Bitween.Model
 
     /// <summary>
     /// A selected exchange that had already been retried, paired with the newest attempt in its
-    /// chain — the one a retry actually runs, since retrying the selected one again is refused.
+    /// chain - the one a retry actually runs, since retrying the selected one again is refused.
     /// </summary>
     public class XchangeRetrySubstitution
     {
@@ -154,8 +167,8 @@ namespace SW.Bitween.Model
     public class XchangeRetrySkip
     {
         /// <summary>
-        /// The exchange the skip is about: the one selected, or — once it had already been
-        /// retried — the later attempt that stood in for it.
+        /// The exchange the skip is about: the one selected, or - once it had already been
+        /// retried - the later attempt that stood in for it.
         /// </summary>
         public string Id { get; set; }
 
@@ -164,7 +177,7 @@ namespace SW.Bitween.Model
 
     public class XchangeRetryTreeRequest
     {
-        /// <summary>Any exchange in the chain — the answer is the same whichever one is asked about.</summary>
+        /// <summary>Any exchange in the chain - the answer is the same whichever one is asked about.</summary>
         public string Id { get; set; }
     }
 
@@ -221,6 +234,9 @@ namespace SW.Bitween.Model
         public string InputUri { get; set; }
         public string OutputUri { get; set; }
         public string ResponseUri { get; set; }
+
+        /// <summary>Set when the delivery went through but a file of it could not be stored; <c>null</c> otherwise.</summary>
+        public string Warning { get; set; }
     }
 
     //public class XchangeUnderProcessing : IUnderProcessing
@@ -284,15 +300,78 @@ namespace SW.Bitween.Model
         public string RetryBlockedReason { get; set; }
 
         /// <summary>
+        /// Something about a successful exchange to know, such as a delivery whose output or response
+        /// file could not be stored; <c>null</c> for nothing.
+        /// </summary>
+        public string Warning { get; set; }
+
+        /// <summary>
         /// <c>true</c> when something has already been retried from this exchange. An exchange
         /// gets at most one retry, so this is also what makes it un-retryable: the row's own
         /// Retry action gives way to a link to the later attempt.
         /// </summary>
         /// <remarks>
         /// Carried on the row rather than left to the retry-tree endpoint so that the common
-        /// case — an exchange with no retries either side of it — needs no second request at
+        /// case - an exchange with no retries either side of it - needs no second request at
         /// all. Costs one index lookup per returned row, on the index over <c>RetryFor</c>.
         /// </remarks>
         public bool HasRetry { get; set; }
+    }
+
+    /// <summary>
+    /// The exchange list's filter, summarised: how many exchanges are in each status, and when they
+    /// started. Returned by <c>GET /api/xchanges/summary</c>, which takes the same filters the search
+    /// does.
+    /// </summary>
+    /// <remarks>
+    /// Any status filter is ignored: this is the breakdown the status tabs show, each tab's count
+    /// under every other filter the list has, so narrowing to one status first would leave three of
+    /// them reading zero.
+    /// </remarks>
+    public class XchangeSummary
+    {
+        /// <summary>How many exchanges match, by status. Each is capped like the search's total.</summary>
+        public XchangeStatusCounts Counts { get; set; } = new XchangeStatusCounts();
+
+        /// <summary>
+        /// When the matching exchanges started, by status, in fixed buckets of
+        /// <see cref="BucketMinutes"/> each - contiguous and zero-filled from the start of the
+        /// filter's date range to its end. Empty when the filter has no start date: with no range
+        /// there is nothing to divide into buckets but the whole history.
+        /// </summary>
+        public List<XchangeSummaryBucket> Buckets { get; set; } = new List<XchangeSummaryBucket>();
+
+        /// <summary>How long each bucket is, in minutes; 0 when there are no buckets.</summary>
+        public int BucketMinutes { get; set; }
+    }
+
+    /// <summary>
+    /// Exchanges by status, defined exactly as the list's status filter defines them. A count of
+    /// <c>10001</c> means "more than 10,000": counting stops there, as the search's total does.
+    /// </summary>
+    public class XchangeStatusCounts
+    {
+        /// <summary>Still running: no result yet.</summary>
+        public int Processing { get; set; }
+
+        /// <summary>Finished, and the response (if any) was not marked bad.</summary>
+        public int Success { get; set; }
+
+        /// <summary>Finished, but the response was marked bad.</summary>
+        public int BadResponse { get; set; }
+
+        public int Failed { get; set; }
+    }
+
+    /// <summary>One bucket of <see cref="XchangeSummary.Buckets"/>: exchanges that started in it, by status.</summary>
+    public class XchangeSummaryBucket
+    {
+        /// <summary>When the bucket starts, in UTC. It ends where the next one starts.</summary>
+        public DateTime Start { get; set; }
+
+        public int Processing { get; set; }
+        public int Success { get; set; }
+        public int BadResponse { get; set; }
+        public int Failed { get; set; }
     }
 }

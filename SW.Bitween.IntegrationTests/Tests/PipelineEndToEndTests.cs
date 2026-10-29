@@ -20,7 +20,7 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// The whole pipeline, from where a message arrives to the XchangeResult it produces — with
+/// The whole pipeline, from where a message arrives to the XchangeResult it produces - with
 /// subscriptions that actually run serverless adapters rather than stopping at the Xchange row.
 ///
 /// The claim under test is the one the external-broker design rests on: past the point of
@@ -60,7 +60,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
 
         await using var adapter = await StartAdapterAsync(setup.DataSourceId);
 
-        Publish(queue, "{\"orderId\":501,\"channel\":\"web\"}");
+        await PublishAsync(queue, "{\"orderId\":501,\"channel\":\"web\"}");
 
         var parent = await WaitForXchangeAsync(setup.DocumentId);
         Assert.NotNull(parent);
@@ -91,13 +91,13 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
         var external = await ArrangeAsync(queue, EchoHandler);
         await using (var adapter = await StartAdapterAsync(external.DataSourceId))
         {
-            Publish(queue, payload);
+            await PublishAsync(queue, payload);
             var externalParent = await WaitForXchangeAsync(external.DocumentId);
             Assert.NotNull(externalParent);
             ExternalResult = await DriveToResultAsync(externalParent!, external.SubscriptionId);
         }
 
-        // Internal: no data source, no adapter, no broker — the gateway alone.
+        // Internal: no data source, no adapter, no broker - the gateway alone.
         var internalSetup = await ArrangeAsync(endpoint: null, EchoHandler);
         await SubmitInternallyAsync(internalSetup.DocumentId, payload);
 
@@ -119,7 +119,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
 
     /// <summary>
     /// One gateway, two routes, different filters. The message must run the subscription whose
-    /// filter matches and only that one — routing is the gateway's job whatever fed it.
+    /// filter matches and only that one - routing is the gateway's job whatever fed it.
     /// </summary>
     [Fact]
     public async Task A_filter_on_a_route_selects_which_subscription_runs()
@@ -134,7 +134,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
 
         await using var adapter = await StartAdapterAsync(setup.DataSourceId);
 
-        Publish(queue, "{\"orderId\":503,\"channel\":\"pos\"}");
+        await PublishAsync(queue, "{\"orderId\":503,\"channel\":\"pos\"}");
 
         var parent = await WaitForXchangeAsync(setup.DocumentId);
         Assert.NotNull(parent);
@@ -171,7 +171,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
             .Describe().Single(h => h.InstanceKey == setup.DataSourceId.ToString());
         Assert.Equal(InstanceState.Ready, health.State);
 
-        Publish(queue, "{\"orderId\":504,\"channel\":\"web\"}");
+        await PublishAsync(queue, "{\"orderId\":504,\"channel\":\"web\"}");
 
         var parent = await WaitForXchangeAsync(setup.DocumentId);
         Assert.NotNull(parent);
@@ -191,7 +191,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
     /// <summary>
     /// A handler that fails must NOT unwind the ingest. The message was persisted and acknowledged
     /// long before the handler ran, so the failure belongs to the XchangeResult and the retry
-    /// policy — not to the broker, which has already been told the message was taken.
+    /// policy - not to the broker, which has already been told the message was taken.
     /// </summary>
     [Fact]
     public async Task A_failing_handler_is_recorded_as_a_result_not_as_an_ingest_failure()
@@ -206,7 +206,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
 
         await using var adapter = await StartAdapterAsync(setup.DataSourceId);
 
-        Publish(queue, "{\"orderId\":505,\"channel\":\"web\"}");
+        await PublishAsync(queue, "{\"orderId\":505,\"channel\":\"web\"}");
 
         var parent = await WaitForXchangeAsync(setup.DocumentId);
         Assert.NotNull(parent);
@@ -218,7 +218,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
         Assert.Contains("handler refused the message", result.Exception);
 
         // Ingest still succeeded: the adapter acked, and the queue drained.
-        await WaitAsync(() => Depth(queue) == 0, TimeSpan.FromSeconds(20),
+        await WaitAsync(async () => await DepthAsync(queue) == 0, TimeSpan.FromSeconds(20),
             "a handler failure must not leave the message stuck on the broker");
     }
 
@@ -230,7 +230,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
 
     /// <summary>
     /// Document, subscription with adapters, gateway, and one route. When <paramref name="endpoint"/>
-    /// is null the gateway is an INTERNAL one — no data source, which is what null has always meant.
+    /// is null the gateway is an INTERNAL one - no data source, which is what null has always meant.
     /// </summary>
     private async Task<Setup> ArrangeAsync(string? endpoint, string handlerId,
         IDictionary<string, string>? handlerProperties = null,
@@ -297,7 +297,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
         await db.SaveChangesAsync();
 
         // Ten-minute singleton snapshot: without this the pipeline reads configuration from
-        // before this test's own setup — see GatewayRoutingTests.
+        // before this test's own setup - see GatewayRoutingTests.
         scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
 
         return new Setup(document.Id, subscription.Id, gateway.Id, dataSourceId);
@@ -363,7 +363,7 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
 
     /// <summary>
     /// A gateway hit produces an Xchange carrying a SubscriptionId; there is no explicit parent
-    /// link on the entity, so these are found by Document — unique per test, so unambiguous.
+    /// link on the entity, so these are found by Document - unique per test, so unambiguous.
     /// </summary>
     private async Task<List<Xchange>> ChildXchangesAsync(int documentId)
     {
@@ -419,37 +419,35 @@ public class PipelineEndToEndTests(BitweenFixture fixture)
         public ValueTask DisposeAsync() => new(host.StopAsync(adapterId, instanceKey, drain: false));
     }
 
-    private void Publish(string queue, string body)
+    private async Task PublishAsync(string queue, string body)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
-        channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false);
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false);
 
-        var properties = channel.CreateBasicProperties();
+        var properties = new BasicProperties();
         properties.ContentType = "application/json";
         properties.MessageId = Guid.NewGuid().ToString("N");
-        properties.DeliveryMode = 2;
+        properties.DeliveryMode = DeliveryModes.Persistent;
 
-        channel.BasicPublish("", queue, properties, Encoding.UTF8.GetBytes(body));
+        await channel.BasicPublishAsync("", queue, mandatory: false, basicProperties: properties,
+            body: Encoding.UTF8.GetBytes(body));
     }
 
-    private uint Depth(string queue)
+    private async Task<uint> DepthAsync(string queue)
     {
-        using var connection = ExternalConnection();
-        using var channel = connection.CreateModel();
-        return channel.QueueDeclare(queue, durable: true, exclusive: false, autoDelete: false).MessageCount;
+        await using var connection = await ExternalConnectionAsync();
+        await using var channel = await connection.CreateChannelAsync();
+        return (await channel.QueueDeclareAsync(queue, durable: true, exclusive: false, autoDelete: false)).MessageCount;
     }
 
-    private IConnection ExternalConnection() => new ConnectionFactory
+    private Task<IConnection> ExternalConnectionAsync() => new ConnectionFactory
     {
         HostName = fixture.ExternalRabbitHost,
         Port = fixture.ExternalRabbitPort,
         UserName = fixture.ExternalRabbitUser,
         Password = fixture.ExternalRabbitPassword
-    }.CreateConnection("pipeline-tests");
-
-    private static async Task WaitAsync(Func<bool> condition, TimeSpan timeout, string because) =>
-        await WaitAsync(() => Task.FromResult(condition()), timeout, because);
+    }.CreateConnectionAsync("pipeline-tests");
 
     private static async Task WaitAsync(Func<Task<bool>> condition, TimeSpan timeout, string because)
     {

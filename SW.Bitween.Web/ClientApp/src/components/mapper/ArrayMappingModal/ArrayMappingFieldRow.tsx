@@ -91,7 +91,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
             value={m.target}
             onChange={(e) => onPatch({ target: e.target.value })}
           >
-            <option value="">— target —</option>
+            <option value="">- target -</option>
             {[...new Set([...targetItemProps, m.target].filter(Boolean))]
               .filter((prop) => !usedTargets.has(prop) || prop === m.target)
               .map((prop) => <option key={prop} value={prop}>{prop}</option>)}
@@ -111,7 +111,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
           <ModeToggleButtons current={rowMode} onChange={handleModeChange} />
         </div>
 
-        {/* Lookup button — source mode only */}
+        {/* Lookup button - source mode only */}
         {rowMode === 'source' && (
           <button
             disabled={!m.source}
@@ -119,9 +119,9 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
             onClick={handleLookupToggle}
             className={[
               'flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded border transition leading-none',
-              !m.source ? 'opacity-30 cursor-not-allowed bg-white border-ink-200 text-ink-400'
+              !m.source ? 'opacity-30 cursor-not-allowed bg-white border-ink-200 text-ink-500'
                 : hasLookup ? 'bg-crimson-100 border-crimson-300 text-crimson-700'
-                : 'bg-white border-ink-200 text-ink-400 hover:border-crimson-300 hover:text-crimson-500',
+                : 'bg-white border-ink-200 text-ink-500 hover:border-crimson-300 hover:text-crimson-500',
             ].join(' ')}
           >
             Lookup
@@ -136,7 +136,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
               value={m.fixedValue ?? ''}
               onChange={(e) => onPatch({ fixedValue: e.target.value, source: '' })}
             >
-              <option value="">— pick —</option>
+              <option value="">- pick -</option>
               <option value="true">true</option>
               <option value="false">false</option>
             </select>
@@ -179,7 +179,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
         ) : (
           <select
             disabled={!m.target}
-            className={`flex-1 min-w-0 border-0 bg-transparent font-mono text-xs focus:outline-none ${!m.target ? 'opacity-30 cursor-not-allowed text-ink-400' : 'text-ink-500'}`}
+            className={`flex-1 min-w-0 border-0 bg-transparent font-mono text-xs focus:outline-none ${!m.target ? 'opacity-30 cursor-not-allowed text-ink-500' : 'text-ink-500'}`}
             value={m.source}
             onChange={(e) => {
               const val = e.target.value;
@@ -187,7 +187,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
               onPatch({ source: val, fixedValue: undefined, lookupDictionary: undefined, isRootSource: isRoot || undefined });
             }}
           >
-            <option value="">— unassigned —</option>
+            <option value="">- unassigned -</option>
             {sourceItemProps.length > 0 && (
               <optgroup label={`${alias} fields`}>
                 {sourceItemProps.map((prop) => <option key={prop} value={prop}>{prop}</option>)}
@@ -201,7 +201,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
           </select>
         )}
 
-        {/* Transform toggle — source mode, has source, no lookup */}
+        {/* Transform toggle - source mode, has source, no lookup */}
         {rowMode === 'source' && Boolean(m.source) && !hasLookup && (
           <button
             title={hasTransform ? `Transform: ${m.transform}` : 'Add a transform expression to modify the value'}
@@ -210,7 +210,7 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
               'flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded border transition leading-none',
               panel === 'transform' ? 'bg-crimson-100 border-crimson-300 text-crimson-700'
                 : hasTransform ? 'bg-crimson-50 border-crimson-200 text-crimson-500'
-                : 'bg-white border-ink-200 text-ink-400 hover:border-crimson-300 hover:text-crimson-500',
+                : 'bg-white border-ink-200 text-ink-500 hover:border-crimson-300 hover:text-crimson-500',
             ].join(' ')}
           >
             Transform
@@ -218,6 +218,8 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
         )}
 
         <button
+          aria-label="Remove this field"
+          title="Remove this field"
           className="flex-shrink-0 text-ink-300 hover:text-crimson-500 transition"
           onClick={onRemove}
         >
@@ -230,13 +232,13 @@ export const ArrayMappingFieldRow: React.FC<ArrayMappingFieldRowProps> = ({
         <div className="space-y-0.5">
           <span className="text-[10px] font-medium text-crimson-600 select-none">
             Transform{' '}
-            <span className="font-normal text-ink-400">
-              (optional — modify the value before output. Use <code className="font-mono">value</code> to refer to the source field.)
+            <span className="font-normal text-ink-500">
+              (optional - modify the value before output. Use <code className="font-mono">value</code> to refer to the source field.)
             </span>
           </span>
           <input
             autoFocus
-            className="w-full border border-crimson-200 bg-white rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-crimson-400 placeholder-ink-300 text-crimson-700"
+            className="w-full border border-crimson-200 bg-white rounded px-2 py-1 text-xs font-mono focus:outline-none focus:border-focus-400 placeholder-ink-300 text-crimson-700"
             placeholder="e.g.  value * 1.1    or    value + ' USD'"
             value={m.transform ?? ''}
             onChange={(e) => onPatch({ transform: e.target.value || undefined })}

@@ -16,7 +16,7 @@ namespace SW.Bitween.Resources.RetryPolicies;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Both halves share the <c>(SubscriptionId, GroupId)</c> key, so they are reported together — the
+/// Both halves share the <c>(SubscriptionId, GroupId)</c> key, so they are reported together - the
 /// question worth asking about an exhausted budget is whether anyone was told about it, and
 /// splitting that across two reports leaves the caller to join them by eye.
 /// </para>

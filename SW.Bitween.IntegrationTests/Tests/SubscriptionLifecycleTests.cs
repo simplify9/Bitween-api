@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Linq;
@@ -9,19 +10,20 @@ using SW.Bitween.Domain.Gateway;
 using SW.Bitween.IntegrationTests.Fixtures;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
+using SW.Scheduler;
 using Xunit;
 
 namespace SW.Bitween.IntegrationTests.Tests;
 
 /// <summary>
-/// Creating, changing and removing an integration — the entity the whole product is arranged
+/// Creating, changing and removing an integration - the entity the whole product is arranged
 /// around, and the one the redesigned UI touches on nearly every screen.
 /// </summary>
 /// <remarks>
 /// The delete path gets most of the attention here. All four references are RESTRICT in the
 /// database, so a delete was always refused; what the handler adds is <em>saying what is holding
 /// it</em> instead of letting a foreign key violation surface as a 500. That message is the whole
-/// feature, so these tests assert on its content rather than just on the refusal — a check that
+/// feature, so these tests assert on its content rather than just on the refusal - a check that
 /// only asserted "it threw" would still pass if the message went back to being useless.
 /// </remarks>
 [Collection("Bitween")]
@@ -101,7 +103,7 @@ public class SubscriptionLifecycleTests(BitweenFixture fixture)
     ///
     /// Sounds too small to test, and it is exactly the field a merge dropped from the projection
     /// once. Nothing failed: the API answered with dataSourceId null while the row held an id, so
-    /// the UI read every bound subscription as unbound — and saving one from that screen wrote the
+    /// the UI read every bound subscription as unbound - and saving one from that screen wrote the
     /// null back and quietly unbound it. A projection is only as good as the thing that notices a
     /// field missing from it.
     /// </summary>
@@ -157,7 +159,7 @@ public class SubscriptionLifecycleTests(BitweenFixture fixture)
 
         var ex = await Assert.ThrowsAsync<SWValidationException>(() => Delete(id));
 
-        // The operator has to be able to go straight to the thing holding it — a bare refusal
+        // The operator has to be able to go straight to the thing holding it - a bare refusal
         // sends them hunting through every gateway by hand.
         Assert.Contains("Orders bus", ex.Message);
         Assert.Contains("route", ex.Message);
@@ -232,6 +234,36 @@ public class SubscriptionLifecycleTests(BitweenFixture fixture)
         await using var scope = fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         Assert.False(await db.Set<Subscription>().AnyAsync(s => s.Id == id));
+    }
+
+    /// <summary>
+    /// A deleted scheduled job takes its triggers with it. They used to stay in Quartz, firing a
+    /// receiving job every time for a subscription that no longer existed.
+    /// </summary>
+    [Fact]
+    public async Task Deleting_a_scheduled_job_removes_its_triggers()
+    {
+        var (documentId, _) = await Groundwork();
+        int id;
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var subscription = new Subscription(Unique("Scheduled"), documentId);
+            subscription.SetSchedules([new Schedule(Recurrence.Daily, TimeSpan.FromHours(3))]);
+            subscription.Inactive = false;
+            db.Add(subscription);
+            await db.SaveChangesAsync();
+            id = subscription.Id;
+            await scope.ServiceProvider.GetRequiredService<SubscriptionSchedulerService>().ScheduleAll(subscription);
+        }
+
+        var schedules = (RecordingScheduleRepository)fixture.CreateScope().ServiceProvider.GetRequiredService<IScheduleRepository>();
+        var key = ScheduleToCronExtension.ScheduleKeyFor("receiver", id, new Schedule(Recurrence.Daily, TimeSpan.FromHours(3)));
+        Assert.True(schedules.Scheduled.ContainsKey(key));
+
+        await Delete(id);
+
+        Assert.False(schedules.Scheduled.ContainsKey(key));
     }
 
     [Fact]

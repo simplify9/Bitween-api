@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../../api";
+import { api, type TrailEntry } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { Can } from "../../auth/guards";
 import { Panel } from "../ui/Panel";
@@ -8,8 +8,8 @@ import { TrailTable } from "./shared";
 /**
  * What has happened to one row.
  *
- * Self-fetching on purpose: the alternative — folding the trail into each entity's detail
- * request, as this originally did for information types and subscriptions — means adding
+ * Self-fetching on purpose: the alternative - folding the trail into each entity's detail
+ * request, as this originally did for information types and subscriptions - means adding
  * history to a page costs a change to that page's API client, its detail type and its handler,
  * and makes the whole page wait on a query nobody is looking at yet. Here it is one line per
  * page, and the page renders without it.
@@ -17,11 +17,17 @@ import { TrailTable } from "./shared";
 export function HistoryList({
   entityName,
   entityKey,
+  subjectOf,
 }: {
-  /** The audited entity's name, as the backend records it — e.g. `Partner`. */
+  /** The audited entity's name, as the backend records it - e.g. `Partner`. */
   entityName: string;
   /** Its primary key. Omit to show every change to entities of this kind. */
   entityKey?: string | number;
+  /**
+   * Names the row each entry is about, for a card covering every row of a kind: without it, the
+   * lines of such a card cannot say which row they changed.
+   */
+  subjectOf?: (entry: TrailEntry) => string | undefined;
 }) {
   const key = entityKey === undefined ? undefined : String(entityKey);
 
@@ -31,12 +37,12 @@ export function HistoryList({
   });
 
   if (isLoading) return <p className="text-sm text-ink-500">Loading…</p>;
-  return <TrailTable entries={data?.result ?? []} />;
+  return <TrailTable entries={data?.result ?? []} subjectOf={subjectOf} />;
 }
 
 /**
  * `HistoryList` in a panel of its own, for the entity pages. Wrapped in `Can` so it
- * simply isn't there for a session without `audit.view` — hide, don't dim.
+ * simply isn't there for a session without `audit.view` - hide, don't dim.
  *
  * Hosts that bring their own section chrome (the member drawer) use `HistoryList` directly.
  */
@@ -45,16 +51,18 @@ export function HistoryCard({
   entityKey,
   description,
   className = "",
+  subjectOf,
 }: {
   entityName: string;
   entityKey?: string | number;
   description?: string;
   className?: string;
+  subjectOf?: (entry: TrailEntry) => string | undefined;
 }) {
   return (
     <Can permission="audit.view">
       <Panel title="History" description={description} className={className}>
-        <HistoryList entityName={entityName} entityKey={entityKey} />
+        <HistoryList entityName={entityName} entityKey={entityKey} subjectOf={subjectOf} />
       </Panel>
     </Can>
   );

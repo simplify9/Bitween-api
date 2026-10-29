@@ -202,7 +202,7 @@ public class CsvFormatReadTests
     [TestMethod]
     public void A_repeated_column_name_stays_reachable_under_a_name_of_its_own()
     {
-        // Two columns cannot share a name — a row is built by setting keys on an object, so the
+        // Two columns cannot share a name - a row is built by setting keys on an object, so the
         // second would silently replace the first and a column would simply be gone. Numbered
         // rather than moved to its position, which reads better and cannot collide with a header
         // that happens to be a number.
@@ -216,7 +216,7 @@ public class CsvFormatReadTests
     [TestMethod]
     public void A_fallback_name_that_a_header_already_took_is_moved_out_of_the_way()
     {
-        // The header's second column has no name, so it wants its position — which the first
+        // The header's second column has no name, so it wants its position - which the first
         // column is already called. Sharing it would mean the second column silently replacing
         // the first when the row is built, and a column of the file simply disappearing.
         var rows = Rows("2,,qty\na,b,7");
@@ -349,7 +349,7 @@ public class CsvFormatWriteTests
     public void A_nested_field_becomes_a_dotted_column()
     {
         // The editor already shows the path this way, and the output-field name box splits what is
-        // typed into it on dots — so this is the only way such a column can exist at all.
+        // typed into it on dots - so this is the only way such a column can exist at all.
         var written = Written(L(Obj(
             ("orderId", V("A1")),
             ("destination", Obj(("city", V("Amman")), ("country", V("JO")))))));

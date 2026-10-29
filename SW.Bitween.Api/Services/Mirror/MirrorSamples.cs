@@ -1,0 +1,189 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+
+namespace SW.Bitween.Services.Mirror;
+
+/// <summary>One of prod's exchange files as staging keeps it.</summary>
+/// <param name="Key">Where it is in staging's storage; null when it isn't kept.</param>
+/// <param name="Name">Its name, faked as any text is.</param>
+/// <param name="Format">json, xml, html, csv, xlsx or text when it is kept; what it is when it isn't.</param>
+/// <param name="NotCopied">Why it isn't kept, in words for the page; null when it is.</param>
+/// <param name="Url">A link that opens it on staging, made when the page asks; never stored.</param>
+public record MirrorSampleFile(string Key, string Name, string Format, int Size, string NotCopied, string Url = null);
+
+/// <summary>
+/// One of prod's exchanges, faked: what came in, what Bitween sent, what the partner answered, and how
+/// it ended on prod. A rehearsal runs it on staging, as part of its family, and compares the ending.
+/// </summary>
+/// <param name="ProdExchangeId">The exchange on prod, so the page can open it there.</param>
+/// <param name="Subscription">Its subscription, by name; null for a document being routed.</param>
+/// <param name="InformationType">The type of what came in, by name.</param>
+/// <param name="Parent">The exchange on prod whose answer, or whose message, started it; null for the one that came in.</param>
+/// <param name="Outcome">success, badResponse or failed: how it ended on prod.</param>
+/// <param name="Status">The partner's HTTP status, where prod's error names one.</param>
+/// <param name="ErrorTypes">
+/// The kinds of error prod's error names, outermost first: HttpRequestException, SocketException. Its
+/// message isn't kept - it can hold prod's data - so the page opens the exchange on prod to read it.
+/// </param>
+/// <param name="Partner">The partner it ran as, by name: a partner calling an API gateway, or the subscription's own.</param>
+/// <param name="Handler">The handler it ran, as prod recorded it: the adapter, and its version where one was pinned.</param>
+/// <param name="Mapper">The mapper it ran, the same way.</param>
+/// <param name="Rolled">For an aggregation: a few of the files it rolled up, faked, for staging to roll up the like.</param>
+public record MirrorSample(string ProdExchangeId, DateTime StartedOn, string Outcome, int? Status, IReadOnlyList<string> ErrorTypes,
+    MirrorSampleFile Input, MirrorSampleFile Output, MirrorSampleFile Response,
+    string Partner = null, string Handler = null, string Mapper = null,
+    string Subscription = null, string InformationType = null, string Parent = null,
+    IReadOnlyList<MirrorSampleFile> Rolled = null);
+
+/// <summary>
+/// One thing that came in on prod and every exchange it led to: a document routed to the subscriptions
+/// that wanted it, a partner's call through a gateway, a file a receiver read, an aggregation - then the
+/// answers those handed on, to response subscriptions or as messages to bus gateways. A rehearsal sends
+/// the first in the way it came in, and staging runs the rest by itself.
+/// </summary>
+/// <param name="Id">The first exchange's id on prod.</param>
+/// <param name="Entry">How it came in: document, gateway, api (the partner API), receiver, aggregation or direct.</param>
+/// <param name="Door">What it came in through, by name: the information type, the gateway, the receiving subscription.</param>
+/// <param name="Partner">The partner who called, for a gateway or the partner API.</param>
+/// <param name="Members">Its exchanges, in the order they started on prod; the first is the one that came in.</param>
+/// <param name="Cut">How many more exchanges prod's family had than the sample keeps.</param>
+/// <param name="Unlinked">
+/// Prod doesn't say which subscriptions a document of it went to - it came in without a correlation
+/// id - so the subscriptions staging routes it to are run, but not counted as more than prod's.
+/// </param>
+public record MirrorFamily(string Id, string Entry, string Door, string Partner, IReadOnlyList<MirrorSample> Members, int Cut = 0,
+    bool Unlinked = false);
+
+/// <summary>A subscription's place in the samples: the families it takes part in, or why there are none.</summary>
+/// <param name="ProdId">The subscription on prod.</param>
+public record MirrorSubscriptionSamples(string Subscription, string ProdId, IReadOnlyList<string> Families, string Reason);
+
+/// <summary>How far the mirror's work under way is.</summary>
+/// <param name="Kind">samples, taking prod's arrivals; or rehearsal, running them.</param>
+/// <param name="Done">Done so far, of <paramref name="Total"/>: arrivals run.</param>
+/// <param name="Subject">The subscription whose test it is, by name.</param>
+public record MirrorProgress(string Kind, DateTimeOffset StartedOn, int Done, int Total, string Subject);
+
+/// <summary>One piece of the mirror's work: of a kind, for one subscription's test.</summary>
+public record MirrorJob(string Kind, string Subject, Func<MirrorService, Action<int, int>, CancellationToken, Task> Work);
+
+/// <summary>
+/// Runs the mirror's long work in the background - taking prod's arrivals of a subscription, or running
+/// them - one at a time, so the page can follow it: on a big prod it takes longer than a request may
+/// wait, and runs side by side would take each other's answers from prod's partners. Work started
+/// together, such as the tests of several subscriptions, waits its turn. How it is going is known to the
+/// node doing it, and a staging runs one node.
+/// </summary>
+public sealed class MirrorWork(IServiceScopeFactory scopes, ILogger<MirrorWork> logger)
+{
+    public const string Sampling = "samples", Rehearsing = "rehearsal";
+
+    readonly Lock gate = new();
+    readonly Dictionary<string, string> lastErrors = new(StringComparer.Ordinal);
+    readonly Queue<MirrorJob> waiting = new();
+
+    /// <summary>The work under way; null when none is.</summary>
+    public MirrorProgress Running { get; private set; }
+
+    /// <summary>The subscriptions whose tests wait their turn after the work under way, in order: not the one it is for.</summary>
+    public IReadOnlyList<string> Waiting
+    {
+        get
+        {
+            lock (gate) return waiting.Select(j => j.Subject).Where(s => s != Running?.Subject).Distinct().ToList();
+        }
+    }
+
+    /// <summary>Why the last work of a kind for a subscription's test stopped, until it starts again; null when it finished.</summary>
+    public string LastError(string kind, string subject)
+    {
+        lock (gate) return lastErrors.GetValueOrDefault(ErrorKey(kind, subject));
+    }
+
+    /// <summary>What work under way is, in words for the page.</summary>
+    public static string Describe(MirrorProgress running) => $"The test of “{running.Subject}”";
+
+    static string ErrorKey(string kind, string subject) => $"{kind}\u0000{subject}";
+
+    /// <summary>
+    /// Starts work of a kind for one subscription's test, unless work is under way: then says what is -
+    /// which kind, and for which subscription - and starts nothing.
+    /// </summary>
+    public MirrorProgress Start(string kind, Func<MirrorService, Action<int, int>, CancellationToken, Task> work, string subject) =>
+        Start([new MirrorJob(kind, subject, work)]);
+
+    /// <summary>
+    /// Starts pieces of work one after another, each once the one before has finished or stopped, unless
+    /// work is under way: then says what is, and starts nothing.
+    /// </summary>
+    public MirrorProgress Start(IReadOnlyList<MirrorJob> jobs)
+    {
+        lock (gate)
+        {
+            if (Running != null) return Running;
+            foreach (var job in jobs) waiting.Enqueue(job);
+            Next();
+            return null;
+        }
+    }
+
+    /// <summary>Drops the work waiting its turn; the work under way finishes. How many pieces were dropped.</summary>
+    public int Stop()
+    {
+        lock (gate)
+        {
+            var dropped = waiting.Count;
+            waiting.Clear();
+            return dropped;
+        }
+    }
+
+    // Under the gate. Running stays set from one piece to the next, so nothing else starts in between.
+    void Next()
+    {
+        if (!waiting.TryDequeue(out var job))
+        {
+            Running = null;
+            return;
+        }
+        Running = new MirrorProgress(job.Kind, DateTimeOffset.UtcNow, 0, 0, job.Subject);
+        lastErrors.Remove(ErrorKey(job.Kind, job.Subject));
+        _ = Task.Run(() => RunAsync(job));
+    }
+
+    async Task RunAsync(MirrorJob job)
+    {
+        var (kind, subject) = (job.Kind, job.Subject);
+        var startedOn = Running.StartedOn;
+        string error = null;
+        try
+        {
+            using var scope = scopes.CreateScope();
+            var mirror = scope.ServiceProvider.GetRequiredService<MirrorService>();
+            await job.Work(mirror, (done, total) => Running = new MirrorProgress(kind, startedOn, done, total, subject), CancellationToken.None);
+        }
+        catch (MirrorRefusal refusal)
+        {
+            error = refusal.Message;
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "The prod mirror's {Kind} stopped", kind);
+            var what = kind == Sampling ? "Taking prod's arrivals" : "The test";
+            error = $"{what} stopped: {ex.Message}";
+        }
+        finally
+        {
+            lock (gate)
+            {
+                if (error != null) lastErrors[ErrorKey(kind, subject)] = error;
+                Next();
+            }
+        }
+    }
+}

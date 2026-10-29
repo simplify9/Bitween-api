@@ -23,37 +23,54 @@ public class JsonFormat : IDocumentFormat
     /// <summary>No: an array is an array, and one element in it is a list of one.</summary>
     public bool SingleValueIsAList => false;
 
-    public ValueNode Read(string text)
+    public ValueNode Read(string text) => Read(text, null);
+
+    /// <summary>
+    /// <see cref="Read(string)"/> from the payload's shared parse when the pipeline has one for this
+    /// text, parsed here otherwise. The tree is only read.
+    /// </summary>
+    internal ValueNode Read(string text, ParsedPayload? shared)
     {
         if (string.IsNullOrWhiteSpace(text))
             throw new DocumentFormatException("The document is empty, so there is nothing to map.");
 
-        JToken token;
+        if (shared == null || !shared.TryGet(ParseProfiles.Exact, text, out var token))
+        {
+            PayloadParseTally.Parsed();
+            token = ParseExact(text);
+        }
+
+        return FromToken(token);
+    }
+
+    /// <summary>The text as this format reads it, the one parse profile it shares as <see cref="ParseProfiles.Exact"/>.</summary>
+    internal static JToken ParseExact(string text)
+    {
         try
         {
             // FloatParseHandling.Decimal so a price arrives exact. The default gives double, and
-            // 1.16 has no exact binary representation — the arithmetic downstream is money.
+            // 1.16 has no exact binary representation - the arithmetic downstream is money.
             using var reader = new JsonTextReader(new StringReader(text))
             {
                 FloatParseHandling = FloatParseHandling.Decimal,
                 DateParseHandling = DateParseHandling.None,
             };
-            token = JToken.ReadFrom(reader);
+            var token = JToken.ReadFrom(reader);
 
             // ReadFrom stops at the end of the first value, so two documents concatenated would
             // read as the first one and the rest would be dropped without a word. Reading one more
-            // token settles it — the reader itself objects to trailing content, and a token that
+            // token settles it - the reader itself objects to trailing content, and a token that
             // does arrive means there is a second value.
             if (reader.Read())
                 throw new DocumentFormatException(
                     "The document has more than one top-level value; JSON allows exactly one.");
+
+            return token;
         }
         catch (JsonException ex)
         {
             throw new DocumentFormatException($"The document is not valid JSON: {ex.Message}");
         }
-
-        return FromToken(token);
     }
 
     public string Write(ValueNode root) => ToToken(root).ToString(Formatting.Indented);
@@ -91,8 +108,8 @@ public class JsonFormat : IDocumentFormat
     /// <remarks>
     /// Newtonsoft hands back <c>long</c> for a whole number, so without this the same rule would
     /// behave differently for <c>1</c> and <c>1.5</c>. One numeric type through the mapper means one
-    /// set of conversion rules to test. A value too large for decimal — only reachable through
-    /// scientific notation — is kept as text rather than silently losing precision.
+    /// set of conversion rules to test. A value too large for decimal - only reachable through
+    /// scientific notation - is kept as text rather than silently losing precision.
     /// </remarks>
     private static object? Normalise(object? value) => value switch
     {
@@ -104,7 +121,7 @@ public class JsonFormat : IDocumentFormat
             ? (decimal)d
             : d.ToString("R", CultureInfo.InvariantCulture),
         float f => (decimal)f,
-        // An integer past long's range — a 20-digit reference, say — comes back as BigInteger.
+        // An integer past long's range - a 20-digit reference, say - comes back as BigInteger.
         System.Numerics.BigInteger big =>
             big >= new System.Numerics.BigInteger(decimal.MinValue) &&
             big <= new System.Numerics.BigInteger(decimal.MaxValue)
@@ -139,6 +156,11 @@ public class JsonFormat : IDocumentFormat
             case ScalarNode { Value: decimal m } when m == decimal.Truncate(m)
                                                       && m >= long.MinValue && m <= long.MaxValue:
                 return new JValue((long)m);
+
+            // A fixed value that is a list or an object, as ["Email"]: the rules keep its JSON type,
+            // so it is written as the JSON it is rather than as one value.
+            case ScalarNode { Value: JContainer container }:
+                return container.DeepClone();
 
             case ScalarNode scalar:
                 return scalar.Value is null ? JValue.CreateNull() : new JValue(scalar.Value);

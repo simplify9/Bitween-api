@@ -17,7 +17,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
         if (key != loggedInUserId)
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Users.Edit);
 
-        var account = await dbContext.Set<Account>().FindAsync(key);
+        var account = await Members.FindAsync(dbContext, key);
         if (account is null)
             throw new SWValidationException("ACCOUNT_NOT_FOUND", $"No account exists with the id {key}");
 
@@ -28,6 +28,8 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
         {
             await requestContext.EnsurePermission(dbContext, Model.Permissions.Users.Edit);
             var role = (AccountRole)request.Role;
+            await GrantLimits.EnsureCallerOutranks(dbContext, requestContext, key);
+            await GrantLimits.EnsureCallerHoldsRoles(dbContext, requestContext, [BuiltInRoleFor(role)]);
             account.SetRole(role);
             await AccountRoles.Set(dbContext, key, [BuiltInRoleFor(role)]);
         }

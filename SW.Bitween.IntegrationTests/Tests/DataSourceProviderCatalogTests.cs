@@ -16,7 +16,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 ///
 /// The front end used to carry this itself: which fields a RabbitMQ connection starts with, what
 /// DeclareMode accepts, which properties are credentials. A hand-kept copy of someone else's
-/// contract drifts, and it did — the form advertised a "Tls" setting the adapter never read, so an
+/// contract drifts, and it did - the form advertised a "Tls" setting the adapter never read, so an
 /// operator could set it, see nothing wrong, and still be authenticating in the clear.
 ///
 /// These tests are about that failure mode. They assert the description comes from the adapter
@@ -28,7 +28,7 @@ public class DataSourceProviderCatalogTests(BitweenFixture fixture)
 {
     /// <summary>
     /// The adapters the fixture installed describe themselves. Nothing in Bitween names these
-    /// settings — delete the attributes from RabbitOptions and this list empties.
+    /// settings - delete the attributes from RabbitOptions and this list empties.
     /// </summary>
     [Fact]
     public async Task A_provider_describes_its_own_settings()
@@ -63,7 +63,7 @@ public class DataSourceProviderCatalogTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// The setting whose absence started this. It must be named UseSsl — what the adapter binds —
+    /// The setting whose absence started this. It must be named UseSsl - what the adapter binds -
     /// and not the "Tls" the old hand-written hint told operators to add.
     /// </summary>
     [Fact]
@@ -77,7 +77,7 @@ public class DataSourceProviderCatalogTests(BitweenFixture fixture)
 
     /// <summary>
     /// A credential is declared as one by the adapter, so the form masks it before anything has
-    /// been saved — without the name having to match a heuristic.
+    /// been saved - without the name having to match a heuristic.
     /// </summary>
     [Fact]
     public async Task A_credential_is_declared_secret_by_the_adapter()
@@ -104,7 +104,7 @@ public class DataSourceProviderCatalogTests(BitweenFixture fixture)
     }
 
     /// <summary>
-    /// A number is described as one. Coarse on purpose — it decides which input to render, and
+    /// A number is described as one. Coarse on purpose - it decides which input to render, and
     /// anything finer would be the UI knowing about brokers again.
     /// </summary>
     [Fact]
@@ -141,7 +141,7 @@ public class DataSourceProviderCatalogTests(BitweenFixture fixture)
 
     /// <summary>
     /// An adapter that is not a provider has nothing to describe, and asking about one that was
-    /// never installed is not an error either — a broken or absent package must not empty the menu
+    /// never installed is not an error either - a broken or absent package must not empty the menu
     /// for the ones that are fine.
     /// </summary>
     [Fact]
@@ -154,7 +154,7 @@ public class DataSourceProviderCatalogTests(BitweenFixture fixture)
 
     /// <summary>
     /// A provider nobody at Simplify9 published. Bitween's own adapters are found by their
-    /// "bitween." id prefix, which cannot possibly find a third party's — so the installer stamps
+    /// "bitween." id prefix, which cannot possibly find a third party's - so the installer stamps
     /// what an adapter IS onto the package (SW-Serverless #117, from its [AdapterKind]), and the
     /// catalog reads that instead of the name.
     ///

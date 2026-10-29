@@ -39,7 +39,7 @@ describe("a page reading another area's list", () => {
       as: DOCS_ONLY,
       handlers: [
         http.get(apiPath("/documents"), () => HttpResponse.json({ result: [PURCHASE_ORDER], totalCount: 1 })),
-        // EnsurePermission throws SWUnauthorizedException, which CqApi answers with a bare 401 —
+        // EnsurePermission throws SWUnauthorizedException, which CqApi answers with a bare 401 -
         // the same one a missing token gets. So the client refreshes and asks again, and is
         // refused again.
         http.get(apiPath("/subscriptions"), () => {

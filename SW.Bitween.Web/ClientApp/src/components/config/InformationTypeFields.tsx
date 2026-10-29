@@ -1,21 +1,25 @@
-import { useQuery } from "@tanstack/react-query";
-import { api, type InformationType, type InformationTypeDetail, type InformationTypeFormat } from "../../api";
-import { keys } from "../../api/queryKeys";
-import { useSessionCan } from "../../auth/guards";
-import { useRabbitMqManagementConfigured } from "../../lib/appConfig";
-import { Button } from "../ui/basics";
+import { type InformationType, type InformationTypeFormat } from "../../api";
+import { Button, ProblemText } from "../ui/basics";
 import { Checkbox, Field, Select, TextInput } from "../ui/forms";
 import { KeyValueEditor, type KvRow } from "../ui/KeyValueEditor";
 import { Panel } from "../ui/Panel";
 import { ConfirmDialog } from "../ui/overlays";
 import { BUS_MESSAGE_NAME_PLACEHOLDER, busMessageNameProblem } from "../../lib/busMessageName";
-import { CARRIED_FORMAT_NOTE, formatLabel, INFORMATION_TYPE_FORMATS, readsContent } from "../../lib/informationTypeFormat";
+import {
+  CARRIED_FORMAT_NOTE,
+  formatLabel,
+  INFORMATION_TYPE_FORMATS,
+  readsContent,
+} from "../../lib/informationTypeFormat";
+import type { InformationTypeField } from "./informationTypeErrors";
+import { useInformationTypeMessages } from "./informationTypeDraft";
+import { hasPromotedRows } from "./informationTypeDraft";
 
 /**
  * Everything about an information type that can be edited, as one component.
  *
  * Shared by the type's own page and by the dialog any picker opens, so the two
- * cannot drift. Read-only context — used-by, exchanges, history — stays on the
+ * cannot drift. Read-only context - used-by, exchanges, history - stays on the
  * page, which is the only place with room for it.
  */
 export interface InformationTypeDraft {
@@ -25,112 +29,26 @@ export interface InformationTypeDraft {
   busEnabled: boolean;
   busMessageTypeName: string;
   duplicateIntervalMinutes: number;
+  dropDuplicates: boolean;
   disregardsUnfilteredMessages: boolean;
   /** key = friendly name, value = the path. */
   promotedProperties: KvRow[];
-}
-
-export const informationTypeDraftOf = (t: InformationType): InformationTypeDraft => ({
-  name: t.name,
-  code: t.code ?? "",
-  format: t.format,
-  busEnabled: t.busEnabled,
-  busMessageTypeName: t.busMessageTypeName ?? "",
-  duplicateIntervalMinutes: t.duplicateIntervalMinutes,
-  disregardsUnfilteredMessages: t.disregardsUnfilteredMessages,
-  promotedProperties: t.promotedProperties.map((p) => ({ key: p.key, value: p.path })),
-});
-
-export const EMPTY_INFORMATION_TYPE: InformationTypeDraft = {
-  name: "",
-  code: "",
-  format: "Json",
-  busEnabled: false,
-  busMessageTypeName: "",
-  duplicateIntervalMinutes: 0,
-  disregardsUnfilteredMessages: false,
-  promotedProperties: [],
-};
-
-export const informationTypeDirty = (
-  draft: InformationTypeDraft,
-  saved: InformationTypeDraft,
-): boolean => JSON.stringify(draft) !== JSON.stringify(saved);
-
-/** What the host sends to `updateInformationType`. */
-export const informationTypeChanges = (draft: InformationTypeDraft) => ({
-  name: draft.name.trim(),
-  code: draft.code.trim() || undefined,
-  format: draft.format,
-  busEnabled: draft.busEnabled,
-  // Unticking the bus puts the stored name back (see the checkbox), so with the bus off this is
-  // the name a paused type resumes on, or nothing for a type that was never on it.
-  busMessageTypeName: draft.busMessageTypeName.trim() || undefined,
-  duplicateIntervalMinutes: draft.duplicateIntervalMinutes,
-  disregardsUnfilteredMessages: draft.disregardsUnfilteredMessages,
-  promotedProperties: draft.promotedProperties
-    .filter((r) => r.key.trim() || r.value.trim())
-    .map((r) => ({ key: r.key, path: r.value })),
-});
-
-/** Why a draft can't be saved yet, in the operator's words. */
-export function informationTypeMissing(draft: InformationTypeDraft): string[] {
-  return [
-    draft.name.trim().length < 2 && "a name",
-    draft.busEnabled && !draft.busMessageTypeName.trim() && "a bus message name",
-    // Same rule the field shows under itself, so the gate and the message cannot disagree.
-    draft.busEnabled &&
-      busMessageNameProblem(draft.busMessageTypeName.trim()) !== null &&
-      "a bus message name without spaces",
-    // The server refuses these, so say it before the save rather than after.
-    !readsContent(draft.format) && hasPromotedRows(draft) && "its promoted properties removed",
-  ].filter((m): m is string => typeof m === "string");
-}
-
-/**
- * Messages in a type's bus queue — retries and dead letters included — from the same live
- * snapshot Queue health polls. A paused type has no consumer, so its queue is found among the
- * ones nothing reads. `null` when it can't be known: no right to see queue health, RabbitMQ
- * management not configured, or not loaded yet.
- */
-export function useInformationTypeMessages(typeId: number | null): number | null {
-  const canMonitor = useSessionCan("monitoring.view");
-  const rabbitMqConfigured = useRabbitMqManagementConfigured();
-  const { data } = useQuery({
-    queryKey: keys.queueHealth,
-    queryFn: () => api.getQueueHealth(),
-    enabled: typeId !== null && canMonitor && rabbitMqConfigured,
-  });
-  if (typeId === null || !data) return null;
-  const live = data.consumers.find((c) => c.informationTypeId === typeId);
-  if (live) return live.queueCount + live.retryCount + live.failedCount;
-  const paused = data.unattended.find((q) => q.informationTypeId === typeId);
-  return paused ? paused.messages + paused.retryMessages + paused.deadMessages : 0;
+  /** Empty for none. */
+  validationSchema: string;
 }
 
 /** The messages that go with a type's bus queue, which is deleted along with the type or when it's renamed. */
 export function InformationTypeMessagesWarning({ typeId }: { typeId: number }) {
   const queued = useInformationTypeMessages(typeId);
   if (queued === 0) return null;
+  const caveat = "They're the incoming messages themselves, so they can't be recovered.";
+  if (queued === null) return <p>Any messages still in it are deleted too. {caveat}</p>;
   return (
-    <p className={queued === null ? undefined : "font-medium text-danger-700"}>
-      {queued === null
-        ? "Any messages still in it are deleted too."
-        : `${queued === 1 ? "1 message is" : `${queued} messages are`} still in it and will be deleted.`}{" "}
-      They're the incoming messages themselves, so they can't be recovered.
-    </p>
+    <ProblemText className="font-medium">
+      {queued === 1 ? "1 message is" : `${queued} messages are`} still in it and will be deleted. {caveat}
+    </ProblemText>
   );
 }
-
-/**
- * Whether saving moves the type to a new bus queue: a stored name changed to another one. Case
- * alone doesn't count, since queue names are lowercase, and turning the bus off isn't a rename.
- */
-export const renamesBusQueue = (stored: string | undefined, draft: InformationTypeDraft): boolean =>
-  !!stored?.trim() &&
-  draft.busEnabled &&
-  !!draft.busMessageTypeName.trim() &&
-  stored.trim().toLowerCase() !== draft.busMessageTypeName.trim().toLowerCase();
 
 /** Asked before saving a new bus message type name, which moves the type to a new queue. */
 export function BusTypeRenameConfirm({
@@ -166,8 +84,6 @@ export function BusTypeRenameConfirm({
   );
 }
 
-const hasPromotedRows = (draft: InformationTypeDraft) =>
-  draft.promotedProperties.some((r) => r.key.trim() || r.value.trim());
 
 export function InformationTypeFields({
   draft,
@@ -177,6 +93,7 @@ export function InformationTypeFields({
   busRequired = false,
   idPrefix = "it",
   saved,
+  errors = {},
 }: {
   draft: InformationTypeDraft;
   onChange: (draft: InformationTypeDraft) => void;
@@ -185,6 +102,8 @@ export function InformationTypeFields({
   idPrefix?: string;
   /** The type as stored, when editing one: what turning the bus off pauses. */
   saved?: InformationType;
+  /** What the server refused a save over, by the field it was about. */
+  errors?: Partial<Record<InformationTypeField, string>>;
 }) {
   const storedName = saved?.busMessageTypeName?.trim() || null;
   const waiting = useInformationTypeMessages(storedName && !draft.busEnabled ? saved!.id : null);
@@ -195,7 +114,7 @@ export function InformationTypeFields({
     <div className="space-y-5">
       <Panel title="Definition">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Name" htmlFor={`${idPrefix}-name`}>
+          <Field label="Name" htmlFor={`${idPrefix}-name`} error={errors.name}>
             <TextInput
               id={`${idPrefix}-name`}
               value={draft.name}
@@ -207,6 +126,7 @@ export function InformationTypeFields({
           <Field
             label="Code"
             htmlFor={`${idPrefix}-code`}
+            error={errors.code}
             hint="Optional. Renaming it changes how it appears everywhere; existing subscriptions keep working."
           >
             <TextInput
@@ -234,7 +154,7 @@ export function InformationTypeFields({
           <Field
             label="Duplicate window (minutes)"
             htmlFor={`${idPrefix}-dup`}
-            hint="Identical payloads arriving within this window are treated as duplicates. 0 turns it off."
+            hint="The same payload from the same partner again within this window is a duplicate. 0 turns it off."
           >
             <TextInput
               id={`${idPrefix}-dup`}
@@ -245,12 +165,39 @@ export function InformationTypeFields({
               onChange={(e) => set("duplicateIntervalMinutes", Math.max(0, Number(e.target.value)))}
             />
           </Field>
+          {draft.duplicateIntervalMinutes > 0 && (
+            <div className="space-y-1 sm:col-span-2">
+              <Checkbox
+                label="Drop duplicates"
+                description={
+                  draft.dropDuplicates
+                    ? "Duplicates are dropped: no exchange is made, and an API gateway caller gets the exchange it repeats."
+                    : "Off: duplicates go through like any message, tagged duplicate-of so they can be found, and are counted below. Turn this on once the count shows only true repeats."
+                }
+                checked={draft.dropDuplicates}
+                disabled={!canEdit}
+                onChange={(e) => set("dropDuplicates", e.target.checked)}
+              />
+              {saved?.duplicatesLastWeek !== undefined && (
+                <p className="pl-6.5 text-xs text-ink-500">
+                  {saved.duplicatesLastWeek === 0
+                    ? "No duplicates in the last 7 days."
+                    : `${saved.duplicatesLastWeek} duplicate${saved.duplicatesLastWeek === 1 ? "" : "s"} in the last 7 days` +
+                      (saved.duplicatesDroppedLastWeek
+                        ? `, ${saved.duplicatesDroppedLastWeek} dropped.`
+                        : saved.dropDuplicates
+                          ? "."
+                          : ", none dropped: they would have been with this on.")}
+                </p>
+              )}
+            </div>
+          )}
           <div className="space-y-3 sm:col-span-2">
             <Checkbox
               label="Available on the message bus"
               description={
                 busRequired ? (
-                  "Required here — what you are configuring reaches this type over the bus."
+                  "Required here - what you are configuring reaches this type over the bus."
                 ) : !storedName ? (
                   "Lets bus gateways listen for this type."
                 ) : draft.busEnabled ? (
@@ -281,6 +228,7 @@ export function InformationTypeFields({
                 <Field
                   label="Bus message type name"
                   htmlFor={`${idPrefix}-bus`}
+                  error={errors.bus}
                   hint="Must be unique across information types."
                 >
                   <TextInput
@@ -288,16 +236,14 @@ export function InformationTypeFields({
                     value={draft.busMessageTypeName}
                     disabled={!canEdit}
                     // Kept as typed. It used to strip whitespace on the way in, so a
-                    // pasted "my message" turned into "mymessage" with nothing said —
+                    // pasted "my message" turned into "mymessage" with nothing said -
                     // the same rule the response field states out loud.
                     onChange={(e) => set("busMessageTypeName", e.target.value)}
                     className="font-mono"
                     placeholder={BUS_MESSAGE_NAME_PLACEHOLDER}
                   />
                   {busMessageNameProblem(draft.busMessageTypeName) && (
-                    <p className="mt-1 text-[13px] text-danger-700">
-                      {busMessageNameProblem(draft.busMessageTypeName)}
-                    </p>
+                    <ProblemText className="mt-1">{busMessageNameProblem(draft.busMessageTypeName)}</ProblemText>
                   )}
                 </Field>
               </div>
@@ -318,7 +264,7 @@ export function InformationTypeFields({
           title="Promoted properties"
           description={`Values pulled out of each payload by ${
             draft.format === "Json" ? "JSON path" : "XML path"
-          } — routes and filters match on them. They're shown in this order on the Exchanges page; drag to change it. Point them at short values, such as an order number: a value longer than 500 characters is stored cut.`}
+          } - routes and filters match on them. They're shown in this order on the Exchanges page; drag to change it. Point them at short values, such as an order number: a value longer than 500 characters is stored cut.`}
         >
           <KeyValueEditor
             rows={draft.promotedProperties}
@@ -330,26 +276,29 @@ export function InformationTypeFields({
                   "The main property: shown first on the Exchanges page, and its value names the exchange's file when the retention job archives it.",
               },
             }}
-            keyLabel="Friendly name"
+            keyLabel="Name"
+            addLabel="Add promoted property"
             valueLabel={draft.format === "Xml" ? "XML path" : "JSON path"}
             keyPlaceholder="OrderNumber"
             valuePlaceholder={draft.format === "Xml" ? "//Order/Number" : "$.order.id"}
             editable={canEdit}
-            emptyText="No promoted properties — routes can only match on the whole payload."
+            emptyText="No promoted properties - routes can only match on the whole payload."
           />
         </Panel>
       ) : (
         <Panel
           title="Promoted properties"
-          description={`None — ${formatLabel(draft.format)} content isn't read, so there is nothing to pull values from.`}
+          description={`None - ${formatLabel(draft.format)} content isn't read, so there is nothing to pull values from.`}
         >
           {/* Only reachable by switching a type that still promotes something, which the server
               refuses to save. */}
           {hasPromotedRows(draft) && (
             <div className="flex flex-wrap items-center gap-3">
-              <p role="alert" className="text-[13px] text-danger-700">
-                Still promotes {draft.promotedProperties.map((r) => r.key.trim() || r.value.trim()).join(", ")} —{" "}
-                {formatLabel(draft.format)} types can't have promoted properties.
+              <p role="alert">
+                <ProblemText>
+                  Still promotes {draft.promotedProperties.map((r) => r.key.trim() || r.value.trim()).join(", ")} -{" "}
+                  {formatLabel(draft.format)} types can't have promoted properties.
+                </ProblemText>
               </p>
               {canEdit && (
                 <Button size="sm" onClick={() => set("promotedProperties", [])}>
@@ -360,10 +309,45 @@ export function InformationTypeFields({
           )}
         </Panel>
       )}
+
+      {readsContent(draft.format) ? (
+        <Panel
+          title="Schema"
+          description={`${
+            draft.format === "Json" ? "A JSON Schema" : "An XSD"
+          } every payload of this type must match. A call to an API gateway that doesn't is refused with what's wrong; any other exchange whose input doesn't fails, and says why. Leave it empty to accept anything. It can't refer to other files or URLs.`}
+        >
+          <textarea
+            aria-label="Schema"
+            value={draft.validationSchema}
+            onChange={(e) => set("validationSchema", e.target.value)}
+            readOnly={!canEdit}
+            spellCheck={false}
+            rows={10}
+            placeholder={
+              draft.format === "Json"
+                ? '{ "type": "object", "required": ["orderId"] }'
+                : '<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">…</xs:schema>'
+            }
+            className="w-full rounded-lg border border-ink-200 bg-white px-3 py-2 font-mono text-[12.5px] text-ink-800 focus:border-focus-500 focus:outline-none"
+          />
+        </Panel>
+      ) : (
+        draft.validationSchema.trim() !== "" && (
+          <Panel title="Schema" description={`${formatLabel(draft.format)} content isn't read, so it can't be checked.`}>
+            <div className="flex flex-wrap items-center gap-3">
+              <p role="alert">
+                <ProblemText>Still has a schema - {formatLabel(draft.format)} types can't have one.</ProblemText>
+              </p>
+              {canEdit && (
+                <Button size="sm" onClick={() => set("validationSchema", "")}>
+                  Remove it
+                </Button>
+              )}
+            </div>
+          </Panel>
+        )
+      )}
     </div>
   );
 }
-
-/** The page passes its detail straight through; the dialog only ever has the base type. */
-export const draftOfDetail = (t: InformationTypeDetail): InformationTypeDraft =>
-  informationTypeDraftOf(t);

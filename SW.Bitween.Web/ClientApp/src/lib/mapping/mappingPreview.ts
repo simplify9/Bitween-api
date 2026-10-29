@@ -22,7 +22,7 @@ export function buildTree(obj: any, keyName = '', prefix = ''): TreeNode[] {
     const itemPrefix = prefix ? `${prefix}[*]` : '[*]';
     const children = Object.entries(obj[0] as object).flatMap(([k, v]) =>
       // When the array is the root (no parent prefix), children are directly
-      // accessible via hoisting — use plain `k` so source paths are e.g. "OrderId"
+      // accessible via hoisting - use plain `k` so source paths are e.g. "OrderId"
       // instead of "[*].OrderId" (which produces invalid Scriban "{{ .OrderId }}").
       buildTree(v, k, prefix ? `${itemPrefix}.${k}` : k)
     );

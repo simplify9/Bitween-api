@@ -63,7 +63,7 @@ namespace SW.Bitween.Model
     {
         public int SubscriptionId { get; set; }
 
-        /// <summary>Finished runs in the recent window — in-progress runs are excluded, being neither.</summary>
+        /// <summary>Finished runs in the recent window - in-progress runs are excluded, being neither.</summary>
         public int RecentTotal { get; set; }
 
         /// <summary>How many of <see cref="RecentTotal"/> succeeded.</summary>
@@ -82,7 +82,7 @@ namespace SW.Bitween.Model
 
     /// <summary>
     /// One execution of a Receiving subscription's own receive step, recorded directly by
-    /// <c>ReceivingJob</c> — independent of the scheduler's own run history, which only knows
+    /// <c>ReceivingJob</c> - independent of the scheduler's own run history, which only knows
     /// whether <c>Execute()</c> threw (it never does; the receive step's own failures are caught
     /// and reported here instead, alongside the successes and no-op checks history never covers).
     /// </summary>
@@ -129,7 +129,7 @@ namespace SW.Bitween.Model
     }
 
     /// <summary>
-    /// The paths in the last document a subscription received — what a response or bus gateway
+    /// The paths in the last document a subscription received - what a response or bus gateway
     /// subscription it feeds can read as source values.
     /// </summary>
     public class SourcePathsModel
@@ -154,7 +154,7 @@ namespace SW.Bitween.Model
     }
 
     /// <summary>
-    /// Whether a scheduled subscription will actually fire — read from the scheduler
+    /// Whether a scheduled subscription will actually fire - read from the scheduler
     /// itself, not from what Bitween thinks it configured. The two can disagree, and
     /// when they do it is silent: the UI shows a healthy job that never runs.
     /// </summary>
@@ -171,7 +171,7 @@ namespace SW.Bitween.Model
         /// <summary>Worst state across the subscription's triggers: Normal, Paused, Blocked, Error, Complete, or Missing.</summary>
         public string State { get; set; } = null!;
 
-        /// <summary>The scheduler's own next fire time — computed from the cron, independently of Subscription.ReceiveOn.</summary>
+        /// <summary>The scheduler's own next fire time - computed from the cron, independently of Subscription.ReceiveOn.</summary>
         public DateTime? NextFireOn { get; set; }
 
         /// <summary>
@@ -196,10 +196,10 @@ namespace SW.Bitween.Model
     }
 
     /// <summary>
-    /// How a subscription is configured — everything a person chooses. Shared by create and
+    /// How a subscription is configured - everything a person chooses. Shared by create and
     /// update so the two can't drift: a field here is applied by both, through the same code.
     /// <para>
-    /// Runtime state (what the subscription has since done — failure counts, last exception,
+    /// Runtime state (what the subscription has since done - failure counts, last exception,
     /// next fire time) deliberately lives on <see cref="SubscriptionUpdate"/> only. None of it
     /// is meaningful for something that doesn't exist yet.
     /// </para>
@@ -216,7 +216,17 @@ namespace SW.Bitween.Model
         public string? ValidatorId { get; set; }
 
         /// <summary>
-        /// Which data source this subscription's adapters connect through — a database connection,
+        /// The published version of the handler to run, e.g. 1.4.0. Null - what a caller that
+        /// predates versions sends - follows whichever version is current. Native adapters have no
+        /// versions. The same goes for the other three slots.
+        /// </summary>
+        public string? HandlerVersion { get; set; }
+        public string? MapperVersion { get; set; }
+        public string? ReceiverVersion { get; set; }
+        public string? ValidatorVersion { get; set; }
+
+        /// <summary>
+        /// Which data source this subscription's adapters connect through - a database connection,
         /// typically. Null keeps the old behaviour, where an adapter carries its own connection
         /// settings in its properties.
         /// </summary>
@@ -234,8 +244,8 @@ namespace SW.Bitween.Model
         public ICollection<KeyAndValue> DocumentFilter { get; set; } = [];
 
         /// <summary>
-        /// Null and empty mean different things: null leaves the existing schedules alone —
-        /// a create that mentions no schedule is the "empty subscription" call — while an
+        /// Null and empty mean different things: null leaves the existing schedules alone -
+        /// a create that mentions no schedule is the "empty subscription" call - while an
         /// empty collection asks for none, which SetSchedules refuses on a Receiving type.
         /// </summary>
         public ICollection<ScheduleView>? Schedules { get; set; }
@@ -243,7 +253,7 @@ namespace SW.Bitween.Model
 
         /// <summary>
         /// A response subscription to create and hand the response to, in the same transaction as
-        /// this one — instead of <see cref="ResponseSubscriptionId"/>, never with it. Its
+        /// this one - instead of <see cref="ResponseSubscriptionId"/>, never with it. Its
         /// <c>DocumentId</c> is the information type of the responses it runs on.
         /// </summary>
         public InlineIntegrationCreate? NewResponseSubscription { get; set; }
@@ -261,6 +271,26 @@ namespace SW.Bitween.Model
         public CustomRetryPolicy? CustomRetryPolicy { get; set; }
 
         /// <summary>
+        /// Which finished exchanges are reported, and through which notification channel. Null
+        /// leaves what is stored alone; an empty list clears it.
+        /// </summary>
+        public ICollection<SubscriptionNotification>? Notifications { get; set; }
+
+        /// <summary>
+        /// Pause the subscription after this many failed deliveries in a row, so a target that is
+        /// down stops being hammered and what arrives meanwhile waits on hold. Null - the default -
+        /// never pauses.
+        /// </summary>
+        public int? AutoPauseAfterFailures { get; set; }
+
+        /// <summary>
+        /// Flag the subscription as gone quiet when no exchange arrives this often, inside a window.
+        /// Null - the default - expects nothing. Replaced like the other fields here: an update
+        /// without it removes it.
+        /// </summary>
+        public ExpectTraffic? ExpectTraffic { get; set; }
+
+        /// <summary>
         /// Aggregation only: which file of each collected exchange the roll-up links to.
         /// <para>
         /// Here rather than on <see cref="SubscriptionUpdate"/>, where it used to live, because
@@ -274,7 +304,7 @@ namespace SW.Bitween.Model
 
     /// <summary>
     /// Creates a subscription complete, in one transaction. Everything beyond
-    /// <see cref="SubscriptionCreateUpdateBase"/> and <see cref="Type"/> is optional — a caller
+    /// <see cref="SubscriptionCreateUpdateBase"/> and <see cref="Type"/> is optional - a caller
     /// that sends only those still gets the empty, inactive subscription it always did.
     /// </summary>
     /// <summary>
@@ -308,6 +338,30 @@ namespace SW.Bitween.Model
         public int Id { get; set; }
         public string DocumentName { get; set; } = null!;
         public bool? IsRunning { get; set; }
+
+        /// <summary>
+        /// The global values and partner properties its adapters reference. The list leaves the
+        /// adapter properties themselves out, since they hold credentials, so this is how a reader
+        /// of the list tells which subscriptions use a value set or a partner property.
+        /// </summary>
+        public SubscriptionReferences References { get; set; } = new();
+    }
+
+    /// <summary>What a subscription's adapter properties reference, by name only.</summary>
+    public class SubscriptionReferences
+    {
+        /// <summary>Each value set named in a <c>{{globals.SET.KEY}}</c> token, with the keys used from it.</summary>
+        public List<GlobalValuesReference> Globals { get; set; } = new();
+
+        /// <summary>The keys named in <c>{{partner.KEY}}</c> tokens.</summary>
+        public List<string> PartnerProperties { get; set; } = new();
+    }
+
+    public class GlobalValuesReference
+    {
+        /// <summary>As written in the token. Matched ignoring case, as the resolver does.</summary>
+        public string SetId { get; set; } = null!;
+        public List<string> Keys { get; set; } = new();
     }
 
     public class SubscriptionUpdate : SubscriptionConfiguration
@@ -321,6 +375,8 @@ namespace SW.Bitween.Model
         /// <summary>Null while the subscription is healthy.</summary>
         public string? LastException { get; set; }
         public DateTime? PausedOn { get; set; }
+        /// <summary>Paused by <see cref="SubscriptionConfiguration.AutoPauseAfterFailures"/>, not by a person.</summary>
+        public bool PausedAutomatically { get; set; }
         /// <summary>Both null when the subscription is in no category.</summary>
         public string? CategoryCode { get; set; }
 
@@ -330,5 +386,12 @@ namespace SW.Bitween.Model
     public class SubscriptionGet : SubscriptionUpdate
     {
         public SubscriptionType Type { get; set; }
+
+        /// <summary>
+        /// When the subscription was found quiet against its <see cref="SubscriptionConfiguration.ExpectTraffic"/>;
+        /// null while traffic arrives as expected. Here rather than on <see cref="SubscriptionUpdate"/>
+        /// so that sending a read back can't set it.
+        /// </summary>
+        public DateTime? QuietSince { get; set; }
     }
 }

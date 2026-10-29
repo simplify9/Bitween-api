@@ -7,7 +7,7 @@ namespace SW.Bitween.Model;
 /// subscription, meaning failures matching that group have stopped being retried.
 /// </summary>
 /// <remarks>
-/// Sent once per subscription and group, and not again until the budget is reset — unlike
+/// Sent once per subscription and group, and not again until the budget is reset - unlike
 /// <see cref="XchangeResultNotification"/>, which is sent per exchange.
 /// </remarks>
 public class RetryBudgetExhaustedNotification
@@ -24,7 +24,7 @@ public class RetryBudgetExhaustedNotification
     /// <summary>Null when the subscription carries an inline policy rather than a named one.</summary>
     public string? PolicyName { get; set; }
 
-    /// <summary>The group whose budget is spent — the condition that has stopped being retried.</summary>
+    /// <summary>The group whose budget is spent - the condition that has stopped being retried.</summary>
     public string GroupName { get; set; } = null!;
 
     /// <summary>The ceiling that was reached.</summary>

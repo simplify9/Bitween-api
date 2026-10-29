@@ -2,16 +2,11 @@ import { useState } from "react";
 import { ArrowRight, Check, Copy } from "lucide-react";
 import type { BulkRetryPlan, ExchangeRow, ExchangeStatus } from "../../api";
 import { Badge, Button } from "../../components/ui/basics";
-import { PromotedProps, namesSomething } from "../../components/config/shared";
+import { PromotedProps } from "../../components/config/shared";
+import { namesSomething } from "../../components/config/subscriptionLabels";
 import { Checkbox } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
-
-export const STATUS_LABELS: Record<ExchangeStatus, string> = {
-  processing: "Processing",
-  success: "Success",
-  badResponse: "Bad response",
-  failed: "Failed",
-};
+import { STATUS_LABELS, journeyStages } from "./journey";
 
 export function StatusBadge({ status }: { status: ExchangeStatus }) {
   const tone =
@@ -25,7 +20,20 @@ export function StatusBadge({ status }: { status: ExchangeStatus }) {
   return <Badge tone={tone}>{STATUS_LABELS[status]}</Badge>;
 }
 
-// ——— The pipeline journey ———
+/**
+ * Beside the status of an exchange with a warning: delivered, while a file of it could not be
+ * stored. The whole warning is on hover; the drawer spells it out.
+ */
+export function WarningBadge({ warning }: { warning: string | null }) {
+  if (!warning) return null;
+  return (
+    <Badge tone="warn" title={warning}>
+      File not stored
+    </Badge>
+  );
+}
+
+// --- The pipeline journey ---
 
 export type StageState = "done" | "bad" | "failed" | "skipped" | "running" | "notReached";
 
@@ -36,52 +44,13 @@ export interface JourneyStage {
   note?: string;
 }
 
-/**
- * Past tense only once the stage is actually behind us. "Mapped" beside a Running badge
- * claims something that has not happened yet — while it is in flight, or was skipped, or
- * was never reached, the stage is named for the work rather than for a result it lacks.
- */
-function stageLabel(key: JourneyStage["key"], state: StageState): string {
-  if (key === "Input") return "Received";
-  const finished = state === "done" || state === "bad" || state === "failed";
-  if (key === "Mapped") return finished ? "Mapped" : "Mapping";
-  return finished ? "Handled" : "Handling";
-}
-
-/** Derives what happened at each pipeline stage from the row's fields. */
-export function journeyStages(x: ExchangeRow): JourneyStage[] {
-  const mapped: Omit<JourneyStage, "label"> = x.mapperSkipped
-    ? { key: "Mapped", state: "skipped", note: "No mapper configured" }
-    : x.files.mapped
-      ? { key: "Mapped", state: "done" }
-      : x.status === "processing"
-        ? { key: "Mapped", state: "running" }
-        : x.status === "failed"
-          ? { key: "Mapped", state: "failed", note: "Failed while mapping" }
-          : { key: "Mapped", state: "notReached" };
-
-  const handlerReached = !(mapped.state === "failed");
-  const handled: Omit<JourneyStage, "label"> = !handlerReached
-    ? { key: "Handled", state: "notReached", note: "Never reached" }
-    : x.status === "success"
-      ? { key: "Handled", state: "done" }
-      : x.status === "badResponse"
-        ? { key: "Handled", state: "bad", note: "Delivered, but the response reports an error" }
-        : x.status === "failed"
-          ? { key: "Handled", state: "failed", note: "Failed while handling" }
-          : { key: "Handled", state: "running" };
-
-  return [{ key: "Input", state: "done" } as Omit<JourneyStage, "label">, mapped, handled].map(
-    (s) => ({ ...s, label: stageLabel(s.key, s.state) }),
-  );
-}
 
 const STRIP_COLORS: Record<StageState, string> = {
   done: "bg-ok-600",
   bad: "bg-warn-400",
   failed: "bg-danger-600",
   skipped: "bg-ink-200",
-  running: "bg-ink-400 animate-pulse",
+  running: "journey-running",
   notReached: "bg-ink-100",
 };
 
@@ -101,7 +70,7 @@ export function JourneyStrip({ x }: { x: ExchangeRow }) {
   );
 }
 
-/** A full exchange id — mono, never truncated, click to copy. */
+/** A full exchange id - mono, never truncated, click to copy. */
 export function XchangeId({ id, className = "" }: { id: string; className?: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async (e: React.MouseEvent) => {
@@ -131,7 +100,7 @@ export function XchangeId({ id, className = "" }: { id: string; className?: stri
  * and enough of the id to tell two of them apart.
  *
  * The id stays because a substitution puts two exchanges side by side, and an information type
- * whose promoted paths resolved to nothing gives both of them the same chips — "trackingNo= →
+ * whose promoted paths resolved to nothing gives both of them the same chips - "trackingNo= →
  * trackingNo=" says which fields exist and nothing about which exchanges these are.
  */
 function ExchangeIdentity({
@@ -153,7 +122,7 @@ function ExchangeIdentity({
   return (
     <span className="flex min-w-0 items-center gap-1.5">
       <PromotedProps properties={properties} max={2} />
-      <span className="shrink-0 font-mono text-[11px] text-ink-400" title={id}>
+      <span className="shrink-0 font-mono text-[11px] text-ink-500" title={id}>
         {id.slice(0, 8)}…
       </span>
     </span>
@@ -161,32 +130,41 @@ function ExchangeIdentity({
 }
 
 /**
- * Shared confirm for single and bulk retries — carries the "reset adapter properties" choice
+ * Shared confirm for single and bulk retries - carries the "reset adapter properties" choice
  * that decides whether the retry re-resolves config.
  *
  * A bulk retry also passes the `plan` the server worked out for the same selection, because a
  * selection is rarely just itself: exchanges already retried hand over to their newest attempt,
  * ones that have since succeeded drop out, and two selections in one chain come to the same
  * attempt. All of that is shown before anyone commits, since a retry cannot be taken back.
+ *
+ * A selection past what one retry request carries out goes in rounds; `progress` says how far
+ * they have got.
  */
 export function RetryDialog({
   count,
   plan,
   planLoading = false,
   busy,
+  progress = null,
+  error = null,
   onConfirm,
   onResetChange,
   onClose,
 }: {
   count: number;
-  /** Bulk retries only — a single retry has nothing to resolve. */
+  /** Bulk retries only - a single retry has nothing to resolve. */
   plan?: BulkRetryPlan | null;
   planLoading?: boolean;
   busy: boolean;
+  /** Bulk retries in rounds: the attempts retried so far, of all that will run. */
+  progress?: { done: number; total: number } | null;
+  /** Why the retry stopped, when it did. */
+  error?: string | null;
   onConfirm: (reset: boolean) => void;
   /**
-   * Bulk retries only: the plan depends on this choice — re-resolving properties is impossible
-   * for an exchange whose subscription is gone — so the caller has to be able to ask again.
+   * Bulk retries only: the plan depends on this choice - re-resolving properties is impossible
+   * for an exchange whose subscription is gone - so the caller has to be able to ask again.
    */
   onResetChange?: (reset: boolean) => void;
   onClose: () => void;
@@ -194,6 +172,7 @@ export function RetryDialog({
   const [reset, setReset] = useState(false);
   const bulk = count !== 1;
   const nothingToDo = plan != null && !plan.overLimit && plan.willRetry === 0;
+  const rounds = plan != null && plan.selected > plan.limit ? Math.ceil(plan.willRetry / plan.limit) : 0;
 
   return (
     <Dialog
@@ -204,8 +183,8 @@ export function RetryDialog({
         {plan?.overLimit ? (
           <p className="text-sm text-ink-600">
             {plan.selected.toLocaleString()} exchanges match this filter, which is more than the{" "}
-            {plan.limit.toLocaleString()} a single retry will carry out. Narrow the filter — by
-            status, partner or date — and retry the rest after.
+            {plan.maxSelection.toLocaleString()} one retry can work through. Narrow the filter - by
+            status, partner or date - and retry the rest after.
           </p>
         ) : (
           <>
@@ -217,11 +196,39 @@ export function RetryDialog({
                     ? "Nothing here can be retried."
                     : `${plan.willRetry.toLocaleString()} ${
                         plan.willRetry === 1 ? "exchange" : "exchanges"
-                      } will run again — the original input document goes back through the pipeline as a new exchange.`
+                      } will run again - the original input document goes back through the pipeline as a new exchange.`
                   : `The original input document${count === 1 ? "" : "s"} will run through the pipeline again as ${
                       count === 1 ? "a new exchange" : "new exchanges"
                     }.`}
             </p>
+
+            {rounds > 1 && !progress && (
+              <p className="text-sm text-ink-600">
+                That's more than one retry carries out, so they go in {rounds} rounds of up to{" "}
+                {plan!.limit.toLocaleString()}, one after another. Keep this page open until they finish.
+              </p>
+            )}
+
+            {progress && (
+              <div>
+                <p className="text-sm text-ink-700">
+                  Retried {progress.done.toLocaleString()} of {progress.total.toLocaleString()}…
+                </p>
+                <div
+                  role="progressbar"
+                  aria-label="Retried so far"
+                  aria-valuemin={0}
+                  aria-valuemax={progress.total}
+                  aria-valuenow={progress.done}
+                  className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-ink-100"
+                >
+                  <div
+                    className="h-full rounded-full bg-ink-700 transition-[width]"
+                    style={{ width: `${progress.total ? (progress.done / progress.total) * 100 : 0}%` }}
+                  />
+                </div>
+              </div>
+            )}
 
             {plan != null && plan.substituted.length > 0 && (
               <div className="rounded-lg border border-ink-200 bg-ink-50/60 px-3 py-2">
@@ -240,7 +247,7 @@ export function RetryDialog({
                     {plan.substituted.map((s) => (
                       <li key={s.selectedId} className="flex items-center gap-1.5">
                         <ExchangeIdentity id={s.selectedId} properties={plan.properties[s.selectedId] ?? null} />
-                        <ArrowRight className="size-3 shrink-0 text-ink-400" aria-hidden />
+                        <ArrowRight className="size-3 shrink-0 text-ink-500" aria-hidden />
                         <ExchangeIdentity id={s.retryId} properties={plan.properties[s.retryId] ?? null} />
                       </li>
                     ))}
@@ -263,7 +270,7 @@ export function RetryDialog({
                     {plan.skipped.map((s) => (
                       <li key={s.id} className="flex flex-wrap items-center gap-1.5 text-[11px] text-ink-600">
                         <ExchangeIdentity id={s.id} properties={plan.properties[s.id] ?? null} />
-                        <span>— {s.reason}</span>
+                        <span>- {s.reason}</span>
                       </li>
                     ))}
                   </ul>
@@ -271,23 +278,33 @@ export function RetryDialog({
               </div>
             )}
 
-            <Checkbox
-              label="Re-resolve adapter properties"
-              description="Use the subscription's current configuration instead of the values captured when the exchange first ran."
-              checked={reset}
-              onChange={(e) => {
-                setReset(e.target.checked);
-                onResetChange?.(e.target.checked);
-              }}
-            />
+            {/* Not once rounds are under way: they keep the choice they started with. */}
+            {!progress && (
+              <Checkbox
+                label="Re-resolve adapter properties"
+                description="Use the subscription's current configuration instead of the values captured when the exchange first ran."
+                checked={reset}
+                onChange={(e) => {
+                  setReset(e.target.checked);
+                  onResetChange?.(e.target.checked);
+                }}
+              />
+            )}
           </>
+        )}
+
+        {error && (
+          <p role="alert" className="rounded-lg border border-danger-200 bg-danger-50 px-3 py-2 text-sm text-danger-800">
+            {error}
+          </p>
         )}
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
-            {plan?.overLimit || nothingToDo ? "Close" : "Cancel"}
+            {plan?.overLimit || nothingToDo || error ? "Close" : "Cancel"}
           </Button>
-          {!plan?.overLimit && !nothingToDo && (
+          {/* Not again after a failure: the plan it would repeat is out of date by the rounds already done. */}
+          {!plan?.overLimit && !nothingToDo && !error && (
             <Button variant="primary" busy={busy} disabled={planLoading} onClick={() => onConfirm(reset)}>
               Retry
             </Button>

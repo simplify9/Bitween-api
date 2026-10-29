@@ -18,7 +18,7 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// supplied by <c>XchangeService</c>, output written to the exchange's Output file.
 /// </summary>
 /// <remarks>
-/// The unit tests cover the engine directly. These cover the wiring around it — that the rules
+/// The unit tests cover the engine directly. These cover the wiring around it - that the rules
 /// survive the round trip through the database, that the context arrives, and that a payload which
 /// is not JSON reaches the mapper at all, which was impossible before the enrichment guard.
 /// </remarks>
@@ -135,7 +135,7 @@ public class NativeMapperExchangeTests
     }
 
     /// <summary>
-    /// Partner and global values arrive as context rather than being read out of the payload — and
+    /// Partner and global values arrive as context rather than being read out of the payload - and
     /// the payload here has no room for them, being a root array.
     /// </summary>
     [Fact]
@@ -159,7 +159,7 @@ public class NativeMapperExchangeTests
         Assert.Null(run.Exception);
         var output = JObject.Parse(run.Output!);
 
-        // Both of these are null under NativeJSONMapper for a root-array payload — the enrichment
+        // Both of these are null under NativeJSONMapper for a root-array payload - the enrichment
         // only touches a JSON object, so the same mapping fails there. See MapperEnrichmentBaselineTests.
         Assert.Equal("JO", output["region"]?.ToString());
         Assert.Equal("WEB", output["channel"]?.ToString());
@@ -319,7 +319,7 @@ public class NativeMapperExchangeTests
     }
 
     /// <summary>
-    /// A list that walks nothing is exactly the entries written into it — one slot per rule,
+    /// A list that walks nothing is exactly the entries written into it - one slot per rule,
     /// which is what the previous mapper called a primitive array.
     /// </summary>
     [Fact]

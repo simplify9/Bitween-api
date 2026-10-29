@@ -7,14 +7,14 @@ using Xunit;
 namespace SW.Bitween.IntegrationTests.Fixtures;
 
 /// <summary>
-/// A MySQL for the adapter tests to point at — deliberately its own container rather than the one
+/// A MySQL for the adapter tests to point at - deliberately its own container rather than the one
 /// <see cref="BitweenFixture"/> runs for the application database.
 ///
 /// A class fixture, not <see cref="IAsyncLifetime"/> on the test class: xUnit builds a new instance
 /// of a test class per test method, so a container started there is a container per test.
 ///
 /// The seed mirrors the PostgreSQL one object for object, because the point of having both is that
-/// the shared core behaves identically and the differences show up where they are real — here, a
+/// the shared core behaves identically and the differences show up where they are real - here, a
 /// procedure that returns rows by SELECTing, which is the thing PostgreSQL cannot do.
 /// </summary>
 public class MySqlDbFixture : IAsyncLifetime
@@ -44,7 +44,7 @@ public class MySqlDbFixture : IAsyncLifetime
 
                 // Creating a FUNCTION requires SUPER while binary logging is on, because a
                 // non-deterministic one would make the binary log unsafe to replay. Our user is
-                // not SUPER and should not be, so the server is told to trust function creators —
+                // not SUPER and should not be, so the server is told to trust function creators -
                 // which is the switch a DBA sets for exactly this, and is why the adapter's own
                 // capability list does not promise that creating routines is something it can do.
                 .WithCommand("--log-bin-trust-function-creators=1")
@@ -87,7 +87,7 @@ public class MySqlDbFixture : IAsyncLifetime
                 $"insert into {Table} (id, customer, amount) " +
                 $"values ({i}, '{(i % 2 == 0 ? "acme" : "globex")}', {i * 10}.50)");
 
-        // A procedure that returns rows simply by SELECTing — no cursor to declare, nothing to
+        // A procedure that returns rows simply by SELECTing - no cursor to declare, nothing to
         // bind. This is the capability PostgreSQL declares false and MySQL declares true, and the
         // reason the two adapters are worth testing against the same shape of schema.
         await ExecuteAsync(connection, $@"

@@ -279,7 +279,7 @@ public class RetryPolicyEvaluatorTests
     {
         var policy = PolicyWith(BadResultGroup("bad", new JsonPathMatcher { Path = "$.retryable", Op = JsonPathOp.Exists }));
         var ev = Evaluator(policy);
-        // Group is for BadResult only — must be skipped for Error
+        // Group is for BadResult only - must be skipped for Error
         var decision = await ev.Evaluate(XchangeResultType.Error, "some exception", 0);
         Assert.IsFalse(decision.ShouldRetry);
     }
@@ -297,7 +297,7 @@ public class RetryPolicyEvaluatorTests
     [TestMethod]
     public async Task Evaluator_ContainsMatcher_MatchesNonJsonBadResultBody()
     {
-        // A 4xx body need not be JSON — text matchers are the only way to reach these.
+        // A 4xx body need not be JSON - text matchers are the only way to reach these.
         var policy = PolicyWith(BadResultGroup("bad", new ContainsMatcher { Value = "rate limit" }));
         var ev = Evaluator(policy);
         var decision = await ev.Evaluate(XchangeResultType.BadResult, "<html><body>Rate limit exceeded</body></html>", 0);
@@ -316,7 +316,7 @@ public class RetryPolicyEvaluatorTests
     [TestMethod]
     public async Task Evaluator_ExceptionTypeMatcher_SkippedForBadResult()
     {
-        // Exception type names are meaningless against a response body — stays Error-only.
+        // Exception type names are meaningless against a response body - stays Error-only.
         var policy = PolicyWith(BadResultGroup("bad", new ExceptionTypeMatcher { Value = "System.TimeoutException" }));
         var ev = Evaluator(policy);
         var decision = await ev.Evaluate(XchangeResultType.BadResult, "System.TimeoutException in body", 0);
@@ -372,7 +372,7 @@ public class RetryPolicyEvaluatorTests
         Assert.AreEqual("disk", decision.MatchedGroupName);
     }
 
-    // ─── Evaluator: budget — MaxAttemptsPerError ─────────────────────────────────
+    // ─── Evaluator: budget - MaxAttemptsPerError ─────────────────────────────────
 
     [TestMethod]
     public async Task Evaluator_MaxAttemptsPerError_BlocksAfterCap()
@@ -385,7 +385,7 @@ public class RetryPolicyEvaluatorTests
         Assert.IsFalse((await ev.Evaluate(XchangeResultType.Error, "err", 2)).ShouldRetry); // cap = 2
     }
 
-    // ─── Evaluator: budget — MaxAttemptsTotal ────────────────────────────────────
+    // ─── Evaluator: budget - MaxAttemptsTotal ────────────────────────────────────
 
     [TestMethod]
     public async Task Evaluator_MaxAttemptsTotal_BlocksAfterGroupCap()
@@ -399,6 +399,49 @@ public class RetryPolicyEvaluatorTests
         Assert.IsTrue((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
         Assert.IsTrue((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
         Assert.IsFalse((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry); // exceeded total=3
+    }
+
+    [TestMethod]
+    public async Task Evaluator_MaxAttemptsTotal_HoldsAfterGroupCap_WhenSetToHold()
+    {
+        var group = ErrorGroup("transient", new ContainsMatcher { Value = "err" }, maxPerError: 100, maxTotal: 1);
+        group = new RetryGroup
+        {
+            Name = group.Name, Priority = group.Priority, Enabled = true, AppliesTo = group.AppliesTo,
+            Action = group.Action, Matchers = group.Matchers,
+            Budget = new RetryBudget
+            {
+                MaxAttemptsPerError = 100, MaxAttemptsTotal = 1,
+                DelayStrategy = new FixedDelayStrategy { DelayMs = 1000 },
+                WhenExhausted = RetryExhaustedAction.Hold
+            }
+        };
+        var ev = Evaluator(PolicyWith(group));
+
+        Assert.IsTrue((await ev.Evaluate(XchangeResultType.Error, "err", 0)).ShouldRetry);
+        var held = await ev.Evaluate(XchangeResultType.Error, "err", 0);
+        Assert.IsFalse(held.ShouldRetry);
+        Assert.IsTrue(held.Held);
+    }
+
+    [TestMethod]
+    public async Task Evaluator_PerMessageCap_IsNeverHeld()
+    {
+        var ev = Evaluator(PolicyWith(new RetryGroup
+        {
+            Name = "transient", Priority = 1, Enabled = true, AppliesTo = [XchangeResultType.Error],
+            Action = RetryAction.Allow, Matchers = [new ContainsMatcher { Value = "err" }],
+            Budget = new RetryBudget
+            {
+                MaxAttemptsPerError = 2, MaxAttemptsTotal = 100,
+                DelayStrategy = new FixedDelayStrategy { DelayMs = 1000 },
+                WhenExhausted = RetryExhaustedAction.Hold
+            }
+        }));
+
+        var decision = await ev.Evaluate(XchangeResultType.Error, "err", 2);
+        Assert.IsFalse(decision.ShouldRetry);
+        Assert.IsFalse(decision.Held);
     }
 
     [TestMethod]

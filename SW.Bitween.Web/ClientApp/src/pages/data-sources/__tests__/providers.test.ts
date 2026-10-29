@@ -38,7 +38,7 @@ describe("initialProperties", () => {
 describe("orderedSettingNames", () => {
   it("renders in the adapter's order, not the order the map came back in", () => {
     // The server hands back a dictionary, and its order is whatever the database and serializer
-    // produced — which is how the form once asked for a password before the username it belongs to.
+    // produced - which is how the form once asked for a password before the username it belongs to.
     expect(orderedSettingNames(rabbit, ["Password", "Port", "Host"])).toEqual([
       "Host",
       "Port",
@@ -68,7 +68,7 @@ describe("orderedSettingNames", () => {
 describe("settingOf", () => {
   it("finds a setting whatever case the stored property key is in", () => {
     // Properties come back from the server in whatever case they were saved, and the adapter
-    // binds them case-insensitively — the form has to match the same way or a saved "host" would
+    // binds them case-insensitively - the form has to match the same way or a saved "host" would
     // render as an unknown extra with no hint and no type.
     expect(settingOf(rabbit, "host")?.name).toBe("Host");
     expect(settingOf(rabbit, "QUEUETYPE")?.allowedValues).toEqual(["classic", "quorum", "stream"]);
@@ -85,7 +85,7 @@ describe("isSecretName", () => {
   });
 
   it("still masks a hand-added property that looks like a credential", () => {
-    // Nothing declares this one, so the heuristic is all there is — it is the same rule the
+    // Nothing declares this one, so the heuristic is all there is - it is the same rule the
     // server masks by.
     expect(isSecretName("ClientSecret")).toBe(true);
     expect(isSecretName("SharedAccessKey")).toBe(true);

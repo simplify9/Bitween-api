@@ -12,7 +12,7 @@ public class DataSourceStatementCreate : IName
 {
     /// <summary>
     /// Which connection it belongs to. In the body rather than the route because the resource is
-    /// addressed as /datasourcestatements — a keyed create would collide with the update handler,
+    /// addressed as /datasourcestatements - a keyed create would collide with the update handler,
     /// which is what POST /datasourcestatements/{id} already means.
     /// </summary>
     public int DataSourceId { get; set; }
@@ -36,7 +36,7 @@ public class DataSourceStatementCreate : IName
     public bool Inactive { get; set; }
 
     /// <summary>
-    /// Only for a statement a receiver polls with: the column carrying the cursor — the
+    /// Only for a statement a receiver polls with: the column carrying the cursor - the
     /// incrementing id or the modified-at timestamp. It describes what this query returns, so it
     /// belongs to the statement rather than to each subscription reading it.
     /// </summary>
@@ -62,7 +62,7 @@ public class DataSourceStatementRow : DataSourceStatementUpdate
     public string? WorkGroupName { get; set; }
 
     /// <summary>
-    /// How many subscriptions name this statement. Zero is the interesting value — it is the only
+    /// How many subscriptions name this statement. Zero is the interesting value - it is the only
     /// reliable way to tell dead SQL from SQL that is merely quiet, and deleting is refused above
     /// zero.
     /// </summary>
@@ -95,7 +95,7 @@ public class DataSourceStatementUsageEntry
     public int SubscriptionId { get; set; }
     public string SubscriptionName { get; set; } = null!;
 
-    /// <summary>Handler, Mapper or Receiver — which slot's properties name it.</summary>
+    /// <summary>Handler, Mapper or Receiver - which slot's properties name it.</summary>
     public string Role { get; set; } = null!;
 
     /// <summary>What that slot will do with it: query, execute or call.</summary>

@@ -1,17 +1,19 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { api, referencesPartnerProp, type ApiCredentialRef, type Partner } from "../../api";
+import { api, referencesPartnerProp, type ApiCredentialRef } from "../../api";
 import { Can } from "../../auth/guards";
 import { Button, FormError } from "../ui/basics";
 import { CopyField } from "../ui/CopyField";
 import { Field, TextInput } from "../ui/forms";
-import { KeyValueEditor, toRecord, toRows, type KvRow } from "../ui/KeyValueEditor";
+import { KeyValueEditor, type KvRow } from "../ui/KeyValueEditor";
 import { ConfirmDialog, Dialog } from "../ui/overlays";
 import { Panel } from "../ui/Panel";
 import { MiniTable } from "../ui/Table";
-import { SubscriptionMiniList, usePartnerSubscriptions } from "./shared";
+import { SubscriptionMiniList } from "./shared";
+import { usePartnerSubscriptions } from "./lookups";
 import { keys } from "../../api/queryKeys";
+import { formatDateTime, timeAgo } from "../../lib/dates";
 
 /**
  * Everything about a partner that can be *edited*, as one component.
@@ -19,12 +21,12 @@ import { keys } from "../../api/queryKeys";
  * Used by the partner's own page and by the dialog that pickers open, so the two
  * cannot drift: a field added here appears in both, and a rule about what a
  * property means is written once. What is deliberately not here is the partner's
- * read-only context — used-by, recent exchanges — which only the page has room
+ * read-only context - used-by, recent exchanges - which only the page has room
  * for and which nobody edits.
  *
  * Controlled: the draft and its changes belong to the host, because the two hosts
  * save differently (a page-wide unsaved bar versus a dialog's own button). API
- * keys are the exception and act immediately — issuing a key is not a draft, and
+ * keys are the exception and act immediately - issuing a key is not a draft, and
  * the secret is shown exactly once.
  */
 export interface PartnerDraft {
@@ -35,41 +37,12 @@ export interface PartnerDraft {
   loginIdentity: string;
 }
 
-export const partnerDraftOf = (
-  p: Pick<Partner, "name" | "adapterProperties" | "secretProperties" | "loginIdentity">,
-): PartnerDraft => ({
-  name: p.name,
-  properties: toRows(p.adapterProperties),
-  secretProperties: [...p.secretProperties],
-  loginIdentity: p.loginIdentity ?? "",
-});
-
-export const partnerDirty = (draft: PartnerDraft, saved: PartnerDraft): boolean =>
-  draft.name !== saved.name ||
-  JSON.stringify(toRecord(draft.properties)) !== JSON.stringify(toRecord(saved.properties)) ||
-  // Locking a property changes nothing about its value, so the value comparison above
-  // cannot see it — without this the save bar never appears for a lock on its own.
-  JSON.stringify([...draft.secretProperties].sort()) !==
-    JSON.stringify([...saved.secretProperties].sort()) ||
-  draft.loginIdentity.trim() !== saved.loginIdentity.trim();
-
-/** What the host sends to `updatePartner`. */
-export const partnerChanges = (draft: PartnerDraft) => ({
-  name: draft.name.trim(),
-  adapterProperties: toRecord(draft.properties.filter((r) => r.key.trim())),
-  // A lock on a property that was renamed or removed would otherwise linger forever.
-  secretProperties: draft.secretProperties.filter((n) =>
-    draft.properties.some((r) => r.key.trim().toLowerCase() === n.toLowerCase()),
-  ),
-  loginIdentity: draft.loginIdentity.trim() || null,
-});
-
 export function PartnerFields({
   draft,
   onChange,
   canEdit,
   isSystem = false,
-  /** null until the partner exists — a key can only be issued against a real one. */
+  /** null until the partner exists - a key can only be issued against a real one. */
   partnerId,
   credentials,
   /** The page edits the name in its own title; a dialog has to ask for it. */
@@ -115,7 +88,7 @@ export function PartnerFields({
 
       <Panel
         title="Properties"
-        description="Key-value settings adapters can reference — use the reference token inside any adapter field. Lock one to keep its value out of the API and off this page."
+        description="Key-value settings adapters can reference - use the reference token inside any adapter field. Lock one to keep its value out of the API and off this page."
       >
         <KeyValueEditor
           rows={draft.properties}
@@ -136,7 +109,7 @@ export function PartnerFields({
             return (
               <SubscriptionMiniList
                 items={users.filter((s) => referencesPartnerProp(s, row.key.trim()))}
-                emptyText="Not referenced by any subscription — safe to change or remove."
+                emptyText="Not referenced by any subscription - safe to change or remove."
               />
             );
           }}
@@ -181,7 +154,7 @@ export function PartnerFields({
         {partnerId === null ? (
           <p className="text-[13px] text-ink-500">
             A key can only be issued to a partner that exists. Create this one and its keys section
-            opens right here — you won't be sent anywhere.
+            opens right here - you won't be sent anywhere.
           </p>
         ) : (
           <>
@@ -198,6 +171,19 @@ export function PartnerFields({
                 {
                   header: "Prefix",
                   cell: (c) => <code className="font-mono text-xs text-ink-500">{c.keyPrefix}…</code>,
+                },
+                {
+                  header: "Last used",
+                  cell: (c) =>
+                    c.lastUsedOn ? (
+                      <span className="text-[12.5px] text-ink-700" title={formatDateTime(c.lastUsedOn)}>
+                        {timeAgo(c.lastUsedOn)}
+                      </span>
+                    ) : (
+                      <span className="text-[12.5px] text-ink-500" title="No call through a gateway has been seen with it">
+                        Not yet
+                      </span>
+                    ),
                 },
                 {
                   header: "",
@@ -267,7 +253,7 @@ function AddKeyDialog({ partnerId, onClose }: { partnerId: number; onClose: () =
         <div className="space-y-4">
           <CopyField value={issuedKey} label={`Key "${name}"`} />
           <p className="text-[13px] text-ink-500">
-            Copy it now and share it with the partner — for security, the full key is never shown
+            Copy it now and share it with the partner - for security, the full key is never shown
             again. Each gateway's page shows the ways a partner can send it.
           </p>
           <div className="flex justify-end">
@@ -282,7 +268,7 @@ function AddKeyDialog({ partnerId, onClose }: { partnerId: number; onClose: () =
   return (
     <Dialog title="New API key" onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
-        <Field label="Key name" htmlFor="ak-name" hint="What this key is for — the partner may hold several.">
+        <Field label="Key name" htmlFor="ak-name" hint="What this key is for - the partner may hold several.">
           <TextInput
             id="ak-name"
             required

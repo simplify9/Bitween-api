@@ -14,8 +14,8 @@ namespace SW.Bitween.Services;
 /// <para>
 /// Configuration (env / appsettings) is read <b>once per setting</b>: the first boot after a key
 /// exists copies what configuration says into a row (<see cref="ImportMissing"/>), and from then
-/// on configuration is ignored for that key. "Default" therefore means the product default —
-/// the initializer on the options class — which is what a reset returns a setting to.
+/// on configuration is ignored for that key. "Default" therefore means the product default -
+/// the initializer on the options class - which is what a reset returns a setting to.
 /// </para>
 /// <para>
 /// Applying a value is just assigning the property: both option objects are singletons that every
@@ -32,7 +32,7 @@ public class SettingsService
     /// </summary>
     public const string LegacyDocumentPrefixKey = "Bitween.LegacyDocumentPrefix";
 
-    /// <summary>Pristine options — never mutated, only read, to answer "what ships in the box?".</summary>
+    /// <summary>Pristine options - never mutated, only read, to answer "what ships in the box?".</summary>
     private static readonly SettingsTarget CodeDefaults = new(new BitweenOptions(), new ThemeOptions());
 
     private readonly SettingsTarget _target;
@@ -40,7 +40,7 @@ public class SettingsService
     private readonly ILogger<SettingsService> _logger;
 
     /// <summary>
-    /// What configuration bound at startup. This is the import source, <b>not</b> the default —
+    /// What configuration bound at startup. This is the import source, <b>not</b> the default -
     /// captured before any stored value is applied, and used only for keys with no row yet.
     /// </summary>
     private readonly Dictionary<string, string> _configured;
@@ -68,7 +68,7 @@ public class SettingsService
 
     /// <summary>
     /// What this setting is right now on the live options singletons. For an environment-owned
-    /// setting that's the whole story — it's what configuration bound at startup.
+    /// setting that's the whole story - it's what configuration bound at startup.
     /// </summary>
     public string LiveValue(SettingDefinition definition) => definition.Read(_target) ?? string.Empty;
 
@@ -81,7 +81,7 @@ public class SettingsService
         definition.Secret ? _protector.Protect(value) : value;
 
     /// <summary>
-    /// Copies configuration into a row for any key that doesn't have one yet — the one-time
+    /// Copies configuration into a row for any key that doesn't have one yet - the one-time
     /// hand-off that lets an existing deployment keep the values it was configured with. Runs at
     /// startup only.
     /// </summary>
@@ -148,7 +148,7 @@ public class SettingsService
             catch (Exception ex)
             {
                 _logger.LogError(ex,
-                    "Stored value for setting {Key} could not be read — it was likely written under a " +
+                    "Stored value for setting {Key} could not be read - it was likely written under a " +
                     "different {Option}. Leaving the running value untouched.",
                     definition.Key, nameof(BitweenOptions.SettingsEncryptionKey));
             }
@@ -156,7 +156,55 @@ public class SettingsService
     }
 
     /// <summary>
-    /// Writes <see cref="LegacyDocumentPrefixKey"/> the first time this version starts — before anyone
+    /// Names each setting configuration gives a value other than the one stored. The stored one is
+    /// used, so whoever deploys a changed value would otherwise see nothing happen. Startup only.
+    /// </summary>
+    public async Task WarnAboutIgnoredConfiguration(BitweenDbContext dbContext)
+    {
+        var rows = await dbContext.Set<Setting>().AsNoTracking()
+            .ToDictionaryAsync(s => s.Id, s => s.Value, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var definition in SettingsCatalog.All)
+        {
+            if (!definition.Stored || !rows.TryGetValue(definition.Key, out var stored)) continue;
+
+            var configured = _configured.GetValueOrDefault(definition.Key) ?? string.Empty;
+            // Configuration that sets nothing reads as the product default.
+            if (configured == DefaultOf(definition)) continue;
+
+            string current;
+            try
+            {
+                current = Normalized(definition, definition.Secret ? _protector.Unprotect(stored) : stored);
+            }
+            catch
+            {
+                // Unreadable or invalid: Reload has already said so.
+                continue;
+            }
+
+            if (Normalized(definition, configured) == current) continue;
+
+            if (definition.Secret)
+                _logger.LogWarning("{Key} is set in configuration, but the Settings page holds a different value, " +
+                                   "which is the one used. Change it on the Settings page.", definition.Key);
+            else
+                _logger.LogWarning("{Key} is {Configured} in configuration, but the Settings page holds {Stored}, " +
+                                   "which is the one used. Change it on the Settings page.",
+                    definition.Key, configured, current);
+        }
+    }
+
+    // As the options hold it, so "true" and "True" are the same value.
+    private static string Normalized(SettingDefinition definition, string value)
+    {
+        var target = new SettingsTarget(new BitweenOptions(), new ThemeOptions());
+        definition.Write(target, value);
+        return definition.Read(target) ?? string.Empty;
+    }
+
+    /// <summary>
+    /// Writes <see cref="LegacyDocumentPrefixKey"/> the first time this version starts - before anyone
     /// could have changed the prefix, so it's the one every earlier exchange was written under. Runs
     /// after <see cref="Reload"/>, which has just applied the prefix imported from configuration.
     /// </summary>
@@ -186,7 +234,7 @@ public class SettingsService
 
     /// <summary>
     /// Runs the real write against throwaway option objects, so the endpoint can reject "abc"
-    /// for a number before it reaches the database — without the live values ever seeing it.
+    /// for a number before it reaches the database - without the live values ever seeing it.
     /// </summary>
     public static void Validate(SettingDefinition definition, string value) =>
         definition.Write(new SettingsTarget(new BitweenOptions(), new ThemeOptions()), value);

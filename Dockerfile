@@ -4,6 +4,21 @@ FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 
 COPY --from=mcr.microsoft.com/dotnet/aspnet:6.0 /usr/share/dotnet/shared /usr/share/dotnet/shared
 
+# Python, for adapters written in it: SW.Serverless starts them with python3. Ubuntu 24.04's 3.12,
+# the oldest the Python SDK supports, patched with every rebuild of the image. Published adapters
+# bring their own packages, vendored; pip is here for the adapter editor, which fetches a draft's
+# requirements when Bitween:AdapterEditorDependencies is on.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 python3-pip \
+    && rm -rf /var/lib/apt/lists/*
+
+# Node, for adapters written in JavaScript or TypeScript, from the official Node 22 LTS image.
+# Published adapters bring their dependencies in node_modules; npm is here for the adapter editor,
+# as pip is.
+COPY --from=node:22-bookworm-slim /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:22-bookworm-slim /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
+
 WORKDIR /app
 EXPOSE 8080
 EXPOSE 443
@@ -17,6 +32,10 @@ COPY ["SW.Bitween.Web/ClientApp/", "./"]
 RUN yarn build
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
+# The release and commit, stamped into the assemblies so a container says which it is without being
+# told: CI passes both. A build without them is versioned as before.
+ARG BITWEEN_VERSION=
+ARG BITWEEN_COMMIT=
 WORKDIR /src
 COPY ["SW.Bitween.Web/SW.Bitween.Web.csproj", "SW.Bitween.Web/"]
 COPY ["SW.Bitween.Api/SW.Bitween.Api.csproj", "SW.Bitween.Api/"]
@@ -26,14 +45,24 @@ COPY ["SW.Bitween.MsSql/SW.Bitween.MsSql.csproj", "SW.Bitween.MsSql/"]
 RUN dotnet restore "SW.Bitween.Web/SW.Bitween.Web.csproj"
 COPY . .
 WORKDIR "/src/SW.Bitween.Web"
-RUN dotnet build "SW.Bitween.Web.csproj" -c Release -o /app/build
+RUN dotnet build "SW.Bitween.Web.csproj" -c Release -o /app/build \
+    ${BITWEEN_VERSION:+-p:Version=$BITWEEN_VERSION} ${BITWEEN_COMMIT:+-p:SourceRevisionId=$BITWEEN_COMMIT}
 
 FROM build AS publish
+ARG BITWEEN_VERSION=
+ARG BITWEEN_COMMIT=
 # UI is built in the ui-build stage; the SDK image has no node
-RUN dotnet publish "SW.Bitween.Web.csproj" -c Release -o /app/publish -p:SkipClientBuild=true
+RUN dotnet publish "SW.Bitween.Web.csproj" -c Release -o /app/publish -p:SkipClientBuild=true \
+    ${BITWEEN_VERSION:+-p:Version=$BITWEEN_VERSION} ${BITWEEN_COMMIT:+-p:SourceRevisionId=$BITWEEN_COMMIT}
 
 FROM base AS final
 WORKDIR /app
 COPY --from=publish /app/publish .
 COPY --from=ui-build /src/SW.Bitween.Web/wwwroot ./wwwroot
+# Run as the image's built-in non-root user. The one place Bitween writes under /app is the cache
+# of downloaded adapter packages (SW.Serverless AdapterLocalPath, ./adapters by default), so that
+# directory alone is handed over. It is a cache: packages are fetched again from storage if it is
+# empty, so a fresh container needs no volume for it.
+RUN mkdir -p /app/adapters && chown $APP_UID /app/adapters
+USER $APP_UID
 ENTRYPOINT ["dotnet", "SW.Bitween.Web.dll"]

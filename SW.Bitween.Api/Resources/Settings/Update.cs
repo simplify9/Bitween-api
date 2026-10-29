@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
@@ -11,7 +12,7 @@ namespace SW.Bitween.Resources.Settings;
 /// Stores a new value for one setting. It's applied to the live options singletons as well as
 /// stored, so the very next request already sees it; the cache-revoke broadcast carries the change
 /// to any other instance. Secrets are encrypted before they're written. Only editable settings can
-/// be written at all — the environment-owned ones the page also lists are rejected here.
+/// be written at all - the environment-owned ones the page also lists are rejected here.
 /// </summary>
 public class Update(
     BitweenDbContext dbContext,
@@ -36,7 +37,7 @@ public class Update(
                 $"{definition.Label} is a secret and can only be stored once " +
                 $"{BitweenOptions.ConfigurationSection}:{nameof(BitweenOptions.SettingsEncryptionKey)} is configured.");
 
-        // Empty is a real value — it's how you clear an optional link or a license key.
+        // Empty is a real value - it's how you clear an optional link or a license key.
         var value = request?.Value ?? string.Empty;
 
         try
@@ -48,10 +49,17 @@ public class Update(
             throw new SWValidationException("SETTING_INVALID_VALUE", $"{definition.Label}: {ex.Message}");
         }
 
+        var before = settings.LiveValue(definition);
         await Store(definition, value);
         settings.Apply(definition, value);
+        if (definition.Clears is { } clears && settings.LiveValue(definition) != before)
+            foreach (var cleared in clears.Select(SettingsCatalog.Find))
+            {
+                await Store(cleared, string.Empty);
+                settings.Apply(cleared, string.Empty);
+            }
 
-        // Some settings need more than the property assignment above — re-scheduling a job, for
+        // Some settings need more than the property assignment above - re-scheduling a job, for
         // instance. Runs after Apply so the hook reads the value that's now in effect.
         if (definition.OnChange is not null) await definition.OnChange(serviceProvider);
 

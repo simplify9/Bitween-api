@@ -1,18 +1,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { X } from "lucide-react";
 import { Button, FormError } from "./basics";
-
-/**
- * Every dialog currently mounted, innermost last.
- *
- * Escape used to belong to all of them at once: a confirm opened from inside a
- * dialog, on a page with its own Escape handling, closed all three in one press
- * and threw away two levels of context nobody asked to leave. Only the top of the
- * stack responds now, and pages ask `dialogsOpen()` before claiming the key.
- */
-const openDialogs: symbol[] = [];
-
-export const dialogsOpen = (): boolean => openDialogs.length > 0;
+import { useModalFocus } from "./useModalFocus";
+import { openDialogs } from "./dialogStack";
 
 /** Centered modal. Closes on Escape (when it is the topmost) and backdrop click. */
 export function Dialog({
@@ -26,6 +16,9 @@ export function Dialog({
   children: ReactNode;
   wide?: boolean;
 }) {
+  const panel = useRef<HTMLDivElement>(null);
+  useModalFocus(panel);
+
   // Registered once per mount, so a re-render can't reorder the stack.
   const token = useRef<symbol | null>(null);
   useEffect(() => {
@@ -55,22 +48,24 @@ export function Dialog({
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-ink-950/40 p-4 pt-[10vh]"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
       // Fixed positioning takes the dialog out of the layout but not out of the
-      // tree: opened from inside a clickable table row, every click in here —
-      // including Cancel — would also fire the row's navigation.
+      // tree: opened from inside a clickable table row, every click in here -
+      // including Cancel - would also fire the row's navigation.
       onClick={(e) => e.stopPropagation()}
     >
       <div
+        ref={panel}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className={`w-full ${wide ? "max-w-2xl" : "max-w-md"} rounded-2xl bg-white shadow-xl`}
+        className={`w-full outline-none ${wide ? "max-w-2xl" : "max-w-md"} rounded-2xl bg-white shadow-xl`}
       >
         <div className="flex items-center justify-between border-b border-ink-100 px-5 py-3.5">
           <h2 className="text-[15px] font-semibold text-ink-900">{title}</h2>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="rounded-md p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+            className="touch-target relative rounded-md p-1 text-ink-500 hover:bg-ink-100 hover:text-ink-700"
           >
             <X className="size-4.5" />
           </button>

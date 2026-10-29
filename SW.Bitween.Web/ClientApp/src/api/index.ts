@@ -3,14 +3,13 @@ import { httpClient } from "./http/httpClient";
 
 /**
  * The swap point. Everything in the UI imports `api` from here.
- * This is the real HTTP client — no mock, no toggle. Domains not yet wired
- * reject with NotWiredError so their screens read as honestly-not-connected
- * (see BACKEND_WIRING_PLAN §2).
+ * This is the real HTTP client - no mock, no toggle.
  */
 export const api: ApiClient = httpClient;
 
 export { getAppConfig, resetAppConfig } from "./http/appConfig";
+export { grantCliSignIn } from "./http/cliSignIn";
 export type { AppConfig } from "./http/appConfig";
 export { referencesGlobal, referencesPartnerProp } from "./http/references";
-export { TOKEN_KEY, onSessionEnded } from "./http/request";
+export { onSessionEnded, onSignedOutElsewhere } from "./http/request";
 export * from "./types";

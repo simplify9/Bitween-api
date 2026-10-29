@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { api } from "../../api";
-import { useSession } from "../../auth/SessionContext";
+import { useNavigate } from "react-router";
+import { useSession } from "../../auth/useSession";
 import { validatePassword } from "../../lib/passwordPolicy";
 import { Button, FormError } from "../../components/ui/basics";
 import { Field, PasswordInput } from "../../components/ui/forms";
@@ -11,14 +11,15 @@ import { AuthLayout } from "./AuthLayout";
  * The one screen an account with an unchanged password can reach.
  *
  * Every installation is seeded with the same administrator, whose password is published in our
- * public repository — so on any installation where nobody changed it, that account was open to
+ * public repository - so on any installation where nobody changed it, that account was open to
  * anyone who had read the repository. The backend now issues such an account a token that grants
  * nothing at all, which closes the hole but leaves a person signed in to an application where
  * every screen refuses. This is where they are sent instead, and changing the password is what
  * lets them out of it.
  */
 export function ChangePasswordPage() {
-  const { session, refresh, signOut } = useSession();
+  const { session, changePassword, signOut } = useSession();
+  const navigate = useNavigate();
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -26,10 +27,10 @@ export function ChangePasswordPage() {
   const [error, setError] = useState("");
 
   const change = useMutation({
-    mutationFn: () => api.changePassword(currentPassword, newPassword),
-    // The flag lives on the account, so re-reading the session is what clears this screen:
-    // the next profile read comes back without it and the guard stops redirecting here.
-    onSuccess: () => refresh(),
+    mutationFn: () => changePassword(currentPassword, newPassword),
+    // Signed back in with the new password by now, so into the app: "/" lands on the first
+    // page this account can open.
+    onSuccess: () => navigate("/", { replace: true }),
   });
 
   const submit = (e: FormEvent) => {
@@ -58,7 +59,7 @@ export function ChangePasswordPage() {
       <h1 className="text-2xl font-semibold tracking-tight text-ink-900">Choose a password</h1>
       <p className="mt-1.5 text-sm text-ink-500">
         This account still has the password it shipped with, which is publicly known. Pick your own
-        to carry on — nothing else is available until you do.
+        to carry on - nothing else is available until you do.
       </p>
       {/*
         Named, because the page is reached by redirect rather than by choice: whoever lands here
@@ -109,7 +110,7 @@ export function ChangePasswordPage() {
 
       {/*
         The way out. Without it this screen is a trap: every route redirects back here, so someone
-        who reached it on the wrong account — or who does not know this password — has no way to
+        who reached it on the wrong account - or who does not know this password - has no way to
         sign in as anyone else short of clearing their cookies.
       */}
       <p className="mt-6 text-center text-sm text-ink-500">

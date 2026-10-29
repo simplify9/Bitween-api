@@ -1,40 +1,33 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { api, TOKEN_KEY, onSessionEnded, type PermissionKey, type Session } from "../api";
+import { api, onSessionEnded, onSignedOutElsewhere, type PermissionKey, type Session } from "../api";
 import { useIdleLogout } from "./useIdleLogout";
+import { SessionContext } from "./useSession";
 
-interface SessionContextValue {
+export interface SessionContextValue {
   session: Session | null;
   /** True until the stored session has been checked once at startup. */
   initializing: boolean;
   can: (permission: PermissionKey) => boolean;
   signIn: (email: string, password: string) => Promise<Session>;
   signInWithMicrosoft: () => Promise<Session>;
+  signInWithOidc: (code: string, state: string) => Promise<Session>;
   /** Adopt a session produced elsewhere (invite acceptance, demo switch). */
   adoptSession: (session: Session) => void;
   /** Re-fetch the session after profile changes. */
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
+  /** Changes the password and signs back in with it, so this tab carries on. */
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   /**
    * Set when the server could not be asked whether this browser's token is still good
-   * — rate limited, down, or unreachable. Distinct from `session === null`, which
+   * - rate limited, down, or unreachable. Distinct from `session === null`, which
    * means it answered and the answer was no.
    */
   unreachable: boolean;
   /** Ask again after `unreachable`. */
   retry: () => void;
 }
-
-const SessionContext = createContext<SessionContextValue | null>(null);
 
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
@@ -44,7 +37,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
    * Bumped whenever the session is authoritatively replaced or ended.
    *
    * `getSession()` cannot be cancelled, so a slow one can resolve *after* a
-   * sign-out and hand `setSession` the very session that was just discarded —
+   * sign-out and hand `setSession` the very session that was just discarded -
    * signing the user back in. Each caller notes the generation it started under
    * and drops its own result if that is no longer current.
    */
@@ -70,7 +63,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         // Not "signed out": `getSession` only resolves to null when the server said so.
         // Reaching here means it could not be asked, and the token this browser holds
-        // may well still be good — so keep it and say the server is unreachable rather
+        // may well still be good - so keep it and say the server is unreachable rather
         // than sending someone to sign in again for a blip.
         if (generation.current === startedAt) setUnreachable(true);
       })
@@ -102,6 +95,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return next;
   }, [adoptSession]);
 
+  const signInWithOidc = useCallback(
+    async (code: string, state: string) => {
+      const next = await api.loginWithOidc(code, state);
+      adoptSession(next);
+      return next;
+    },
+    [adoptSession],
+  );
+
   const refresh = useCallback(async () => {
     const startedAt = generation.current;
     const next = await api.getSession();
@@ -117,7 +119,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     // The session ends here, whatever the server says. `await api.logout()` used to
-    // come first, so any failure — a backend restart, a blip, an unreachable host —
+    // come first, so any failure - a backend restart, a blip, an unreachable host -
     // threw before the two lines below ran: signed out everywhere except the one
     // place that decides what you see, which then needed a manual refresh. Ending it
     // first also means the login page appears immediately rather than after the
@@ -127,24 +129,38 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [endSession]);
 
   /**
+   * Changing a password ends every session the account holds, this one included: the server
+   * deletes its refresh tokens, and a token issued while the password still had to change grants
+   * nothing even after it has. Signing straight back in with the new password is what lets this
+   * tab carry on - otherwise the forced change left a working-looking app with no permissions,
+   * and an ordinary change signed you out whenever the current token expired.
+   */
+  const changePassword = useCallback(
+    async (currentPassword: string, newPassword: string) => {
+      const email = session?.user.email ?? "";
+      await api.changePassword(currentPassword, newPassword);
+      try {
+        await signIn(email, newPassword);
+      } catch {
+        // The password did change; only the new session failed. Signing out sends them to sign
+        // in with it, rather than leaving them in the session that just stopped counting.
+        await signOut();
+      }
+    },
+    [session, signIn, signOut],
+  );
+
+  /**
    * Ends the session here when it ends in another tab.
    *
-   * Both credentials are shared by every tab of this origin — the Jwt in
-   * localStorage and the refresh cookie — so a sign-out in one tab really has ended
-   * the session in all of them; the others simply never found out and kept rendering
-   * the whole app over reads that could only fail. `storage` fires only in the
-   * *other* tabs, which is exactly the audience. A null key means the entire store
-   * was cleared, which the logout response's `Clear-Site-Data` does, so that counts
-   * too; a key with a new value is another tab signing *in*, which doesn't.
+   * The refresh cookie is shared by every tab of this origin, so a sign-out in one
+   * tab really has ended the session in all of them; the others simply never found
+   * out and kept rendering the whole app over reads that could only fail. The tab
+   * that signs out says so over a BroadcastChannel, which reaches only the others.
    */
   useEffect(() => {
-    const onStorage = (e: StorageEvent) => {
-      if (e.key !== null && e.key !== TOKEN_KEY) return;
-      if (e.newValue) return;
-      endSession();
-    };
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    onSignedOutElsewhere(endSession);
+    return () => onSignedOutElsewhere(null);
   }, [endSession]);
 
   /**
@@ -152,7 +168,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
    *
    * Covers what no `storage` event can: a Jwt and refresh cookie that both expired
    * while a tab sat open, or an administrator disabling the account. `request()`
-   * already knew — it writes "Your session has ended" — but it could only throw that
+   * already knew - it writes "Your session has ended" - but it could only throw that
    * at whichever page happened to be asking, and a page's error state cannot sign
    * anyone out.
    */
@@ -172,9 +188,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       can: (permission) => session?.permissions.includes(permission) ?? false,
       signIn,
       signInWithMicrosoft,
+      signInWithOidc,
       adoptSession,
       refresh,
       signOut,
+      changePassword,
       unreachable,
       retry,
     }),
@@ -183,19 +201,15 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       initializing,
       signIn,
       signInWithMicrosoft,
+      signInWithOidc,
       adoptSession,
       refresh,
       signOut,
+      changePassword,
       unreachable,
       retry,
     ],
   );
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
-}
-
-export function useSession(): SessionContextValue {
-  const ctx = useContext(SessionContext);
-  if (!ctx) throw new Error("useSession must be used inside <SessionProvider>");
-  return ctx;
 }

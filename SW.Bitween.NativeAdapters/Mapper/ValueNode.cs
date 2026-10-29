@@ -13,7 +13,7 @@ namespace SW.Bitween.NativeAdapters.Mapper;
 /// </para>
 /// <para>
 /// Values stay as <see cref="string"/>, <see cref="decimal"/>, <see cref="bool"/> or null right up
-/// until a writer serialises them — never as text. That is the whole reason this type exists: the
+/// until a writer serialises them - never as text. That is the whole reason this type exists: the
 /// old mapper rendered a text template and then had to quote, escape and repair the result, and
 /// escaping is only a problem for something that has already become text.
 /// </para>
@@ -48,8 +48,8 @@ public sealed class ScalarNode(object? value) : ValueNode
 /// A named set of children, in insertion order.
 /// </summary>
 /// <remarks>
-/// Order is kept because XML cares about it — an XSD sequence is only valid in the order it declares
-/// — and because a JSON document whose keys come out in a different order every run is unpleasant to
+/// Order is kept because XML cares about it - an XSD sequence is only valid in the order it declares
+/// - and because a JSON document whose keys come out in a different order every run is unpleasant to
 /// diff. The rules decide the order; nothing infers it from a sample document.
 /// </remarks>
 public sealed class ObjectNode : ValueNode
@@ -78,7 +78,7 @@ public sealed class ObjectNode : ValueNode
     /// <remarks>
     /// Replaces a scalar sitting in the way, which happens when one rule targets <c>a</c> and
     /// another targets <c>a.b</c>. Last writer wins, and validation is what should catch the
-    /// conflict — silently dropping the deeper rule would be worse.
+    /// conflict - silently dropping the deeper rule would be worse.
     /// </remarks>
     public ObjectNode GetOrAddObject(string key)
     {
