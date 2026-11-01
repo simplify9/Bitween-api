@@ -194,6 +194,7 @@ export function DashboardPage() {
               {delta >= 0 ? "+" : ""}
               {compact(delta)} vs the day before
               {inFlight.data !== undefined && inFlight.data > 0 && <> · {compact(inFlight.data)} in flight</>}
+              {inFlight.isError && inFlight.data === undefined && <> · in flight unavailable</>}
             </>
           }
           to="/exchanges"

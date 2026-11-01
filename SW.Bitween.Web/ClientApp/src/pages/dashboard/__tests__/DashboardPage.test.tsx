@@ -130,16 +130,25 @@ describe("the dashboard", () => {
         // A database timeout reaches the browser as a 500.
         http.get(apiPath("/dashboard/failurestoacton"), () => new HttpResponse(null, { status: 500 })),
         http.get(apiPath("/dashboard/retrysummary"), () => new HttpResponse(null, { status: 500 })),
+        http.get(apiPath("/xchanges"), ({ request }) =>
+          new URL(request.url).searchParams.getAll("filter").includes("StatusFilter:1:0")
+            ? new HttpResponse(null, { status: 500 })
+            : HttpResponse.json(none),
+        ),
         ...dashboard([subscription(0, { failures: 2 })]),
       ],
     });
 
     const tile = (await screen.findByText("Failures to act on")).closest("a")!;
+    expect(await within(tile).findByText("unavailable right now")).toBeVisible();
     expect(within(tile).getByText("-")).toBeVisible();
-    expect(within(tile).getByText("unavailable right now")).toBeVisible();
+
+    // Not left looking like nothing is in flight.
+    const exchanges = screen.getByText("Exchanges, last 24 hours").closest("a")!;
+    expect(await within(exchanges).findByText(/in flight unavailable/)).toBeVisible();
 
     const chains = within(screen.getByRole("heading", { name: "Chains that keep failing" }).closest("section")!);
-    expect(chains.getByText("Unavailable right now")).toBeVisible();
+    expect(await chains.findByText("Unavailable right now")).toBeVisible();
 
     const health = within(screen.getByRole("heading", { name: "Subscription health" }).closest("section")!);
     expect(health.getByText("Health page 1", { exact: true })).toBeVisible();
