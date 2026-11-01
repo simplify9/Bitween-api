@@ -22,7 +22,10 @@ Content-Type: application/json
 
 `POST /api/xchanges/bulkretry` retries either a list of `ids`, or everything a search `filter` matches minus `excludeIds`. `POST /api/xchanges/bulkretrypreview` returns the same plan without running it, and the UI shows that plan before you confirm.
 
-- One retry request carries out at most 500 exchanges. The preview works out up to 5,000 and lists the attempts that will run in `targets`; the UI sends them back as `ids` in rounds of 500 and shows how far it has got. If a round fails, the rounds before it are done and the rest are not retried. Past 5,000, narrow the filter.
+- The UI retries the whole selection in one request, up to 500,000 exchanges, which carries on in the background once it takes more than a few seconds ([Work that takes long](api-reference.md#work-that-takes-long)). It saves every hundred, so the top bar shows how far it has got, and **Cancel** there stops it after the exchange it is on: those before it stay retried, and the result says how many. Past 500,000, narrow the filter.
+- It goes at the pipeline's pace: no more than 1,000 of its exchanges wait to be processed at once, and it sends more as those finish. A big retry never floods the queues or the partners behind them, and the day's own traffic is never more than 1,000 behind it. One whose exchanges stop being processed - a paused subscription holds them - stops after 10 minutes without progress, keeping what it did.
+- The plan counts every substitution and skip (`substitutedCount`, `skippedCount`) and names the first 1,000 of each.
+- Asked directly, without carrying on in the background, one retry request still carries out at most 500; the preview lists the attempts that will run in `targets`, to send back as `ids` in rounds.
 - An exchange that was already retried is replaced by the newest attempt of its chain. Two selections that lead to the same attempt are retried once.
 - The plan skips, with a reason, exchanges that no longer exist, that succeeded, that have an automatic retry waiting, whose subscription is gone when `reset` is on, or whose input file cannot be read.
 - Exchanges with no result yet are included, so work stranded by an outage can be recovered. Make sure nothing is still processing before retrying it.

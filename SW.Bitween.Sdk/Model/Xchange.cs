@@ -114,8 +114,9 @@ namespace SW.Bitween.Model
         public int WillRetry { get; set; }
 
         /// <summary>
-        /// The largest selection one retry request carries out. A bigger one is retried in rounds of
-        /// this many, from <see cref="Targets"/>.
+        /// The largest selection a retry asked directly carries out; a bigger one is retried in rounds
+        /// of this many, from <see cref="Targets"/>. One asked to carry on in the background
+        /// (<c>Prefer: respond-async</c>) takes up to <see cref="MaxSelection"/> at once.
         /// </summary>
         public int Limit { get; set; }
 
@@ -143,6 +144,24 @@ namespace SW.Bitween.Model
 
         /// <summary>Selections nothing will be done about, each with the reason.</summary>
         public List<XchangeRetrySkip> Skipped { get; set; } = new List<XchangeRetrySkip>();
+
+        /// <summary>
+        /// Set when the retry was cancelled part way: how many of <see cref="Targets"/> it had dealt with
+        /// when it stopped. Those were retried or skipped as said; the rest were left as they were.
+        /// </summary>
+        public int? StoppedAfter { get; set; }
+
+        /// <summary>
+        /// How many selections were substituted, and how many skipped, in all. <see cref="Substituted"/>
+        /// and <see cref="Skipped"/> list the first <see cref="Listed"/> of each.
+        /// </summary>
+        public int SubstitutedCount { get; set; }
+
+        /// <inheritdoc cref="SubstitutedCount"/>
+        public int SkippedCount { get; set; }
+
+        /// <summary>How many of each kind the plan lists by name; a selection of hundreds of thousands lists the first ones.</summary>
+        public int Listed { get; set; }
 
         /// <summary>
         /// Promoted properties for every exchange named in <see cref="Substituted"/> or

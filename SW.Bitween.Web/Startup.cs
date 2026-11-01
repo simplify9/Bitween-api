@@ -118,6 +118,10 @@ namespace SW.Bitween.Web
             // The bell a sync gateway call waits on for its exchange's result.
             services.AddSingleton<ResultSignals>();
             services.AddSingleton<LegacyEventQueues>();
+            // The admin UI's long reads, carried on in the background; their owners hear over SignalR.
+            services.AddSingleton<SW.Bitween.Services.Background.BackgroundRequests>();
+            services.AddSingleton<SW.Bitween.Services.Background.BackgroundDownloads>();
+            services.AddSignalR();
             // Metrics: counted in memory as work happens, added to hourly rows once a minute per node.
             services.AddSingleton<SW.Bitween.Services.Metrics.MetricsRecorder>();
             services.AddSingleton<SW.Bitween.Services.Metrics.MetricsFlusher>();
@@ -578,6 +582,12 @@ namespace SW.Bitween.Web
                         {
                             if (context.Request.Path.StartsWithSegments("/api/gateway"))
                                 context.NoResult();
+                            // A browser can't put a header on a WebSocket, so SignalR sends the token in
+                            // the address instead; taken from there for the hub only.
+                            else if (context.Request.Path.StartsWithSegments(
+                                         SW.Bitween.Services.Background.BackgroundRequestHub.Path) &&
+                                     context.Request.Query["access_token"].FirstOrDefault() is { Length: > 0 } token)
+                                context.Token = token;
                             return Task.CompletedTask;
                         },
                     };
@@ -1069,6 +1079,11 @@ namespace SW.Bitween.Web
                 await next();
             });
 
+            // After everything that decides whether a request may run, and before the request context
+            // is filled in: a read the admin UI lets go on in the background keeps the first's outcome
+            // and fills in the second for itself.
+            app.UseMiddleware<SW.Bitween.Services.Background.BackgroundRequestMiddleware>();
+
             app.UseHttpAsRequestContext();
             SW.Logger.Console.IAppBuilderExtensions.UseRequestContextLogEnricher(app);
 
@@ -1079,6 +1094,8 @@ namespace SW.Bitween.Web
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
+                endpoints.MapHub<SW.Bitween.Services.Background.BackgroundRequestHub>(
+                    SW.Bitween.Services.Background.BackgroundRequestHub.Path);
                 // /health keeps answering as it always has - the process is up - because probes
                 // already point at it. /health/live says the same under the conventional name, and
                 // /health/ready also asks the database and the broker; see DependencyHealthChecks.
