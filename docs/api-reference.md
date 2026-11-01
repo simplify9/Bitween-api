@@ -30,6 +30,23 @@ Endpoints marked *searchy* accept these parameters.
 
 They return `{ "result": [...], "totalCount": 123 }`.
 
+### Work that takes long
+
+A `GET` or `POST` that sends `Prefer: respond-async` is answered as usual when it answers within the wait it asks for (`Prefer: respond-async, wait=3`: three seconds if it names none, thirty at most). Otherwise it answers `202 Accepted` with `{ "id": "...", "status": "Running" }` and a `Location` header, and carries on in the background. The admin UI asks this way for the work that can take long: prod's list to bring from and bringing it, bulk retry and its preview, and exporting exchange files. Every other call, the UI's own included, is answered as before.
+
+- It runs as the caller, with ten minutes to get anywhere rather than the database's usual limit (30 seconds unless the connection string sets another). Work that says how far it has got, like a bulk retry, has its ten minutes start again each time it does.
+- A node runs at most 10 of them at a time, and 3 of one person's. A read over either waits (`Waiting`) and is asked again from the start once there is a place; a write, which can't be asked twice, goes on.
+- Its answer is kept for 30 minutes, for the person who asked only. A file, such as an export's zip, is kept in storage under `background-requests/`; a small answer in the database.
+
+| Endpoint | What it does |
+|---|---|
+| `GET /api/background` | The caller's background requests, newest first: those running and those finished in the last 30 minutes, at most 20. `status` is `Waiting`, `Running`, `Done`, `Cancelled`, `TimedOut` or `Stopped` (the node running it stopped first). Work that counts its steps also has `done`, `total` and `summary`. `path` starts with the method for anything but a `GET`. |
+| `GET /api/background/{id}/result` | The answer as the request would have given it: its status, content type, `Content-Disposition` and body - including what work cancelled part way did before it stopped. Otherwise `409` while it runs, `410` cancelled, `504` timed out, `503` stopped, and `404` once it is no longer kept. |
+| `POST /api/background/{id}/link` | `{ url }`: a link that downloads the file it answered with, such as an export's zip, for 10 minutes. Only its owner gets one. |
+| `GET /api/background/{id}/file?expires=&seal=` | The file, with no sign-in: the link's seal, made from `Token:Key`, is what opens it, so a browser downloads it the ordinary way, straight to disk. A changed or expired link answers `404`. |
+| `DELETE /api/background/{id}` | Cancels it, on whichever node runs it. Work that counts its steps stops after the one it is on and answers with what it did; anything else stops at once, with the database command it is running. |
+| `/api/background/hub` | SignalR hub. Sends `changed` with `{ id, status, done, total, summary }` to the owner's connections when one of theirs changes. A browser sends its token as `access_token` in the address, since it can't put a header on a WebSocket. |
+
 ## Partner endpoints
 
 | Method and path | Description |
@@ -109,9 +126,9 @@ Exchange search filters, besides ordinary fields such as `SubscriptionId`, `Part
 
 Rule 2 turns each of these round except `StatusFilter` and `LatestOnly`: `ErrorContains:2:timeout` is "the error does not contain timeout", and it keeps the exchanges with no error. Each `PromotedProperty` turns round on its own. In the older form, send the key and the text with the same rule, since they turn round together.
 
-Bulk retry takes `{ ids, filter, excludeIds, reason, reset }`. `filter` is the same query-string fragment the search takes, such as `filter=StatusFilter:1:3&filter=LatestOnly:1:true`, and it replaces `ids` when present. The plan returned by both endpoints lists how many were selected and will be retried, attempts substituted with the end of their chain, and skipped exchanges with reasons, plus `targets`, the attempts that will run. The retry carries out at most `limit` (500) per request; the preview plans up to `maxSelection` (5,000), so a larger selection is retried by sending `targets` back as `ids`, `limit` at a time.
+Bulk retry takes `{ ids, filter, excludeIds, reason, reset }`. `filter` is the same query-string fragment the search takes, such as `filter=StatusFilter:1:3&filter=LatestOnly:1:true`, and it replaces `ids` when present. The plan returned by both endpoints lists how many were selected and will be retried, attempts substituted with the end of their chain, and skipped exchanges with reasons, plus `targets`, the attempts that will run. Asked directly, the retry carries out at most `limit` (500) per request, so a larger selection is retried by sending `targets` back as `ids`, `limit` at a time. Asked to carry on in the background ([Work that takes long](#work-that-takes-long)), it takes up to `maxSelection` (500,000) at once, which is also as far as the preview plans, keeping at most 1,000 of its exchanges waiting in the pipeline at a time; `targets` is left empty then. Cancelled part way, its plan's `stoppedAfter` says how many it dealt with. `substitutedCount` and `skippedCount` count all of them; `substituted` and `skipped` name the first `listed` (1,000) of each.
 
-Export takes `{ ids, filter, excludeIds }`, chosen the same way, and streams back a zip (`application/zip`) with a folder per exchange and a `missing.txt` listing files that storage no longer has. At most 500 exchanges go in one zip; a larger selection is refused with `TOO_MANY`. `export/check` takes the same body and returns `{ count, withoutFiles, keptDays }`: how many exchanges the zip would take, how many of them are older than the bucket's rule keeps files, and that rule's days when one covers them all.
+Export takes `{ ids, filter, excludeIds }`, chosen the same way, and streams back a zip (`application/zip`) with a folder per exchange and a `missing.txt` listing files that storage no longer has. At most 500 exchanges go in one zip asked directly, and 50,000 carried on in the background ([Work that takes long](#work-that-takes-long)), as the admin UI asks; a larger selection is refused with `TOO_MANY`, and `export/check` counts against the 50,000. A zip stops taking exchanges once it passes 1 GB, and `missing.txt` lists where it stopped. The UI downloads it from a link rather than the result: see `/link` below. `export/check` takes the same body and returns `{ count, withoutFiles, keptDays }`: how many exchanges the zip would take, how many of them are older than the bucket's rule keeps files, and that rule's days when one covers them all.
 
 The retry tree returns `{ rootId, nodes, truncated }`. Each node has its id, `retryFor`, promoted properties, times, status, exception, whether it was manual, and any scheduled retry or blocked reason. It stops at 100 levels or 500 attempts.
 

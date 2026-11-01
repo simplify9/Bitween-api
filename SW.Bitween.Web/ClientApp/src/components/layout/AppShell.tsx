@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -29,6 +29,13 @@ import { PageTitleContext, type NamedPage } from "../../lib/pageTitle";
 import { EnvironmentBadge, TopBar } from "./TopBar";
 import { CommandPalette } from "./CommandPalette";
 import { recordVisit } from "../../lib/recentPages";
+import { refreshBackground, setCurrentPage } from "../../api/http/background";
+import { BackgroundReadyNotice, BackgroundTray } from "./BackgroundWork";
+
+/** What a bring carried on in the background brought; loaded only when the header's Open asks for it. */
+const BroughtFromBackground = lazy(() =>
+  import("../../pages/mirror/BringFromProd").then((m) => ({ default: m.BroughtFromBackground })),
+);
 
 /**
  * Shown on every page while unsaved setting changes exist - the whole app
@@ -383,7 +390,7 @@ const RAILED_KEY = "bitween-nav-railed";
 export function AppShell() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [railed, setRailed] = useState(() => localStorage.getItem(RAILED_KEY) === "1");
-  const { pathname } = useLocation();
+  const { pathname, search } = useLocation();
   // Pages' own names, once they have loaded what they show (see `usePageTitle`). Kept by the
   // address each was given for, so the next page never wears the last one's name, and a crumb
   // leading back up can still say which gateway or policy it leads to.
@@ -409,6 +416,12 @@ export function AppShell() {
   useEffect(() => {
     if (current && title) recordVisit({ path: pathname, title, kind: PAGES[current].title });
   }, [current, title, pathname]);
+
+  // Work carried on in the background is known by the page that asked for it. Layout, not passive:
+  // a page asks for things in its own effects, which run after this but before a passive one.
+  useLayoutEffect(() => setCurrentPage(pathname + search), [pathname, search]);
+  // Work still running from before a reload, or finished while away, shows in the header again.
+  useEffect(() => void refreshBackground(), []);
 
   // ⌘K / Ctrl+K anywhere, as in most tools people already use; "/" too, when not typing.
   useEffect(() => {
@@ -487,6 +500,7 @@ export function AppShell() {
           />
         </Link>
         <span className="ml-auto flex items-center gap-2">
+          <BackgroundTray />
           <EnvironmentBadge branding={branding} />
           <button
             onClick={() => setPaletteOpen(true)}
@@ -498,6 +512,12 @@ export function AppShell() {
         </span>
       </header>
       {paletteOpen && <CommandPalette onClose={closePalette} />}
+      <BackgroundReadyNotice />
+      {new URLSearchParams(search).has("brought") && (
+        <Suspense fallback={null}>
+          <BroughtFromBackground />
+        </Suspense>
+      )}
 
       {/* mobile drawer */}
       {mobileOpen && (

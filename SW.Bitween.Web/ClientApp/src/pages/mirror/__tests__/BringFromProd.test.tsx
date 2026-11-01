@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import type { MirrorBring, MirrorProdKinds, MirrorProdList } from "../../../api";
@@ -121,6 +121,24 @@ describe("bringing prod's items from a list page", () => {
     expect(within(dialog).getByRole("link", { name: "Orders rollup" })).toHaveAttribute("href", "/aggregations/41");
     expect(asked).toHaveLength(2);
     expect(asked[1]).toEqual({ section: "subscriptions", keys: ["Orders rollup"], apply: true });
+  });
+
+  it("opens from its address, so a link - the header's Open - can go back to it", async () => {
+    const { user, router } = renderApp("/aggregations?bring=1", {
+      handlers: [
+        mirror,
+        kinds({ all: 5, Aggregation: 2 }),
+        http.get(apiPath("/mirror/prod"), () => HttpResponse.json(prodList)),
+        ...aggregationsPage,
+      ],
+    });
+
+    const dialog = await screen.findByRole("dialog", { name: "Bring aggregations from prod" });
+    expect(await within(dialog).findByText("1,204")).toBeVisible();
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(router.state.location.search).toBe(""));
+    expect(screen.queryByRole("dialog", { name: "Bring aggregations from prod" })).not.toBeInTheDocument();
   });
 
   it("isn't offered where prod has none of what the page lists", async () => {

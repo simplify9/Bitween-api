@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -36,16 +37,19 @@ internal sealed class XchangeSelection(BitweenDbContext dbContext)
             .ToListAsync();
     }
 
-    /// <summary>How many exchanges a filter's selection really holds, for saying how far past a limit it is.</summary>
-    internal async Task<int> Count(IXchangeSelection request)
+    /// <summary>
+    /// How many exchanges a filter's selection really holds, for saying how far past
+    /// <paramref name="limit"/> it is: counted to ten times past it at most.
+    /// </summary>
+    internal async Task<int> Count(IXchangeSelection request, int limit)
     {
         var exclude = request.ExcludeIds ?? new List<string>();
         return await (await Query(request))
             .Where(r => !exclude.Contains(r.Id))
             // Same reason the search caps its own count: counting every match has to visit every
-            // matching row. The number is only being used to say "too many", so stopping early
-            // costs the caller nothing.
-            .Take(Search.CountCap + 1)
+            // matching row. The number is only being used to say "too many", so it stops well past
+            // the limit - far enough that the number said is never one under it.
+            .Take(Math.Max(Search.CountCap, limit * 10) + 1)
             .CountAsync();
     }
 

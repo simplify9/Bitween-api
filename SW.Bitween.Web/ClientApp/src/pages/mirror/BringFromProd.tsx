@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, CircleCheck, Download } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import {
   api,
   type MirrorBring,
@@ -13,6 +13,7 @@ import {
   type MirrorProdCounts,
   type MirrorProdItem,
 } from "../../api";
+import { leaveToHeader } from "../../api/http/background";
 import { keys } from "../../api/queryKeys";
 import { Sparkline } from "../../components/charts/Sparkline";
 import { Badge, Button, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
@@ -42,12 +43,23 @@ const PIECES: { state: MirrorPieceState; title: string; description: string }[] 
  * "Bring from prod" on a list page: on a staging that mirrors prod, for whoever may operate the
  * mirror, and only while prod has something this page lists - or prod can't be read, which the
  * picker then says. Opens the picker.
+ *
+ * Open while the address says `?bring`, so the way back to it is a link: prod's list can take long
+ * enough to run in the background, and "Open" in the header goes back to the picker it was for.
  */
 export function BringFromProd({ section, type, label }: { section: MirrorBringSection; type?: string; label: string }) {
   const mirror = useMirror();
   const ready = mirror.ready && mirror.canOperate;
   const kinds = useQuery({ queryKey: keys.mirror.prodKinds, queryFn: () => api.getMirrorProdKinds(), enabled: ready, staleTime: 60_000 });
-  const [open, setOpen] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const open = params.has("bring");
+  const setOpen = (on: boolean) =>
+    setParams((was) => {
+      const next = new URLSearchParams(was);
+      if (on) next.set("bring", "1");
+      else next.delete("bring");
+      return next;
+    });
 
   if (!ready || !kinds.data) return null;
   const count = section === "subscriptions" ? (kinds.data.subscriptions[type ?? "all"] ?? 0) : kinds.data[section];
@@ -88,8 +100,22 @@ export function BringDialog({ section, type, label, picked: given, onClose }: {
     started.current = true;
     preview.mutate();
   }, [given, preview]);
+  // Closed while it brings: the header says when it's done, and its Open shows what was brought.
+  const carried = useRef<string | null>(null);
+  const closed = useRef(false);
+  useEffect(() => {
+    closed.current = false;
+    return () => {
+      closed.current = true;
+      if (carried.current) leaveToHeader(carried.current);
+    };
+  }, []);
   const bring = useMutation({
-    mutationFn: () => api.bringFromProd(section, [...picked], true),
+    mutationFn: () =>
+      api.bringFromProd(section, [...picked], true, (id) => {
+        carried.current = id;
+        if (closed.current) leaveToHeader(id);
+      }),
     onSuccess: (result) => {
       setShown(result);
       // A bring touches several kinds at once: every list may show something new.
@@ -486,6 +512,44 @@ function PieceList({ pieces, linked = false }: { pieces: MirrorPiece[]; linked?:
         );
       })}
     </ul>
+  );
+}
+
+/** What a bring carried on in the background brought, opened from the header: `?brought=` its id. */
+export function BroughtFromBackground() {
+  const [params, setParams] = useSearchParams();
+  const id = params.get("brought");
+  const answer = useQuery({
+    queryKey: keys.mirror.brought(id ?? ""),
+    queryFn: () => api.broughtInBackground(id!),
+    enabled: id != null,
+    staleTime: Infinity,
+  });
+  if (!id) return null;
+
+  const close = () =>
+    setParams(
+      (p) => {
+        p.delete("brought");
+        return p;
+      },
+      { replace: true },
+    );
+  return (
+    <Dialog title="Brought from prod" onClose={close} wide>
+      {answer.isPending ? (
+        <LoadingBlock label="Reading what was brought…" />
+      ) : answer.isError ? (
+        <div className="space-y-4">
+          <FormError>{answer.error.message}</FormError>
+          <div className="flex justify-end">
+            <Button onClick={close}>Close</Button>
+          </div>
+        </div>
+      ) : (
+        <Brought result={answer.data} picked={{ section: "subscriptions", keys: new Set() }} onClose={close} />
+      )}
+    </Dialog>
   );
 }
 

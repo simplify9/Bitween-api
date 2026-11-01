@@ -48,9 +48,13 @@ public sealed class HttpFixture : IAsyncLifetime
     /// is. The caller disposes it.
     /// </summary>
     /// <param name="services">Changes to the node's services, as a test needs them.</param>
-    public WebApplicationFactory<Web.Program> SecondNode(Action<IServiceCollection>? services = null)
+    /// <param name="own">Changes to the node's settings, made to a copy of the fixture's.</param>
+    public WebApplicationFactory<Web.Program> SecondNode(Action<IServiceCollection>? services = null,
+        Action<IDictionary<string, string?>>? own = null)
     {
-        var node = new BitweenApp(settings, services);
+        var nodeSettings = new Dictionary<string, string?>(settings);
+        own?.Invoke(nodeSettings);
+        var node = new BitweenApp(nodeSettings, services);
         using var _ = node.CreateClient();
         return node;
     }

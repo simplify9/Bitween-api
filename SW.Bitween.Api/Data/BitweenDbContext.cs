@@ -40,12 +40,15 @@ namespace SW.Bitween
 
         /// <summary>
         /// Every provider's context counts its commands against the exchange stage running, so the
-        /// round trips an exchange costs are measured rather than estimated (see DbCommandTally).
+        /// round trips an exchange costs are measured rather than estimated (see DbCommandTally),
+        /// and lets a background request's commands run past the usual limit (see
+        /// BackgroundRequestScope).
         /// </summary>
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
             base.OnConfiguring(optionsBuilder);
-            optionsBuilder.AddInterceptors(Services.Metrics.DbCommandCounter.Instance);
+            optionsBuilder.AddInterceptors(Services.Metrics.DbCommandCounter.Instance,
+                Services.Background.BackgroundRequestCommands.Instance);
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -393,6 +396,25 @@ namespace SW.Bitween
                 b.ToTable("ApiKeyUses");
                 b.HasKey(u => new { u.PartnerId, u.KeyName });
                 b.Property(u => u.KeyName).HasMaxLength(500);
+            });
+
+            modelBuilder.Entity<BackgroundRequest>(b =>
+            {
+                b.ToTable("BackgroundRequests");
+                b.Property(p => p.Id).HasMaxLength(32).IsUnicode(false);
+                b.Property(p => p.Owner).IsRequired().HasMaxLength(50);
+                b.Property(p => p.Path).IsRequired().HasMaxLength(4000);
+                b.Property(p => p.Label).HasMaxLength(200);
+                b.Property(p => p.Page).HasMaxLength(2000);
+                b.Property(p => p.Node).HasMaxLength(200).IsUnicode(false);
+                b.Property(p => p.ResultContentType).HasMaxLength(200).IsUnicode(false);
+                b.Ignore(p => p.Finished);
+                b.Ignore(p => p.Answered);
+                b.Property(p => p.Summary).HasMaxLength(500);
+                b.Property(p => p.ResultDisposition).HasMaxLength(500);
+                b.Property(p => p.ResultKey).HasMaxLength(500).IsUnicode(false);
+                b.HasIndex(p => new { p.Owner, p.StartedOn });
+                b.HasIndex(p => p.StartedOn);
             });
 
             modelBuilder.Entity<Domain.Cluster.ClusterNode>(b =>

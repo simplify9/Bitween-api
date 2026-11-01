@@ -221,6 +221,7 @@ export const keys = {
     subscription: (id: number) => ["mirror", "subscription", id] as const,
     test: (id: number) => ["mirror", "test", id] as const,
     listed: (section: string) => ["mirror", "listed", section] as const,
+    brought: (id: string) => ["mirror", "brought", id] as const,
   },
 
   settings: {

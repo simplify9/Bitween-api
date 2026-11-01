@@ -683,7 +683,13 @@ export interface ApiClient {
   getMirror(): Promise<MirrorStatus>;
   getMirrorProdKinds(): Promise<MirrorProdKinds>;
   getMirrorProd(section: MirrorBringSection, type?: string): Promise<MirrorProdListAnswer>;
-  bringFromProd(section: MirrorBringSection, keys: string[], apply: boolean): Promise<MirrorBring>;
+  bringFromProd(
+    section: MirrorBringSection,
+    keys: string[],
+    apply: boolean,
+    onBackground?: (id: string) => void,
+  ): Promise<MirrorBring>;
+  broughtInBackground(id: string): Promise<MirrorBring>;
   getMirrorSubscription(id: number): Promise<MirrorSubscriptionAnswer>;
   getMirrorTest(id: number): Promise<MirrorTest>;
   takeMirrorTest(id: number): Promise<MirrorTest>;
@@ -775,8 +781,13 @@ export interface ApiClient {
   /** Retries many; exchanges with a pending auto-retry are skipped, not failed. */
   bulkRetryExchanges(selection: BulkRetrySelection, opts: { reset: boolean }): Promise<BulkRetryPlan>;
   previewBulkRetry(selection: BulkRetrySelection, opts: { reset: boolean }): Promise<BulkRetryPlan>;
-  /** The selection's input, mapped and handled files as one zip, a folder per exchange. */
-  exportExchangeFiles(selection: BulkRetrySelection): Promise<{ blob: Blob; fileName: string }>;
+  /**
+   * The selection's input, mapped and handled files as one zip, a folder per exchange, built in the
+   * background; answers the link that downloads it.
+   */
+  exportExchangeFiles(selection: BulkRetrySelection): Promise<{ url: string }>;
+  /** A link to the file a background request answered with, such as an export's zip. */
+  linkToBackgroundFile(id: string): Promise<{ url: string }>;
   /** How many of the selection's exchanges the export would come without files for. Changes nothing. */
   checkExchangeFilesExport(selection: BulkRetrySelection): Promise<ExportFilesCheck>;
   getRetryTree(id: string): Promise<RetryTree>;
