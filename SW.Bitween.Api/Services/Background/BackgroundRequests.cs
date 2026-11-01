@@ -134,8 +134,17 @@ public sealed class BackgroundRequests(IServiceScopeFactory scopes, IHubContext<
         if (row == null) return false;
         if (row.Finished) return true;
 
-        if (!CancelHere(id)) await BroadcastAsync(new BackgroundRequestCancel { Id = id });
-        if (row.Total != null) return true;
+        // Here, the run itself says whether it counts: its first count may not be saved yet.
+        if (background.TryGetValue(id, out var work))
+        {
+            work.Cancel();
+            if (work.Counts) return true;
+        }
+        else
+        {
+            await BroadcastAsync(new BackgroundRequestCancel { Id = id });
+            if (row.Total != null) return true;
+        }
 
         row.End(BackgroundRequestStatus.Cancelled);
         await db.SaveChangesAsync();
@@ -173,9 +182,10 @@ public sealed class BackgroundRequests(IServiceScopeFactory scopes, IHubContext<
 
     /// <summary>
     /// Deletes what is no longer kept - finished longer ago than <see cref="KeptFor"/>, or started more
-    /// than a day ago - with the answers it kept in storage.
+    /// than a day ago - with the answers it kept in storage. On every read of them too, so nothing is
+    /// served past that when no new request comes along to clear it.
     /// </summary>
-    async Task ForgetExpiredAsync(BitweenDbContext db)
+    internal async Task ForgetExpiredAsync(BitweenDbContext db)
     {
         var now = DateTime.UtcNow;
         var expired = db.Set<BackgroundRequest>()
@@ -240,7 +250,9 @@ public sealed class BackgroundRequests(IServiceScopeFactory scopes, IHubContext<
         catch (Exception ex)
         {
             logger.LogError(ex, "A background request for {Path} failed.", work.Asked.Described);
-            if (!work.AnsweredHere.TrySetException(ex) && work.Kept.Task.IsCompletedSuccessfully && work.Kept.Task.Result)
+            // Its caller still waits, and is told; or it moved, and its record says it failed.
+            if (work.TryAnswerHere()) work.AnsweredHere.TrySetException(ex);
+            else if (work.IsMoved && await work.Kept.Task)
             {
                 try
                 {
@@ -571,6 +583,8 @@ public sealed class BackgroundRequests(IServiceScopeFactory scopes, IHubContext<
 
         /// <summary>Claims it for the background; false once its caller has been answered.</summary>
         public bool TryMove() => Interlocked.CompareExchange(ref state, Moved, Waited) == Waited;
+
+        public bool IsMoved => Volatile.Read(ref state) == Moved;
 
         /// <summary>
         /// Stops it: where it is, unless it counts its steps - then at the next one, unless

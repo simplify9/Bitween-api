@@ -76,17 +76,24 @@ namespace SW.Bitween.Resources.Xchanges
             background?.Progress(0, total, Said(0, plan));
             foreach (var id in prepared.Targets)
             {
-                // Between exchanges only, so the one under way is either done or not started.
+                // Between exchanges only, so the one under way is either done or not started; and room
+                // for a whole save at its start, so what waits never passes Waiting.
                 if (background?.CancelRequested.IsCancellationRequested == true ||
-                    background != null && !await RoomFor(unfinished, background, handled, total, retried, plan))
+                    background != null && handled % SaveEvery == 0 &&
+                    !await RoomFor(unfinished, background, handled, total, retried, plan))
                 {
                     plan.StoppedAfter = handled;
                     break;
                 }
 
-                if (await RetryOne(id, request, plan)) retried++;
+                // Only those it retried: a skipped one's retry, if it has one, is someone else's.
+                if (await RetryOne(id, request, plan))
+                {
+                    retried++;
+                    batch.Add(id);
+                }
+
                 handled++;
-                batch.Add(id);
 
                 if (handled % SaveEvery != 0) continue;
                 await _dbContext.SaveChangesAsync();
@@ -112,7 +119,8 @@ namespace SW.Bitween.Resources.Xchanges
             $"{retried:n0} retried, {plan.SkippedCount:n0} skipped";
 
         /// <summary>
-        /// Waits while <see cref="Waiting"/> of this run's retries are still to be processed. Each one
+        /// Waits until a save's worth more of this run's retries can join those still to be processed
+        /// without passing <see cref="Waiting"/>. Each one
         /// the pipeline finishes is progress, which keeps the retry's limit from running out; a pipeline
         /// that finishes none for the whole limit - stopped, or a paused subscription holding them - ends
         /// it there. False when its owner cancels it meanwhile.
@@ -120,7 +128,7 @@ namespace SW.Bitween.Resources.Xchanges
         private async Task<bool> RoomFor(List<string> unfinished, BackgroundRequestScope background, int handled,
             int total, int retried, XchangeBulkRetryPlan plan)
         {
-            while (unfinished.Count >= Waiting)
+            while (unfinished.Count > 0 && unfinished.Count + SaveEvery > Waiting)
             {
                 var finished = (await _dbContext.Set<XchangeResult>().AsNoTracking()
                     .Where(r => unfinished.Contains(r.Id)).Select(r => r.Id).ToListAsync()).ToHashSet();

@@ -48,13 +48,19 @@ internal sealed class AskedRequest
     {
         var request = context.Request;
         byte[] sent = [];
-        if (request.ContentLength is > 0 || request.Headers.TransferEncoding.Count > 0)
+        // Any body but one known to be empty: HTTP/2 can send one with neither a length nor chunks.
+        if (request.ContentLength is not 0)
         {
             if (request.ContentLength is > MaxBody) return null;
             // Rewound after, so a body too big to carry can still be read by the request as usual.
             request.EnableBuffering();
+            // No more than one past the most it carries, whatever the body says of itself.
             using var copy = new MemoryStream();
-            await request.Body.CopyToAsync(copy, context.RequestAborted);
+            var chunk = new byte[81920];
+            int got;
+            while (copy.Length <= MaxBody &&
+                   (got = await request.Body.ReadAsync(chunk, context.RequestAborted)) > 0)
+                copy.Write(chunk, 0, got);
             request.Body.Position = 0;
             if (copy.Length > MaxBody) return null;
             sent = copy.ToArray();

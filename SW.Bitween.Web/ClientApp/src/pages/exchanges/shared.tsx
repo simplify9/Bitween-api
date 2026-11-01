@@ -221,12 +221,12 @@ export function RetryDialog({
             {progress && (
               <div>
                 <p className="text-sm text-ink-700">
-                  Retried {progress.done.toLocaleString()} of {progress.total.toLocaleString()}… You can close this:
+                  {progress.done.toLocaleString()} of {progress.total.toLocaleString()} done… You can close this:
                   it carries on, and the top bar has Cancel.
                 </p>
                 <div
                   role="progressbar"
-                  aria-label="Retried so far"
+                  aria-label="How far it has got"
                   aria-valuemin={0}
                   aria-valuemax={progress.total}
                   aria-valuenow={progress.done}

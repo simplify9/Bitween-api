@@ -254,8 +254,8 @@ describe("the exchanges list", () => {
         expect(retry.sent[0].body).toMatchObject({ filter: expect.any(String), reset: false });
 
         tell({ id: "bulk-1", status: "Running", done: 2, total: 5 });
-        expect(await within(dialog).findByText(/Retried 2 of 5…/)).toBeVisible();
-        expect(within(dialog).getByRole("progressbar", { name: "Retried so far" })).toHaveAttribute("aria-valuenow", "2");
+        expect(await within(dialog).findByText(/2 of 5 done…/)).toBeVisible();
+        expect(within(dialog).getByRole("progressbar", { name: "How far it has got" })).toHaveAttribute("aria-valuenow", "2");
 
         tell({ id: "bulk-1", status: "Done", done: 5, total: 5 });
         expect(await screen.findByText("5 retries started, 1 skipped.")).toBeVisible();
@@ -263,7 +263,7 @@ describe("the exchanges list", () => {
       });
 
       it("closed, carries on; cancelled from the header, says how far it got", async () => {
-        const retry = background(plan({ willRetry: 2, stoppedAfter: 2 }));
+        const retry = background(plan({ willRetry: 2, stoppedAfter: 2, targets: [] }));
         const { user } = renderApp("/exchanges?status=failed", {
           handlers: [exchanges({ total: 60 }).handler, ...filterOptions, preview, ...retry.handlers],
         });
@@ -280,7 +280,7 @@ describe("the exchanges list", () => {
 
         tell({ id: "bulk-1", status: "Cancelled", done: 2, total: 5 });
         expect(
-          await screen.findByText("2 retries started, 1 skipped. Cancelled after 2 of 5; the rest were not retried."),
+          await screen.findByText("2 retries started, 1 skipped. Cancelled after 2; the rest were not retried."),
         ).toBeVisible();
         expect(retry.sent).toHaveLength(1);
       });

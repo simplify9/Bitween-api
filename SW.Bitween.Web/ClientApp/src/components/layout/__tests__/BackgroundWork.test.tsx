@@ -113,6 +113,9 @@ describe("work carried on in the background", () => {
 
     const notice = await screen.findByRole("status");
     expect(notice).toHaveTextContent("Bring from prod: prod's subscriptions is ready");
+    // A progress push that arrives after it finished is old news: it stays ready.
+    tell({ id: "bg-2", status: "Running", done: 1, total: 2 });
+    expect(await screen.findAllByRole("button", { name: "Background work: 1 ready" })).not.toHaveLength(0);
     await user.click(within(notice).getByRole("button", { name: "Open" }));
 
     await waitFor(() => expect(router.state.location.search).toBe("?bring=1"));

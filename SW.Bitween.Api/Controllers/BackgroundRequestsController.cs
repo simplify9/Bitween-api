@@ -32,6 +32,7 @@ public class BackgroundRequestsController(BitweenDbContext db, BackgroundRequest
     {
         var owner = Owner;
         if (owner == null) return Unauthorized();
+        await requests.ForgetExpiredAsync(db);
 
         var unfinished = await db.Set<BackgroundRequest>()
             .Where(r => r.Owner == owner &&
@@ -74,6 +75,7 @@ public class BackgroundRequestsController(BitweenDbContext db, BackgroundRequest
     {
         var owner = Owner;
         if (owner == null) return Unauthorized();
+        await requests.ForgetExpiredAsync(db);
 
         var row = await db.Set<BackgroundRequest>().FirstOrDefaultAsync(r => r.Id == id && r.Owner == owner);
         if (row == null)
@@ -121,6 +123,7 @@ public class BackgroundRequestsController(BitweenDbContext db, BackgroundRequest
     {
         var owner = Owner;
         if (owner == null) return Unauthorized();
+        await requests.ForgetExpiredAsync(db);
 
         var row = await db.Set<BackgroundRequest>().AsNoTracking().FirstOrDefaultAsync(r => r.Id == id && r.Owner == owner);
         if (row == null)

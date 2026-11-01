@@ -69,7 +69,7 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
     /// <summary>
     /// What an export of <paramref name="request"/> would hold, asked before it's downloaded: how many
     /// exchanges it takes, and how many are older than the bucket's rule keeps their files. Refuses what
-    /// the export itself would refuse.
+    /// the export in the background would refuse, past <see cref="MaxInBackground"/>.
     /// </summary>
     [HttpPost("check")]
     public async Task<IActionResult> Check([FromBody] XchangeFilesExport request)
@@ -168,6 +168,8 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
                     result.ResponseName, result.ResponseSize, result.ResponseContentType, missing, aborted,
                     result.NotStoredReason(XchangeFileType.Response));
             }
+
+            background?.Progress(exported, xchanges.Count, $"{exported:n0} of {xchanges.Count:n0} exchanges");
 
             if (missing.Count > 0)
             {

@@ -339,7 +339,7 @@ export function ExchangesPage() {
           (done.substitutedCount > 0 ? `, ${done.substitutedCount.toLocaleString()} continuing an existing chain` : "") +
           (done.skippedCount > 0 ? `, ${done.skippedCount.toLocaleString()} skipped` : "") +
           (done.stoppedAfter != null
-            ? `. Cancelled after ${done.stoppedAfter.toLocaleString()} of ${done.targets.length.toLocaleString()}; the rest were not retried`
+            ? `. Cancelled after ${done.stoppedAfter.toLocaleString()}; the rest were not retried`
             : "") +
           ".",
       );

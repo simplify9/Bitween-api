@@ -94,10 +94,19 @@ export const subscribeBackground = (listener: () => void): (() => void) => {
 
 export const backgroundState = (): BackgroundState => state;
 
+/**
+ * `changed` over what was `known` of it - unless it says running about work already over, which is
+ * only news that came late: a progress push after the answer, a list read before it.
+ */
+function merged(known: BackgroundRequest | undefined, changed: Partial<BackgroundRequest>): BackgroundRequest {
+  if (known && !isRunning(known.status) && changed.status && isRunning(changed.status)) return known;
+  return { ...known, ...changed } as BackgroundRequest;
+}
+
 function upsert(changed: Partial<BackgroundRequest> & { id: string }): boolean {
   const known = state.requests.find((r) => r.id === changed.id);
   if (!known && !changed.path) return false;
-  const next = known ? { ...known, ...changed } : (changed as BackgroundRequest);
+  const next = merged(known, changed);
   if (!isRunning(next.status) && !next.finishedOn) next.finishedOn = new Date().toISOString();
   publish({ requests: [next, ...state.requests.filter((r) => r.id !== changed.id)] });
   return true;
@@ -139,18 +148,23 @@ export async function carriedOn(request: Omit<BackgroundRequest, "startedOn" | "
 
 let refreshing: Promise<void> | null = null;
 
+/** Which session a list asked for belongs to: one asked before signing out mustn't fill the next. */
+let session = 0;
+
 /**
  * Brings the list up to date from the server: on loading the app, on reconnecting, and while the
  * server can only be asked.
  */
 export function refreshBackground(): Promise<void> {
+  const asked = session;
   refreshing ??= request<BackgroundRequest[]>("/background")
     .then((rows) => {
+      if (asked !== session) return;
       const known = new Map(state.requests.map((r) => [r.id, r]));
       for (const row of rows ?? []) {
         if (dismissed.has(row.id) && !isRunning(row.status)) continue;
         const path = row.path.replace(/^(\w+ )?\/api(?=\/)/, "$1");
-        known.set(row.id, { ...known.get(row.id), ...row, path });
+        known.set(row.id, merged(known.get(row.id), { ...row, path }));
       }
       publish({
         requests: [...known.values()]
@@ -162,7 +176,7 @@ export function refreshBackground(): Promise<void> {
       /* signed out, or the server is older than background requests: nothing to show */
     })
     .finally(() => {
-      refreshing = null;
+      if (asked === session) refreshing = null;
     });
   return refreshing;
 }
@@ -192,6 +206,8 @@ export function openBackground(requests: BackgroundRequest[]): void {
 
 /** The session ended: nothing of it may show to whoever signs in next in this tab. */
 export function resetBackground(): void {
+  session++;
+  refreshing = null;
   const connection = hub;
   hub = null;
   void connection?.stop();

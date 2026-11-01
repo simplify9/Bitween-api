@@ -102,18 +102,23 @@ public class BulkRetryInBackgroundTests(BitweenFixture fixture)
                     .Handle(new XchangeBulkRetry { Ids = ids });
             });
 
-            // Two saves of a hundred make 200 waiting, past the 150 allowed: it holds there.
+            // A second save of a hundred would make 200 waiting, past the 150 allowed: it holds at 100.
             await using var check = fixture.CreateScope();
             var checkDb = check.ServiceProvider.GetRequiredService<BitweenDbContext>();
-            for (var i = 0; i < 100 && await Retries(checkDb, ids) < 200; i++) await Task.Delay(50);
+            for (var i = 0; i < 100 && await Retries(checkDb, ids) < 100; i++) await Task.Delay(50);
             await Task.Delay(300);
-            Assert.Equal(200, await Retries(checkDb, ids));
+            Assert.Equal(100, await Retries(checkDb, ids));
             Assert.False(retrying.IsCompleted);
 
-            // The pipeline finishes them, and it carries on to the end.
-            var made = await checkDb.Set<Xchange>().Where(x => ids.Contains(x.RetryFor)).Select(x => x.Id).ToListAsync();
-            checkDb.AddRange(made.Select(id => new XchangeResult(id, null, null, exception: "processed")));
-            await checkDb.SaveChangesAsync();
+            // The pipeline finishes what it sends, and it carries on to the end.
+            var processed = new HashSet<string>();
+            for (var i = 0; i < 300 && !retrying.IsCompleted; i++)
+            {
+                var made = await checkDb.Set<Xchange>().Where(x => ids.Contains(x.RetryFor)).Select(x => x.Id).ToListAsync();
+                checkDb.AddRange(made.Where(processed.Add).Select(id => new XchangeResult(id, null, null, exception: "processed")));
+                await checkDb.SaveChangesAsync();
+                await Task.Delay(100);
+            }
 
             var plan = await retrying.WaitAsync(TimeSpan.FromSeconds(30));
             Assert.Equal(250, plan.WillRetry);
