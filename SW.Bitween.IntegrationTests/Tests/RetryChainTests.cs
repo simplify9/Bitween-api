@@ -530,6 +530,73 @@ public class RetryChainTests
         Assert.True(retries.GetProperty("Finished").GetInt32() >= retries.GetProperty("Succeeded").GetInt32());
     }
 
+    /// <summary>
+    /// The panel looks at the same seven days as its retry numbers: a chain nothing has retried for
+    /// longer is still a failure to act on, but no longer one that keeps failing.
+    /// </summary>
+    [Fact]
+    public async Task RetrySummary_leaves_out_chains_nothing_has_retried_for_a_week()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
+        var ctx = scope.Superuser();
+
+        var (_, first) = await FailedXchange(db, xs, "Summary Old Doc");
+        var second = await RetryOnce(db, xs, ctx, first.Id);
+        var third = await RetryOnce(db, xs, ctx, second.Id);
+        var chain = new[] { first.Id, second.Id, third.Id };
+        await db.Set<Xchange>().Where(x => chain.Contains(x.Id))
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.StartedOn, x => x.StartedOn.AddDays(-8)));
+
+        var summary = await new Resources.Dashboard.RetrySummary(db, ctx).Handle();
+        var json = System.Text.Json.JsonSerializer.SerializeToElement(summary);
+
+        Assert.DoesNotContain(json.GetProperty("FailingChains").EnumerateArray(),
+            c => c.GetProperty("Id").GetString() == third.Id);
+    }
+
+    /// <summary>
+    /// The dashboard's failures-to-act-on tile counts from the failures rather than through the
+    /// exchange list, and has to come to the number the list shows for the view the tile opens.
+    /// </summary>
+    [Fact]
+    public async Task FailuresToActOn_counts_what_the_list_of_failures_to_act_on_counts()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
+        var ctx = scope.Superuser();
+
+        var tile = new Resources.Dashboard.FailuresToActOn(db, ctx);
+        async Task<int> Total() =>
+            System.Text.Json.JsonSerializer.SerializeToElement(await tile.Handle()).GetProperty("Total").GetInt32();
+        var before = await Total();
+
+        // A chain of three failed attempts is one failure to act on: the attempt at its end.
+        var (sub, first) = await FailedXchange(db, xs, "To Act On Doc");
+        var second = await RetryOnce(db, xs, ctx, first.Id);
+        await RetryOnce(db, xs, ctx, second.Id);
+
+        // A failure whose retry worked leaves nothing to act on.
+        var healed = await xs.CreateXchange(sub, new XchangeFile("{}"));
+        await db.SaveChangesAsync();
+        db.Set<XchangeResult>().Add(new XchangeResult(healed.Id, null, null, exception: "boom"));
+        await db.SaveChangesAsync();
+        await new Resources.Xchanges.Retry(db, ctx, xs).Handle(healed.Id, new XchangeRetry());
+        await db.SaveChangesAsync();
+        var healedRetry = await db.Set<Xchange>().FirstAsync(x => x.RetryFor == healed.Id);
+        db.Set<XchangeResult>().Add(new XchangeResult(healedRetry.Id, null, null));
+        await db.SaveChangesAsync();
+
+        var after = await Total();
+        Assert.Equal(before + 1, after);
+
+        var listed = (SearchyResponse<XchangeRow>)await new Resources.Xchanges.Search(db, xs, ctx)
+            .Handle(new SearchyRequest("filter=StatusFilter:1:3&filter=LatestOnly:1:true") { PageSize = 1 });
+        Assert.Equal(listed.TotalCount, after);
+    }
+
     // ─── Reading the chain back ───────────────────────────────────────────────
 
     [Fact]

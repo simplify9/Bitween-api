@@ -2929,6 +2929,13 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasIndex("SubscriptionId")
                         .HasDatabaseName("ix_xchange_subscription_id");
 
+                    b.HasIndex(new[] { "StartedOn" }, "ix_xchange_retries_started_on")
+                        .HasDatabaseName("ix_xchange_retries_started_on")
+                        .HasFilter("retry_for IS NOT NULL")
+                        .HasAnnotation("Npgsql:CreatedConcurrently", true);
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "StartedOn" }, "ix_xchange_retries_started_on"), new[] { "Id", "RetryFor" });
+
                     b.ToTable("xchange", "infolink");
                 });
 
@@ -3163,6 +3170,11 @@ namespace SW.Bitween.PgSql.Migrations
 
                     b.HasIndex("SubscriptionId", "FinishedOn")
                         .HasDatabaseName("ix_xchange_result_subscription_id_finished_on")
+                        .HasAnnotation("Npgsql:CreatedConcurrently", true);
+
+                    b.HasIndex(new[] { "Id" }, "ix_xchange_result_failed")
+                        .HasDatabaseName("ix_xchange_result_failed")
+                        .HasFilter("NOT success")
                         .HasAnnotation("Npgsql:CreatedConcurrently", true);
 
                     b.ToTable("xchange_result", "infolink");

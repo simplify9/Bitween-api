@@ -407,6 +407,13 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.HasIndex(i => i.SubscriptionId);
                 b.HasIndex(i => i.StartedOn);
                 b.HasIndex(i => i.RetryFor);
+                // Retries newest first, for the dashboard's retry panel: a few percent of the
+                // exchanges, read without touching the rows.
+                b.HasIndex(i => i.StartedOn, "ix_xchange_retries_started_on")
+                    .HasDatabaseName("ix_xchange_retries_started_on")
+                    .HasFilter("retry_for IS NOT NULL")
+                    .IncludeProperties(i => new { i.Id, i.RetryFor })
+                    .IsCreatedConcurrently();
             });
 
             modelBuilder.Entity<OnHoldXchange>(b =>
@@ -438,6 +445,12 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.HandlerVersion).HasMaxLength(50);
                 // A subscription's latest result: what auto-pause counts from.
                 b.HasIndex(p => new { p.SubscriptionId, p.FinishedOn }).IsCreatedConcurrently();
+                // The failures alone, a few percent of the results: what the dashboard counts the
+                // failures still to act on from, and how it asks whether a retry failed.
+                b.HasIndex(p => p.Id, "ix_xchange_result_failed")
+                    .HasDatabaseName("ix_xchange_result_failed")
+                    .HasFilter("NOT success")
+                    .IsCreatedConcurrently();
 
                 b.HasOne<Xchange>().WithOne().HasForeignKey<XchangeResult>(p => p.Id).OnDelete(DeleteBehavior.Cascade);
             });

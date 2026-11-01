@@ -389,5 +389,6 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `GET /api/dashboard/MainInfo` | `dashboard.view` |
 | `GET /api/dashboard/ChartsDataPoints` | `dashboard.view` |
 | `GET /api/dashboard/XChangesAndSubscriptionsInfo` | `dashboard.view` |
-| `GET /api/dashboard/retrysummary` | `dashboard.view`. Retries finished in the last 7 days, and the five failing chains with the most attempts. |
+| `GET /api/dashboard/retrysummary` | `dashboard.view`. Retries finished in the last 7 days, and the five failing chains with the most attempts among those retried in the same 7 days. |
+| `GET /api/dashboard/failurestoacton` | `dashboard.view`. `{ total }`: failed exchanges nothing has been retried from, the count the exchange search gives for `StatusFilter:1:3` with `LatestOnly:1:true`. Capped like the search: past 10,000 it reports 10,001. |
 | `GET /health` | none |

@@ -201,6 +201,10 @@ export const keys = {
   categories: ["subscription-categories"] as const,
   background: ["queue-health", "background"] as const,
   dashboard: ["dashboard"] as const,
+  // Under the dashboard's own key, so whatever refreshes the dashboard refreshes these too.
+  dashboardFailuresToActOn: ["dashboard", "failures-to-act-on"] as const,
+  dashboardInFlight: ["dashboard", "in-flight"] as const,
+  dashboardRetrySummary: ["dashboard", "retry-summary"] as const,
   metrics: {
     all: ["metrics"] as const,
     overview: ["metrics", "overview"] as const,
