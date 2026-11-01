@@ -91,6 +91,8 @@ export function renderApp(path: string, { as = {}, config = {}, handlers = [] }:
     http.get(apiPath("/mirror"), () => HttpResponse.json({ target: false, sourceUrl: null, signIn: null, configured: false })),
     // Which of a list's items prod has too, which a list on a mirror shows: none, unless a test says.
     http.get(apiPath("/mirror/listed"), () => HttpResponse.json({ items: [], testing: null, waiting: [], error: null })),
+    // Reads carried on in the background, which the header asks for as the app loads: none, unless a test says.
+    http.get(apiPath("/background"), () => HttpResponse.json([])),
   );
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

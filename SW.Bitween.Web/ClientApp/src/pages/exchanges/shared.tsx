@@ -129,6 +129,16 @@ function ExchangeIdentity({
   );
 }
 
+/** The rest of a list the plan names only the first of: a selection of hundreds of thousands. */
+function MoreNotListed({ listed, count }: { listed: number; count: number }) {
+  if (count <= listed) return null;
+  return (
+    <li className="text-[11px] text-ink-500" title="The plan names the first ones only">
+      …and {(count - listed).toLocaleString()} more
+    </li>
+  );
+}
+
 /**
  * Shared confirm for single and bulk retries - carries the "reset adapter properties" choice
  * that decides whether the retry re-resolves config.
@@ -138,8 +148,8 @@ function ExchangeIdentity({
  * ones that have since succeeded drop out, and two selections in one chain come to the same
  * attempt. All of that is shown before anyone commits, since a retry cannot be taken back.
  *
- * A selection past what one retry request carries out goes in rounds; `progress` says how far
- * they have got.
+ * A bulk retry runs in the background once it takes more than a few seconds, so the dialog can be
+ * closed while it runs; `progress` says how far it has got meanwhile, as the header does.
  */
 export function RetryDialog({
   count,
@@ -157,7 +167,7 @@ export function RetryDialog({
   plan?: BulkRetryPlan | null;
   planLoading?: boolean;
   busy: boolean;
-  /** Bulk retries in rounds: the attempts retried so far, of all that will run. */
+  /** A bulk retry under way in the background: the attempts dealt with so far, of all that will run. */
   progress?: { done: number; total: number } | null;
   /** Why the retry stopped, when it did. */
   error?: string | null;
@@ -172,7 +182,6 @@ export function RetryDialog({
   const [reset, setReset] = useState(false);
   const bulk = count !== 1;
   const nothingToDo = plan != null && !plan.overLimit && plan.willRetry === 0;
-  const rounds = plan != null && plan.selected > plan.limit ? Math.ceil(plan.willRetry / plan.limit) : 0;
 
   return (
     <Dialog
@@ -202,17 +211,18 @@ export function RetryDialog({
                     }.`}
             </p>
 
-            {rounds > 1 && !progress && (
+            {plan != null && plan.willRetry > plan.limit && !progress && (
               <p className="text-sm text-ink-600">
-                That's more than one retry carries out, so they go in {rounds} rounds of up to{" "}
-                {plan!.limit.toLocaleString()}, one after another. Keep this page open until they finish.
+                A retry this size runs in the background. You can close this and keep working: the top bar
+                shows how far it has got, with Cancel.
               </p>
             )}
 
             {progress && (
               <div>
                 <p className="text-sm text-ink-700">
-                  Retried {progress.done.toLocaleString()} of {progress.total.toLocaleString()}…
+                  Retried {progress.done.toLocaleString()} of {progress.total.toLocaleString()}… You can close this:
+                  it carries on, and the top bar has Cancel.
                 </p>
                 <div
                   role="progressbar"
@@ -230,13 +240,13 @@ export function RetryDialog({
               </div>
             )}
 
-            {plan != null && plan.substituted.length > 0 && (
+            {plan != null && plan.substitutedCount > 0 && (
               <div className="rounded-lg border border-ink-200 bg-ink-50/60 px-3 py-2">
                 <p className="text-[13px] text-ink-700">
-                  <strong className="font-semibold">{plan.substituted.length.toLocaleString()}</strong> of
-                  these {plan.substituted.length === 1 ? "has" : "have"} already been retried. An
+                  <strong className="font-semibold">{plan.substitutedCount.toLocaleString()}</strong> of
+                  these {plan.substitutedCount === 1 ? "has" : "have"} already been retried. An
                   exchange is only retried once, so{" "}
-                  {plan.substituted.length === 1 ? "its newest attempt runs" : "their newest attempts run"}{" "}
+                  {plan.substitutedCount === 1 ? "its newest attempt runs" : "their newest attempts run"}{" "}
                   instead.
                 </p>
                 <details className="mt-1.5">
@@ -251,15 +261,16 @@ export function RetryDialog({
                         <ExchangeIdentity id={s.retryId} properties={plan.properties[s.retryId] ?? null} />
                       </li>
                     ))}
+                    <MoreNotListed listed={plan.substituted.length} count={plan.substitutedCount} />
                   </ul>
                 </details>
               </div>
             )}
 
-            {plan != null && plan.skipped.length > 0 && (
+            {plan != null && plan.skippedCount > 0 && (
               <div className="rounded-lg border border-ink-200 bg-ink-50/60 px-3 py-2">
                 <p className="text-[13px] text-ink-700">
-                  <strong className="font-semibold">{plan.skipped.length.toLocaleString()}</strong>{" "}
+                  <strong className="font-semibold">{plan.skippedCount.toLocaleString()}</strong>{" "}
                   will be skipped.
                 </p>
                 <details className="mt-1.5">
@@ -273,12 +284,13 @@ export function RetryDialog({
                         <span>- {s.reason}</span>
                       </li>
                     ))}
+                    <MoreNotListed listed={plan.skipped.length} count={plan.skippedCount} />
                   </ul>
                 </details>
               </div>
             )}
 
-            {/* Not once rounds are under way: they keep the choice they started with. */}
+            {/* Not once it's under way: it keeps the choice it started with. */}
             {!progress && (
               <Checkbox
                 label="Re-resolve adapter properties"
@@ -301,10 +313,10 @@ export function RetryDialog({
 
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
-            {plan?.overLimit || nothingToDo || error ? "Close" : "Cancel"}
+            {plan?.overLimit || nothingToDo || error || progress ? "Close" : "Cancel"}
           </Button>
-          {/* Not again after a failure: the plan it would repeat is out of date by the rounds already done. */}
-          {!plan?.overLimit && !nothingToDo && !error && (
+          {/* Not again after a failure: the plan it would repeat is out of date by what was already done. */}
+          {!plan?.overLimit && !nothingToDo && !error && !progress && (
             <Button variant="primary" busy={busy} disabled={planLoading} onClick={() => onConfirm(reset)}>
               Retry
             </Button>

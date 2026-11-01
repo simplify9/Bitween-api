@@ -9,7 +9,14 @@ import type {
   MirrorSubscriptionAnswer,
   MirrorTest,
 } from "../types";
-import { get, post } from "./request";
+import { get, post, request } from "./request";
+
+/** What a section's items are called, for the header's line about bringing them. */
+const SECTION: Record<MirrorBringSection, string> = {
+  subscriptions: "subscriptions",
+  apiGateways: "API gateways",
+  busGateways: "bus gateways",
+};
 
 export const mirrorMethods = {
   getMirror(): Promise<MirrorStatus> {
@@ -21,9 +28,14 @@ export const mirrorMethods = {
     return get<MirrorProdKinds>("/mirror/prodkinds");
   },
 
-  /** Prod's items of one kind, busiest first, with whether staging has each; reads prod and staging, a few seconds. */
+  /**
+   * Prod's items of one kind, busiest first, with whether staging has each; reads prod and staging,
+   * which can take a while, so it carries on in the background when it does.
+   */
   getMirrorProd(section: MirrorBringSection, type?: string): Promise<MirrorProdListAnswer> {
-    return get<MirrorProdListAnswer>(`/mirror/prod?section=${section}${type ? `&type=${encodeURIComponent(type)}` : ""}`);
+    return request<MirrorProdListAnswer>(`/mirror/prod?section=${section}${type ? `&type=${encodeURIComponent(type)}` : ""}`, {
+      background: `Bring from prod: prod's ${SECTION[section]}`,
+    });
   },
 
   /** One of staging's subscriptions beside prod's; reads prod and staging, a few seconds. */
@@ -70,8 +82,13 @@ export const mirrorMethods = {
     return post<{ closed: number }>("/mirror/filledin", { section, key });
   },
 
-  /** What bringing the picked items from prod does; with `apply`, brings them. */
+  /** What bringing the picked items from prod does; with `apply`, brings them. Carried on in the background when slow. */
   bringFromProd(section: MirrorBringSection, keys: string[], apply: boolean): Promise<MirrorBring> {
-    return post<MirrorBring>("/mirror/bring", { section, keys, apply });
+    const what = `${keys.length} ${keys.length === 1 ? SECTION[section].replace(/s$/, "") : SECTION[section]}`;
+    return request<MirrorBring>("/mirror/bring", {
+      method: "POST",
+      body: { section, keys, apply },
+      background: apply ? `Bringing ${what} from prod` : `Bring from prod: what comes with ${what}`,
+    });
   },
 } satisfies Partial<ApiClient>;

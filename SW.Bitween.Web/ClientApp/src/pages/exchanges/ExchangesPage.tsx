@@ -4,13 +4,14 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { ArrowUp, Download, Pause, Play, Plus, RefreshCw, RotateCcw, TriangleAlert, X } from "lucide-react";
 import {
   api,
-  type BulkRetryPlan,
   type BulkRetrySelection,
   type ExchangeStatus,
   type ExportFilesCheck,
 } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
+import { useBackgroundProgress } from "../../lib/useBackground";
+import { followDownload } from "../../lib/saveFile";
 import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { openDialogs } from "../../components/ui/dialogStack";
@@ -40,8 +41,11 @@ import {
   type ParamChanges,
 } from "./exchangeFilters";
 
-/** The most exchanges one files export takes: `XchangeExportController.Limit` on the server. */
-const EXPORT_LIMIT = 500;
+/**
+ * The most exchanges one files export takes: `XchangeExportController.MaxInBackground` on the server,
+ * since the export is carried on in the background.
+ */
+const EXPORT_LIMIT = 50_000;
 
 const exchangesCount = (n: number) => (n === 1 ? "1 exchange" : `${n.toLocaleString()} exchanges`);
 
@@ -312,56 +316,19 @@ export function ExchangesPage() {
     staleTime: 30_000,
   });
 
-  /** How far a retry in rounds has got. */
-  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
-  /** Set when the confirm is closed mid-way: the rounds stop after the one under way. */
-  const stopRounds = useRef(false);
+  /** How far a retry under way in the background has got, as the header has it. */
+  const bulkProgress = useBackgroundProgress("POST /xchanges/bulkretry");
   /**
    * The run the open confirm belongs to. Closing it moves this on, so a run that ends afterwards
    * reports what it did but can't close a confirm opened since, or clear a selection made since.
    */
   const bulkRun = useRef(0);
 
-  /**
-   * A selection past what one request carries out: the preview listed every attempt that will run,
-   * and they go back as ids, a round at a time. No request runs long, and a round that fails leaves
-   * the ones before it done. The attempts, not the selection, so a round can't reach past them to an
-   * attempt an earlier round just made.
-   */
-  async function retryInRounds(planned: BulkRetryPlan, reset: boolean) {
-    const done = { ...planned, willRetry: 0, skipped: [...planned.skipped], stoppedAt: null as number | null };
-    const total = planned.targets.length;
-    stopRounds.current = false;
-    setBulkProgress({ done: 0, total });
-    for (let at = 0; at < total; at += planned.limit) {
-      if (stopRounds.current) {
-        done.stoppedAt = at;
-        break;
-      }
-      let round: BulkRetryPlan;
-      try {
-        round = await api.bulkRetryExchanges({ ids: planned.targets.slice(at, at + planned.limit) }, { reset });
-      } catch (e) {
-        throw new Error(
-          `${done.willRetry.toLocaleString()} of ${total.toLocaleString()} were retried, then a round failed` +
-            ` (${e instanceof Error ? e.message : String(e)}). The rest were not retried.`,
-        );
-      }
-      done.willRetry += round.willRetry;
-      done.skipped.push(...round.skipped);
-      setBulkProgress({ done: Math.min(at + planned.limit, total), total });
-    }
-    return done;
-  }
-
   const bulkRetry = useMutation({
-    mutationFn: (reset: boolean) =>
-      plan && plan.selected > plan.limit
-        ? retryInRounds(plan, reset)
-        : api.bulkRetryExchanges(selection, { reset }).then((done) => ({ ...done, stoppedAt: null })),
+    // One request for the whole selection, carried on in the background when it takes long.
+    mutationFn: (reset: boolean) => api.bulkRetryExchanges(selection, { reset }),
     onMutate: () => ({ run: ++bulkRun.current }),
     onSuccess: (done, _reset, started) => {
-      setBulkProgress(null);
       if (started?.run === bulkRun.current) {
         setBulkConfirm(false);
         setBulkReset(false);
@@ -369,16 +336,16 @@ export function ExchangesPage() {
       }
       setBulkResult(
         `${done.willRetry.toLocaleString()} retr${done.willRetry === 1 ? "y" : "ies"} started` +
-          (done.substituted.length > 0 ? `, ${done.substituted.length} continuing an existing chain` : "") +
-          (done.skipped.length > 0 ? `, ${done.skipped.length} skipped` : "") +
-          (done.stoppedAt != null
-            ? `. Stopped after ${done.stoppedAt.toLocaleString()} of ${done.targets.length.toLocaleString()}; the rest were not retried`
+          (done.substitutedCount > 0 ? `, ${done.substitutedCount.toLocaleString()} continuing an existing chain` : "") +
+          (done.skippedCount > 0 ? `, ${done.skippedCount.toLocaleString()} skipped` : "") +
+          (done.stoppedAfter != null
+            ? `. Cancelled after ${done.stoppedAfter.toLocaleString()} of ${done.targets.length.toLocaleString()}; the rest were not retried`
             : "") +
           ".",
       );
       void queryClient.invalidateQueries({ queryKey: keys.exchanges.all });
     },
-    // The list changed as far as the rounds got.
+    // The list changed as far as the retry got.
     onError: () => void queryClient.invalidateQueries({ queryKey: keys.exchanges.all }),
   });
 
@@ -399,18 +366,8 @@ export function ExchangesPage() {
   /** The zip comes back whole and is saved from memory: the endpoint needs the sign-in header, which a plain link can't send. */
   const exportFiles = useMutation({
     mutationFn: () => api.exportExchangeFiles(selection),
-    onSuccess: ({ blob, fileName }) => {
-      // In the document while clicked, and revoked a while later: Firefox and Safari ignore a click on a
-      // detached link, and start the download after the click returns, so an address revoked at once fails it.
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    },
+    // Downloaded when it's ready, whichever page the person has gone on to meanwhile.
+    onSuccess: ({ url }) => followDownload(url),
   });
 
   const pickStatus = (status: ExchangeStatus | null) => apply({ status });
@@ -644,7 +601,7 @@ export function ExchangesPage() {
                       onClick={() => checkExport.mutate()}
                       title={
                         selectedCount > EXPORT_LIMIT
-                          ? `One export takes at most ${EXPORT_LIMIT} exchanges. Narrow the filter or tick fewer rows.`
+                          ? `One export takes at most ${EXPORT_LIMIT.toLocaleString()} exchanges. Narrow the filter or tick fewer rows.`
                           : "Download the input, mapped and handled files of the selected exchanges as one zip, a folder per exchange"
                       }
                     >
@@ -716,21 +673,19 @@ export function ExchangesPage() {
 
       {bulkConfirm && (
         <RetryDialog
-          count={selectedCount}
+          // The plan's count once it's in: the page's own stops at 10,000.
+          count={plan?.selected ?? selectedCount}
           plan={plan ?? null}
           planLoading={planLoading}
           busy={bulkRetry.isPending}
-          progress={bulkProgress}
+          progress={bulkRetry.isPending ? bulkProgress : null}
           error={bulkRetry.error?.message ?? null}
           onConfirm={(reset) => bulkRetry.mutate(reset)}
           onResetChange={setBulkReset}
           onClose={() => {
-            stopRounds.current = true;
+            // Closing doesn't stop a retry under way: it carries on, and the header has Cancel.
             bulkRun.current++;
             setBulkConfirm(false);
-            setBulkProgress(null);
-            // Not while rounds are still under way: Retry would be offered again, and a second run
-            // beside the first would retry what the first just did.
             if (bulkRetry.isError) bulkRetry.reset();
             // The dialog starts unticked each time it opens, so the mirrored copy has to as well.
             setBulkReset(false);

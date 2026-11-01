@@ -8,6 +8,10 @@ Every page and action is gated by permissions. Anything a member cannot use is h
 
 The sign-in page offers email and password, Microsoft, an [OpenID Connect provider](security.md#openid-connect), or any of them together, depending on settings. With a mail server it also offers **Forgot password?**, and invite and reset emails lead to a page where the member chooses their password. After sign-in, members land on the first page their permissions allow. Sessions end after 30 minutes with no activity.
 
+## Work that takes long
+
+Four things can take long, and carry on in the background once they take more than three seconds: Bring from prod's list and bringing what was picked, a bulk retry and working out what it will run, and exporting exchange files. You can go on to other pages meanwhile. The top bar shows what is running, for how long and, for a bulk retry or an export, how far it has got, with **Cancel**. A bulk retry takes up to 500,000 exchanges and goes at the pipeline's pace; an export takes up to 50,000, and downloads straight to disk when it's ready. When one finishes while you're elsewhere, a notice says so with **Open**, which goes back to where it was asked from - Bring from prod's window reopens - or, for an export, **Download**. Every other page loads as it always has. See [Work that takes long](api-reference.md#work-that-takes-long).
+
 ## Operate
 
 | Page | What it does |

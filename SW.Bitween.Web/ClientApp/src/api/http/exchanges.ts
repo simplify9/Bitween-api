@@ -14,7 +14,8 @@ import type {
   ScheduledRetryRow,
 } from "../types";
 import { partnerMethods } from "./partners";
-import { download, get, post, request } from "./request";
+import { ApiRequestError } from "../types";
+import { get, post, request } from "./request";
 import { searchyQueryString } from "./searchQuery";
 
 // --- backend shapes (camelCase over the wire) ---
@@ -83,6 +84,9 @@ interface RawBulkRetryPlan {
   maxSelection: number;
   overLimit: boolean;
   targets: string[] | null;
+  stoppedAfter?: number | null;
+  substitutedCount?: number;
+  skippedCount?: number;
   substituted: { selectedId: string; retryId: string }[] | null;
   skipped: { id: string; reason: string }[] | null;
   properties: Record<string, Record<string, string | null>> | null;
@@ -272,8 +276,14 @@ async function postBulkRetry(
   url: string,
   selection: BulkRetrySelection,
   reset: boolean,
+  background: string,
 ): Promise<BulkRetryPlan> {
-  const plan = await post<RawBulkRetryPlan>(url, { ...selectionBody(selection), reason: "Bulk retry", reset });
+  // In the background when it takes long, where the retry takes the whole selection at once.
+  const plan = await request<RawBulkRetryPlan>(url, {
+    method: "POST",
+    body: { ...selectionBody(selection), reason: "Bulk retry", reset },
+    background,
+  });
   return {
     selected: plan.selected,
     willRetry: plan.willRetry,
@@ -281,6 +291,10 @@ async function postBulkRetry(
     maxSelection: plan.maxSelection,
     overLimit: plan.overLimit,
     targets: plan.targets ?? [],
+    stoppedAfter: plan.stoppedAfter ?? null,
+    // From a server older than these totals, the lists are whole.
+    substitutedCount: plan.substitutedCount ?? plan.substituted?.length ?? 0,
+    skippedCount: plan.skippedCount ?? plan.skipped?.length ?? 0,
     substituted: plan.substituted ?? [],
     skipped: plan.skipped ?? [],
     properties: plan.properties ?? {},
@@ -369,18 +383,38 @@ export const exchangeMethods = {
 
   /** What a bulk retry would do, so it can be shown before anyone commits to it. */
   previewBulkRetry(selection: BulkRetrySelection, { reset }: { reset: boolean }): Promise<BulkRetryPlan> {
-    return postBulkRetry("/xchanges/bulkretrypreview", selection, reset);
+    return postBulkRetry("/xchanges/bulkretrypreview", selection, reset, "Bulk retry: working out what runs");
   },
 
   /** Runs the retry and reports what it actually did, in the same shape as the preview. */
   bulkRetryExchanges(selection: BulkRetrySelection, { reset }: { reset: boolean }): Promise<BulkRetryPlan> {
-    return postBulkRetry("/xchanges/bulkretry", selection, reset);
+    return postBulkRetry("/xchanges/bulkretry", selection, reset, "Bulk retry");
   },
 
-  /** The selected exchanges' files as one zip, built and streamed by the server. */
-  async exportExchangeFiles(selection: BulkRetrySelection): Promise<{ blob: Blob; fileName: string }> {
-    const { blob, fileName } = await download("/xchanges/export", selectionBody(selection));
-    return { blob, fileName: fileName ?? "exchanges.zip" };
+  /**
+   * The selected exchanges' files as one zip, built by the server in the background and kept there; the
+   * answer is a link the browser downloads it from, straight to disk.
+   */
+  async exportExchangeFiles(selection: BulkRetrySelection): Promise<{ url: string }> {
+    const { id } = await request<{ id: string }>("/xchanges/export", {
+      method: "POST",
+      body: selectionBody(selection),
+      background: "Exporting exchange files",
+      wait: 0,
+      leaveAnswer: true,
+    });
+    return exchangeMethods.linkToBackgroundFile(id);
+  },
+
+  /** A link to a background request's file; when it has none, the reason it ended without one. */
+  async linkToBackgroundFile(id: string): Promise<{ url: string }> {
+    try {
+      return await post<{ url: string }>(`/background/${id}/link`);
+    } catch (e) {
+      // Refused, failed or cancelled before it had anything: what it answered says why.
+      if (e instanceof ApiRequestError && e.code === "BACKGROUND_NO_FILE") await request(`/background/${id}/result`);
+      throw e;
+    }
   },
 
   checkExchangeFilesExport(selection: BulkRetrySelection): Promise<ExportFilesCheck> {
