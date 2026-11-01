@@ -19,6 +19,8 @@ test("dashboard loads with real aggregated data", async ({ page }) => {
   // which an unanchored match picks up as well.
   const tile = page.getByRole("link").filter({ hasText: /^Failures to act on/ });
   await expect(tile).toBeVisible();
+  // Counted apart from the rest of the page, so it can fill in after it.
+  await expect(tile).toContainText(/\d/, { timeout: 15000 });
   const count = (await tile.innerText()).match(/([\d,]+)/)?.[1];
   expect(count).toBeTruthy();
 

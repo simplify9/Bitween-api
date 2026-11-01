@@ -116,6 +116,27 @@ export function DashboardPage() {
     placeholderData: keepPreviousData,
   });
   const insights = useQuery({ queryKey: keys.metrics.insights, queryFn: () => api.getInsights() });
+  // Counted over the exchange tables, so asked for apart: a slow one fills in on its own tile
+  // rather than holding up the page. Not retried - the next minute's refresh asks again, rather than
+  // three retries piling onto a database already struggling with it.
+  const failuresToActOn = useQuery({
+    queryKey: keys.dashboardFailuresToActOn,
+    queryFn: () => api.getFailuresToActOn(),
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  const inFlight = useQuery({
+    queryKey: keys.dashboardInFlight,
+    queryFn: () => api.getInFlight(),
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  const retrySummary = useQuery({
+    queryKey: keys.dashboardRetrySummary,
+    queryFn: () => api.getRetrySummary(),
+    refetchInterval: 60_000,
+    retry: false,
+  });
 
   const data = dashboard.data;
   const o = metrics.data;
@@ -172,7 +193,7 @@ export function DashboardPage() {
             <>
               {delta >= 0 ? "+" : ""}
               {compact(delta)} vs the day before
-              {data.inFlight > 0 && <> · {compact(data.inFlight)} in flight</>}
+              {inFlight.data !== undefined && inFlight.data > 0 && <> · {compact(inFlight.data)} in flight</>}
             </>
           }
           to="/exchanges"
@@ -205,11 +226,25 @@ export function DashboardPage() {
             is the current state of anything. This counts the ends of chains: the problems. */}
         <StatTile
           label="Failures to act on"
-          // The search stops counting past its cap and reports the cap + 1.
-          value={data.failuresToActOn > 10_000 ? "10,000+" : whole(data.failuresToActOn)}
-          sub={data.failuresToActOn > 0 ? "newest attempt of each chain" : "every failure was retried"}
+          // The count stops past its cap and reports the cap + 1.
+          value={
+            failuresToActOn.data === undefined
+              ? "-"
+              : failuresToActOn.data > 10_000
+                ? "10,000+"
+                : whole(failuresToActOn.data)
+          }
+          sub={
+            failuresToActOn.data === undefined
+              ? failuresToActOn.isError
+                ? "unavailable right now"
+                : "counting…"
+              : failuresToActOn.data > 0
+                ? "newest attempt of each chain"
+                : "every failure was retried"
+          }
           to="/exchanges?status=failed&latest=1"
-          accent={data.failuresToActOn > 0 ? "danger" : undefined}
+          accent={failuresToActOn.data !== undefined && failuresToActOn.data > 0 ? "danger" : undefined}
           title="Failures that nothing has been retried from yet. A chain of nine failed attempts counts once - as the attempt at the end of it, which is the one still to deal with."
         />
         <StatTile
@@ -387,16 +422,24 @@ export function DashboardPage() {
         <Panel
           title="Chains that keep failing"
           description={
-            data.retriesLast7Days.finished === 0
+            !retrySummary.data || retrySummary.data.retriesLast7Days.finished === 0
               ? "Retried repeatedly and still failing."
-              : `Retried repeatedly and still failing. Of retries in the last 7 days, ${data.retriesLast7Days.succeeded} of ${data.retriesLast7Days.finished} eventually worked.`
+              : `Retried repeatedly and still failing. Of retries in the last 7 days, ${retrySummary.data.retriesLast7Days.succeeded} of ${retrySummary.data.retriesLast7Days.finished} eventually worked.`
           }
         >
-          {data.failingChains.length === 0 ? (
+          {!retrySummary.data ? (
+            retrySummary.isError ? (
+              <EmptyState title="Unavailable right now">
+                The retry chains couldn't be read in time. The dashboard tries again every minute.
+              </EmptyState>
+            ) : (
+              <LoadingBlock label="Reading the retry chains…" />
+            )
+          ) : retrySummary.data.failingChains.length === 0 ? (
             <EmptyState title="No chain is stuck">Nothing has been retried more than once and left failing.</EmptyState>
           ) : (
             <ul className="space-y-2.5">
-              {data.failingChains.map((c) => (
+              {retrySummary.data.failingChains.map((c) => (
                 <li key={c.id} className="text-sm">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Link

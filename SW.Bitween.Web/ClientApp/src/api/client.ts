@@ -39,6 +39,7 @@ import type {
   DataSourceTelemetry,
   DataSourceTestResult,
   DashboardData,
+  RetrySummary,
   ExchangeBreakdown,
   ExchangeQuery,
   ExchangeRow,
@@ -825,6 +826,17 @@ export interface ApiClient {
 
   // - dashboard -
   getDashboard(): Promise<DashboardData>;
+  // The counts over the exchange tables, which grow with traffic: asked for apart, so a slow one
+  // fills in on its own tile rather than holding up the page.
+  /**
+   * Failures that are the newest attempt of their chain. Counts problems rather than attempts: a
+   * chain retried nine times is one of these, not nine. Capped like the exchange search, so a value
+   * above 10,000 means "more than that".
+   */
+  getFailuresToActOn(): Promise<number>;
+  /** Exchanges started in the last 24 hours and not finished yet. */
+  getInFlight(): Promise<number>;
+  getRetrySummary(): Promise<RetrySummary>;
 
   // Metrics, read from the hourly rows the server keeps.
   getMetricsOverview(): Promise<MetricsOverview>;

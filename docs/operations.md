@@ -71,7 +71,7 @@ See [Scheduling](scheduling.md).
 
 The dashboard, opened from the logo, shows today's exchanges, the 7-day success rate, today's failures, waiting retries, queue alerts, a 14-day chart, the latest failures, unhealthy subscriptions and the busiest subscriptions. The browser computes it from up to 1,000 recent exchanges, so figures on a busy instance are approximate.
 
-Two parts come from the server instead. **Failures to act on** counts failed exchanges that are the newest attempt of their chain, of any age, and links to that search. **Chains that keep failing** lists the five retry chains with the most attempts, with the success rate of retries over the last 7 days.
+Two parts come from the server instead. **Failures to act on** counts failed exchanges that are the newest attempt of their chain, of any age, and links to that search. **Chains that keep failing** lists the five retry chains with the most attempts among those retried in the last 7 days, with the success rate of retries over the same 7 days. A part that can't be read in time shows as unavailable while the rest of the dashboard loads.
 
 ## Audit trail
 

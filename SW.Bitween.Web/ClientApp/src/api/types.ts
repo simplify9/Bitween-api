@@ -1837,8 +1837,12 @@ export interface FailingChain {
   exception: string | null;
 }
 
-export interface DashboardData {
-  /** Worst first. Empty when nothing has been retried more than once and left failing. */
+/** The dashboard's retry panel. */
+export interface RetrySummary {
+  /**
+   * Worst first, among chains whose newest attempt started in the last 7 days. Empty when nothing
+   * has been retried more than once and left failing.
+   */
   failingChains: FailingChain[];
   /**
    * Retries started in the last 7 days: how many have finished, and how many of those worked.
@@ -1846,14 +1850,9 @@ export interface DashboardData {
    * luck or a configuration problem.
    */
   retriesLast7Days: { finished: number; succeeded: number };
-  /**
-   * Failures that are the newest attempt of their chain. Counts problems rather than attempts: a
-   * chain retried nine times is one of these, not nine. Subject to the search's count cap, so a
-   * value above it means "at least this many".
-   */
-  failuresToActOn: number;
-  /** Exchanges started in the last 24 hours and not finished yet. */
-  inFlight: number;
+}
+
+export interface DashboardData {
   pendingRetries: number;
   /** Null when the RabbitMQ management API is unavailable - never counts as zero. */
   queueAlerts: number | null;
