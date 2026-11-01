@@ -1,4 +1,4 @@
-import { Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -31,6 +31,11 @@ import { CommandPalette } from "./CommandPalette";
 import { recordVisit } from "../../lib/recentPages";
 import { refreshBackground, setCurrentPage } from "../../api/http/background";
 import { BackgroundReadyNotice, BackgroundTray } from "./BackgroundWork";
+
+/** What a bring carried on in the background brought; loaded only when the header's Open asks for it. */
+const BroughtFromBackground = lazy(() =>
+  import("../../pages/mirror/BringFromProd").then((m) => ({ default: m.BroughtFromBackground })),
+);
 
 /**
  * Shown on every page while unsaved setting changes exist - the whole app
@@ -508,6 +513,11 @@ export function AppShell() {
       </header>
       {paletteOpen && <CommandPalette onClose={closePalette} />}
       <BackgroundReadyNotice />
+      {new URLSearchParams(search).has("brought") && (
+        <Suspense fallback={null}>
+          <BroughtFromBackground />
+        </Suspense>
+      )}
 
       {/* mobile drawer */}
       {mobileOpen && (

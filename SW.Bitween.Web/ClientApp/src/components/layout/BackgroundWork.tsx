@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router";
 import {
   cancelBackground,
   dismissBackground,
+  isLeftToHeader,
   isRunning,
   openBackground,
   type BackgroundRequest,
@@ -28,6 +29,17 @@ const ENDED: Record<string, string> = {
 
 /** An export's answer is the zip, which "Download" saves again rather than going back to the page. */
 const isExport = (r: BackgroundRequest) => r.path.startsWith("POST /xchanges/export");
+
+/** A bring's answer is what it brought, which "Open" shows on its page: `?brought=` its id. */
+const isBring = (r: BackgroundRequest) => r.path.startsWith("POST /mirror/bring");
+
+/** `page`, showing what the bring `id` brought, rather than the picker it was asked from. */
+function showingBrought(page: string, id: string): string {
+  const url = new URL(page, window.location.origin);
+  url.searchParams.delete("bring");
+  url.searchParams.set("brought", id);
+  return url.pathname + url.search;
+}
 
 /** What a line says under its name. */
 function said(r: BackgroundRequest, now: number): { text: string; title: string } {
@@ -55,11 +67,16 @@ function duration(from: string, to: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
-/** Goes back to what it was for: its page - or, for an export, its zip again. */
+/** Goes back to what it was for: its page - or, for an export, its zip again; for a bring, what it brought. */
 async function openWork(r: BackgroundRequest, navigate: (to: string) => void): Promise<void> {
   if (isExport(r) && r.status === "Done") {
     followDownload((await api.linkToBackgroundFile(r.id)).url);
     dismissBackground([r.id]);
+    return;
+  }
+  if (isBring(r) && r.status === "Done") {
+    dismissBackground([r.id]);
+    navigate(showingBrought(r.page ?? window.location.pathname, r.id));
     return;
   }
   openBackground([r]);
@@ -186,8 +203,8 @@ export function BackgroundReadyNotice() {
         continue;
       }
       if (!seenRunning.current.delete(r.id)) continue;
-      // An export left on its own page still saves itself, so it says nothing there either.
-      if (r.page === here) dismissBackground([r.id]);
+      // Its page shows it - unless its window closed first, as a bring's can.
+      if (r.page === here && !isLeftToHeader(r.id)) dismissBackground([r.id]);
       else setNotice(r);
     }
   }, [requests, here]);

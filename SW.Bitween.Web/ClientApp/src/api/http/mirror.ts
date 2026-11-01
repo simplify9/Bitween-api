@@ -83,12 +83,23 @@ export const mirrorMethods = {
   },
 
   /** What bringing the picked items from prod does; with `apply`, brings them. Carried on in the background when slow. */
-  bringFromProd(section: MirrorBringSection, keys: string[], apply: boolean): Promise<MirrorBring> {
+  bringFromProd(
+    section: MirrorBringSection,
+    keys: string[],
+    apply: boolean,
+    onBackground?: (id: string) => void,
+  ): Promise<MirrorBring> {
     const what = `${keys.length} ${keys.length === 1 ? SECTION[section].replace(/s$/, "") : SECTION[section]}`;
     return request<MirrorBring>("/mirror/bring", {
       method: "POST",
       body: { section, keys, apply },
       background: apply ? `Bringing ${what} from prod` : `Bring from prod: what comes with ${what}`,
+      onBackground,
     });
+  },
+
+  /** What a bring carried on in the background answered, kept for its owner. */
+  broughtInBackground(id: string): Promise<MirrorBring> {
+    return request<MirrorBring>(`/background/${id}/result`);
   },
 } satisfies Partial<ApiClient>;

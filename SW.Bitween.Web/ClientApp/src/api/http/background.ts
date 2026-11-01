@@ -127,6 +127,16 @@ export function currentPage(): string {
   return page ?? window.location.pathname + window.location.search;
 }
 
+/** Work whose window closed before its answer came: nothing on its page shows it, so the header must. */
+const leftToHeader = new Set<string>();
+
+/** The call that asked for it won't show its answer: say when it's ready, even on its own page. */
+export function leaveToHeader(id: string): void {
+  leftToHeader.add(id);
+}
+
+export const isLeftToHeader = (id: string): boolean => leftToHeader.has(id);
+
 /** Answers "Open" asked to show, by read: the request whose kept answer the read is given. */
 const toShow = new Map<string, BackgroundRequest>();
 
@@ -216,6 +226,7 @@ export function resetBackground(): void {
   polling = null;
   idling = null;
   toShow.clear();
+  leftToHeader.clear();
   // The calls still waiting are told they're over; their answers are refused, as the session is.
   const waiting = [...waiters.keys()];
   state = { requests: [] };

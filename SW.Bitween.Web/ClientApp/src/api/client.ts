@@ -683,7 +683,13 @@ export interface ApiClient {
   getMirror(): Promise<MirrorStatus>;
   getMirrorProdKinds(): Promise<MirrorProdKinds>;
   getMirrorProd(section: MirrorBringSection, type?: string): Promise<MirrorProdListAnswer>;
-  bringFromProd(section: MirrorBringSection, keys: string[], apply: boolean): Promise<MirrorBring>;
+  bringFromProd(
+    section: MirrorBringSection,
+    keys: string[],
+    apply: boolean,
+    onBackground?: (id: string) => void,
+  ): Promise<MirrorBring>;
+  broughtInBackground(id: string): Promise<MirrorBring>;
   getMirrorSubscription(id: number): Promise<MirrorSubscriptionAnswer>;
   getMirrorTest(id: number): Promise<MirrorTest>;
   takeMirrorTest(id: number): Promise<MirrorTest>;

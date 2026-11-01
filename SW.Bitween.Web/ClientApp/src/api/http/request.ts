@@ -212,6 +212,8 @@ export interface RequestOptions {
    * a file the browser then downloads from a link, rather than holding it in memory.
    */
   leaveAnswer?: boolean;
+  /** With `background`: told its id once it carries on there. */
+  onBackground?: (id: string) => void;
 }
 
 /**
@@ -281,6 +283,7 @@ async function send(path: string, opts: RequestOptions): Promise<Response> {
 
   if (res.status === 202 && carryOn) {
     const started = (await res.json()) as { id: string; status: BackgroundStatus };
+    opts.onBackground?.(started.id);
     await carriedOn({ id: started.id, status: started.status, path: method === "GET" ? path : `${method} ${path}`, page, label });
     if (opts.leaveAnswer)
       return new Response(JSON.stringify({ id: started.id }), { headers: { "Content-Type": "application/json" } });

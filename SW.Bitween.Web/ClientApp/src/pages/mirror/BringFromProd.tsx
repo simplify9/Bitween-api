@@ -13,6 +13,7 @@ import {
   type MirrorProdCounts,
   type MirrorProdItem,
 } from "../../api";
+import { leaveToHeader } from "../../api/http/background";
 import { keys } from "../../api/queryKeys";
 import { Sparkline } from "../../components/charts/Sparkline";
 import { Badge, Button, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
@@ -99,8 +100,22 @@ export function BringDialog({ section, type, label, picked: given, onClose }: {
     started.current = true;
     preview.mutate();
   }, [given, preview]);
+  // Closed while it brings: the header says when it's done, and its Open shows what was brought.
+  const carried = useRef<string | null>(null);
+  const closed = useRef(false);
+  useEffect(() => {
+    closed.current = false;
+    return () => {
+      closed.current = true;
+      if (carried.current) leaveToHeader(carried.current);
+    };
+  }, []);
   const bring = useMutation({
-    mutationFn: () => api.bringFromProd(section, [...picked], true),
+    mutationFn: () =>
+      api.bringFromProd(section, [...picked], true, (id) => {
+        carried.current = id;
+        if (closed.current) leaveToHeader(id);
+      }),
     onSuccess: (result) => {
       setShown(result);
       // A bring touches several kinds at once: every list may show something new.
@@ -497,6 +512,44 @@ function PieceList({ pieces, linked = false }: { pieces: MirrorPiece[]; linked?:
         );
       })}
     </ul>
+  );
+}
+
+/** What a bring carried on in the background brought, opened from the header: `?brought=` its id. */
+export function BroughtFromBackground() {
+  const [params, setParams] = useSearchParams();
+  const id = params.get("brought");
+  const answer = useQuery({
+    queryKey: keys.mirror.brought(id ?? ""),
+    queryFn: () => api.broughtInBackground(id!),
+    enabled: id != null,
+    staleTime: Infinity,
+  });
+  if (!id) return null;
+
+  const close = () =>
+    setParams(
+      (p) => {
+        p.delete("brought");
+        return p;
+      },
+      { replace: true },
+    );
+  return (
+    <Dialog title="Brought from prod" onClose={close} wide>
+      {answer.isPending ? (
+        <LoadingBlock label="Reading what was brought…" />
+      ) : answer.isError ? (
+        <div className="space-y-4">
+          <FormError>{answer.error.message}</FormError>
+          <div className="flex justify-end">
+            <Button onClick={close}>Close</Button>
+          </div>
+        </div>
+      ) : (
+        <Brought result={answer.data} picked={{ section: "subscriptions", keys: new Set() }} onClose={close} />
+      )}
+    </Dialog>
   );
 }
 
