@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { CircleAlert, CircleCheck, Download } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import {
   api,
   type MirrorBring,
@@ -42,12 +42,23 @@ const PIECES: { state: MirrorPieceState; title: string; description: string }[] 
  * "Bring from prod" on a list page: on a staging that mirrors prod, for whoever may operate the
  * mirror, and only while prod has something this page lists - or prod can't be read, which the
  * picker then says. Opens the picker.
+ *
+ * Open while the address says `?bring`, so the way back to it is a link: prod's list can take long
+ * enough to run in the background, and "Open" in the header goes back to the picker it was for.
  */
 export function BringFromProd({ section, type, label }: { section: MirrorBringSection; type?: string; label: string }) {
   const mirror = useMirror();
   const ready = mirror.ready && mirror.canOperate;
   const kinds = useQuery({ queryKey: keys.mirror.prodKinds, queryFn: () => api.getMirrorProdKinds(), enabled: ready, staleTime: 60_000 });
-  const [open, setOpen] = useState(false);
+  const [params, setParams] = useSearchParams();
+  const open = params.has("bring");
+  const setOpen = (on: boolean) =>
+    setParams((was) => {
+      const next = new URLSearchParams(was);
+      if (on) next.set("bring", "1");
+      else next.delete("bring");
+      return next;
+    });
 
   if (!ready || !kinds.data) return null;
   const count = section === "subscriptions" ? (kinds.data.subscriptions[type ?? "all"] ?? 0) : kinds.data[section];
