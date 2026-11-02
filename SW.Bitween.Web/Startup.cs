@@ -171,6 +171,7 @@ namespace SW.Bitween.Web
             services.AddSingleton<SealedState>();
             services.AddScoped<Services.Connections.ConnectionTokens>();
             services.AddSingleton<StorageRetention>();
+            services.AddSingleton<SlowCounts>();
             services.AddSingleton<StorageAccess>();
             services.AddScoped<ExchangeArchive>();
             services.AddScoped<RetentionPlanner>();

@@ -312,9 +312,13 @@ export const exchangeMethods = {
     return res.data;
   },
 
-  async searchExchanges(query: ExchangeQuery): Promise<Paged<ExchangeRow>> {
+  /**
+   * A page of exchanges and how many match. With `count: false` the total is left out, as 0, so the
+   * rows come back without waiting for it: the Exchanges page has its total from the status counts.
+   */
+  async searchExchanges(query: ExchangeQuery, { count = true }: { count?: boolean } = {}): Promise<Paged<ExchangeRow>> {
     const [res, partnerNameById] = await Promise.all([
-      get<SearchyResponse<RawXchangeRow>>(`/xchanges?${buildExchangeQuery(query)}`),
+      get<SearchyResponse<RawXchangeRow>>(`/xchanges?${buildExchangeQuery(query)}${count ? "" : "&count=false"}`),
       partnerNameMap(),
     ]);
     return { result: res.result.map((r) => toExchangeRow(r, partnerNameById)), total: res.totalCount };
@@ -330,13 +334,14 @@ export const exchangeMethods = {
     const res = await get<ExchangeBreakdown>(`/xchanges/summary${params.toString() ? `?${searchyQueryString(params)}` : ""}`);
     return {
       counts: {
-        processing: res.counts?.processing ?? 0,
-        success: res.counts?.success ?? 0,
-        badResponse: res.counts?.badResponse ?? 0,
-        failed: res.counts?.failed ?? 0,
+        processing: res.counts?.processing ?? null,
+        success: res.counts?.success ?? null,
+        badResponse: res.counts?.badResponse ?? null,
+        failed: res.counts?.failed ?? null,
       },
       buckets: res.buckets ?? [],
       bucketMinutes: res.bucketMinutes ?? 0,
+      counting: res.counting ?? false,
     };
   },
 

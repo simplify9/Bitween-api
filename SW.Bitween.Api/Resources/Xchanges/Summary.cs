@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Globalization;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Model;
@@ -27,11 +29,16 @@ namespace SW.Bitween.Resources.Xchanges;
 /// Every special filter the search understands is applied the same way, so a count is never of a
 /// different set than the list it sits over.
 /// </para>
+/// <para>
+/// A count or a histogram that takes longer than <see cref="Budget"/> is finished in the background
+/// by <see cref="SlowCounts"/>, which keeps it for the next ask: until then it is missing from the
+/// answer, and <see cref="XchangeSummary.Counting"/> says so.
+/// </para>
 /// </remarks>
 [HandlerName("summary")]
-public class Summary(BitweenDbContext dbContext, RequestContext requestContext) : ISearchyHandler
+public class Summary(BitweenDbContext dbContext, RequestContext requestContext, SlowCounts slowCounts) : ISearchyHandler
 {
-    /// <summary>The status numbers <see cref="XchangeFilters.WhereStatus"/> reads, in the order they are counted.</summary>
+    /// <summary>The status numbers <see cref="XchangeFilters.WhereStatus"/> reads.</summary>
     private const string Processing = "0", Success = "1", BadResponse = "2", Failed = "3";
 
     public async Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
@@ -47,6 +54,11 @@ public class Summary(BitweenDbContext dbContext, RequestContext requestContext) 
             foreach (var statusFilter in condition.Filters.Where(f => f.Field == "StatusFilter").ToList())
                 condition.Filters.Remove(statusFilter);
 
+        // Taken before FilteredRowsAsync takes the special filters out of the request: a count finished
+        // in the background filters again from this, with a database of its own.
+        var asked = (SearchyRequest)searchyRequest.Clone();
+        var view = ViewKey(searchyRequest, DateTime.UtcNow);
+
         var rows = await XchangeFilters.FilteredRowsAsync(dbContext, searchyRequest);
 
         // Read after FilteredRowsAsync, which is what moves the request's dates to UTC. The
@@ -58,15 +70,24 @@ public class Summary(BitweenDbContext dbContext, RequestContext requestContext) 
         // One capped count per status rather than a single grouped count: each can stop at the
         // cap, as the search's total does, where a grouping has to visit every matching row. Four
         // short queries over a broad filter cost far less than one exhaustive one.
-        var counts = new XchangeStatusCounts
+        //
+        // All four share one budget, so the answer never waits longer than it, however many are slow.
+        // The ones with an index of their own go first; still running, which can't have one, last.
+        var counts = new XchangeStatusCounts();
+        using (var deadline = new CancellationTokenSource(Budget))
         {
-            Processing = await CountCapped(rows, Processing),
-            Success = await CountCapped(rows, Success),
-            BadResponse = await CountCapped(rows, BadResponse),
-            Failed = await CountCapped(rows, Failed),
-        };
+            counts.BadResponse = await Count(BadResponse, deadline.Token);
+            counts.Failed = await Count(Failed, deadline.Token);
+            counts.Success = await Count(Success, deadline.Token);
+            counts.Processing = await Count(Processing, deadline.Token);
+        }
 
-        var summary = new XchangeSummary { Counts = counts };
+        var summary = new XchangeSummary
+        {
+            Counts = counts,
+            Counting = counts.Processing == null || counts.Success == null || counts.BadResponse == null ||
+                       counts.Failed == null
+        };
         if (rangeStart is not { } start)
             return summary;
 
@@ -75,14 +96,115 @@ public class Summary(BitweenDbContext dbContext, RequestContext requestContext) 
             return summary;
 
         var bucketMinutes = XchangeHistogram.ChooseBucketMinutes(start, end);
+        using var histogramDeadline = new CancellationTokenSource(Budget);
+        var started = await Answer($"histogram:{bucketMinutes}|{view}", histogramDeadline.Token,
+            ct => StartedCounts(rows, bucketMinutes, ct),
+            async (db, ct) => await StartedCounts(await XchangeFilters.FilteredRowsAsync(db, Copy(asked)), bucketMinutes, ct));
+        if (started == null)
+        {
+            summary.Counting = true;
+            return summary;
+        }
+
         summary.BucketMinutes = bucketMinutes;
-        summary.Buckets = XchangeHistogram.Fold(start, end, bucketMinutes,
-            await StartedCounts(rows, bucketMinutes));
+        summary.Buckets = XchangeHistogram.Fold(start, end, bucketMinutes, started);
         return summary;
+
+        Task<int?> Count(string status, CancellationToken deadline) =>
+            Answer($"count:{status}|{view}", deadline,
+                ct => CountCapped(rows, status, dbContext, ct),
+                async (db, ct) => await CountCapped(await XchangeFilters.FilteredRowsAsync(db, Copy(asked)), status, db, ct));
     }
 
-    private Task<int> CountCapped(IQueryable<XchangeRow> rows, string status) =>
-        rows.WhereStatus(status, dbContext).Take(Search.CountCap + 1).CountAsync();
+    /// <summary>
+    /// The answer <see cref="SlowCounts"/> keeps for <paramref name="key"/>, when it is one that was too
+    /// slow before. Otherwise worked out <paramref name="here"/> within the budget, and when that runs
+    /// out, left to <see cref="SlowCounts"/> to work out <paramref name="later"/>: null until then.
+    /// </summary>
+    private async Task<T> Answer<T>(string key, CancellationToken deadline, Func<CancellationToken, Task<T>> here,
+        Func<BitweenDbContext, CancellationToken, Task<T>> later)
+    {
+        if (slowCounts.TryGet(key, later, out var kept))
+            return kept;
+
+        var answer = await WithinBudget(dbContext, deadline, here);
+        if (answer == null)
+            slowCounts.Start(key, later);
+        return answer;
+    }
+
+    private static SearchyRequest Copy(SearchyRequest request) => (SearchyRequest)request.Clone();
+
+    /// <summary>
+    /// The filters as text, naming what was counted for <see cref="SlowCounts"/>. A start with no end -
+    /// what "last 24 hours" sends, a little later on every ask - is named by how far back it reaches,
+    /// to five minutes, so the asks of one page find the one count rather than each starting another.
+    /// </summary>
+    internal static string ViewKey(SearchyRequest request, DateTime now) =>
+        string.Join("|", request.Conditions.Select(condition =>
+        {
+            var openEnded = !condition.Filters.Any(f =>
+                f.Field == nameof(XchangeRow.StartedOn) && f.Rule == SearchyRule.LessThanOrEquals);
+            return string.Join("&", condition.Filters
+                .Select(f =>
+                    openEnded && f.Field == nameof(XchangeRow.StartedOn) && f.Rule == SearchyRule.GreaterThanOrEquals &&
+                    DateTime.TryParse(f.Value?.ToString(), CultureInfo.InvariantCulture,
+                        DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal, out var since)
+                        ? $"StartedOn:since:{Math.Round((now - since).TotalMinutes / 5)}"
+                        : f.ToString())
+                .OrderBy(f => f, StringComparer.Ordinal));
+        }));
+
+    /// <summary>How long the counts together, and then the histogram, may take before the rest is left to the background.</summary>
+    /// <remarks>
+    /// A status that is rare across a large table can only be counted by visiting every exchange:
+    /// with no result row to look up, "processing" can't be found any other way. On millions of
+    /// exchanges that ran past the database's own time limit and failed the whole request, taking
+    /// every other tab's count with it.
+    /// </remarks>
+    internal static readonly TimeSpan Budget = TimeSpan.FromSeconds(5);
+
+    /// <summary>
+    /// What <paramref name="query"/> returns, or the default - null - when <paramref name="deadline"/>
+    /// passes first. Runs inside the summary's transaction, under a savepoint: a statement cancelled
+    /// part-way leaves Postgres refusing every later one in the transaction until it is rolled back to
+    /// before it.
+    /// </summary>
+    internal static async Task<T> WithinBudget<T>(BitweenDbContext dbContext, CancellationToken deadline,
+        Func<CancellationToken, Task<T>> query)
+    {
+        const string savepoint = "within_budget";
+        var transaction = dbContext.Database.CurrentTransaction!;
+        await transaction.CreateSavepointAsync(savepoint);
+
+        try
+        {
+            return await query(deadline);
+        }
+        // Whatever the provider throws for a cancelled command: Npgsql an OperationCanceledException,
+        // SqlClient a SqlException. Only once the deadline has passed, so a real error still surfaces.
+        catch (Exception) when (deadline.IsCancellationRequested)
+        {
+            await transaction.RollbackToSavepointAsync(savepoint);
+            return default;
+        }
+    }
+
+    private static async Task<int?> CountCapped(IQueryable<XchangeRow> rows, string status, BitweenDbContext dbContext,
+        CancellationToken cancellationToken)
+    {
+        var matching = rows.WhereStatus(status, dbContext);
+
+        // Nearly every exchange succeeds, so the newest 10,001 successes are among about the newest
+        // 10,001 exchanges. Unordered, Postgres matched the two tables by id instead, and ids aren't in
+        // the order exchanges were written, so nearly every row was read from a different place on
+        // disk: 12s on 5.8M exchanges, against under a second this way. The rarer statuses stay
+        // unordered, so they keep the plan that reads their own small index.
+        if (status == Success)
+            matching = matching.OrderByDescending(r => r.StartedOn);
+
+        return await matching.Take(Search.CountCap + 1).CountAsync(cancellationToken);
+    }
 
     /// <summary>
     /// The matching exchanges grouped by when they started, to the precision the bucket size
@@ -105,7 +227,7 @@ public class Summary(BitweenDbContext dbContext, RequestContext requestContext) 
     /// </para>
     /// </remarks>
     private static async Task<List<XchangeStartedCount>> StartedCounts(IQueryable<XchangeRow> rows,
-        int bucketMinutes)
+        int bucketMinutes, CancellationToken cancellationToken)
     {
         if (bucketMinutes >= 1440)
             return await rows
@@ -119,7 +241,7 @@ public class Summary(BitweenDbContext dbContext, RequestContext requestContext) 
                     ResponseBad = g.Key.ResponseBad,
                     Count = g.Count()
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
         if (bucketMinutes >= 60)
             return await rows
@@ -138,7 +260,7 @@ public class Summary(BitweenDbContext dbContext, RequestContext requestContext) 
                     ResponseBad = g.Key.ResponseBad,
                     Count = g.Count()
                 })
-                .ToListAsync();
+                .ToListAsync(cancellationToken);
 
         return await rows
             .GroupBy(r => new
@@ -157,7 +279,7 @@ public class Summary(BitweenDbContext dbContext, RequestContext requestContext) 
                 ResponseBad = g.Key.ResponseBad,
                 Count = g.Count()
             })
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
     }
 
     /// <summary>

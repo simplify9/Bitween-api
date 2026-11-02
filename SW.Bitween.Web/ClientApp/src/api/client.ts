@@ -755,7 +755,7 @@ export interface ApiClient {
   ): Promise<Paged<NotificationChannelSend>>;
 
   // - exchanges -
-  searchExchanges(query: ExchangeQuery): Promise<Paged<ExchangeRow>>;
+  searchExchanges(query: ExchangeQuery, opts?: { count?: boolean }): Promise<Paged<ExchangeRow>>;
   getExchangeBreakdown(query: ExchangeQuery): Promise<ExchangeBreakdown>;
 
   // - audit trail -

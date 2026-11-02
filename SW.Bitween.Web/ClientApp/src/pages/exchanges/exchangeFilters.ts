@@ -138,6 +138,17 @@ export function withPropertyFilters(sp: URLSearchParams, list: ExchangePropertyF
 /** Shown as "10,000+" past the cap. */
 export const countLabel = (n: number) => (n > COUNT_CAP ? `${COUNT_CAP.toLocaleString()}+` : n.toLocaleString());
 
+/**
+ * Every status together, as the All tab and the list's total show it. Still known when a status
+ * isn't counted yet but the others already pass the cap, since then it is "more than" whatever the
+ * missing one holds.
+ */
+export function allCount(counts: Record<ExchangeStatus, number | null>): number | undefined {
+  const counted = STATUSES.map((s) => counts[s]).filter((n): n is number => n !== null);
+  const sum = counted.reduce((n, c) => n + Math.min(c, COUNT_CAP + 1), 0);
+  return counted.length === STATUSES.length || sum > COUNT_CAP ? sum : undefined;
+}
+
 // --- time ---
 
 /** The quick picks in the time menu, in the order they are offered. */

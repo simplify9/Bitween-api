@@ -8,6 +8,8 @@
 
 The Exchanges page filters by status, subscription, partner, information type, exchange ids, correlation id, a promoted property value and a date range. Pick a promoted property to search inside its value only; any part of the value matches, ignoring case. Filters live in the URL, so a filtered view can be shared as a link. The list reloads itself every 15 seconds by default (adjustable, or paused); **Refresh**, beside the pause button, reloads the list and its counts right away.
 
+Each status above the list shows how many exchanges it holds under the other filters, up to 10,000+. The list doesn't wait for them: its rows show at once, and how many match ("Showing 1-25 of ...") comes with the counts. A count that takes more than a few seconds, such as Processing across millions of exchanges, is finished on the server, for up to 10 minutes, and shows up once it's ready; until then that status shows no number, and the page asks again every 15 seconds. Such a count is kept for 5 minutes, then counted again. The chart works the same way.
+
 - Search by **promoted property** to find a business document, such as an order number.
 - Search by **correlation id** to see every exchange in one flow, including exchanges created from responses.
 - Searching by **id** also finds retries of that exchange and the aggregation that collected it.

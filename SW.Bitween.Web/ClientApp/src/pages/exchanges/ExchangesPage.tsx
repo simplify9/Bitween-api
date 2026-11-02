@@ -30,6 +30,7 @@ import {
   COUNT_CAP,
   PAGE_SIZE,
   activeFilterCount,
+  allCount,
   filterSignature,
   hasTimeFilter,
   idsIn,
@@ -46,6 +47,9 @@ import {
  * since the export is carried on in the background.
  */
 const EXPORT_LIMIT = 50_000;
+
+/** How often the counts and the chart are asked for again while the server is still working them out. */
+const COUNTING_MS = 15_000;
 
 const exchangesCount = (n: number) => (n === 1 ? "1 exchange" : `${n.toLocaleString()} exchanges`);
 
@@ -103,9 +107,11 @@ export function ExchangesPage() {
 
   // A relative range ("last hour") is worked out each time the list is asked for, so a live list
   // keeps showing the last hour rather than the hour before the page was opened.
+  // The rows alone, so they show as soon as they're found: how many match comes with the status
+  // counts below, which can take far longer to work out on a busy instance.
   const { data, isLoading, isFetching, isPlaceholderData, dataUpdatedAt, refetch } = useQuery({
     queryKey: keys.exchanges.search(viewSearch(searchParams) + `&offset=${query.offset}`),
-    queryFn: () => api.searchExchanges(readQuery(searchParams)),
+    queryFn: () => api.searchExchanges(readQuery(searchParams), { count: false }),
     refetchInterval: refreshMs || false,
     placeholderData: keepPreviousData,
   });
@@ -118,12 +124,17 @@ export function ExchangesPage() {
   // With a time filter, one request answers both. Without one the list covers all time, which
   // the counts follow, while the chart shows the last 24 hours and says so - a histogram of
   // "all time" is one bar.
+  //
+  // What takes too long to count is finished on the server, so while any of it is still coming
+  // these ask again every 15 seconds, live refresh or not.
   const timed = hasTimeFilter(searchParams);
   const breakdownKey = viewSearch(withParams(searchParams, { status: null }));
+  const askAgain = (q: { state: { data?: { counting: boolean } } }) =>
+    refreshMs || (q.state.data?.counting ? COUNTING_MS : false);
   const breakdown = useQuery({
     queryKey: keys.exchanges.breakdown(breakdownKey),
     queryFn: () => api.getExchangeBreakdown(readQuery(searchParams)),
-    refetchInterval: refreshMs || false,
+    refetchInterval: askAgain,
     placeholderData: keepPreviousData,
     retry: false,
   });
@@ -132,7 +143,7 @@ export function ExchangesPage() {
     queryKey: keys.exchanges.breakdown(chartParams ? viewSearch(chartParams) : ""),
     queryFn: () => api.getExchangeBreakdown(readQuery(chartParams!)),
     enabled: !!chartParams,
-    refetchInterval: refreshMs || false,
+    refetchInterval: askAgain,
     placeholderData: keepPreviousData,
     retry: false,
   });
@@ -204,8 +215,11 @@ export function ExchangesPage() {
 
   const filterCount = activeFilterCount(searchParams);
   const rows = data?.result ?? [];
-  const total = data?.total ?? 0;
-  const totalIsCapped = total > COUNT_CAP;
+  // How many match: the selected status's count, or every status's together - none while they're
+  // still being counted, or still the last filter's.
+  const counts = breakdown.isPlaceholderData ? undefined : breakdown.data?.counts;
+  const total = counts && (query.status ? (counts[query.status] ?? undefined) : allCount(counts));
+  const totalIsCapped = total !== undefined && total > COUNT_CAP;
 
   // --- the open exchange ---
   // In the URL, so a link can open one. A link to a single exchange (`?ids=<id>`, as the
@@ -251,7 +265,7 @@ export function ExchangesPage() {
   };
   const isSelected = (id: string) => (allMatching ? !excluded.has(id) : selected.has(id));
   const allOnPageSelected = rows.length > 0 && rows.every((r) => isSelected(r.id));
-  const selectedCount = allMatching ? Math.max(0, total - excluded.size) : selected.size;
+  const selectedCount = allMatching ? Math.max(0, (total ?? 0) - excluded.size) : selected.size;
 
   /** What the retry acts on: the ticked rows, or the filter itself minus the unticked ones. */
   const selection: BulkRetrySelection = allMatching ? { matching: query, excludeIds: [...excluded] } : { ids: [...selected] };
@@ -434,7 +448,7 @@ export function ExchangesPage() {
         <QueryBar searchParams={searchParams} apply={apply} options={filterOptions} lookups={lookups} onAsked={setAsked} />
 
         {asked && asked.search === viewSearch(searchParams) && (
-          <AskedLine asked={asked} total={total} counting={isLoading || reloading} onDismiss={() => setAsked(null)} />
+          <AskedLine asked={asked} total={total ?? 0} counting={isLoading || reloading || total === undefined} onDismiss={() => setAsked(null)} />
         )}
 
         {volume && volume.buckets.length > 0 && (
@@ -540,13 +554,24 @@ export function ExchangesPage() {
                 {/* - paging - */}
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 px-4 py-2.5 text-[13px] text-ink-500">
                   <span>
-                    Showing {query.offset + 1}-{query.offset + rows.length} of{" "}
-                    {totalIsCapped ? (
-                      <span title={`More than ${COUNT_CAP.toLocaleString()} match - narrow the filters for an exact count`}>
-                        {COUNT_CAP.toLocaleString()}+
+                    Showing {query.offset + 1}-{query.offset + rows.length}
+                    {total === undefined ? (
+                      <span title="Still counting how many match" className="animate-pulse">
+                        {" "}
+                        of …
                       </span>
                     ) : (
-                      total.toLocaleString()
+                      <>
+                        {" "}
+                        of{" "}
+                        {totalIsCapped ? (
+                          <span title={`More than ${COUNT_CAP.toLocaleString()} match - narrow the filters for an exact count`}>
+                            {COUNT_CAP.toLocaleString()}+
+                          </span>
+                        ) : (
+                          total.toLocaleString()
+                        )}
+                      </>
                     )}
                   </span>
                   <span className="flex items-center gap-3">
@@ -560,9 +585,9 @@ export function ExchangesPage() {
                       <Button
                         size="sm"
                         /* Past the cap the total no longer says where the end is, so fall back to "was this
-                           page full" - otherwise Next would dead-end at row 10,000. Below the cap the total
-                           is exact, so keep using it and Next stops on the true last page. */
-                        disabled={totalIsCapped ? rows.length < PAGE_SIZE : query.offset + PAGE_SIZE >= total}
+                           page full" - otherwise Next would dead-end at row 10,000 - as while it is still
+                           being counted. Below the cap the total is exact, so Next stops on the true last page. */
+                        disabled={total === undefined || totalIsCapped ? rows.length < PAGE_SIZE : query.offset + PAGE_SIZE >= total}
                         onClick={() => apply({ offset: String(query.offset + PAGE_SIZE) }, { resetOffset: false })}
                       >
                         Next
@@ -627,7 +652,7 @@ export function ExchangesPage() {
                 {/* The whole page is ticked but there is more behind it - the one moment where
                     "select all matching" is what someone actually wants, so it is offered there
                     rather than living permanently in the toolbar. */}
-                {!allMatching && allOnPageSelected && total > rows.length && (
+                {!allMatching && allOnPageSelected && total !== undefined && total > rows.length && (
                   <p className="text-[13px] text-ink-300">
                     Only the {rows.length} rows on this page.{" "}
                     <button

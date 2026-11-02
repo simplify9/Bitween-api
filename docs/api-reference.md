@@ -96,7 +96,8 @@ All need the global values permissions: `global-values.view` to read, `.create`,
 
 | Method and path | Permission | Description |
 |---|---|---|
-| `GET /api/xchanges` | `exchanges.view` or `dashboard.view`, or signed in with `lookup=true` | Searchy. See the filters below. A lookup returns at most 100 exchange ids, newest first, each with its information type's name. |
+| `GET /api/xchanges` | `exchanges.view` or `dashboard.view`, or signed in with `lookup=true` | Searchy. See the filters below. `totalCount` stops at 10,001; `count=false` leaves it out, as 0, so the rows come back without waiting for it. A lookup returns at most 100 exchange ids, newest first, each with its information type's name. |
+| `GET /api/xchanges/summary` | `exchanges.view` or `dashboard.view` | The search's filters, any status filter ignored, as `counts` per status (`processing`, `success`, `badResponse`, `failed`), each capped at 10,001 like the search's total. With a start date, also `buckets` of when they started and `bucketMinutes`. What isn't worked out within 5 seconds is finished in the background, for up to 10 minutes and at most 2 at a time per node, and kept 5 minutes: until then its count is `null` or the buckets are empty, and `counting` is `true`. Asking again brings it. |
 | `POST /api/xchangequeries` | `exchanges.view` | Turn a question into an Exchanges page filter with AI: `{ question, timeZone }` returns `{ query, answer, notes, model, sent }`. See [Asking your exchanges](configuration.md#asking-your-exchanges). |
 | `GET /api/xchanges/statuslist` | `exchanges.view` | Status values for filters |
 | `GET /api/xchanges/retrytree?id=` | `exchanges.view` | The retry chain any attempt belongs to |

@@ -74,7 +74,9 @@ const PAGE = 25;
 
 /**
  * The list endpoint, answering `total` matches a page at a time, and keeping every query it was
- * asked. `total` may depend on the query, the way a filter changes the count.
+ * asked. `total` may depend on the query, the way a filter changes the count. It answers the summary
+ * too, where the page reads its total from: every match counted as failed, which is what these lists
+ * show.
  */
 function exchanges({
   total,
@@ -84,10 +86,13 @@ function exchanges({
   properties?: Record<string, string | null> | null;
 }) {
   const asked: URLSearchParams[] = [];
-  const handler = http.get(apiPath("/xchanges"), ({ request }) => {
-    const q = new URL(request.url).searchParams;
-    asked.push(q);
+  const handler = http.get(/\/api\/xchanges(\/summary)?(\?|$)/, ({ request }) => {
+    const url = new URL(request.url);
+    const q = url.searchParams;
     const count = typeof total === "number" ? total : total(q);
+    if (url.pathname.endsWith("/summary"))
+      return HttpResponse.json({ counts: { processing: 0, success: 0, badResponse: 0, failed: count }, buckets: [], bucketMinutes: 0 });
+    asked.push(q);
     const page = Number(q.get("page") ?? 0);
     const result = Array.from({ length: Math.max(0, Math.min(PAGE, count - page * PAGE)) }, (_, i) =>
       exchange(page * PAGE + i, properties),
@@ -145,13 +150,15 @@ describe("the exchanges list", () => {
       });
 
       await selectAllMatching(user);
+      // The bar's count, not the tabs' - they show the filter's 60 as well.
+      const selection = () => within(screen.getByText(/everything this filter matches/).parentElement!);
       expect(screen.getByText(/everything this filter matches/)).toBeVisible();
-      expect(screen.getByText("60")).toBeVisible();
+      expect(selection().getByText("60")).toBeVisible();
 
       // Unticking a row in this mode records an exclusion rather than dropping out of it.
       await user.click(rowCheckboxes()[0]);
       expect(screen.getByText(/1 unticked/)).toBeVisible();
-      expect(screen.getByText("59")).toBeVisible();
+      expect(selection().getByText("59")).toBeVisible();
       expect(screen.getByText(/everything this filter matches/)).toBeVisible();
 
       // The confirm describes the selection the server resolved, not the rows on screen.
@@ -295,6 +302,55 @@ describe("the exchanges list", () => {
    * Which rows that leaves is the server's: Exchange_search_can_return_only_the_newest_attempt_of_each_chain
    * in RetryChainTests. What's left here is the toggle, and what it asks for.
    */
+  it("shows the rows at once, and how many match once the counts are in", async () => {
+    let countsIn!: () => void;
+    const counted = new Promise<void>((resolve) => (countsIn = resolve));
+    const list = exchanges({ total: 3 });
+    renderApp("/exchanges", {
+      handlers: [
+        http.get(apiPath("/xchanges/summary"), async () => {
+          await counted;
+          return HttpResponse.json({ counts: { processing: 0, success: 0, badResponse: 0, failed: 3 }, buckets: [], bucketMinutes: 0 });
+        }),
+        list.handler,
+        ...filterOptions,
+      ],
+    });
+
+    // The rows don't wait for the count, and don't ask for one.
+    expect(await screen.findByText("Showing 1-3")).toBeVisible();
+    expect(screen.getByTitle("Still counting how many match")).toBeVisible();
+    expect(list.asked[0].get("count")).toBe("false");
+
+    countsIn();
+    expect(await screen.findByText("Showing 1-3 of 3")).toBeVisible();
+  });
+
+  it("shows no number for a status still being counted, and still shows the rest", async () => {
+    const summary = (success: number) =>
+      http.get(apiPath("/xchanges/summary"), () =>
+        HttpResponse.json({
+          counts: { processing: null, success, badResponse: 0, failed: 3 },
+          buckets: [],
+          bucketMinutes: 0,
+          counting: true,
+        }),
+      );
+    const tabs = async () => within(await screen.findByRole("group", { name: "Status" }));
+
+    renderApp("/exchanges", { handlers: [summary(10_001), exchanges({ total: 3 }).handler, ...filterOptions] });
+    expect(await (await tabs()).findByRole("button", { name: "Failed 3" })).toBeVisible();
+    expect((await tabs()).getByRole("button", { name: "Processing" })).toBeVisible();
+    // The others already pass the cap, so all of them together is still "more than".
+    expect((await tabs()).getByRole("button", { name: "All 10,000+" })).toBeVisible();
+
+    cleanup();
+    renderApp("/exchanges", { handlers: [summary(5), exchanges({ total: 3 }).handler, ...filterOptions] });
+    // Under the cap, the one missing could hold any number, so all of them together has none either.
+    expect(await (await tabs()).findByRole("button", { name: "Failed 3" })).toBeVisible();
+    expect((await tabs()).getByRole("button", { name: "All" })).toBeVisible();
+  });
+
   it("can show only the newest attempt of each chain", async () => {
     const latest = (q: URLSearchParams) => q.getAll("filter").includes("LatestOnly:1:true");
     const list = exchanges({ total: (q) => (latest(q) ? 30 : 40) });
