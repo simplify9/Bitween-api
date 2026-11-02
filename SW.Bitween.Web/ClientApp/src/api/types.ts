@@ -1852,23 +1852,14 @@ export interface RetrySummary {
   retriesLast7Days: { finished: number; succeeded: number };
 }
 
-export interface DashboardData {
-  pendingRetries: number;
-  /** Null when the RabbitMQ management API is unavailable - never counts as zero. */
-  queueAlerts: number | null;
-  latestFailures: {
-    id: string;
-    status: ExchangeStatus;
-    subscriptionId: number | null;
-    subscriptionName: string | null;
-    informationTypeCode: string;
-    on: string;
-    exception: string | null;
-  }[];
-  attention: {
-    failingSubscriptions: { id: number; name: string; consecutiveFailures: number }[];
-    pausedSubscriptions: { id: number; name: string }[];
-  };
+/** One of the dashboard's latest failures. */
+export interface LatestFailure {
+  id: string;
+  status: ExchangeStatus;
+  subscriptionId: number | null;
+  informationTypeCode: string;
+  on: string;
+  exception: string | null;
 }
 
 /**
