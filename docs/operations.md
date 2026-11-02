@@ -71,7 +71,7 @@ See [Scheduling](scheduling.md).
 
 The dashboard, opened from the logo, shows the last 24 hours of exchanges, failures and end-to-end time, the 7-day success rate, waiting retries, queue alerts and subscriptions that have gone quiet. Below come traffic for the last 48 hours against the same hours a week before, volume for the last 30 days, unhealthy subscriptions, the latest failures, the busiest subscriptions and partners, the slowest adapters, and configuration worth tidying up. The traffic figures come from hourly metrics the server keeps, so they count every exchange however busy the instance is.
 
-Two parts are read from the exchanges themselves. **Failures to act on** counts failed exchanges that are the newest attempt of their chain, of any age, and links to that search. **Chains that keep failing** lists the five retry chains with the most attempts among those retried in the last 7 days, with the success rate of retries over the same 7 days.
+Some parts are read from the exchanges themselves, so on a busy instance they are the slowest: the latest failures, the count in flight, and the two below. **Failures to act on** counts failed exchanges that are the newest attempt of their chain, of any age, and links to that search. **Chains that keep failing** lists the five retry chains with the most attempts among those retried in the last 7 days, with the success rate of retries over the same 7 days.
 
 The page opens at once, and each tile and panel fills in when its own numbers arrive, so a slow one doesn't hold up the rest. One that can't be read in time shows as unavailable, and the dashboard asks again every minute.
 

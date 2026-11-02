@@ -130,7 +130,11 @@ export function DashboardPage() {
     refetchInterval: 60_000,
     placeholderData: keepPreviousData,
   });
-  const insights = useQuery({ queryKey: keys.metrics.insights, queryFn: () => api.getInsights() });
+  const insights = useQuery({
+    queryKey: keys.metrics.insights,
+    queryFn: () => api.getInsights(),
+    refetchInterval: 60_000,
+  });
   const subscriptions = useQuery({
     queryKey: keys.subscriptions.rows,
     queryFn: () => api.listSubscriptionRows(),
@@ -608,7 +612,7 @@ export function DashboardPage() {
         description="Configuration that is switched off, unused or out of date - worth a look when tidying up."
       >
         {!insights.data ? (
-          <LoadingBlock label="Looking over the configuration…" />
+          <Waiting failed={insights.isError} label="Looking over the configuration…" />
         ) : insights.data.insights.length === 0 ? (
           <EmptyState title="Nothing to tidy">Everything configured is in use.</EmptyState>
         ) : (
