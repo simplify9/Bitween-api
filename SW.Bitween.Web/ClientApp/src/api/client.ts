@@ -38,7 +38,7 @@ import type {
   DataSourceStatementUsage,
   DataSourceTelemetry,
   DataSourceTestResult,
-  DashboardData,
+  LatestFailure,
   RetrySummary,
   ExchangeBreakdown,
   ExchangeQuery,
@@ -825,9 +825,14 @@ export interface ApiClient {
   requeueDeadLetters(queueName: string): Promise<number>;
 
   // - dashboard -
-  getDashboard(): Promise<DashboardData>;
-  // The counts over the exchange tables, which grow with traffic: asked for apart, so a slow one
-  // fills in on its own tile rather than holding up the page.
+  // One call per part, so a slow one fills in on its own tile rather than holding up the page.
+  /** The newest failed or badly answered exchanges of the last two weeks, at most six, newest first. */
+  getLatestFailures(): Promise<LatestFailure[]>;
+  /** Automatic retries waiting for their slot. */
+  getPendingRetries(): Promise<number>;
+  /** Queue alerts worth acting on. Null when the RabbitMQ management API is unavailable - never counts as zero. */
+  getQueueAlerts(): Promise<number | null>;
+  // The counts over the exchange tables, which grow with traffic.
   /**
    * Failures that are the newest attempt of their chain. Counts problems rather than attempts: a
    * chain retried nine times is one of these, not nine. Capped like the exchange search, so a value

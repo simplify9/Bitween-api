@@ -120,7 +120,9 @@ describe("the dashboard", () => {
         ...dashboard([subscription(0)]),
       ],
     });
-    expect(await screen.findByRole("heading", { name: "Subscription health" })).toBeVisible();
+    expect(await screen.findByText("All subscriptions healthy")).toBeVisible();
+    // The card waits for the metrics, which say whether anything has moved yet.
+    expect(await screen.findByText(/moved in and out over the month/)).toBeVisible();
     expect(screen.queryByRole("heading", { name: "Getting started" })).not.toBeInTheDocument();
   });
 
@@ -151,24 +153,52 @@ describe("the dashboard", () => {
     expect(await chains.findByText("Unavailable right now")).toBeVisible();
 
     const health = within(screen.getByRole("heading", { name: "Subscription health" }).closest("section")!);
-    expect(health.getByText("Health page 1", { exact: true })).toBeVisible();
+    expect(await health.findByText("Health page 1", { exact: true })).toBeVisible();
   });
 
-  it("doesn't wait for a slow count before showing the rest", async () => {
+  it("keeps the rest of the page when the metrics can't be read", async () => {
     renderApp("/dashboard", {
       handlers: [
-        http.get(apiPath("/dashboard/failurestoacton"), async () => {
-          await delay("infinite");
-          return HttpResponse.json({ total: 0 });
-        }),
+        http.get(apiPath("/metrics/overview"), () => new HttpResponse(null, { status: 500 })),
+        ...dashboard([subscription(0, { failures: 2 })]),
+      ],
+    });
+
+    const exchanges = (await screen.findByText("Exchanges, last 24 hours")).closest("a")!;
+    expect(await within(exchanges).findByText("unavailable right now")).toBeVisible();
+    const traffic = within(screen.getByRole("heading", { name: "Traffic, last 48 hours" }).closest("section")!);
+    expect(traffic.getByText("Unavailable right now")).toBeVisible();
+
+    const health = within(screen.getByRole("heading", { name: "Subscription health" }).closest("section")!);
+    expect(await health.findByText("Health page 1", { exact: true })).toBeVisible();
+  });
+
+  it("opens at once, and each part fills in when it arrives", async () => {
+    const never = async () => {
+      await delay("infinite");
+      return HttpResponse.json({});
+    };
+    renderApp("/dashboard", {
+      handlers: [
+        http.get(apiPath("/metrics/overview"), never),
+        http.get(apiPath("/dashboard/failurestoacton"), never),
+        // The latest failures; the in-flight count answers.
+        http.get(apiPath("/xchanges"), ({ request }) =>
+          new URL(request.url).searchParams.getAll("filter").includes("StatusFilter:1:0") ? HttpResponse.json(none) : never(),
+        ),
         ...dashboard([subscription(0, { failures: 2 })]),
       ],
     });
 
     const health = within((await screen.findByRole("heading", { name: "Subscription health" })).closest("section")!);
-    expect(health.getByText("Health page 1", { exact: true })).toBeVisible();
-    const tile = screen.getByText("Failures to act on").closest("a")!;
-    expect(within(tile).getByText("counting…")).toBeVisible();
+    expect(await health.findByText("Health page 1", { exact: true })).toBeVisible();
+    const retries = screen.getByText("Pending auto-retries").closest("a")!;
+    expect(await within(retries).findByText("queue is clear")).toBeVisible();
+
+    for (const label of ["Failures to act on", "Exchanges, last 24 hours", "Gone quiet"])
+      expect(within(screen.getAllByText(label)[0].closest("a")!).getByText("loading…")).toBeVisible();
+    const latest = within(screen.getByRole("heading", { name: "Latest failures" }).closest("section")!);
+    expect(latest.getByText("Finding the latest failures…")).toBeVisible();
   });
 
   it("reads its numbers from the metrics, and names subscriptions that have gone quiet", async () => {
@@ -208,7 +238,7 @@ describe("the dashboard", () => {
     });
 
     const exchanges = (await screen.findByText("Exchanges, last 24 hours")).closest("a")!;
-    expect(within(exchanges).getByText("12K")).toBeVisible();
+    expect(await within(exchanges).findByText("12K")).toBeVisible();
     expect(within(exchanges).getByText(/\+1.4K vs the day before/)).toBeVisible();
     expect(within(screen.getByText("Success rate, 7 days").closest("a")!).getByText("98.5%")).toBeVisible();
     expect(within(screen.getByText("End-to-end time, last 24 hours").closest("a")!).getByText("2.4s")).toBeVisible();

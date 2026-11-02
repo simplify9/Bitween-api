@@ -10,6 +10,8 @@ test("dashboard loads with real aggregated data", async ({ page }) => {
   await expect(page.getByText("Success rate, 7 days")).toBeVisible();
   await expect(page.getByText("Traffic, last 48 hours")).toBeVisible();
   await expect(page.getByText("Housekeeping")).toBeVisible();
+  // The page opens before its numbers arrive; check them once they have.
+  await expect(page.getByText("loading…")).toHaveCount(0, { timeout: 15000 });
   await expect(page.getByText("undefined")).toHaveCount(0);
   await expect(page.getByText("NaN")).toHaveCount(0);
 
