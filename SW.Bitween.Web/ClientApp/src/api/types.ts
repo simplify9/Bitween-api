@@ -1408,9 +1408,9 @@ export interface RetentionStatus {
     cron: string;
     nextRun: string | null;
     dueNow: number | null;
-    withoutFiles: number | null;
     /** Counts stop here; a count equal to it means "at least". */
     countCap: number;
+    /** When the oldest exchange still kept started. */
     oldest: string | null;
   };
   notices: RetentionNotice[];

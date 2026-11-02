@@ -73,7 +73,6 @@ export function RetentionPanel({ rows, draft }: { rows: SettingRow[]; draft: Set
 
   const filesRulePrefix = status.files.rulePrefix;
   const ex = status.exchanges;
-  const count = (n: number | null) => (n === null ? "-" : n >= ex.countCap ? `${ex.countCap.toLocaleString()}+` : n.toLocaleString());
 
   return (
     <div className="mb-5 space-y-4 border-b border-ink-100 pb-5">
@@ -94,9 +93,9 @@ export function RetentionPanel({ rows, draft }: { rows: SettingRow[]; draft: Set
           title={`When the retention job next runs (${ex.cron}), in your time zone. It does nothing while exchanges are kept for ever.`}
         />
         <Figure
-          label="Without files now"
-          value={count(ex.withoutFiles)}
-          title="Exchanges still listed whose files the bucket has already deleted: they can't be opened or retried."
+          label="Oldest exchange"
+          value={ex.oldest ? new Date(ex.oldest).toLocaleDateString(undefined, { dateStyle: "medium" }) : "None"}
+          title="When the oldest exchange still listed started. Exchanges older than the bucket keeps files are listed without them: they can't be opened or retried."
         />
       </dl>
 

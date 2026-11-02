@@ -255,9 +255,6 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
             DocumentPrefix = "temp30/docs", ExchangeRetentionDays = 20, ArchiveExchanges = true
         });
         Assert.DoesNotContain(shorter.Notices, n => n.Code is "OUTLIVE_FILES" or "ARCHIVE_WITHOUT_FILES");
-        // How many are without files is as things stand now, whatever the proposal.
-        Assert.NotNull(shorter.Exchanges.WithoutFiles);
-        Assert.Equal(longer.Exchanges.WithoutFiles, shorter.Exchanges.WithoutFiles);
 
         var forever = await planner.Plan(new RetentionProposal { DocumentPrefix = "docs/kept", ExchangeRetentionDays = 0 });
         Assert.Null(forever.Files.Days);
@@ -265,28 +262,23 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Exchanges_without_files_are_counted_by_the_prefix_each_was_written_under()
+    public async Task Exchanges_already_older_than_their_files_are_pointed_out_by_the_oldest()
     {
         var (_, subscription) = await Setup();
-        var shortPrefix = $"temp30/{Guid.NewGuid():N}";
-        var longPrefix = $"temp365/{Guid.NewGuid():N}";
-        _options.DocumentPrefix = longPrefix;
+        _options.DocumentPrefix = $"temp30/{Guid.NewGuid():N}";
+        var old = await CreateExchange(subscription, "{}", new(), succeeded: true);
+        await Backdate(old.Id, 45);
+
         await using var scope = fixture.CreateScope();
         var planner = ActivatorUtilities.CreateInstance<RetentionPlanner>(scope.ServiceProvider,
             ExchangeFilesTests.RetentionOver(
-                new CloudFilesLifecycleRule { Id = "temp30", Prefix = "temp30/", Days = 30, Enabled = true },
-                new CloudFilesLifecycleRule { Id = "temp365", Prefix = "temp365/", Days = 365, Enabled = true }));
-        var before = (await planner.Plan()).Exchanges.WithoutFiles;
+                new CloudFilesLifecycleRule { Id = "temp30", Prefix = "temp30/", Days = 30, Enabled = true }));
 
-        _options.DocumentPrefix = shortPrefix;
-        var underShort = await CreateExchange(subscription, "{}", new(), succeeded: true);
-        _options.DocumentPrefix = longPrefix;
-        var underLong = await CreateExchange(subscription, "{}", new(), succeeded: true);
-        await Backdate(underShort.Id, 45);
-        await Backdate(underLong.Id, 45);
-
-        // Today's prefix keeps files a year, but the one written under the 30-day prefix has lost its own.
-        Assert.Equal(before + 1, (await planner.Plan()).Exchanges.WithoutFiles);
+        // Kept for ever, files for 30 days, and an exchange 45 days old: some are listed without their files.
+        var status = await planner.Plan(new RetentionProposal { ExchangeRetentionDays = 0 });
+        Assert.True(status.Exchanges.Oldest <= DateTime.UtcNow.AddDays(-45));
+        var outlive = Assert.Single(status.Notices, n => n.Code == "OUTLIVE_FILES");
+        Assert.Contains($"Some already are: the oldest started on {status.Exchanges.Oldest:yyyy-MM-dd}.", outlive.Message);
     }
 
     [Fact]
