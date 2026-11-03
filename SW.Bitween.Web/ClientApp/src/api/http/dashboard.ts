@@ -1,6 +1,5 @@
 import type { ApiClient } from "../client";
-import type { DashboardData, ExchangeStatus } from "../types";
-import { subscriptionMethods } from "./subscriptions";
+import type { ExchangeStatus, LatestFailure, RetrySummary } from "../types";
 import { get } from "./request";
 
 // --- backend shapes (camelCase over the wire) ---
@@ -38,70 +37,73 @@ const toStatus = (raw: Pick<RawXchangeForDashboard, "status" | "responseBad">): 
 
 const LATEST = 6;
 
+const startedSince = (ms: number) => encodeURIComponent(`StartedOn:6:${new Date(Date.now() - ms).toISOString()}`);
+
+/**
+ * What the dashboard shows beside the metrics (which come from /metrics/overview) and the
+ * subscription rows, one method per part so each can fill in on its own.
+ *
+ * Traffic, rates and the busiest used to be counted here, in the browser, from up to 1000
+ * exchanges fetched every minute: wrong at any volume above that, and a heavy query for every
+ * open dashboard. They come from the server's hourly metrics now.
+ */
 export const dashboardMethods = {
-  /**
-   * What the dashboard shows beside the metrics (which come from /metrics/overview): the latest
-   * failures, what is in flight, retries, queue alerts and subscriptions needing attention.
-   *
-   * Traffic, rates and the busiest used to be counted here, in the browser, from up to 1000
-   * exchanges fetched every minute: wrong at any volume above that, and a heavy query for every
-   * open dashboard. They come from the server's hourly metrics now; what is left here is small,
-   * bounded queries over the last two weeks.
-   */
-  async getDashboard(): Promise<DashboardData> {
-    const now = Date.now();
-    const since = (ms: number) => encodeURIComponent(`StartedOn:6:${new Date(now - ms).toISOString()}`);
-    const twoWeeks = since(14 * 86_400_000);
+  /** Two searches over the exchanges of the last two weeks: on a busy instance, seconds. */
+  async getLatestFailures(): Promise<LatestFailure[]> {
+    const twoWeeks = startedSince(14 * 86_400_000);
     const latest = (status: number) =>
       get<SearchyResponse<RawXchangeForDashboard>>(
         `/xchanges?filter=${twoWeeks}&filter=${encodeURIComponent(`StatusFilter:1:${status}`)}&sort=StartedOn:2&size=${LATEST}`,
       );
 
-    const [failed, badResponses, inFlight, delayedRes, failuresRes, retrySummary, alertsRaw, subscriptionRows] =
-      await Promise.all([
-        latest(3),
-        latest(2),
-        get<SearchyResponse<unknown>>(`/xchanges?filter=${since(86_400_000)}&filter=${encodeURIComponent("StatusFilter:1:0")}&size=1`),
-        get<SearchyResponse<unknown>>("/delayedretries?size=1"),
-        // Only the total is wanted: the problems still to deal with, which the tile's list opens.
-        get<SearchyResponse<unknown>>(
-          `/xchanges?filter=${encodeURIComponent("StatusFilter:1:3")}&filter=${encodeURIComponent("LatestOnly:1:true")}&size=1`,
-        ),
-        get<RawRetrySummary>("/dashboard/retrysummary"),
-        // Depends on RabbitMQ management being configured on the backend - don't let it take the
-        // rest of the dashboard down when it isn't; the "Queue alerts" tile flags it instead.
-        get<RawAlert[]>("/ops/alerts").catch(() => null),
-        subscriptionMethods.listSubscriptionRows(),
-      ]);
-
-    const subscriptionNameById = new Map(subscriptionRows.map((i) => [i.id, i.name]));
-    const latestFailures = [...failed.result, ...badResponses.result]
+    const [failed, badResponses] = await Promise.all([latest(3), latest(2)]);
+    return [...failed.result, ...badResponses.result]
       .sort((a, b) => b.startedOn.localeCompare(a.startedOn))
       .slice(0, LATEST)
       .map((r) => ({
         id: r.id,
         status: toStatus(r),
         subscriptionId: r.subscriptionId,
-        subscriptionName: r.subscriptionId !== null ? (subscriptionNameById.get(r.subscriptionId) ?? null) : null,
         informationTypeCode: r.documentName,
         on: r.startedOn,
         exception: r.exception,
       }));
+  },
 
+  async getPendingRetries(): Promise<number> {
+    return (await get<SearchyResponse<unknown>>("/delayedretries?size=1")).totalCount;
+  },
+
+  async getQueueAlerts(): Promise<number | null> {
+    // Depends on RabbitMQ management being configured on the backend; the "Queue alerts" tile
+    // flags it when it isn't.
+    const alerts = await get<RawAlert[]>("/ops/alerts").catch(() => null);
+    return alerts === null ? null : alerts.filter((a) => a.severity !== "Info").length;
+  },
+
+  /**
+   * The problems still to deal with, which the tile's list opens. Counted by the server from the
+   * failures: the list fetches rows newest first, which for this filter can mean reading back
+   * through millions of exchanges first.
+   */
+  async getFailuresToActOn(): Promise<number> {
+    return (await get<{ total: number }>("/dashboard/failurestoacton")).total;
+  },
+
+  async getInFlight(): Promise<number> {
+    const lastDay = startedSince(86_400_000);
+    return (
+      await get<SearchyResponse<unknown>>(
+        `/xchanges?filter=${lastDay}&filter=${encodeURIComponent("StatusFilter:1:0")}&size=1`,
+      )
+    ).totalCount;
+  },
+
+  async getRetrySummary(): Promise<RetrySummary> {
+    const raw = await get<RawRetrySummary>("/dashboard/retrysummary");
     return {
-      inFlight: inFlight.totalCount,
-      failuresToActOn: failuresRes.totalCount,
-      failingChains: retrySummary.failingChains ?? [],
-      retriesLast7Days: retrySummary.retriesLast7Days ?? { finished: 0, succeeded: 0 },
-      pendingRetries: delayedRes.totalCount,
-      queueAlerts: alertsRaw === null ? null : alertsRaw.filter((a) => a.severity !== "Info").length,
-      latestFailures,
-      attention: {
-        failingSubscriptions: subscriptionRows
-          .filter((i) => i.consecutiveFailures > 0)
-          .map((i) => ({ id: i.id, name: i.name, consecutiveFailures: i.consecutiveFailures })),
-        pausedSubscriptions: subscriptionRows.filter((i) => i.paused).map((i) => ({ id: i.id, name: i.name })),
-      },
+      failingChains: raw.failingChains ?? [],
+      retriesLast7Days: raw.retriesLast7Days ?? { finished: 0, succeeded: 0 },
     };
   },
 } satisfies Partial<ApiClient>;

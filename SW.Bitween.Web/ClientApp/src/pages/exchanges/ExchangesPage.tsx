@@ -4,14 +4,16 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tansta
 import { ArrowUp, Download, Pause, Play, Plus, RefreshCw, RotateCcw, TriangleAlert, X } from "lucide-react";
 import {
   api,
-  type BulkRetryPlan,
   type BulkRetrySelection,
+  type ExchangeBreakdown,
   type ExchangeStatus,
   type ExportFilesCheck,
 } from "../../api";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
-import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { useBackgroundProgress } from "../../lib/useBackground";
+import { followDownload } from "../../lib/saveFile";
+import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { openDialogs } from "../../components/ui/dialogStack";
 import { useSubscriptionsCache } from "../../components/config/lookups";
@@ -29,9 +31,11 @@ import {
   COUNT_CAP,
   PAGE_SIZE,
   activeFilterCount,
+  allCount,
   filterSignature,
   hasTimeFilter,
   idsIn,
+  keepCounted,
   readQuery,
   timeLabel,
   toLocalInput,
@@ -40,8 +44,14 @@ import {
   type ParamChanges,
 } from "./exchangeFilters";
 
-/** The most exchanges one files export takes: `XchangeExportController.Limit` on the server. */
-const EXPORT_LIMIT = 500;
+/**
+ * The most exchanges one files export takes: `XchangeExportController.MaxInBackground` on the server,
+ * since the export is carried on in the background.
+ */
+const EXPORT_LIMIT = 50_000;
+
+/** How often the counts and the chart are asked for again while the server is still working them out. */
+const COUNTING_MS = 15_000;
 
 const exchangesCount = (n: number) => (n === 1 ? "1 exchange" : `${n.toLocaleString()} exchanges`);
 
@@ -99,10 +109,14 @@ export function ExchangesPage() {
 
   // A relative range ("last hour") is worked out each time the list is asked for, so a live list
   // keeps showing the last hour rather than the hour before the page was opened.
-  const { data, isLoading, isFetching, isPlaceholderData, dataUpdatedAt, refetch } = useQuery({
+  // The rows alone, so they show as soon as they're found: how many match comes with the status
+  // counts below, which can take far longer to work out on a busy instance.
+  const { data, isLoading, isFetching, isPlaceholderData, isError, error, dataUpdatedAt, refetch } = useQuery({
     queryKey: keys.exchanges.search(viewSearch(searchParams) + `&offset=${query.offset}`),
-    queryFn: () => api.searchExchanges(readQuery(searchParams)),
-    refetchInterval: refreshMs || false,
+    queryFn: () => api.searchExchanges(readQuery(searchParams), { count: false }),
+    // A list that failed with nothing to show waits for Try again: asked every 15s, a timeout kept
+    // the database busy with the same query for as long as the page stayed open.
+    refetchInterval: (q) => (q.state.status === "error" && q.state.data === undefined ? false : refreshMs || false),
     placeholderData: keepPreviousData,
   });
   // Loads someone is waiting on: a changed filter or page (the old rows stay up meanwhile), or the
@@ -114,13 +128,22 @@ export function ExchangesPage() {
   // With a time filter, one request answers both. Without one the list covers all time, which
   // the counts follow, while the chart shows the last 24 hours and says so - a histogram of
   // "all time" is one bar.
+  //
+  // What takes too long to count is finished on the server, so while any of it is still coming
+  // these ask again every 15 seconds, live refresh or not.
   const timed = hasTimeFilter(searchParams);
   const breakdownKey = viewSearch(withParams(searchParams, { status: null }));
+  const askAgain = (q: { state: { data?: { counting: boolean } } }) =>
+    refreshMs || (q.state.data?.counting ? COUNTING_MS : false);
+  // A number, once in, stays while a later answer is still counting it: see keepCounted.
+  const keepNumbers = (previous: unknown, next: unknown) =>
+    keepCounted(previous as ExchangeBreakdown | undefined, next as ExchangeBreakdown);
   const breakdown = useQuery({
     queryKey: keys.exchanges.breakdown(breakdownKey),
     queryFn: () => api.getExchangeBreakdown(readQuery(searchParams)),
-    refetchInterval: refreshMs || false,
+    refetchInterval: askAgain,
     placeholderData: keepPreviousData,
+    structuralSharing: keepNumbers,
     retry: false,
   });
   const chartParams = timed ? null : withParams(searchParams, { range: "24h", status: null });
@@ -128,8 +151,9 @@ export function ExchangesPage() {
     queryKey: keys.exchanges.breakdown(chartParams ? viewSearch(chartParams) : ""),
     queryFn: () => api.getExchangeBreakdown(readQuery(chartParams!)),
     enabled: !!chartParams,
-    refetchInterval: refreshMs || false,
+    refetchInterval: askAgain,
     placeholderData: keepPreviousData,
+    structuralSharing: keepNumbers,
     retry: false,
   });
   const volume = timed ? breakdown.data : chartBreakdown.data;
@@ -200,8 +224,11 @@ export function ExchangesPage() {
 
   const filterCount = activeFilterCount(searchParams);
   const rows = data?.result ?? [];
-  const total = data?.total ?? 0;
-  const totalIsCapped = total > COUNT_CAP;
+  // How many match: the selected status's count, or every status's together - none while they're
+  // still being counted, still the last filter's, or the rows on screen are still the last view's.
+  const counts = breakdown.isPlaceholderData || isPlaceholderData ? undefined : breakdown.data?.counts;
+  const total = counts && (query.status ? (counts[query.status] ?? undefined) : allCount(counts));
+  const totalIsCapped = total !== undefined && total > COUNT_CAP;
 
   // --- the open exchange ---
   // In the URL, so a link can open one. A link to a single exchange (`?ids=<id>`, as the
@@ -247,7 +274,10 @@ export function ExchangesPage() {
   };
   const isSelected = (id: string) => (allMatching ? !excluded.has(id) : selected.has(id));
   const allOnPageSelected = rows.length > 0 && rows.every((r) => isSelected(r.id));
-  const selectedCount = allMatching ? Math.max(0, total - excluded.size) : selected.size;
+  const selectedCount = allMatching ? Math.max(0, (total ?? 0) - excluded.size) : selected.size;
+  // Everything matching, while how many that is isn't known: the selection stays up, and what acts on
+  // it waits for the number.
+  const countUnknown = allMatching && total === undefined;
 
   /** What the retry acts on: the ticked rows, or the filter itself minus the unticked ones. */
   const selection: BulkRetrySelection = allMatching ? { matching: query, excludeIds: [...excluded] } : { ids: [...selected] };
@@ -312,56 +342,19 @@ export function ExchangesPage() {
     staleTime: 30_000,
   });
 
-  /** How far a retry in rounds has got. */
-  const [bulkProgress, setBulkProgress] = useState<{ done: number; total: number } | null>(null);
-  /** Set when the confirm is closed mid-way: the rounds stop after the one under way. */
-  const stopRounds = useRef(false);
+  /** How far a retry under way in the background has got, as the header has it. */
+  const bulkProgress = useBackgroundProgress("POST /xchanges/bulkretry");
   /**
    * The run the open confirm belongs to. Closing it moves this on, so a run that ends afterwards
    * reports what it did but can't close a confirm opened since, or clear a selection made since.
    */
   const bulkRun = useRef(0);
 
-  /**
-   * A selection past what one request carries out: the preview listed every attempt that will run,
-   * and they go back as ids, a round at a time. No request runs long, and a round that fails leaves
-   * the ones before it done. The attempts, not the selection, so a round can't reach past them to an
-   * attempt an earlier round just made.
-   */
-  async function retryInRounds(planned: BulkRetryPlan, reset: boolean) {
-    const done = { ...planned, willRetry: 0, skipped: [...planned.skipped], stoppedAt: null as number | null };
-    const total = planned.targets.length;
-    stopRounds.current = false;
-    setBulkProgress({ done: 0, total });
-    for (let at = 0; at < total; at += planned.limit) {
-      if (stopRounds.current) {
-        done.stoppedAt = at;
-        break;
-      }
-      let round: BulkRetryPlan;
-      try {
-        round = await api.bulkRetryExchanges({ ids: planned.targets.slice(at, at + planned.limit) }, { reset });
-      } catch (e) {
-        throw new Error(
-          `${done.willRetry.toLocaleString()} of ${total.toLocaleString()} were retried, then a round failed` +
-            ` (${e instanceof Error ? e.message : String(e)}). The rest were not retried.`,
-        );
-      }
-      done.willRetry += round.willRetry;
-      done.skipped.push(...round.skipped);
-      setBulkProgress({ done: Math.min(at + planned.limit, total), total });
-    }
-    return done;
-  }
-
   const bulkRetry = useMutation({
-    mutationFn: (reset: boolean) =>
-      plan && plan.selected > plan.limit
-        ? retryInRounds(plan, reset)
-        : api.bulkRetryExchanges(selection, { reset }).then((done) => ({ ...done, stoppedAt: null })),
+    // One request for the whole selection, carried on in the background when it takes long.
+    mutationFn: (reset: boolean) => api.bulkRetryExchanges(selection, { reset }),
     onMutate: () => ({ run: ++bulkRun.current }),
     onSuccess: (done, _reset, started) => {
-      setBulkProgress(null);
       if (started?.run === bulkRun.current) {
         setBulkConfirm(false);
         setBulkReset(false);
@@ -369,16 +362,16 @@ export function ExchangesPage() {
       }
       setBulkResult(
         `${done.willRetry.toLocaleString()} retr${done.willRetry === 1 ? "y" : "ies"} started` +
-          (done.substituted.length > 0 ? `, ${done.substituted.length} continuing an existing chain` : "") +
-          (done.skipped.length > 0 ? `, ${done.skipped.length} skipped` : "") +
-          (done.stoppedAt != null
-            ? `. Stopped after ${done.stoppedAt.toLocaleString()} of ${done.targets.length.toLocaleString()}; the rest were not retried`
+          (done.substitutedCount > 0 ? `, ${done.substitutedCount.toLocaleString()} continuing an existing chain` : "") +
+          (done.skippedCount > 0 ? `, ${done.skippedCount.toLocaleString()} skipped` : "") +
+          (done.stoppedAfter != null
+            ? `. Cancelled after ${done.stoppedAfter.toLocaleString()}; the rest were not retried`
             : "") +
           ".",
       );
       void queryClient.invalidateQueries({ queryKey: keys.exchanges.all });
     },
-    // The list changed as far as the rounds got.
+    // The list changed as far as the retry got.
     onError: () => void queryClient.invalidateQueries({ queryKey: keys.exchanges.all }),
   });
 
@@ -399,18 +392,8 @@ export function ExchangesPage() {
   /** The zip comes back whole and is saved from memory: the endpoint needs the sign-in header, which a plain link can't send. */
   const exportFiles = useMutation({
     mutationFn: () => api.exportExchangeFiles(selection),
-    onSuccess: ({ blob, fileName }) => {
-      // In the document while clicked, and revoked a while later: Firefox and Safari ignore a click on a
-      // detached link, and start the download after the click returns, so an address revoked at once fails it.
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = fileName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-    },
+    // Downloaded when it's ready, whichever page the person has gone on to meanwhile.
+    onSuccess: ({ url }) => followDownload(url),
   });
 
   const pickStatus = (status: ExchangeStatus | null) => apply({ status });
@@ -477,7 +460,7 @@ export function ExchangesPage() {
         <QueryBar searchParams={searchParams} apply={apply} options={filterOptions} lookups={lookups} onAsked={setAsked} />
 
         {asked && asked.search === viewSearch(searchParams) && (
-          <AskedLine asked={asked} total={total} counting={isLoading || reloading} onDismiss={() => setAsked(null)} />
+          <AskedLine asked={asked} total={total ?? 0} counting={isLoading || reloading || total === undefined} onDismiss={() => setAsked(null)} />
         )}
 
         {volume && volume.buckets.length > 0 && (
@@ -515,6 +498,9 @@ export function ExchangesPage() {
           <div className="flex min-w-0 flex-1 flex-col gap-3">
             {isLoading ? (
               <LoadingBlock />
+            ) : isError && !data ? (
+              /* Without it, a list that couldn't be read said "No exchanges match", as if there were none. */
+              <LoadError error={error} what="the exchanges" onRetry={() => void refetch()} />
             ) : rows.length === 0 ? (
               /* An empty page and an empty search are different problems. This branch replaces the
                  table, paging footer and all, so a page past the end of the list would otherwise
@@ -583,13 +569,24 @@ export function ExchangesPage() {
                 {/* - paging - */}
                 <div className="flex flex-wrap items-center justify-between gap-2 border-t border-ink-100 px-4 py-2.5 text-[13px] text-ink-500">
                   <span>
-                    Showing {query.offset + 1}-{query.offset + rows.length} of{" "}
-                    {totalIsCapped ? (
-                      <span title={`More than ${COUNT_CAP.toLocaleString()} match - narrow the filters for an exact count`}>
-                        {COUNT_CAP.toLocaleString()}+
+                    Showing {query.offset + 1}-{query.offset + rows.length}
+                    {total === undefined ? (
+                      <span title="Still counting how many match" className="animate-pulse">
+                        {" "}
+                        of …
                       </span>
                     ) : (
-                      total.toLocaleString()
+                      <>
+                        {" "}
+                        of{" "}
+                        {totalIsCapped ? (
+                          <span title={`More than ${COUNT_CAP.toLocaleString()} match - narrow the filters for an exact count`}>
+                            {COUNT_CAP.toLocaleString()}+
+                          </span>
+                        ) : (
+                          total.toLocaleString()
+                        )}
+                      </>
                     )}
                   </span>
                   <span className="flex items-center gap-3">
@@ -603,9 +600,14 @@ export function ExchangesPage() {
                       <Button
                         size="sm"
                         /* Past the cap the total no longer says where the end is, so fall back to "was this
-                           page full" - otherwise Next would dead-end at row 10,000. Below the cap the total
-                           is exact, so keep using it and Next stops on the true last page. */
-                        disabled={totalIsCapped ? rows.length < PAGE_SIZE : query.offset + PAGE_SIZE >= total}
+                           page full" - otherwise Next would dead-end at row 10,000 - as while it is still
+                           being counted, when the number on screen may be one kept from an earlier answer.
+                           Otherwise the total is exact, so Next stops on the true last page. */
+                        disabled={
+                          total === undefined || totalIsCapped || breakdown.data?.counting
+                            ? rows.length < PAGE_SIZE
+                            : query.offset + PAGE_SIZE >= total
+                        }
                         onClick={() => apply({ offset: String(query.offset + PAGE_SIZE) }, { resetOffset: false })}
                       >
                         Next
@@ -617,12 +619,20 @@ export function ExchangesPage() {
             )}
 
             {/* - bulk action bar - */}
-            {selectedCount > 0 && (
+            {(selectedCount > 0 || countUnknown) && (
               <div className="sticky bottom-4 z-20 space-y-2 rounded-xl bg-ink-950 px-4 py-2.5 text-ink-100 shadow-xl">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm">
                     <strong className="font-semibold text-white">
-                      {totalIsCapped && allMatching ? `${COUNT_CAP.toLocaleString()}+` : selectedCount.toLocaleString()}
+                      {countUnknown ? (
+                        <span title="Still counting how many match" className="animate-pulse">
+                          …
+                        </span>
+                      ) : totalIsCapped && allMatching ? (
+                        `${COUNT_CAP.toLocaleString()}+`
+                      ) : (
+                        selectedCount.toLocaleString()
+                      )}
                     </strong>{" "}
                     selected
                     {allMatching && <span className="text-ink-300"> - everything this filter matches</span>}
@@ -640,19 +650,27 @@ export function ExchangesPage() {
                       size="sm"
                       className="!border-ink-700 !bg-ink-900 !text-ink-50 hover:!bg-ink-800 disabled:!text-ink-500"
                       busy={checkExport.isPending || exportFiles.isPending}
-                      disabled={selectedCount > EXPORT_LIMIT}
+                      disabled={countUnknown || selectedCount > EXPORT_LIMIT}
                       onClick={() => checkExport.mutate()}
                       title={
-                        selectedCount > EXPORT_LIMIT
-                          ? `One export takes at most ${EXPORT_LIMIT} exchanges. Narrow the filter or tick fewer rows.`
-                          : "Download the input, mapped and handled files of the selected exchanges as one zip, a folder per exchange"
+                        countUnknown
+                          ? "Waits until how many match is counted"
+                          : selectedCount > EXPORT_LIMIT
+                            ? `One export takes at most ${EXPORT_LIMIT.toLocaleString()} exchanges. Narrow the filter or tick fewer rows.`
+                            : "Download the input, mapped and handled files of the selected exchanges as one zip, a folder per exchange"
                       }
                     >
                       <Download className="size-3.5" aria-hidden />
                       Export files
                     </Button>
                     <Can permission="exchanges.operate">
-                      <Button size="sm" variant="primary" onClick={() => setBulkConfirm(true)}>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        disabled={countUnknown}
+                        title={countUnknown ? "Waits until how many match is counted" : undefined}
+                        onClick={() => setBulkConfirm(true)}
+                      >
                         <RotateCcw className="size-3.5" aria-hidden />
                         Retry selected…
                       </Button>
@@ -670,7 +688,7 @@ export function ExchangesPage() {
                 {/* The whole page is ticked but there is more behind it - the one moment where
                     "select all matching" is what someone actually wants, so it is offered there
                     rather than living permanently in the toolbar. */}
-                {!allMatching && allOnPageSelected && total > rows.length && (
+                {!allMatching && allOnPageSelected && total !== undefined && total > rows.length && (
                   <p className="text-[13px] text-ink-300">
                     Only the {rows.length} rows on this page.{" "}
                     <button
@@ -716,21 +734,19 @@ export function ExchangesPage() {
 
       {bulkConfirm && (
         <RetryDialog
-          count={selectedCount}
+          // The plan's count once it's in: the page's own stops at 10,000.
+          count={plan?.selected ?? selectedCount}
           plan={plan ?? null}
           planLoading={planLoading}
           busy={bulkRetry.isPending}
-          progress={bulkProgress}
+          progress={bulkRetry.isPending ? bulkProgress : null}
           error={bulkRetry.error?.message ?? null}
           onConfirm={(reset) => bulkRetry.mutate(reset)}
           onResetChange={setBulkReset}
           onClose={() => {
-            stopRounds.current = true;
+            // Closing doesn't stop a retry under way: it carries on, and the header has Cancel.
             bulkRun.current++;
             setBulkConfirm(false);
-            setBulkProgress(null);
-            // Not while rounds are still under way: Retry would be offered again, and a second run
-            // beside the first would retry what the first just did.
             if (bulkRetry.isError) bulkRetry.reset();
             // The dialog starts unticked each time it opens, so the mirrored copy has to as well.
             setBulkReset(false);

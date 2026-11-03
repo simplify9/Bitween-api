@@ -22,7 +22,10 @@ Content-Type: application/json
 
 `POST /api/xchanges/bulkretry` retries either a list of `ids`, or everything a search `filter` matches minus `excludeIds`. `POST /api/xchanges/bulkretrypreview` returns the same plan without running it, and the UI shows that plan before you confirm.
 
-- One retry request carries out at most 500 exchanges. The preview works out up to 5,000 and lists the attempts that will run in `targets`; the UI sends them back as `ids` in rounds of 500 and shows how far it has got. If a round fails, the rounds before it are done and the rest are not retried. Past 5,000, narrow the filter.
+- The UI retries the whole selection in one request, up to 500,000 exchanges, which carries on in the background once it takes more than a few seconds ([Work that takes long](api-reference.md#work-that-takes-long)). It saves every hundred, so the top bar shows how far it has got, and **Cancel** there stops it after the exchange it is on: those before it stay retried, and the result says how many. Past 500,000, narrow the filter.
+- It goes at the pipeline's pace: no more than 1,000 of its exchanges wait to be processed at once, and it sends more as those finish. A big retry never floods the queues or the partners behind them, and the day's own traffic is never more than 1,000 behind it. One whose exchanges stop being processed - a paused subscription holds them - stops after 10 minutes without progress, keeping what it did.
+- The plan counts every substitution and skip (`substitutedCount`, `skippedCount`) and names the first 1,000 of each.
+- Asked directly, without carrying on in the background, one retry request still carries out at most 500; the preview lists the attempts that will run in `targets`, to send back as `ids` in rounds.
 - An exchange that was already retried is replaced by the newest attempt of its chain. Two selections that lead to the same attempt are retried once.
 - The plan skips, with a reason, exchanges that no longer exist, that succeeded, that have an automatic retry waiting, whose subscription is gone when `reset` is on, or whose input file cannot be read.
 - Exchanges with no result yet are included, so work stranded by an outage can be recovered. Make sure nothing is still processing before retrying it.
@@ -103,6 +106,8 @@ A budget sets two limits.
 
 When a subscription succeeds, each of its budgets that was already exhausted before that exchange started is released. Partly spent budgets are left alone.
 
+**`whenExhausted`** says what happens to a failure the group would retry once its total is spent. `Fail`, the default, fails it for good. `Hold` keeps it waiting and retries it as soon as the subscription next succeeds, so messages caught by a partner's outage go through once it is back. On a group's page it is **When the total runs out**, shown while the group has a total, and the policy's group list marks a held group "holds when spent".
+
 ### Example group
 
 ```json
@@ -133,10 +138,10 @@ When a subscription succeeds, each of its budgets that was already exhausted bef
 4. If no group matched, there is no retry.
 5. If the group blocks, there is no retry.
 6. If the message reached `maxAttemptsPerError`, there is no retry. This is checked first, so it does not spend the shared total.
-7. If the shared total is spent, there is no retry. When this failure is the one that used up the total, an alert is raised.
+7. If the shared total is spent, there is no retry, unless the group's `whenExhausted` is `Hold`: then the failure waits, with no reason recorded, and is retried when the subscription next succeeds. Either way, when this failure is the one that used up the total, an alert is raised.
 8. Otherwise a retry is scheduled after the delay, give or take a tenth, or later when the adapter [said when to try again](#when-an-adapter-says-when-to-try-again).
 
-When no retry is scheduled, the exchange result records one of these reasons.
+When no retry is scheduled, and the failure isn't held, the exchange result records one of these reasons.
 
 - No matching group (default block)
 - Group '…' explicitly blocks this error

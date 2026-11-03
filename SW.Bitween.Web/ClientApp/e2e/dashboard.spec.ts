@@ -10,6 +10,14 @@ test("dashboard loads with real aggregated data", async ({ page }) => {
   await expect(page.getByText("Success rate, 7 days")).toBeVisible();
   await expect(page.getByText("Traffic, last 48 hours")).toBeVisible();
   await expect(page.getByText("Housekeeping")).toBeVisible();
+  // The page opens before its numbers arrive; check them once they have.
+  await expect(page.getByText("loading…")).toHaveCount(0, { timeout: 15000 });
+  await expect(page.getByText("Finding the latest failures…")).toHaveCount(0, { timeout: 15000 });
+  await expect(page.getByText("Reading the retry chains…")).toHaveCount(0, { timeout: 15000 });
+  // A part that couldn't be read stops loading too, and says so.
+  await expect(page.getByRole("link").filter({ hasText: /^Exchanges, last 24 hours/ })).not.toContainText(
+    "unavailable right now",
+  );
   await expect(page.getByText("undefined")).toHaveCount(0);
   await expect(page.getByText("NaN")).toHaveCount(0);
 
@@ -19,6 +27,8 @@ test("dashboard loads with real aggregated data", async ({ page }) => {
   // which an unanchored match picks up as well.
   const tile = page.getByRole("link").filter({ hasText: /^Failures to act on/ });
   await expect(tile).toBeVisible();
+  // Counted apart from the rest of the page, so it can fill in after it.
+  await expect(tile).toContainText(/\d/, { timeout: 15000 });
   const count = (await tile.innerText()).match(/([\d,]+)/)?.[1];
   expect(count).toBeTruthy();
 

@@ -67,32 +67,42 @@ public class RetrySummary : IQueryHandler<object>
 
         // Chains that keep failing: a failure nothing has been retried from - so it is where that
         // chain has got to - which is itself a retry, so the chain is at least two attempts long.
+        //
+        // Over the same seven days as the number above, and asked so that indexes answer all of it:
+        // the retries from their own (ix_xchange_retries_started_on on Postgres), whether each
+        // failed from the failures' and whether it was retried from RetryFor's. With no time bound
+        // it walked back through every retry ever made until it found five hundred failures - on a
+        // database where every failure gets retried, millions of exchanges, past the 30s limit.
         var candidates = await (
             from xchange in _dbContext.Set<Xchange>()
-            join result in _dbContext.Set<XchangeResult>() on xchange.Id equals result.Id
             where xchange.RetryFor != null
-                  && !result.Success
+                  && xchange.StartedOn >= since
+                  && _dbContext.Set<XchangeResult>().Any(result => result.Id == xchange.Id && !result.Success)
                   && !_dbContext.Set<Xchange>().Any(child => child.RetryFor == xchange.Id)
             orderby xchange.StartedOn descending
-            select new
-            {
-                xchange.Id,
-                xchange.RetryFor,
-                xchange.SubscriptionId,
-                xchange.DocumentId,
-                xchange.StartedOn,
-                result.Exception
-            }).AsNoTracking().Take(Candidates).ToListAsync();
+            select new { xchange.Id, xchange.RetryFor, xchange.StartedOn })
+            .AsNoTracking().Take(Candidates).ToListAsync();
 
         var attempts = await CountAttempts(candidates.ToDictionary(c => c.Id, c => c.RetryFor));
 
-        var worst = candidates
+        var worstIds = candidates
             .OrderByDescending(c => attempts[c.Id])
             .ThenByDescending(c => c.StartedOn)
             .Take(Listed)
+            .Select(c => c.Id)
             .ToList();
 
-        // Names for the few that are actually listed, rather than for all five hundred.
+        // What is shown of them, and the names below, for the few that are actually listed rather
+        // than for all five hundred.
+        var worst = (await (
+                from xchange in _dbContext.Set<Xchange>()
+                join result in _dbContext.Set<XchangeResult>() on xchange.Id equals result.Id
+                where worstIds.Contains(xchange.Id)
+                select new { xchange.Id, xchange.SubscriptionId, xchange.DocumentId, xchange.StartedOn, result.Exception })
+            .AsNoTracking().ToListAsync())
+            .OrderBy(w => worstIds.IndexOf(w.Id))
+            .ToList();
+
         var subscriptionIds = worst.Where(w => w.SubscriptionId != null).Select(w => w.SubscriptionId!.Value).ToList();
         var subscriptionNames = await _dbContext.Set<Subscription>().AsNoTracking()
             .Where(s => subscriptionIds.Contains(s.Id))

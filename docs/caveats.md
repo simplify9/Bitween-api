@@ -26,7 +26,6 @@ These behaviours were found while documenting Bitween from its source code, and 
 | Mappers other than the rules-based mapper overwrite payload keys named `__partner__` or `__globals__`. | `XchangeService.RunMapper` |
 | An API gateway attached to an inactive subscription returns 404. | `Controllers/GatewayController.cs` |
 | Bulk retry includes exchanges that have no result yet, so work still in flight can run twice. Deliberate: after a broker outage those are the exchanges a bulk retry is for. | `Resources/Xchanges/BulkRetryPlanner.cs` |
-| The dashboard's *Failures to act on* tile says it covers 14 days, but counts failures of any age. | `ClientApp/src/pages/dashboard/DashboardPage.tsx` |
 | An exchange's delivered time is never recorded. | `Domain/XchangeDelivery.cs` |
 | Exchanges, results and notifications are kept for ever by default (`ExchangeRetentionDays` 0), while their files expire from storage. The retention panel on the Settings page warns when exchanges outlive their files. | `Services/Retention/ExchangeRetentionJob.cs` |
 | Cached configuration can stay stale on other instances for up to 10 minutes if the revoke broadcast fails. Adapter descriptions and catalog entries are cached per node; publishing, promoting or withdrawing through Bitween clears them everywhere over the bus, but a package published straight to storage is seen with its old properties for up to a minute, or five for one without a manifest, which is described by starting it. That answer is kept until the adapter's package changes, so it is started once a build rather than every five minutes. | `Services/Caching/InMemoryInfolinkCache.cs`, `Services/ServerlessAdapterDescriber.cs` |
@@ -95,6 +94,18 @@ These behaviours were found while documenting Bitween from its source code, and 
 | A killed run leaves the running flag set; later runs are skipped until it goes stale after `StaleRunAfterMinutes`, or someone clears it on the subscription's page. | `Services/RunFlagUpdater.cs` |
 | A replica that stops leaves its scheduled jobs idle for up to 30 seconds, Quartz's idle wait, before another replica picks them up. | `SW.Bitween.Web/Startup.cs` |
 | Consecutive failures pause a subscription only when its **Auto-pause** is set; it is off by default. | `Services/XchangeService.cs` |
+
+## Background requests
+
+| Issue | Where |
+|---|---|
+| Cancelling stops the database commands a background request runs. Anything else it waits on, such as a call to another system, runs to its end, and the answer is dropped. | `Services/Background/BackgroundRequestScope.cs` |
+| The limits, 10 running and 3 of one person's, are per node, so three nodes run up to 30. A write over them - a bulk retry, an export, bringing - goes on regardless, since it can't be asked twice. | `Services/Background/BackgroundRequests.cs` |
+| A read that waits for a place starts again from the beginning when it gets one, so its first seconds of work are done twice. | `Services/Background/BackgroundRequests.cs` |
+| A bulk retry whose exchanges stop being processed - a paused subscription holds them - waits at its 1,000, and stops once 10 minutes pass without one finishing. It keeps what it did, and the audit trail has the run's start and how many it had saved when it stopped. | `Resources/Xchanges/BulkRetry.cs` |
+| An export's download link opens without a sign-in for 10 minutes, to whoever has it: the owner is the only one handed it. | `Services/Background/BackgroundDownloads.cs` |
+| A bulk retry stopped by a restart keeps what it saved, a hundred at a time, and the rest is not retried. The audit trail has the run's start, but no entry for how many it saved. Retrying the same selection again picks up the attempts it made too, since exchanges with no result yet are included. | `Resources/Xchanges/BulkRetry.cs` |
+| The hub signs in with the token in its address, as a browser's WebSocket requires. A proxy that logs full addresses logs the token; Bitween's own logs don't. | `SW.Bitween.Web/Startup.cs` |
 
 ## Deployment and tooling
 

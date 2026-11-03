@@ -155,11 +155,13 @@ export const isPermanentError = (error: unknown): boolean =>
 
 /**
  * Whether a failed query is asked again. A refusal answers the same however often it is asked:
- * retrying it only held "Loading…" on screen for the ~7s of backoff before the error showed.
- * Server errors and dropped connections are retried, up to three times.
+ * retrying it only held "Loading…" on screen for the ~7s of backoff before the error showed. A
+ * timeout (504) takes as long again each time: three more of the database's 30 seconds held a list
+ * on "Loading…" for two minutes. Other server errors and dropped connections are retried, up to
+ * three times.
  */
 export const shouldRetryQuery = (failureCount: number, error: unknown): boolean =>
-  !isPermanentError(error) && failureCount < 3;
+  !isPermanentError(error) && !(error instanceof ApiRequestError && error.status === 504) && failureCount < 3;
 
 // --- Configuration entities (sub-phase 2) ---
 
@@ -417,6 +419,8 @@ export interface RetryAlertConfig {
   alertChannelId: number | null;
 }
 
+export type RetryExhaustedAction = "Fail" | "Hold";
+
 export interface RetryGroup {
   id: string;
   name: string;
@@ -427,8 +431,12 @@ export interface RetryGroup {
   /** OR logic; empty = any failure of the applicable kind. */
   matchers: RetryMatcher[];
   action: "Allow" | "Block";
-  /** `maxAttemptsTotal: null` is no group-wide limit - only the per-message cap applies. */
-  budget?: { maxAttemptsPerError: number; maxAttemptsTotal: number | null; delay: RetryDelay };
+  /**
+   * `maxAttemptsTotal: null` is no group-wide limit - only the per-message cap applies.
+   * `whenExhausted` is what happens to a failure once that total is spent: fail it for good, or
+   * hold it and retry it when the subscription next succeeds.
+   */
+  budget?: { maxAttemptsPerError: number; maxAttemptsTotal: number | null; delay: RetryDelay; whenExhausted: RetryExhaustedAction };
   notes?: string;
   /** Where this group's budget-exhausted alert goes, for every subscription using the policy. */
   alertMode: RetryAlertMode;
@@ -1408,9 +1416,9 @@ export interface RetentionStatus {
     cron: string;
     nextRun: string | null;
     dueNow: number | null;
-    withoutFiles: number | null;
     /** Counts stop here; a count equal to it means "at least". */
     countCap: number;
+    /** When the oldest exchange still kept started. */
     oldest: string | null;
   };
   notices: RetentionNotice[];
@@ -1546,14 +1554,19 @@ export interface ExportFilesCheck {
 export interface BulkRetryPlan {
   selected: number;
   willRetry: number;
-  /** The most one retry request carries out; a bigger selection goes in rounds of this many. */
+  /** The most a retry asked directly carries out. The UI retries in the background, where `maxSelection` applies. */
   limit: number;
-  /** The most a preview works out. */
+  /** The most a preview works out, and a retry in the background carries out at once. */
   maxSelection: number;
-  /** True when the selection is past `maxSelection` (or, for a retry, past `limit`); nothing else is filled in. */
+  /** True when the selection is past `maxSelection`; nothing else is filled in. */
   overLimit: boolean;
-  /** The attempts that will run - what the rounds send back as ids when `selected` is past `limit`. */
+  /** The attempts that will run. */
   targets: string[];
+  /** Set when the retry was cancelled part way: how many of `targets` it dealt with first. */
+  stoppedAfter: number | null;
+  /** How many were substituted and skipped in all; `substituted` and `skipped` list the first ones. */
+  substitutedCount: number;
+  skippedCount: number;
   substituted: RetrySubstitution[];
   skipped: RetrySkip[];
   /**
@@ -1638,11 +1651,16 @@ export interface ExchangeVolumeBucket {
  * and, when the filter has a start time, how they spread over that range.
  */
 export interface ExchangeBreakdown {
-  /** Each capped like the list total: a value past the cap means "more than". */
-  counts: Record<ExchangeStatus, number>;
+  /**
+   * Each capped like the list total: a value past the cap means "more than". Null while it is still
+   * being counted on the server, which a status rare across a large table can take minutes over.
+   */
+  counts: Record<ExchangeStatus, number | null>;
   buckets: ExchangeVolumeBucket[];
   /** The width of one bucket; 0 when there are none. */
   bucketMinutes: number;
+  /** Part of it is still being worked out on the server: a later ask brings what is missing. */
+  counting: boolean;
 }
 
 export interface Paged<T> {
@@ -1832,8 +1850,12 @@ export interface FailingChain {
   exception: string | null;
 }
 
-export interface DashboardData {
-  /** Worst first. Empty when nothing has been retried more than once and left failing. */
+/** The dashboard's retry panel. */
+export interface RetrySummary {
+  /**
+   * Worst first, among chains whose newest attempt started in the last 7 days. Empty when nothing
+   * has been retried more than once and left failing.
+   */
   failingChains: FailingChain[];
   /**
    * Retries started in the last 7 days: how many have finished, and how many of those worked.
@@ -1841,30 +1863,16 @@ export interface DashboardData {
    * luck or a configuration problem.
    */
   retriesLast7Days: { finished: number; succeeded: number };
-  /**
-   * Failures that are the newest attempt of their chain. Counts problems rather than attempts: a
-   * chain retried nine times is one of these, not nine. Subject to the search's count cap, so a
-   * value above it means "at least this many".
-   */
-  failuresToActOn: number;
-  /** Exchanges started in the last 24 hours and not finished yet. */
-  inFlight: number;
-  pendingRetries: number;
-  /** Null when the RabbitMQ management API is unavailable - never counts as zero. */
-  queueAlerts: number | null;
-  latestFailures: {
-    id: string;
-    status: ExchangeStatus;
-    subscriptionId: number | null;
-    subscriptionName: string | null;
-    informationTypeCode: string;
-    on: string;
-    exception: string | null;
-  }[];
-  attention: {
-    failingSubscriptions: { id: number; name: string; consecutiveFailures: number }[];
-    pausedSubscriptions: { id: number; name: string }[];
-  };
+}
+
+/** One of the dashboard's latest failures. */
+export interface LatestFailure {
+  id: string;
+  status: ExchangeStatus;
+  subscriptionId: number | null;
+  informationTypeCode: string;
+  on: string;
+  exception: string | null;
 }
 
 /**

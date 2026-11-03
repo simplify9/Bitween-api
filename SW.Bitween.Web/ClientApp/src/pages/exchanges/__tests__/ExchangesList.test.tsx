@@ -1,7 +1,38 @@
-import { cleanup, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiPath, renderApp } from "../../../__tests__/support/renderApp";
+
+/** The SignalR connection background work is told about over, faked: each test says what it hears. */
+type Change = { id: string; status: string; done?: number; total?: number };
+const hub = vi.hoisted(() => ({ changed: null as null | ((change: Change) => void) }));
+vi.mock("@microsoft/signalr", () => ({
+  HubConnectionBuilder: class {
+    withUrl() {
+      return this;
+    }
+    withAutomaticReconnect() {
+      return this;
+    }
+    configureLogging() {
+      return this;
+    }
+    build() {
+      return {
+        on: (_: string, handler: (change: Change) => void) => {
+          hub.changed = handler;
+        },
+        onreconnected() {},
+        onclose() {},
+        start: () => Promise.resolve(),
+        stop: () => Promise.resolve(),
+      };
+    }
+  },
+  HttpTransportType: { WebSockets: 1 },
+  LogLevel: { None: 6 },
+}));
+const tell = (change: Change) => act(() => hub.changed!(change));
 
 /**
  * The exchanges list: selecting across a whole filter, narrowing to the newest attempt of each
@@ -43,7 +74,9 @@ const PAGE = 25;
 
 /**
  * The list endpoint, answering `total` matches a page at a time, and keeping every query it was
- * asked. `total` may depend on the query, the way a filter changes the count.
+ * asked. `total` may depend on the query, the way a filter changes the count. It answers the summary
+ * too, where the page reads its total from: every match counted as failed, which is what these lists
+ * show.
  */
 function exchanges({
   total,
@@ -53,10 +86,13 @@ function exchanges({
   properties?: Record<string, string | null> | null;
 }) {
   const asked: URLSearchParams[] = [];
-  const handler = http.get(apiPath("/xchanges"), ({ request }) => {
-    const q = new URL(request.url).searchParams;
-    asked.push(q);
+  const handler = http.get(/\/api\/xchanges(\/summary)?(\?|$)/, ({ request }) => {
+    const url = new URL(request.url);
+    const q = url.searchParams;
     const count = typeof total === "number" ? total : total(q);
+    if (url.pathname.endsWith("/summary"))
+      return HttpResponse.json({ counts: { processing: 0, success: 0, badResponse: 0, failed: count }, buckets: [], bucketMinutes: 0 });
+    asked.push(q);
     const page = Number(q.get("page") ?? 0);
     const result = Array.from({ length: Math.max(0, Math.min(PAGE, count - page * PAGE)) }, (_, i) =>
       exchange(page * PAGE + i, properties),
@@ -114,13 +150,15 @@ describe("the exchanges list", () => {
       });
 
       await selectAllMatching(user);
+      // The bar's count, not the tabs' - they show the filter's 60 as well.
+      const selection = () => within(screen.getByText(/everything this filter matches/).parentElement!);
       expect(screen.getByText(/everything this filter matches/)).toBeVisible();
-      expect(screen.getByText("60")).toBeVisible();
+      expect(selection().getByText("60")).toBeVisible();
 
       // Unticking a row in this mode records an exclusion rather than dropping out of it.
       await user.click(rowCheckboxes()[0]);
       expect(screen.getByText(/1 unticked/)).toBeVisible();
-      expect(screen.getByText("59")).toBeVisible();
+      expect(selection().getByText("59")).toBeVisible();
       expect(screen.getByText(/everything this filter matches/)).toBeVisible();
 
       // The confirm describes the selection the server resolved, not the rows on screen.
@@ -136,6 +174,36 @@ describe("the exchanges list", () => {
       // Nothing is retried from here: the retry endpoint has no handler, so asking it would fail.
       await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    });
+
+    it("stays up while the next page loads, and what acts on it waits for the number", async () => {
+      let pageIn!: () => void;
+      const nextPage = new Promise<void>((resolve) => (pageIn = resolve));
+      const { user } = renderApp("/exchanges?status=failed", {
+        handlers: [
+          // Holds the second page, then leaves it to the list's own handler.
+          http.get(/\/api\/xchanges(\?|$)/, async ({ request }) => {
+            if (new URL(request.url).searchParams.get("page") === "1") await nextPage;
+          }),
+          exchanges({ total: 60 }).handler,
+          ...filterOptions,
+        ],
+      });
+
+      await selectAllMatching(user);
+      const selection = () => within(screen.getByText(/everything this filter matches/).parentElement!);
+      expect(selection().getByText("60")).toBeVisible();
+
+      // The first page's rows are still up: the footer's total and the selection's wait with them.
+      await user.click(screen.getByRole("button", { name: "Next" }));
+      expect(await selection().findByTitle("Still counting how many match")).toBeVisible();
+      expect(screen.getAllByTitle("Still counting how many match")).toHaveLength(2);
+      expect(screen.getByRole("button", { name: "Retry selected…" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Export files" })).toBeDisabled();
+
+      pageIn();
+      expect(await selection().findByText("60")).toBeVisible();
+      expect(screen.getByRole("button", { name: "Retry selected…" })).toBeEnabled();
     });
 
     it.each([
@@ -172,107 +240,86 @@ describe("the exchanges list", () => {
     });
 
     /**
-     * Past what one retry carries out, the confirm doesn't send the selection: it sends the attempts
-     * the preview listed, a round at a time. Here the limit is 2, so 5 attempts are 3 rounds.
+     * A big retry goes as one request for the whole selection, asked to carry on in the background:
+     * the dialog shows how far it has got, as the header does, and can be closed meanwhile.
      */
-    describe("past one retry, in rounds", () => {
+    describe("a big retry, in the background", () => {
       const targets = [11, 12, 13, 14, 15].map((n) => exchange(n).id);
-      const preview = http.post(apiPath("/xchanges/bulkretrypreview"), () =>
-        HttpResponse.json({
-          selected: 59,
-          willRetry: 5,
-          limit: 2,
-          maxSelection: 5000,
-          overLimit: false,
-          targets,
-          substituted: [],
-          skipped: [{ id: exchange(16).id, reason: "It succeeded, so there is nothing to retry." }],
-          properties: {},
-        }),
-      );
-      /**
-       * The retry endpoint, keeping every round it was sent; `fails` answers that round with a 500,
-       * and `holds` keeps that round waiting until `release` is called.
-       */
-      function rounds({ fails, holds }: { fails?: number; holds?: number } = {}) {
-        const sent: { ids: string[] }[] = [];
-        let release = () => {};
-        const held = new Promise<void>((resolve) => (release = resolve));
-        const handler = http.post(apiPath("/xchanges/bulkretry"), async ({ request }) => {
-          const body = (await request.json()) as { ids: string[] };
-          sent.push(body);
-          if (sent.length === holds) await held;
-          if (sent.length === fails) return HttpResponse.json({ message: "Broker unreachable" }, { status: 500 });
-          const n = body.ids.length;
-          return HttpResponse.json({ selected: n, willRetry: n, limit: 2, maxSelection: 5000, overLimit: false, targets: body.ids });
-        });
-        return { handler, sent, release: () => release() };
+      const plan = (extra: Record<string, unknown> = {}) => ({
+        selected: 59,
+        willRetry: 5,
+        limit: 2,
+        maxSelection: 50000,
+        overLimit: false,
+        targets,
+        substituted: [],
+        skipped: [{ id: exchange(16).id, reason: "It succeeded, so there is nothing to retry." }],
+        properties: {},
+        ...extra,
+      });
+      const preview = http.post(apiPath("/xchanges/bulkretrypreview"), () => HttpResponse.json(plan()));
+
+      /** The retry, carried on in the background as `bulk-1`, answering `answer` once it's collected. */
+      function background(answer: Record<string, unknown>) {
+        const sent: { prefer: string | null; body: Record<string, unknown> }[] = [];
+        return {
+          sent,
+          handlers: [
+            http.post(apiPath("/xchanges/bulkretry"), async ({ request }) => {
+              sent.push({ prefer: request.headers.get("Prefer"), body: (await request.json()) as Record<string, unknown> });
+              return HttpResponse.json({ id: "bulk-1", status: "Running" }, { status: 202 });
+            }),
+            http.get(apiPath("/background/bulk-1/result"), () => HttpResponse.json(answer)),
+          ],
+        };
       }
 
-      it("sends the planned attempts a round at a time, then says what ran", async () => {
-        const retry = rounds({ holds: 2 });
+      it("sends the whole selection once, shows how far it has got, then says what ran", async () => {
+        const retry = background(plan());
         const { user } = renderApp("/exchanges?status=failed", {
-          handlers: [exchanges({ total: 60 }).handler, ...filterOptions, preview, retry.handler],
+          handlers: [exchanges({ total: 60 }).handler, ...filterOptions, preview, ...retry.handlers],
         });
 
         await selectAllMatching(user);
         await user.click(screen.getByRole("button", { name: "Retry selected…" }));
         const dialog = await screen.findByRole("dialog");
-        expect(await within(dialog).findByText(/they go in 3 rounds of up to 2/)).toBeVisible();
+        expect(await within(dialog).findByText(/A retry this size runs in the background/)).toBeVisible();
 
         await user.click(within(dialog).getByRole("button", { name: "Retry" }));
-        // While the second round is out, the first one's attempts are counted.
-        expect(await within(dialog).findByText("Retried 2 of 5…")).toBeVisible();
-        expect(within(dialog).getByRole("progressbar", { name: "Retried so far" })).toHaveAttribute("aria-valuenow", "2");
-        retry.release();
+        await waitFor(() => expect(retry.sent).toHaveLength(1));
+        expect(retry.sent[0].prefer).toBe("respond-async, wait=3");
+        expect(retry.sent[0].body).toMatchObject({ filter: expect.any(String), reset: false });
 
+        tell({ id: "bulk-1", status: "Running", done: 2, total: 5 });
+        expect(await within(dialog).findByText(/2 of 5 done…/)).toBeVisible();
+        expect(within(dialog).getByRole("progressbar", { name: "How far it has got" })).toHaveAttribute("aria-valuenow", "2");
+
+        tell({ id: "bulk-1", status: "Done", done: 5, total: 5 });
         expect(await screen.findByText("5 retries started, 1 skipped.")).toBeVisible();
         expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-        expect(retry.sent.map((r) => r.ids)).toEqual([targets.slice(0, 2), targets.slice(2, 4), targets.slice(4)]);
       });
 
-      it("closed mid-way, stops after the round under way and leaves a confirm opened since alone", async () => {
-        const retry = rounds({ holds: 1 });
+      it("closed, carries on; cancelled from the header, says how far it got", async () => {
+        const retry = background(plan({ willRetry: 2, stoppedAfter: 2, targets: [] }));
         const { user } = renderApp("/exchanges?status=failed", {
-          handlers: [exchanges({ total: 60 }).handler, ...filterOptions, preview, retry.handler],
+          handlers: [exchanges({ total: 60 }).handler, ...filterOptions, preview, ...retry.handlers],
         });
 
         await selectAllMatching(user);
         await user.click(screen.getByRole("button", { name: "Retry selected…" }));
         const dialog = await screen.findByRole("dialog");
-        await within(dialog).findByText(/they go in 3 rounds/);
+        await within(dialog).findByText(/A retry this size runs in the background/);
         await user.click(within(dialog).getByRole("button", { name: "Retry" }));
-        await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+        tell({ id: "bulk-1", status: "Running", done: 2, total: 5 });
+        // The dialog's own Close, which stops being "Cancel" once it's under way - not the corner's.
+        await user.click((await within(dialog).findAllByRole("button", { name: "Close" })).find((b) => b.textContent === "Close")!);
+        expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-        await user.click(screen.getByRole("button", { name: "Retry selected…" }));
-        await screen.findByRole("dialog");
-        retry.release();
-
+        tell({ id: "bulk-1", status: "Cancelled", done: 2, total: 5 });
         expect(
-          await screen.findByText("2 retries started, 1 skipped. Stopped after 2 of 5; the rest were not retried."),
+          await screen.findByText("2 retries started, 1 skipped. Cancelled after 2; the rest were not retried."),
         ).toBeVisible();
         expect(retry.sent).toHaveLength(1);
-        expect(screen.getByRole("dialog")).toBeVisible();
-        expect(screen.getByRole("button", { name: "Retry selected…" })).toBeVisible();
-      });
-
-      it("stops at a round that fails, says how far it got, and doesn't offer to go again", async () => {
-        const retry = rounds({ fails: 2 });
-        const { user } = renderApp("/exchanges?status=failed", {
-          handlers: [exchanges({ total: 60 }).handler, ...filterOptions, preview, retry.handler],
-        });
-
-        await selectAllMatching(user);
-        await user.click(screen.getByRole("button", { name: "Retry selected…" }));
-        const dialog = await screen.findByRole("dialog");
-        await within(dialog).findByText(/they go in 3 rounds/);
-        await user.click(within(dialog).getByRole("button", { name: "Retry" }));
-
-        expect(await within(dialog).findByRole("alert")).toHaveTextContent(
-          /^2 of 5 were retried, then a round failed .*The rest were not retried\.$/,
-        );
-        expect(retry.sent).toHaveLength(2);
-        expect(within(dialog).queryByRole("button", { name: "Retry" })).not.toBeInTheDocument();
       });
     });
   });
@@ -285,6 +332,159 @@ describe("the exchanges list", () => {
    * Which rows that leaves is the server's: Exchange_search_can_return_only_the_newest_attempt_of_each_chain
    * in RetryChainTests. What's left here is the toggle, and what it asks for.
    */
+  it("shows the rows at once, and how many match once the counts are in", async () => {
+    let countsIn!: () => void;
+    const counted = new Promise<void>((resolve) => (countsIn = resolve));
+    const list = exchanges({ total: 3 });
+    renderApp("/exchanges", {
+      handlers: [
+        http.get(apiPath("/xchanges/summary"), async () => {
+          await counted;
+          return HttpResponse.json({ counts: { processing: 0, success: 0, badResponse: 0, failed: 3 }, buckets: [], bucketMinutes: 0 });
+        }),
+        list.handler,
+        ...filterOptions,
+      ],
+    });
+
+    // The rows don't wait for the count, and don't ask for one.
+    expect(await screen.findByText("Showing 1-3")).toBeVisible();
+    expect(screen.getByTitle("Still counting how many match")).toBeVisible();
+    expect(list.asked[0].get("count")).toBe("false");
+
+    countsIn();
+    expect(await screen.findByText("Showing 1-3 of 3")).toBeVisible();
+  });
+
+  it("shows no number for a status still being counted, and still shows the rest", async () => {
+    const summary = (success: number) =>
+      http.get(apiPath("/xchanges/summary"), () =>
+        HttpResponse.json({
+          counts: { processing: null, success, badResponse: 0, failed: 3 },
+          buckets: [],
+          bucketMinutes: 0,
+          counting: true,
+        }),
+      );
+    const tabs = async () => within(await screen.findByRole("group", { name: "Status" }));
+
+    renderApp("/exchanges", { handlers: [summary(10_001), exchanges({ total: 3 }).handler, ...filterOptions] });
+    expect(await (await tabs()).findByRole("button", { name: "Failed 3" })).toBeVisible();
+    expect((await tabs()).getByRole("button", { name: "Processing" })).toBeVisible();
+    // The others already pass the cap, so all of them together is still "more than".
+    expect((await tabs()).getByRole("button", { name: "All 10,000+" })).toBeVisible();
+
+    cleanup();
+    renderApp("/exchanges", { handlers: [summary(5), exchanges({ total: 3 }).handler, ...filterOptions] });
+    // Under the cap, the one missing could hold any number, so all of them together has none either.
+    expect(await (await tabs()).findByRole("button", { name: "Failed 3" })).toBeVisible();
+    expect((await tabs()).getByRole("button", { name: "All" })).toBeVisible();
+  });
+
+  it("asks again while a status is still being counted, with live refresh paused too", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let counted = false;
+      renderApp("/exchanges", {
+        handlers: [
+          http.get(apiPath("/xchanges/summary"), () =>
+            HttpResponse.json({
+              counts: { processing: counted ? 7 : null, success: 0, badResponse: 0, failed: 3 },
+              buckets: [],
+              bucketMinutes: 0,
+              counting: !counted,
+            }),
+          ),
+          exchanges({ total: 3 }).handler,
+          ...filterOptions,
+        ],
+      });
+      const tabs = within(await screen.findByRole("group", { name: "Status" }));
+      expect(await tabs.findByRole("button", { name: "Failed 3" })).toBeVisible();
+
+      // Paused, nothing else asks again: only that the count isn't in yet.
+      fireEvent.change(screen.getByRole("combobox", { name: "Refresh interval" }), { target: { value: "0" } });
+      counted = true;
+      await act(() => vi.advanceTimersByTimeAsync(15_000));
+      expect(await tabs.findByRole("button", { name: "Processing 7" })).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  /**
+   * The server runs as more than one copy, each counting a slow view for itself: after a copy that
+   * has finished, one still counting can answer.
+   */
+  it("keeps a number once it's in, while a later answer is still counting it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let asked = 0;
+      renderApp("/exchanges", {
+        handlers: [
+          http.get(apiPath("/xchanges/summary"), () =>
+            HttpResponse.json(
+              ++asked === 1
+                ? { counts: { processing: 7, success: 0, badResponse: 0, failed: 3 }, buckets: [], bucketMinutes: 0, counting: false }
+                : { counts: { processing: null, success: 0, badResponse: 0, failed: 4 }, buckets: [], bucketMinutes: 0, counting: true },
+            ),
+          ),
+          exchanges({ total: 3 }).handler,
+          ...filterOptions,
+        ],
+      });
+      const tabs = within(await screen.findByRole("group", { name: "Status" }));
+      expect(await tabs.findByRole("button", { name: "Processing 7" })).toBeVisible();
+
+      // Live refresh asks again; the copy that answers has Failed but is still counting Processing.
+      await act(() => vi.advanceTimersByTimeAsync(15_000));
+      expect(await tabs.findByRole("button", { name: "Failed 4" })).toBeVisible();
+      expect(tabs.getByRole("button", { name: "Processing 7" })).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("says when the list couldn't be read, rather than that nothing matches, and reads it again on Try again", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let timedOut = true;
+      let listAsks = 0;
+      const list = exchanges({ total: 3 });
+      renderApp("/exchanges?status=failed&latest=1", {
+        handlers: [
+          http.get(/\/api\/xchanges(\?|$)/, () => {
+            listAsks++;
+            return timedOut
+              ? HttpResponse.json(
+                  { DATABASE_TIMED_OUT: ["The database took too long to answer. Asking for less, such as a shorter time range, may help."] },
+                  { status: 504 },
+                )
+              : undefined;
+          }),
+          list.handler,
+          ...filterOptions,
+        ],
+      });
+
+      const alert = await screen.findByRole("alert");
+      expect(within(alert).getByText("Couldn't load the exchanges")).toBeVisible();
+      expect(within(alert).getByText(/The database took too long to answer/)).toBeVisible();
+      expect(screen.queryByText("No exchanges match")).not.toBeInTheDocument();
+
+      // Live refresh doesn't run the same query again meanwhile: it waits for Try again.
+      const asked = listAsks;
+      await act(() => vi.advanceTimersByTimeAsync(15_000));
+      expect(listAsks).toBe(asked);
+
+      timedOut = false;
+      fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+      expect(await screen.findByText("Showing 1-3 of 3")).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("can show only the newest attempt of each chain", async () => {
     const latest = (q: URLSearchParams) => q.getAll("filter").includes("LatestOnly:1:true");
     const list = exchanges({ total: (q) => (latest(q) ? 30 : 40) });
@@ -370,38 +570,34 @@ describe("the exchanges list", () => {
     const exportCheck = (withoutFiles = 0, count = 2, keptDays: number | null = 30) =>
       http.post(apiPath("/xchanges/export/check"), () => HttpResponse.json({ count, withoutFiles, keptDays }));
 
-    afterEach(() => {
-      vi.restoreAllMocks();
-      Reflect.deleteProperty(URL, "createObjectURL");
-      Reflect.deleteProperty(URL, "revokeObjectURL");
-    });
+    afterEach(() => vi.restoreAllMocks());
+
+    /**
+     * The export, which the server carries on in the background as `exp-1` - the UI asks it to at once -
+     * keeping every request it was sent; done, it's downloaded from the link the server makes for it.
+     */
+    function exportInBackground(exported: unknown[]) {
+      return [
+        http.post(apiPath("/xchanges/export"), async ({ request }) => {
+          exported.push(await request.json());
+          return HttpResponse.json({ id: "exp-1", status: "Running" }, { status: 202 });
+        }),
+        http.post(apiPath("/background/exp-1/link"), () =>
+          HttpResponse.json({ url: "/api/background/exp-1/file?expires=1&seal=s" }),
+        ),
+      ];
+    }
 
     it("lets a viewer download the ticked rows' files, without offering a retry", async () => {
       const exported: unknown[] = [];
-      URL.createObjectURL = vi.fn(() => "blob:export");
-      URL.revokeObjectURL = vi.fn();
-      const saved: string[] = [];
+      const followed: string[] = [];
       vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function (this: HTMLAnchorElement) {
-        saved.push(this.download);
+        followed.push(new URL(this.href).pathname);
       });
 
       const { user } = renderApp("/exchanges", {
         as: { permissions: ["exchanges.view"] },
-        handlers: [
-          exchanges({ total: 3 }).handler,
-          ...filterOptions,
-          exportCheck(),
-          http.post(apiPath("/xchanges/export"), async ({ request }) => {
-            exported.push(await request.json());
-            // Bytes, not a Blob: jsdom's Blob can't be streamed into a response.
-            return new HttpResponse(new Uint8Array([0x50, 0x4b]), {
-              headers: {
-                "Content-Type": "application/zip",
-                "Content-Disposition": "attachment; filename=exchanges-2026-10-01-101500.zip",
-              },
-            });
-          }),
-        ],
+        handlers: [exchanges({ total: 3 }).handler, ...filterOptions, exportCheck(), ...exportInBackground(exported)],
       });
 
       await screen.findAllByRole("checkbox", { name: /^Select (?!all\b)/ });
@@ -410,27 +606,19 @@ describe("the exchanges list", () => {
 
       expect(screen.queryByRole("button", { name: "Retry selected…" })).not.toBeInTheDocument();
       await user.click(screen.getByRole("button", { name: "Export files" }));
+      await vi.waitFor(() => expect(exported).toEqual([{ ids: [exchange(0).id, exchange(2).id] }]));
 
-      await vi.waitFor(() => expect(saved).toEqual(["exchanges-2026-10-01-101500.zip"]));
-      expect(exported).toEqual([{ ids: [exchange(0).id, exchange(2).id] }]);
+      // Downloaded from the link once it's done, not held in the page's memory first.
+      tell({ id: "exp-1", status: "Done" });
+      await vi.waitFor(() => expect(followed).toEqual(["/api/background/exp-1/file"]));
     });
 
     it("over an unfiltered list, select all matching still sends a filter that matches everything", async () => {
       const exported: unknown[] = [];
-      URL.createObjectURL = vi.fn(() => "blob:export");
-      URL.revokeObjectURL = vi.fn();
       vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 
       const { user } = renderApp("/exchanges", {
-        handlers: [
-          exchanges({ total: 30 }).handler,
-          ...filterOptions,
-          exportCheck(0, 30),
-          http.post(apiPath("/xchanges/export"), async ({ request }) => {
-            exported.push(await request.json());
-            return new HttpResponse(new Uint8Array([0x50, 0x4b]), { headers: { "Content-Type": "application/zip" } });
-          }),
-        ],
+        handlers: [exchanges({ total: 30 }).handler, ...filterOptions, exportCheck(0, 30), ...exportInBackground(exported)],
       });
 
       await user.click(await screen.findByRole("checkbox", { name: "Select all on this page" }));
@@ -439,24 +627,15 @@ describe("the exchanges list", () => {
 
       // An empty filter would read as no filter, and select nothing.
       await vi.waitFor(() => expect(exported).toEqual([{ filter: "filter=LatestOnly%3A1%3Afalse", excludeIds: [] }]));
+      tell({ id: "exp-1", status: "Done" });
     });
 
     it("says first when some exchanges are past the files storage keeps, and exports the rest on confirm", async () => {
       const exported: unknown[] = [];
-      URL.createObjectURL = vi.fn(() => "blob:export");
-      URL.revokeObjectURL = vi.fn();
       vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
 
       const { user } = renderApp("/exchanges", {
-        handlers: [
-          exchanges({ total: 3 }).handler,
-          ...filterOptions,
-          exportCheck(1, 3),
-          http.post(apiPath("/xchanges/export"), async ({ request }) => {
-            exported.push(await request.json());
-            return new HttpResponse(new Uint8Array([0x50, 0x4b]), { headers: { "Content-Type": "application/zip" } });
-          }),
-        ],
+        handlers: [exchanges({ total: 3 }).handler, ...filterOptions, exportCheck(1, 3), ...exportInBackground(exported)],
       });
 
       await screen.findAllByRole("checkbox", { name: /^Select (?!all\b)/ });
@@ -471,6 +650,7 @@ describe("the exchanges list", () => {
 
       await user.click(within(dialog).getByRole("button", { name: "Export the other 2 exchanges" }));
       await vi.waitFor(() => expect(exported).toHaveLength(1));
+      tell({ id: "exp-1", status: "Done" });
     });
 
     it("downloads nothing when none of the selection has files left, and says why", async () => {
@@ -500,15 +680,15 @@ describe("the exchanges list", () => {
 
     it("past the limit, says why it can't rather than failing on the server", async () => {
       const { user } = renderApp("/exchanges?status=failed", {
-        handlers: [exchanges({ total: 600 }).handler, ...filterOptions],
+        handlers: [exchanges({ total: 60000 }).handler, ...filterOptions],
       });
 
       await user.click(await screen.findByRole("checkbox", { name: "Select all on this page" }));
-      await user.click(screen.getByRole("button", { name: "Select all 600 matching this filter" }));
+      await user.click(screen.getByRole("button", { name: /^Select all .* matching this filter$/ }));
 
       const button = screen.getByRole("button", { name: "Export files" });
       expect(button).toBeDisabled();
-      expect(button).toHaveAttribute("title", expect.stringContaining("at most 500 exchanges"));
+      expect(button).toHaveAttribute("title", expect.stringContaining("at most 50,000 exchanges"));
     });
   });
 });

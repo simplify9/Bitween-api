@@ -36,7 +36,8 @@ public class BulkRetryPreview : ICommandHandler<XchangeBulkRetry, object>
         // describes an action only they can take, so it is gated with the action.
         await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Exchanges.Operate);
 
-        var prepared = await new BulkRetryPlanner(_dbContext).Prepare(request, BulkRetryPlanner.MaxSelection);
+        var prepared = await new BulkRetryPlanner(_dbContext).Prepare(request, BulkRetryPlanner.MaxSelection,
+            listTargets: Services.Background.BackgroundRequestScope.Current == null);
         return prepared.Plan;
     }
 }

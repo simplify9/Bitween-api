@@ -1,6 +1,6 @@
 import type { ExchangeBreakdown, ExchangeStatus } from "../../api";
 import { STATUS_LABELS } from "./journey";
-import { COUNT_CAP, STATUSES, countLabel } from "./exchangeFilters";
+import { STATUSES, allCount, countLabel } from "./exchangeFilters";
 
 const DOT: Record<ExchangeStatus | "all", string> = {
   all: "bg-ink-400",
@@ -37,10 +37,11 @@ export function StatusTabs({
   latest: boolean;
   onToggleLatest: () => void;
 }) {
-  const sum = counts ? STATUSES.reduce((n, s) => n + Math.min(counts[s], COUNT_CAP + 1), 0) : undefined;
+  // A status still being counted shows no number, as while it loads, rather than a mark that reads
+  // as something broken.
   const items: { key: ExchangeStatus | "all"; label: string; count: number | undefined }[] = [
-    { key: "all", label: "All", count: sum },
-    ...STATUSES.map((s) => ({ key: s, label: STATUS_LABELS[s], count: counts?.[s] })),
+    { key: "all", label: "All", count: counts && allCount(counts) },
+    ...STATUSES.map((s) => ({ key: s, label: STATUS_LABELS[s], count: counts?.[s] ?? undefined })),
   ];
 
   return (

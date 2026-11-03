@@ -47,15 +47,23 @@ function StatTile({
   to,
   accent,
   title,
+  failed,
 }: {
   label: string;
+  /** Undefined until its numbers arrive. */
   value: ReactNode;
   sub?: ReactNode;
   to: string;
   accent?: "danger" | "warn";
   /** For a number whose meaning its label cannot carry on its own. */
   title?: string;
+  /** Its numbers couldn't be read: says so instead of loading forever. */
+  failed?: boolean;
 }) {
+  if (value === undefined) {
+    value = failed ? "-" : <span className="inline-block h-6 w-14 animate-pulse rounded bg-ink-100 align-middle" />;
+    sub = failed ? "unavailable right now" : "loading…";
+  }
   return (
     <Link
       to={to}
@@ -74,6 +82,17 @@ function StatTile({
       </p>
       {sub && <p className="mt-0.5 text-xs text-ink-500">{sub}</p>}
     </Link>
+  );
+}
+
+/** A panel's body until its numbers arrive, or once they couldn't be read. */
+function Waiting({ failed, label }: { failed: boolean; label?: string }) {
+  return failed ? (
+    <EmptyState title="Unavailable right now">
+      This couldn't be read in time. The dashboard tries again every minute.
+    </EmptyState>
+  ) : (
+    <LoadingBlock label={label} />
   );
 }
 
@@ -103,53 +122,97 @@ export function DashboardPage() {
   const rabbitMqConfigured = useRabbitMqManagementConfigured();
   const [healthOffset, setHealthOffset] = useState(0);
   const canSeeAdapters = useSessionCan("subscriptions.view");
-  const dashboard = useQuery({
-    queryKey: keys.dashboard,
-    queryFn: () => api.getDashboard(),
-    refetchInterval: 60_000,
-    placeholderData: keepPreviousData,
-  });
+  // Each part is asked for on its own and fills in when it arrives: the page opens at once, and a
+  // slow part keeps only its own tile waiting.
   const metrics = useQuery({
     queryKey: keys.metrics.overview,
     queryFn: () => api.getMetricsOverview(),
     refetchInterval: 60_000,
     placeholderData: keepPreviousData,
   });
-  const insights = useQuery({ queryKey: keys.metrics.insights, queryFn: () => api.getInsights() });
+  const insights = useQuery({
+    queryKey: keys.metrics.insights,
+    queryFn: () => api.getInsights(),
+    refetchInterval: 60_000,
+  });
+  const subscriptions = useQuery({
+    queryKey: keys.subscriptions.rows,
+    queryFn: () => api.listSubscriptionRows(),
+    refetchInterval: 60_000,
+  });
+  const pendingRetries = useQuery({
+    queryKey: keys.dashboardPendingRetries,
+    queryFn: () => api.getPendingRetries(),
+    refetchInterval: 60_000,
+  });
+  const queueAlerts = useQuery({
+    queryKey: keys.dashboardQueueAlerts,
+    queryFn: () => api.getQueueAlerts(),
+    refetchInterval: 60_000,
+  });
+  // Read from the exchange tables, which grow with traffic: the parts most likely to be slow. Not
+  // retried - the next minute's refresh asks again, rather than three retries piling onto a
+  // database already struggling with it.
+  const latestFailures = useQuery({
+    queryKey: keys.dashboardLatestFailures,
+    queryFn: () => api.getLatestFailures(),
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  const failuresToActOn = useQuery({
+    queryKey: keys.dashboardFailuresToActOn,
+    queryFn: () => api.getFailuresToActOn(),
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  const inFlight = useQuery({
+    queryKey: keys.dashboardInFlight,
+    queryFn: () => api.getInFlight(),
+    refetchInterval: 60_000,
+    retry: false,
+  });
+  const retrySummary = useQuery({
+    queryKey: keys.dashboardRetrySummary,
+    queryFn: () => api.getRetrySummary(),
+    refetchInterval: 60_000,
+    retry: false,
+  });
 
-  const data = dashboard.data;
+  // Each undefined until its numbers arrive.
   const o = metrics.data;
-  if ((dashboard.isError && !data) || (metrics.isError && !o))
-    return (
-      <EmptyState title="Couldn't load the dashboard">
-        Something went wrong fetching dashboard data. It'll keep retrying in the background - try refreshing the page.
-      </EmptyState>
-    );
-  if (!data || !o) return <LoadingBlock label="Putting the picture together…" />;
-
-  const queueAlerts = rabbitMqConfigured ? data.queueAlerts : null;
-  const queueAlertsSub = !rabbitMqConfigured
-    ? "needs RabbitMQ management configured"
-    : queueAlerts === null
-      ? "unavailable right now"
-      : "live consumer health";
-  const delta = o.last24h.total - o.previous24h.total;
-  const failed24 = o.last24h.failed + o.last24h.badResponse;
-  const perHour = hours(o);
-  const days = o.daily.map((d) => ({
+  const delta = o && o.last24h.total - o.previous24h.total;
+  const failed24 = o && o.last24h.failed + o.last24h.badResponse;
+  const perHour = o && hours(o);
+  const days = o?.daily.map((d) => ({
     at: d.day,
     values: { succeeded: d.succeeded, badResponse: d.badResponse, failed: d.failed },
   }));
-  const moved30 = o.daily.reduce((n, d) => n + d.bytes, 0);
-  const sinceRecent = o.since && Date.now() - Date.parse(o.since) < 30 * 86_400_000;
+  const moved30 = o?.daily.reduce((n, d) => n + d.bytes, 0);
+  const since = o?.since && Date.now() - Date.parse(o.since) < 30 * 86_400_000 ? o.since : null;
+  const waitingForMetrics = <Waiting failed={metrics.isError} />;
 
-  const unhealthy = [
-    ...data.attention.failingSubscriptions.map((s) => ({ ...s, paused: false })),
-    ...data.attention.pausedSubscriptions.map((s) => ({ ...s, consecutiveFailures: 0, paused: true })),
+  // Null when it can't be counted, which never shows as zero.
+  const alerts = rabbitMqConfigured ? queueAlerts.data : null;
+  const queueAlertsSub = !rabbitMqConfigured
+    ? "needs RabbitMQ management configured"
+    : alerts === null
+      ? "unavailable right now"
+      : "live consumer health";
+  const pending = pendingRetries.data;
+  const toActOn = failuresToActOn.data;
+
+  const subscriptionNames = new Map(subscriptions.data?.map((s) => [s.id, s.name]));
+  const latest = latestFailures.data?.map((f) => ({
+    ...f,
+    subscriptionName: f.subscriptionId === null ? null : (subscriptionNames.get(f.subscriptionId) ?? null),
+  }));
+  const unhealthy = subscriptions.data && [
+    ...subscriptions.data.filter((s) => s.consecutiveFailures > 0).map((s) => ({ ...s, paused: false })),
+    ...subscriptions.data.filter((s) => s.paused).map((s) => ({ ...s, consecutiveFailures: 0, paused: true })),
   ];
   // The list can shrink on a refetch; don't leave the page pointing past its end. Reset the stored
   // offset too, or a later refetch that grows the list again jumps back to the old page.
-  const healthStart = healthOffset < unhealthy.length ? healthOffset : 0;
+  const healthStart = unhealthy && healthOffset < unhealthy.length ? healthOffset : 0;
   if (healthStart !== healthOffset) setHealthOffset(0);
 
   return (
@@ -157,101 +220,122 @@ export function DashboardPage() {
       <PageHeader
         title="Dashboard"
         description={`Traffic and health at a glance - every number links to the page where you can act on it.${
-          sinceRecent ? ` Metrics go back to ${formatDate(o.since!)}.` : ""
+          since ? ` Metrics go back to ${formatDate(since)}.` : ""
         }`}
       />
 
-      <GettingStarted exchangesSeen={o.daily.some((d) => d.total > 0) || o.last24h.total > 0} />
+      {o && <GettingStarted exchangesSeen={o.daily.some((d) => d.total > 0) || o.last24h.total > 0} />}
 
       <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">
         <StatTile
           label="Exchanges, last 24 hours"
-          value={compact(o.last24h.total)}
-          title={whole(o.last24h.total)}
+          value={o && compact(o.last24h.total)}
+          title={o && whole(o.last24h.total)}
           sub={
-            <>
-              {delta >= 0 ? "+" : ""}
-              {compact(delta)} vs the day before
-              {data.inFlight > 0 && <> · {compact(data.inFlight)} in flight</>}
-            </>
+            delta !== undefined && (
+              <>
+                {delta >= 0 ? "+" : ""}
+                {compact(delta)} vs the day before
+                {inFlight.data !== undefined && inFlight.data > 0 && <> · {compact(inFlight.data)} in flight</>}
+                {inFlight.isError && inFlight.data === undefined && <> · in flight unavailable</>}
+              </>
+            )
           }
           to="/exchanges"
+          failed={metrics.isError}
         />
         <StatTile
           label="Failed or rejected, last 24 hours"
-          value={compact(failed24)}
-          sub={failed24 > 0 ? `${compact(o.last24h.badResponse)} bad responses` : "nothing failed"}
+          value={failed24 === undefined ? undefined : compact(failed24)}
+          sub={o && (failed24 ? `${compact(o.last24h.badResponse)} bad responses` : "nothing failed")}
           to="/exchanges?status=failed"
-          accent={failed24 > 0 ? "danger" : undefined}
+          accent={failed24 ? "danger" : undefined}
+          failed={metrics.isError}
         />
         <StatTile
           label="Success rate, 7 days"
-          value={percent(o.last7d.successRate)}
-          sub={o.last7d.total > 0 ? `of ${compact(o.last7d.total)} exchanges` : "nothing finished yet"}
+          value={o && percent(o.last7d.successRate)}
+          sub={o && (o.last7d.total > 0 ? `of ${compact(o.last7d.total)} exchanges` : "nothing finished yet")}
           to="/exchanges?status=success"
+          failed={metrics.isError}
         />
         <StatTile
           label="End-to-end time, last 24 hours"
-          value={o.last24h.p95Ms === null ? "-" : formatDurationMs(o.last24h.p95Ms)}
+          value={o && (o.last24h.p95Ms === null ? "-" : formatDurationMs(o.last24h.p95Ms))}
           sub={
-            o.last24h.p50Ms === null
+            o &&
+            (o.last24h.p50Ms === null
               ? "from arriving to done"
-              : `95% within; half within ${formatDurationMs(o.last24h.p50Ms)}`
+              : `95% within; half within ${formatDurationMs(o.last24h.p50Ms)}`)
           }
           to="/exchanges"
           title="From an exchange arriving to its being finished, including any wait in the queue."
+          failed={metrics.isError}
         />
         {/* "Failed" counts attempts, and a chain retried nine times is nine of them - none of which
             is the current state of anything. This counts the ends of chains: the problems. */}
         <StatTile
           label="Failures to act on"
-          // The search stops counting past its cap and reports the cap + 1.
-          value={data.failuresToActOn > 10_000 ? "10,000+" : whole(data.failuresToActOn)}
-          sub={data.failuresToActOn > 0 ? "newest attempt of each chain" : "every failure was retried"}
+          // The count stops past its cap and reports the cap + 1.
+          value={toActOn === undefined ? undefined : toActOn > 10_000 ? "10,000+" : whole(toActOn)}
+          sub={toActOn ? "newest attempt of each chain" : "every failure was retried"}
           to="/exchanges?status=failed&latest=1"
-          accent={data.failuresToActOn > 0 ? "danger" : undefined}
+          accent={toActOn ? "danger" : undefined}
           title="Failures that nothing has been retried from yet. A chain of nine failed attempts counts once - as the attempt at the end of it, which is the one still to deal with."
+          failed={failuresToActOn.isError}
         />
         <StatTile
           label="Pending auto-retries"
-          value={whole(data.pendingRetries)}
-          sub={data.pendingRetries > 0 ? "waiting for their slot" : "queue is clear"}
+          value={pending === undefined ? undefined : whole(pending)}
+          sub={pending ? "waiting for their slot" : "queue is clear"}
           to="/scheduled-retries"
-          accent={data.pendingRetries > 0 ? "warn" : undefined}
+          accent={pending ? "warn" : undefined}
+          failed={pendingRetries.isError}
         />
         <StatTile
           label="Queue alerts"
-          value={queueAlerts ?? "-"}
+          value={alerts === null ? "-" : alerts}
           sub={queueAlertsSub}
           to="/queue-health"
-          accent={queueAlerts !== null && queueAlerts > 0 ? "warn" : undefined}
+          accent={alerts ? "warn" : undefined}
         />
         <StatTile
           label="Gone quiet"
-          value={o.silent.length}
-          sub={o.silent.length > 0 ? "usually busy, now silent" : "every busy subscription is busy"}
+          value={o?.silent.length}
+          sub={o && (o.silent.length > 0 ? "usually busy, now silent" : "every busy subscription is busy")}
           to="/subscriptions?health=silent"
-          accent={o.silent.length > 0 ? "warn" : undefined}
+          accent={o?.silent.length ? "warn" : undefined}
           title="Subscriptions that normally have traffic and have had none for well over their usual gap. Nothing fails when a partner stops sending, so nothing else would say so."
+          failed={metrics.isError}
         />
       </div>
 
       <div className="mb-4 grid gap-4 xl:grid-cols-2">
         <Panel title="Traffic, last 48 hours" description="Exchanges per hour, with the same hours a week ago.">
-          <TimeBars
-            points={perHour}
-            series={OUTCOMES}
-            compare={{ label: "A week ago", values: perHour.map((p) => p.weekAgo) }}
-            label={(at) => hourLabel.format(new Date(at))}
-            tick={(at) => hourTick.format(new Date(at))}
-            every={8}
-          />
+          {!perHour ? (
+            waitingForMetrics
+          ) : (
+            <TimeBars
+              points={perHour}
+              series={OUTCOMES}
+              compare={{ label: "A week ago", values: perHour.map((p) => p.weekAgo) }}
+              label={(at) => hourLabel.format(new Date(at))}
+              tick={(at) => hourTick.format(new Date(at))}
+              every={8}
+            />
+          )}
         </Panel>
         <Panel
           title="Volume, last 30 days"
-          description={`Exchanges per day; ${bytes(moved30)} moved in and out over the month.`}
+          description={
+            moved30 === undefined
+              ? "Exchanges per day."
+              : `Exchanges per day; ${bytes(moved30)} moved in and out over the month.`
+          }
         >
-          {days.length === 0 ? (
+          {!days ? (
+            waitingForMetrics
+          ) : days.length === 0 ? (
             <EmptyState title="No traffic yet">Once exchanges flow, each day's volume shows here.</EmptyState>
           ) : (
             <TimeBars
@@ -270,7 +354,9 @@ export function DashboardPage() {
           title="Gone quiet"
           description="Subscriptions that usually have traffic and have had none for well over their usual gap."
         >
-          {o.silent.length === 0 ? (
+          {!o ? (
+            waitingForMetrics
+          ) : o.silent.length === 0 ? (
             <EmptyState icon={<BellOff />} title="Nothing has gone quiet">
               Every subscription with regular traffic still has it.
             </EmptyState>
@@ -295,7 +381,9 @@ export function DashboardPage() {
         </Panel>
 
         <Panel title="Subscription health" description="Subscriptions that aren't running clean.">
-          {unhealthy.length === 0 ? (
+          {!unhealthy ? (
+            <Waiting failed={subscriptions.isError} />
+          ) : unhealthy.length === 0 ? (
             <EmptyState title="All subscriptions healthy">No failures piling up, nothing paused.</EmptyState>
           ) : (
             <>
@@ -350,11 +438,13 @@ export function DashboardPage() {
 
       <div className="mb-4 grid gap-4 lg:grid-cols-2">
         <Panel title="Latest failures" description="The most recent exchanges that need a look.">
-          {data.latestFailures.length === 0 ? (
+          {!latest ? (
+            <Waiting failed={latestFailures.isError} label="Finding the latest failures…" />
+          ) : latest.length === 0 ? (
             <EmptyState title="Nothing has failed">When an exchange fails, it shows up here first.</EmptyState>
           ) : (
             <ul className="space-y-2.5">
-              {data.latestFailures.map((f) => (
+              {latest.map((f) => (
                 <li key={f.id} className="text-sm">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <XchangeId id={f.id} />
@@ -387,16 +477,18 @@ export function DashboardPage() {
         <Panel
           title="Chains that keep failing"
           description={
-            data.retriesLast7Days.finished === 0
+            !retrySummary.data || retrySummary.data.retriesLast7Days.finished === 0
               ? "Retried repeatedly and still failing."
-              : `Retried repeatedly and still failing. Of retries in the last 7 days, ${data.retriesLast7Days.succeeded} of ${data.retriesLast7Days.finished} eventually worked.`
+              : `Retried repeatedly and still failing. Of retries in the last 7 days, ${retrySummary.data.retriesLast7Days.succeeded} of ${retrySummary.data.retriesLast7Days.finished} eventually worked.`
           }
         >
-          {data.failingChains.length === 0 ? (
+          {!retrySummary.data ? (
+            <Waiting failed={retrySummary.isError} label="Reading the retry chains…" />
+          ) : retrySummary.data.failingChains.length === 0 ? (
             <EmptyState title="No chain is stuck">Nothing has been retried more than once and left failing.</EmptyState>
           ) : (
             <ul className="space-y-2.5">
-              {data.failingChains.map((c) => (
+              {retrySummary.data.failingChains.map((c) => (
                 <li key={c.id} className="text-sm">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <Link
@@ -438,32 +530,42 @@ export function DashboardPage() {
 
       <div className="mb-4 grid gap-4 lg:grid-cols-3">
         <Panel title="Busiest subscriptions" description="Exchanges over the last 7 days.">
-          <RankedBars
-            rows={o.busiestSubscriptions.map((s) => ({
-              key: s.subscriptionId,
-              // Counted while it existed; deleted since, so there is nothing to open.
-              name: s.name ?? `Deleted subscription #${s.subscriptionId}`,
-              to: s.name ? subscriptionPath(s.subscriptionId) : null,
-              ok: s.total - s.failed - s.badResponse,
-              bad: s.failed + s.badResponse,
-            }))}
-            empty="Once exchanges flow, the busiest pipelines rank here."
-          />
+          {!o ? (
+            waitingForMetrics
+          ) : (
+            <RankedBars
+              rows={o.busiestSubscriptions.map((s) => ({
+                key: s.subscriptionId,
+                // Counted while it existed; deleted since, so there is nothing to open.
+                name: s.name ?? `Deleted subscription #${s.subscriptionId}`,
+                to: s.name ? subscriptionPath(s.subscriptionId) : null,
+                ok: s.total - s.failed - s.badResponse,
+                bad: s.failed + s.badResponse,
+              }))}
+              empty="Once exchanges flow, the busiest pipelines rank here."
+            />
+          )}
         </Panel>
         <Panel title="Busiest partners" description="Exchanges over the last 24 hours.">
-          <RankedBars
-            rows={o.busiestPartners.map((p) => ({
-              key: p.partnerId,
-              name: p.name ?? `Deleted partner #${p.partnerId}`,
-              to: p.name ? `/partners/${p.partnerId}` : null,
-              ok: p.total - p.failed,
-              bad: p.failed,
-            }))}
-            empty="No partner has sent or received anything today."
-          />
+          {!o ? (
+            waitingForMetrics
+          ) : (
+            <RankedBars
+              rows={o.busiestPartners.map((p) => ({
+                key: p.partnerId,
+                name: p.name ?? `Deleted partner #${p.partnerId}`,
+                to: p.name ? `/partners/${p.partnerId}` : null,
+                ok: p.total - p.failed,
+                bad: p.failed,
+              }))}
+              empty="No partner has sent or received anything today."
+            />
+          )}
         </Panel>
         <Panel title="Slowest adapters" description="Time per call, 95th percentile, last 24 hours.">
-          {o.slowestAdapters.length === 0 ? (
+          {!o ? (
+            waitingForMetrics
+          ) : o.slowestAdapters.length === 0 ? (
             <EmptyState title="Nothing to rank yet">Adapters with five or more calls in a day rank here.</EmptyState>
           ) : (
             <ul className="space-y-2 text-sm">
@@ -490,7 +592,7 @@ export function DashboardPage() {
         </Panel>
       </div>
 
-      {o.backlog.length > 1 && (
+      {o && o.backlog.length > 1 && (
         <Panel
           title="Broker backlog, last 24 hours"
           description="Messages waiting, being retried and dead-lettered, every five minutes."
@@ -510,7 +612,7 @@ export function DashboardPage() {
         description="Configuration that is switched off, unused or out of date - worth a look when tidying up."
       >
         {!insights.data ? (
-          <LoadingBlock label="Looking over the configuration…" />
+          <Waiting failed={insights.isError} label="Looking over the configuration…" />
         ) : insights.data.insights.length === 0 ? (
           <EmptyState title="Nothing to tidy">Everything configured is in use.</EmptyState>
         ) : (

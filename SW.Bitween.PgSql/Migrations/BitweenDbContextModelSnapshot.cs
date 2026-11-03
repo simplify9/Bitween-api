@@ -679,6 +679,100 @@ namespace SW.Bitween.PgSql.Migrations
                     b.ToTable("AuditEntries", "infolink");
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.BackgroundRequest", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("id");
+
+                    b.Property<int?>("Done")
+                        .HasColumnType("integer")
+                        .HasColumnName("done");
+
+                    b.Property<DateTime?>("FinishedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("finished_on");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("label");
+
+                    b.Property<string>("Node")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("node");
+
+                    b.Property<string>("Owner")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("owner");
+
+                    b.Property<string>("Page")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)")
+                        .HasColumnName("page");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)")
+                        .HasColumnName("path");
+
+                    b.Property<byte[]>("Result")
+                        .HasColumnType("bytea")
+                        .HasColumnName("result");
+
+                    b.Property<string>("ResultContentType")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("result_content_type");
+
+                    b.Property<string>("ResultDisposition")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("result_disposition");
+
+                    b.Property<string>("ResultKey")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("result_key");
+
+                    b.Property<int?>("ResultStatus")
+                        .HasColumnType("integer")
+                        .HasColumnName("result_status");
+
+                    b.Property<DateTime>("StartedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("started_on");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)")
+                        .HasColumnName("summary");
+
+                    b.Property<int?>("Total")
+                        .HasColumnType("integer")
+                        .HasColumnName("total");
+
+                    b.HasKey("Id")
+                        .HasName("pk_background_request");
+
+                    b.HasIndex("StartedOn")
+                        .HasDatabaseName("ix_background_request_started_on");
+
+                    b.HasIndex("Owner", "StartedOn")
+                        .HasDatabaseName("ix_background_request_owner_started_on");
+
+                    b.ToTable("background_request", "infolink");
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Cluster.ClusterLease", b =>
                 {
                     b.Property<string>("Id")
@@ -2835,6 +2929,13 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasIndex("SubscriptionId")
                         .HasDatabaseName("ix_xchange_subscription_id");
 
+                    b.HasIndex(new[] { "StartedOn" }, "ix_xchange_retries_started_on")
+                        .HasDatabaseName("ix_xchange_retries_started_on")
+                        .HasFilter("retry_for IS NOT NULL")
+                        .HasAnnotation("Npgsql:CreatedConcurrently", true);
+
+                    NpgsqlIndexBuilderExtensions.IncludeProperties(b.HasIndex(new[] { "StartedOn" }, "ix_xchange_retries_started_on"), new[] { "Id", "RetryFor" });
+
                     b.ToTable("xchange", "infolink");
                 });
 
@@ -3069,6 +3170,11 @@ namespace SW.Bitween.PgSql.Migrations
 
                     b.HasIndex("SubscriptionId", "FinishedOn")
                         .HasDatabaseName("ix_xchange_result_subscription_id_finished_on")
+                        .HasAnnotation("Npgsql:CreatedConcurrently", true);
+
+                    b.HasIndex(new[] { "Id" }, "ix_xchange_result_failed")
+                        .HasDatabaseName("ix_xchange_result_failed")
+                        .HasFilter("NOT success")
                         .HasAnnotation("Npgsql:CreatedConcurrently", true);
 
                     b.ToTable("xchange_result", "infolink");

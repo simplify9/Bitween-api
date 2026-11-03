@@ -8,6 +8,8 @@
 
 The Exchanges page filters by status, subscription, partner, information type, exchange ids, correlation id, a promoted property value and a date range. Pick a promoted property to search inside its value only; any part of the value matches, ignoring case. Filters live in the URL, so a filtered view can be shared as a link. The list reloads itself every 15 seconds by default (adjustable, or paused); **Refresh**, beside the pause button, reloads the list and its counts right away.
 
+Each status above the list shows how many exchanges it holds under the other filters, up to 10,000+. The list doesn't wait for them: its rows show at once, and how many match ("Showing 1-25 of ...") comes with the counts. A count that takes more than a few seconds, such as Processing across millions of exchanges, is finished on the server and shows up once it's ready; until then that status shows no number, and the page asks again every 15 seconds. The server runs 2 such counts at a time, each for up to 10 minutes, so one can wait its turn first; one whose page was closed before its turn is dropped. A finished count is kept for 5 minutes, then counted again, and a number stays on screen while it is. The chart works the same way. If the database takes too long to find the rows themselves, the list says so and offers **Try again**, rather than showing an empty list.
+
 - Search by **promoted property** to find a business document, such as an order number.
 - Search by **correlation id** to see every exchange in one flow, including exchanges created from responses.
 - Searching by **id** also finds retries of that exchange and the aggregation that collected it.
@@ -69,9 +71,11 @@ See [Scheduling](scheduling.md).
 
 ## Dashboard
 
-The dashboard, opened from the logo, shows today's exchanges, the 7-day success rate, today's failures, waiting retries, queue alerts, a 14-day chart, the latest failures, unhealthy subscriptions and the busiest subscriptions. The browser computes it from up to 1,000 recent exchanges, so figures on a busy instance are approximate.
+The dashboard, opened from the logo, shows the last 24 hours of exchanges, failures and end-to-end time, the 7-day success rate, waiting retries, queue alerts and subscriptions that have gone quiet. Below come traffic for the last 48 hours against the same hours a week before, volume for the last 30 days, unhealthy subscriptions, the latest failures, the busiest subscriptions and partners, the slowest adapters, and configuration worth tidying up. The traffic figures come from hourly metrics the server keeps, so they count every exchange however busy the instance is.
 
-Two parts come from the server instead. **Failures to act on** counts failed exchanges that are the newest attempt of their chain, of any age, and links to that search. **Chains that keep failing** lists the five retry chains with the most attempts, with the success rate of retries over the last 7 days.
+Some parts are read from the exchanges themselves, so on a busy instance they are the slowest: the latest failures, the count in flight, and the two below. **Failures to act on** counts failed exchanges that are the newest attempt of their chain, of any age, and links to that search. **Chains that keep failing** lists the five retry chains with the most attempts among those retried in the last 7 days, with the success rate of retries over the same 7 days.
+
+The page opens at once, and each tile and panel fills in when its own numbers arrive, so a slow one doesn't hold up the rest. One that can't be read in time shows as unavailable, and the dashboard asks again every minute.
 
 ## Audit trail
 
@@ -150,7 +154,7 @@ When a partner says a gateway refuses them, the gateway's page lists **Calls tur
 
 **Settings › About this instance** shows what this Bitween is and how it is set up, as the node that answered sees it: its version, the node's name and whether it runs data sources, the database and RabbitMQ checks `/health/ready` runs (run when the page opens), storage and queue prefix, which adapter runtimes (.NET, Python, Node.js) and pip/npm are on the node, the adapter editor's limits, rate limits, and the network and housekeeping settings that live in configuration. In a cluster, open it on each node to compare.
 
-The **Documents & storage** section of the Settings page shows the bucket's rules and what the settings do: how long files and exchanges are kept, when the job next runs, how many exchanges are listed without their files, and warnings such as exchanges that outlive their files, archives that come too late to hold them, aggregations that run less often than exchanges are kept, or a bucket that lets anyone read Bitween's files without credentials. Saving a change to these settings shows the same list and asks first.
+The **Documents & storage** section of the Settings page shows the bucket's rules and what the settings do: how long files and exchanges are kept, when the job next runs, when the oldest exchange started, and warnings such as exchanges that outlive their files, archives that come too late to hold them, aggregations that run less often than exchanges are kept, or a bucket that lets anyone read Bitween's files without credentials. Saving a change to these settings shows the same list and asks first.
 
 Exchange rows can outlive their files. Opening such a file says it was deleted by the retention policy, and so does retrying an exchange whose input has gone. A waiting retry for one is dropped with a reason.
 

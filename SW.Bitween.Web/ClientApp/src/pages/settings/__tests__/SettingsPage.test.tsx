@@ -163,7 +163,6 @@ const retention = (overrides: Partial<RetentionStatus> = {}): RetentionStatus =>
     cron: "0 0 4 * * ?",
     nextRun: "2026-10-01T04:00:00Z",
     dueNow: null,
-    withoutFiles: 12,
     countCap: 100000,
     oldest: "2026-01-01T00:00:00Z",
   },
@@ -300,6 +299,8 @@ describe("the settings page", () => {
     // The saved state, and the bucket's own rules with the one exchange files fall under marked.
     expect(await screen.findByText("What these settings do")).toBeVisible();
     expect(screen.getByText(/nothing removes them from the database/)).toBeVisible();
+    const oldest = screen.getByText("Oldest exchange").parentElement!;
+    expect(within(oldest).getByText(new Date("2026-01-01T00:00:00Z").toLocaleDateString(undefined, { dateStyle: "medium" }))).toBeVisible();
     const rules = within(screen.getByRole("table"));
     expect(rules.getByText("temp30/")).toBeVisible();
     expect(rules.getByText("Exchange files")).toBeVisible();

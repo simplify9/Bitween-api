@@ -85,15 +85,10 @@ public class ExchangeRetentionInfo
     /// <summary>Exchanges the next run would remove; null while retention is off.</summary>
     public int? DueNow { get; set; }
 
-    /// <summary>
-    /// Exchanges still kept but older than their files: listed without them. Null when the bucket keeps
-    /// files for ever or its rules are unknown.
-    /// </summary>
-    public int? WithoutFiles { get; set; }
-
     /// <summary>Counts stop at this many; a count equal to it means "at least".</summary>
     public int CountCap { get; set; }
 
+    /// <summary>When the oldest exchange still kept started; null when there are none.</summary>
     public DateTime? Oldest { get; set; }
 }
 

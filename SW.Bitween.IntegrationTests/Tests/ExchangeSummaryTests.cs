@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -63,7 +65,8 @@ public class ExchangeSummaryTests(BitweenFixture fixture)
     private static async Task<XchangeSummary> Summarise(AsyncServiceScope scope, params string[] filters)
     {
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        return (XchangeSummary)await new Summary(db, scope.Superuser()).Handle(new SearchyRequest(filters));
+        return (XchangeSummary)await new Summary(db, scope.Superuser(), scope.ServiceProvider.GetRequiredService<SlowCounts>())
+            .Handle(new SearchyRequest(filters));
     }
 
     private static async Task<List<string>> Search(AsyncServiceScope scope, params string[] filters)
@@ -71,7 +74,7 @@ public class ExchangeSummaryTests(BitweenFixture fixture)
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
         var response = (SearchyResponse<XchangeRow>)await new Resources.Xchanges.Search(db, xs, scope.Superuser())
-            .Handle(new SearchyRequest(filters) { PageSize = 50 });
+            .Handle(new SearchyRequest(filters) { PageSize = 50, CountRows = true });
         Assert.Equal(response.Result.Count(), response.TotalCount);
         return response.Result.Select(r => r.Id).ToList();
     }
@@ -176,6 +179,7 @@ public class ExchangeSummaryTests(BitweenFixture fixture)
         Assert.Equal(1, summary.Counts.Success);
         Assert.Equal(1, summary.Counts.BadResponse);
         Assert.Equal(2, summary.Counts.Failed);
+        Assert.False(summary.Counting);
 
         // No date range, so nothing to divide into buckets.
         Assert.Empty(summary.Buckets);
@@ -185,6 +189,97 @@ public class ExchangeSummaryTests(BitweenFixture fixture)
         var narrowed = await Summarise(scope, $"DocumentId:1:{seeded.DocumentId}", "ErrorContains:4:mapping");
         Assert.Equal(0, narrowed.Counts.Processing + narrowed.Counts.Success + narrowed.Counts.BadResponse);
         Assert.Equal(1, narrowed.Counts.Failed);
+    }
+
+    [Fact]
+    public async Task A_query_past_its_budget_is_cut_off_and_the_summary_carries_on()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        await using var transaction = await db.Database.BeginTransactionAsync();
+
+        // Stopped on the database when the budget runs out, rather than left to finish.
+        var watch = Stopwatch.StartNew();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(300));
+        var slow = await Summary.WithinBudget(db, deadline.Token,
+            async ct => (int?)await db.Database.SqlQueryRaw<int>("SELECT 1 AS \"Value\" FROM pg_sleep(10)").SingleAsync(ct));
+        Assert.Null(slow);
+        Assert.True(watch.Elapsed < TimeSpan.FromSeconds(5), $"Cut off after {watch.Elapsed}.");
+
+        // Whatever is still to count under the same budget isn't started.
+        Assert.Null(await Summary.WithinBudget(db, deadline.Token,
+            async ct => (int?)await db.Set<Document>().CountAsync(ct)));
+
+        // The transaction still answers: without going back to before the cancelled statement,
+        // Postgres refuses everything after it.
+        Assert.NotNull(await Summary.WithinBudget(db, CancellationToken.None,
+            async ct => (int?)await db.Set<Document>().CountAsync(ct)));
+    }
+
+    [Fact]
+    public async Task A_count_left_to_the_background_is_given_out_once_it_is_in()
+    {
+        var slowCounts = fixture.App.Services.GetRequiredService<SlowCounts>();
+        var key = $"test:{Guid.NewGuid():N}";
+        TimeSpan? commandTimeout = null;
+        async Task<int?> Count(BitweenDbContext db, CancellationToken ct)
+        {
+            commandTimeout = db.Database.GetCommandTimeout() is { } seconds ? TimeSpan.FromSeconds(seconds) : null;
+            return await db.Database.SqlQueryRaw<int>("SELECT 42 AS \"Value\" FROM pg_sleep(1)").SingleAsync(ct);
+        }
+
+        // Never too slow before, so the caller works it out itself.
+        Assert.False(slowCounts.TryGet<int?>(key, Count, out _));
+
+        // Too slow now: on its way, and nothing to give out yet.
+        slowCounts.Start<int?>(key, Count);
+        Assert.True(slowCounts.TryGet<int?>(key, Count, out var meanwhile));
+        Assert.Null(meanwhile);
+
+        var answer = (int?)null;
+        for (var waited = Stopwatch.StartNew(); answer == null && waited.Elapsed < TimeSpan.FromSeconds(20);)
+        {
+            await Task.Delay(100);
+            slowCounts.TryGet<int?>(key, Count, out answer);
+        }
+        Assert.Equal(42, answer);
+        // Not held to a request's 30 seconds.
+        Assert.Equal(TimeSpan.FromMinutes(10), commandTimeout);
+    }
+
+    [Fact]
+    public void A_view_since_a_moment_is_the_same_view_a_little_later_and_a_fixed_range_is_kept_exact()
+    {
+        var now = new DateTime(2026, 11, 2, 12, 0, 0, DateTimeKind.Utc);
+        string Since(DateTime from) => $"StartedOn:6:{from:O}";
+
+        // "Last 24 hours" asked twice, 15 seconds apart.
+        Assert.Equal(
+            Summary.ViewKey(new SearchyRequest([Since(now.AddDays(-1)), "DocumentId:1:5"]), now),
+            Summary.ViewKey(new SearchyRequest(["DocumentId:1:5", Since(now.AddDays(-1).AddSeconds(15))]), now.AddSeconds(15)));
+        Assert.NotEqual(
+            Summary.ViewKey(new SearchyRequest([Since(now.AddDays(-1))]), now),
+            Summary.ViewKey(new SearchyRequest([Since(now.AddHours(-1))]), now));
+
+        // With an end, the range doesn't move, so its dates are the view.
+        var fixedRange = new SearchyRequest([Since(now.AddDays(-2)), $"StartedOn:8:{now.AddDays(-1):O}"]);
+        Assert.Equal(Summary.ViewKey(fixedRange, now), Summary.ViewKey(fixedRange, now.AddHours(1)));
+        Assert.DoesNotContain("since", Summary.ViewKey(fixedRange, now));
+    }
+
+    [Fact]
+    public async Task Search_with_count_false_leaves_the_total_out()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
+        var seeded = await OneOfEach(db, xs, "Search Without Count Doc");
+
+        var response = (SearchyResponse<XchangeRow>)await new Resources.Xchanges.Search(db, xs, scope.Superuser())
+            .Handle(new SearchyRequest($"filter=DocumentId:1:{seeded.DocumentId}&count=false") { PageSize = 50 });
+
+        Assert.Equal(5, response.Result.Count());
+        Assert.Equal(0, response.TotalCount);
     }
 
     [Fact]

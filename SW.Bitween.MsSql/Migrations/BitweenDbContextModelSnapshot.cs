@@ -559,6 +559,84 @@ namespace SW.Bitween.MsSql.Migrations
                     b.ToTable("AuditEntries", (string)null);
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.BackgroundRequest", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(32)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<int?>("Done")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("FinishedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Label")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Node")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("Owner")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Page")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Path")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<byte[]>("Result")
+                        .HasColumnType("varbinary(max)");
+
+                    b.Property<string>("ResultContentType")
+                        .HasMaxLength(200)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<string>("ResultDisposition")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ResultKey")
+                        .HasMaxLength(500)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(500)");
+
+                    b.Property<int?>("ResultStatus")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("StartedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Summary")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int?>("Total")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StartedOn");
+
+                    b.HasIndex("Owner", "StartedOn");
+
+                    b.ToTable("BackgroundRequests", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.Cluster.ClusterLease", b =>
                 {
                     b.Property<string>("Id")

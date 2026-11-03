@@ -1,4 +1,5 @@
 import { ApiRequestError } from "../types";
+import { carriedOn, currentPage, resetBackground, takeShown, WAIT_SECONDS, type BackgroundStatus } from "./background";
 
 /**
  * All endpoints live under /api (UrlPrefix="api").
@@ -89,6 +90,7 @@ export const setToken = (jwt: string): void => {
 
 export const clearToken = (): void => {
   accessToken = null;
+  resetBackground();
   safeStorage(() => localStorage.removeItem(SIGNED_IN_KEY));
   channel?.postMessage({ type: "signed-out" } satisfies SessionMessage);
 };
@@ -198,6 +200,20 @@ export interface RequestOptions {
   file?: Blob;
   /** Lets a caller cancel the request - only `logout` needs this, and says why. */
   signal?: AbortSignal;
+  /**
+   * Work that can take long - prod's list to bring from, a bulk retry, an export - carried on in the
+   * background if it outlasts a few seconds, and shown in the header under this name meanwhile.
+   */
+  background?: string;
+  /** With `background`: how long the server waits before carrying it on, in seconds; three unless said. */
+  wait?: number;
+  /**
+   * With `background`: once it has finished, answers `{ id }` rather than collecting the answer - for
+   * a file the browser then downloads from a link, rather than holding it in memory.
+   */
+  leaveAnswer?: boolean;
+  /** With `background`: told its id once it carries on there. */
+  onBackground?: (id: string) => void;
 }
 
 /**
@@ -218,19 +234,29 @@ export async function request<T>(path: string, opts: RequestOptions = {}): Promi
 }
 
 /**
- * A file the server builds from a POST, such as a zip, with the name it gave the file. Goes through
- * the same sign-in handling as `request`; a refusal still comes back as the usual error.
+ * Sends a request and returns the successful response; see `request`.
+ *
+ * Work asked to carry on in the background (`background`, see `./background`) asks the server to
+ * answer within a few seconds or say it carried on, and the answer it keeps is what this then
+ * returns, as if the work had simply been slow. The page waiting for it never knows the difference.
  */
-export async function download(path: string, body: unknown): Promise<{ blob: Blob; fileName: string | null }> {
-  const res = await send(path, { method: "POST", body });
-  const fileName = /filename="?([^";]+)"?/i.exec(res.headers.get("content-disposition") ?? "")?.[1] ?? null;
-  return { blob: await res.blob(), fileName };
-}
-
-/** Sends a request and returns the successful response; see `request`. */
 async function send(path: string, opts: RequestOptions): Promise<Response> {
   const token = getToken();
   const method = opts.method ?? "GET";
+  const carryOn = Boolean(opts.background);
+
+  // "Open" in the header asked for this read's kept answer, rather than asking all over again.
+  const kept = carryOn && method === "GET" ? takeShown(path) : undefined;
+  if (kept) {
+    try {
+      return await send(`/background/${kept.id}/result`, {});
+    } catch {
+      /* no longer kept: asked again below */
+    }
+  }
+
+  const page = carryOn ? currentPage() : null;
+  const label = opts.background ?? null;
   // Backend command handlers (POST) bind a JSON body, so they always need
   // `Content-Type: application/json` - even a body-less command like logout.
   // Without it the framework rejects the call with 415 before the handler runs;
@@ -243,10 +269,26 @@ async function send(path: string, opts: RequestOptions): Promise<Response> {
       ...(sendJson ? { "Content-Type": "application/json" } : {}),
       ...(opts.file ? { "Content-Type": opts.file.type || "application/zip" } : {}),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(carryOn
+        ? {
+            Prefer: `respond-async, wait=${opts.wait ?? WAIT_SECONDS}`,
+            "X-Bitween-Page": encodeURIComponent(page!),
+            "X-Bitween-Label": encodeURIComponent(label!),
+          }
+        : {}),
     },
     body: opts.file ?? (sendJson ? JSON.stringify(opts.body ?? {}) : undefined),
     ...(opts.signal ? { signal: opts.signal } : {}),
   });
+
+  if (res.status === 202 && carryOn) {
+    const started = (await res.json()) as { id: string; status: BackgroundStatus };
+    opts.onBackground?.(started.id);
+    await carriedOn({ id: started.id, status: started.status, path: method === "GET" ? path : `${method} ${path}`, page, label });
+    if (opts.leaveAnswer)
+      return new Response(JSON.stringify({ id: started.id }), { headers: { "Content-Type": "application/json" } });
+    return await send(`/background/${started.id}/result`, {});
+  }
 
   if (res.status === 401 && !opts._retried) {
     const refreshed = await silentRefresh();

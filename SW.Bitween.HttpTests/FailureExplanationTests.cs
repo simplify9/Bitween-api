@@ -98,6 +98,39 @@ public class FailureExplanationTests(HttpFixture fixture) : IDisposable
     }
 
     [Fact]
+    public async Task An_attempt_is_explained_with_its_whole_retry_chain_even_the_attempts_after_it()
+    {
+        var (admin, xchangeId) = await FailedExchangeAsync();
+        var retried = await admin.PostAsJsonAsync($"/api/xchanges/{xchangeId}/retry", new { reason = "test", reset = false });
+        Assert.True(retried.IsSuccessStatusCode, $"retry answered {retried.StatusCode}");
+        // The retry fails the same way; waited for, so its outcome is in the chain rather than "still running".
+        for (var waited = 0; !await fixture.InDbAsync(db => db.Set<XchangeResult>().AsNoTracking()
+                 .AnyAsync(r => db.Set<Xchange>().Any(x => x.RetryFor == xchangeId && x.Id == r.Id))); waited += 100)
+        {
+            Assert.True(waited < 15_000, "the retry never finished");
+            await Task.Delay(100);
+        }
+        await ConfigureAsync(admin);
+        var model = new FakeModel("""{ "summary": "S", "cause": "C", "fix": "F" }""");
+        AiModels.ModelOverride = _ => model;
+
+        // The first attempt, opened after its retry: the chain still shows the attempt after it.
+        await Api.Json(await admin.PostAsJsonAsync("/api/xchangeexplanations", new { xchangeId }));
+
+        var sent = Assert.Single(model.Asked).Message;
+        Assert.Contains("This is attempt 1 of 2 in its retry chain.", sent);
+        Assert.Contains("<retry_chain>", sent);
+        var chain = sent[sent.IndexOf("<retry_chain>")..sent.IndexOf("</retry_chain>")].Split('\n');
+        var first = Assert.Single(chain, l => l.StartsWith("Attempt 1 (this one), from "));
+        var second = Assert.Single(chain, l => l.StartsWith("Attempt 2, from "));
+        // Both failed in mapping, the same way: each line says so, with the error's wording.
+        Assert.Contains(" UTC: failed: ", first);
+        Assert.Contains(" UTC: failed: ", second);
+        Assert.Equal(first[first.IndexOf(" UTC: ")..], second[second.IndexOf(" UTC: ")..]);
+        Assert.DoesNotContain("maybe", sent);
+    }
+
+    [Fact]
     public async Task Without_AI_set_up_nothing_is_read_or_sent()
     {
         var (admin, xchangeId) = await FailedExchangeAsync();

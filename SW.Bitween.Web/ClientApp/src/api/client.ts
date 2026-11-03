@@ -38,7 +38,8 @@ import type {
   DataSourceStatementUsage,
   DataSourceTelemetry,
   DataSourceTestResult,
-  DashboardData,
+  LatestFailure,
+  RetrySummary,
   ExchangeBreakdown,
   ExchangeQuery,
   ExchangeRow,
@@ -683,7 +684,13 @@ export interface ApiClient {
   getMirror(): Promise<MirrorStatus>;
   getMirrorProdKinds(): Promise<MirrorProdKinds>;
   getMirrorProd(section: MirrorBringSection, type?: string): Promise<MirrorProdListAnswer>;
-  bringFromProd(section: MirrorBringSection, keys: string[], apply: boolean): Promise<MirrorBring>;
+  bringFromProd(
+    section: MirrorBringSection,
+    keys: string[],
+    apply: boolean,
+    onBackground?: (id: string) => void,
+  ): Promise<MirrorBring>;
+  broughtInBackground(id: string): Promise<MirrorBring>;
   getMirrorSubscription(id: number): Promise<MirrorSubscriptionAnswer>;
   getMirrorTest(id: number): Promise<MirrorTest>;
   takeMirrorTest(id: number): Promise<MirrorTest>;
@@ -748,7 +755,7 @@ export interface ApiClient {
   ): Promise<Paged<NotificationChannelSend>>;
 
   // - exchanges -
-  searchExchanges(query: ExchangeQuery): Promise<Paged<ExchangeRow>>;
+  searchExchanges(query: ExchangeQuery, opts?: { count?: boolean }): Promise<Paged<ExchangeRow>>;
   getExchangeBreakdown(query: ExchangeQuery): Promise<ExchangeBreakdown>;
 
   // - audit trail -
@@ -775,8 +782,13 @@ export interface ApiClient {
   /** Retries many; exchanges with a pending auto-retry are skipped, not failed. */
   bulkRetryExchanges(selection: BulkRetrySelection, opts: { reset: boolean }): Promise<BulkRetryPlan>;
   previewBulkRetry(selection: BulkRetrySelection, opts: { reset: boolean }): Promise<BulkRetryPlan>;
-  /** The selection's input, mapped and handled files as one zip, a folder per exchange. */
-  exportExchangeFiles(selection: BulkRetrySelection): Promise<{ blob: Blob; fileName: string }>;
+  /**
+   * The selection's input, mapped and handled files as one zip, a folder per exchange, built in the
+   * background; answers the link that downloads it.
+   */
+  exportExchangeFiles(selection: BulkRetrySelection): Promise<{ url: string }>;
+  /** A link to the file a background request answered with, such as an export's zip. */
+  linkToBackgroundFile(id: string): Promise<{ url: string }>;
   /** How many of the selection's exchanges the export would come without files for. Changes nothing. */
   checkExchangeFilesExport(selection: BulkRetrySelection): Promise<ExportFilesCheck>;
   getRetryTree(id: string): Promise<RetryTree>;
@@ -813,7 +825,23 @@ export interface ApiClient {
   requeueDeadLetters(queueName: string): Promise<number>;
 
   // - dashboard -
-  getDashboard(): Promise<DashboardData>;
+  // One call per part, so a slow one fills in on its own tile rather than holding up the page.
+  /** The newest failed or badly answered exchanges of the last two weeks, at most six, newest first. */
+  getLatestFailures(): Promise<LatestFailure[]>;
+  /** Automatic retries waiting for their slot. */
+  getPendingRetries(): Promise<number>;
+  /** Queue alerts worth acting on. Null when the RabbitMQ management API is unavailable - never counts as zero. */
+  getQueueAlerts(): Promise<number | null>;
+  // The counts over the exchange tables, which grow with traffic.
+  /**
+   * Failures that are the newest attempt of their chain. Counts problems rather than attempts: a
+   * chain retried nine times is one of these, not nine. Capped like the exchange search, so a value
+   * above 10,000 means "more than that".
+   */
+  getFailuresToActOn(): Promise<number>;
+  /** Exchanges started in the last 24 hours and not finished yet. */
+  getInFlight(): Promise<number>;
+  getRetrySummary(): Promise<RetrySummary>;
 
   // Metrics, read from the hourly rows the server keeps.
   getMetricsOverview(): Promise<MetricsOverview>;

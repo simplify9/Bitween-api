@@ -1,10 +1,16 @@
 import { screen, within } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
+import { delay, http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { apiPath, renderApp } from "../../../__tests__/support/renderApp";
 import { metricsHandlers, overview, summary } from "../../../__tests__/support/metricsFixtures";
 
 const none = { result: [], totalCount: 0 };
+
+/** An answer that never comes, for a part still loading. */
+const never = async () => {
+  await delay("infinite");
+  return HttpResponse.json({});
+};
 
 /** A subscription row as GET /subscriptions sends it: `RawSubscription` in src/api/http/subscriptions.ts. */
 const subscription = (i: number, { failures = 0, paused = false } = {}) => ({
@@ -50,6 +56,7 @@ const dashboard = (subscriptions: ReturnType<typeof subscription>[], metrics = m
   http.get(apiPath("/dashboard/retrysummary"), () =>
     HttpResponse.json({ retriesLast7Days: { finished: 0, succeeded: 0 }, failingChains: [] }),
   ),
+  http.get(apiPath("/dashboard/failurestoacton"), () => HttpResponse.json({ total: 0 })),
   http.get(apiPath("/ops/alerts"), () => HttpResponse.json([])),
   http.get(apiPath("/subscriptions"), () =>
     HttpResponse.json({ result: subscriptions, totalCount: subscriptions.length }),
@@ -119,8 +126,115 @@ describe("the dashboard", () => {
         ...dashboard([subscription(0)]),
       ],
     });
-    expect(await screen.findByRole("heading", { name: "Subscription health" })).toBeVisible();
+    expect(await screen.findByText("All subscriptions healthy")).toBeVisible();
+    // The card waits for the metrics, which say whether anything has moved yet.
+    expect(await screen.findByText(/moved in and out over the month/)).toBeVisible();
     expect(screen.queryByRole("heading", { name: "Getting started" })).not.toBeInTheDocument();
+  });
+
+  it("shows a count that couldn't be read in time on its own tile, and the rest of the dashboard anyway", async () => {
+    renderApp("/dashboard", {
+      handlers: [
+        // A database timeout reaches the browser as a 500.
+        http.get(apiPath("/dashboard/failurestoacton"), () => new HttpResponse(null, { status: 500 })),
+        http.get(apiPath("/dashboard/retrysummary"), () => new HttpResponse(null, { status: 500 })),
+        http.get(apiPath("/xchanges"), ({ request }) =>
+          new URL(request.url).searchParams.getAll("filter").includes("StatusFilter:1:0")
+            ? new HttpResponse(null, { status: 500 })
+            : HttpResponse.json(none),
+        ),
+        ...dashboard([subscription(0, { failures: 2 })]),
+      ],
+    });
+
+    const tile = (await screen.findByText("Failures to act on")).closest("a")!;
+    expect(await within(tile).findByText("unavailable right now")).toBeVisible();
+    expect(within(tile).getByText("-")).toBeVisible();
+
+    // Not left looking like nothing is in flight.
+    const exchanges = screen.getByText("Exchanges, last 24 hours").closest("a")!;
+    expect(await within(exchanges).findByText(/in flight unavailable/)).toBeVisible();
+
+    const chains = within(screen.getByRole("heading", { name: "Chains that keep failing" }).closest("section")!);
+    expect(await chains.findByText("Unavailable right now")).toBeVisible();
+
+    const health = within(screen.getByRole("heading", { name: "Subscription health" }).closest("section")!);
+    expect(await health.findByText("Health page 1", { exact: true })).toBeVisible();
+  });
+
+  it("keeps the rest of the page when the metrics can't be read", async () => {
+    renderApp("/dashboard", {
+      handlers: [
+        http.get(apiPath("/metrics/overview"), () => new HttpResponse(null, { status: 500 })),
+        http.get(apiPath("/metrics/insights"), () => new HttpResponse(null, { status: 500 })),
+        ...dashboard([subscription(0, { failures: 2 })]),
+      ],
+    });
+
+    const exchanges = (await screen.findByText("Exchanges, last 24 hours")).closest("a")!;
+    expect(await within(exchanges).findByText("unavailable right now")).toBeVisible();
+    const traffic = within(screen.getByRole("heading", { name: "Traffic, last 48 hours" }).closest("section")!);
+    expect(traffic.getByText("Unavailable right now")).toBeVisible();
+    const housekeeping = within(screen.getByRole("heading", { name: "Housekeeping" }).closest("section")!);
+    expect(await housekeeping.findByText("Unavailable right now")).toBeVisible();
+
+    const health = within(screen.getByRole("heading", { name: "Subscription health" }).closest("section")!);
+    expect(await health.findByText("Health page 1", { exact: true })).toBeVisible();
+  });
+
+  it("opens at once, and each part fills in when it arrives", async () => {
+    renderApp("/dashboard", {
+      handlers: [
+        http.get(apiPath("/metrics/overview"), never),
+        http.get(apiPath("/dashboard/failurestoacton"), never),
+        // The latest failures; the in-flight count answers.
+        http.get(apiPath("/xchanges"), ({ request }) =>
+          new URL(request.url).searchParams.getAll("filter").includes("StatusFilter:1:0") ? HttpResponse.json(none) : never(),
+        ),
+        ...dashboard([subscription(0, { failures: 2 })]),
+      ],
+    });
+
+    const health = within((await screen.findByRole("heading", { name: "Subscription health" })).closest("section")!);
+    expect(await health.findByText("Health page 1", { exact: true })).toBeVisible();
+    const retries = screen.getByText("Pending auto-retries").closest("a")!;
+    expect(await within(retries).findByText("queue is clear")).toBeVisible();
+
+    for (const label of ["Failures to act on", "Exchanges, last 24 hours", "Gone quiet"])
+      expect(within(screen.getAllByText(label)[0].closest("a")!).getByText("loading…")).toBeVisible();
+    const latest = within(screen.getByRole("heading", { name: "Latest failures" }).closest("section")!);
+    expect(latest.getByText("Finding the latest failures…")).toBeVisible();
+  });
+
+  it("shows the latest failures without waiting for the metrics", async () => {
+    const failure = {
+      id: "0f1e2d3c4b5a69788796a5b4c3d2e1f0",
+      subscriptionId: 900000,
+      documentName: "ORDER",
+      status: false,
+      responseBad: null,
+      exception: "Request failed with status NotFound",
+      startedOn: "2026-10-01T10:00:00Z",
+    };
+    renderApp("/dashboard", {
+      handlers: [
+        http.get(apiPath("/metrics/overview"), never),
+        http.get(apiPath("/xchanges"), ({ request }) =>
+          HttpResponse.json(
+            new URL(request.url).searchParams.getAll("filter").includes("StatusFilter:1:3")
+              ? { result: [failure], totalCount: 1 }
+              : none,
+          ),
+        ),
+        ...dashboard([subscription(0, { failures: 2 })]),
+      ],
+    });
+
+    const latest = within((await screen.findByRole("heading", { name: "Latest failures" })).closest("section")!);
+    // Named from the subscription rows, which answer apart from it.
+    expect(await latest.findByRole("link", { name: "Health page 1" })).toBeVisible();
+    expect(latest.getByText("Request failed with status NotFound")).toBeVisible();
+    expect(within(screen.getByText("Exchanges, last 24 hours").closest("a")!).getByText("loading…")).toBeVisible();
   });
 
   it("reads its numbers from the metrics, and names subscriptions that have gone quiet", async () => {
@@ -160,7 +274,7 @@ describe("the dashboard", () => {
     });
 
     const exchanges = (await screen.findByText("Exchanges, last 24 hours")).closest("a")!;
-    expect(within(exchanges).getByText("12K")).toBeVisible();
+    expect(await within(exchanges).findByText("12K")).toBeVisible();
     expect(within(exchanges).getByText(/\+1.4K vs the day before/)).toBeVisible();
     expect(within(screen.getByText("Success rate, 7 days").closest("a")!).getByText("98.5%")).toBeVisible();
     expect(within(screen.getByText("End-to-end time, last 24 hours").closest("a")!).getByText("2.4s")).toBeVisible();

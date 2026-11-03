@@ -201,6 +201,13 @@ export const keys = {
   categories: ["subscription-categories"] as const,
   background: ["queue-health", "background"] as const,
   dashboard: ["dashboard"] as const,
+  // Under the dashboard's own key, so whatever refreshes the dashboard refreshes these too.
+  dashboardLatestFailures: ["dashboard", "latest-failures"] as const,
+  dashboardPendingRetries: ["dashboard", "pending-retries"] as const,
+  dashboardQueueAlerts: ["dashboard", "queue-alerts"] as const,
+  dashboardFailuresToActOn: ["dashboard", "failures-to-act-on"] as const,
+  dashboardInFlight: ["dashboard", "in-flight"] as const,
+  dashboardRetrySummary: ["dashboard", "retry-summary"] as const,
   metrics: {
     all: ["metrics"] as const,
     overview: ["metrics", "overview"] as const,
@@ -221,6 +228,7 @@ export const keys = {
     subscription: (id: number) => ["mirror", "subscription", id] as const,
     test: (id: number) => ["mirror", "test", id] as const,
     listed: (section: string) => ["mirror", "listed", section] as const,
+    brought: (id: string) => ["mirror", "brought", id] as const,
   },
 
   settings: {

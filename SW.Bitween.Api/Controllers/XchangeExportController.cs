@@ -44,10 +44,35 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
     : ControllerBase
 {
     /// <summary>
-    /// The most exchanges one zip takes - the bulk retry's ceiling, for the same reason: every file is
-    /// read from storage in sequence, inside the one request.
+    /// The most exchanges one zip takes when asked directly - the bulk retry's ceiling, for the same
+    /// reason: every file is read from storage in sequence, inside the one request.
     /// </summary>
     public const int Limit = 500;
+
+    /// <summary>
+    /// The most one zip takes carried on in the background, as the admin UI asks for it. The zip is built
+    /// on the node's temporary disk and kept in storage, and the browser downloads it from a link, straight
+    /// to disk; <see cref="MaxBytes"/> is what stops a zip of large files first.
+    /// </summary>
+    public const int MaxInBackground = 50_000;
+
+    /// <summary>
+    /// The largest zip built: a file that would take it past this is left out, and so are the exchanges
+    /// after the zip reaches it, with missing.txt saying so. Well inside the 2 GB of temporary disk the
+    /// Helm chart gives a node, with <see cref="BuildingInBackground"/> keeping it to one zip at a time.
+    /// Set lower by tests.
+    /// </summary>
+    public static long MaxBytes { get; internal set; } = 1L << 30;
+
+    /// <summary>
+    /// One export built in the background on a node at a time: each is up to <see cref="MaxBytes"/> on
+    /// its temporary disk, and two at once could fill it. Exports asked directly stream to the browser
+    /// instead, and take no disk.
+    /// </summary>
+    internal static readonly SemaphoreSlim BuildingInBackground = new(1, 1);
+
+    /// <summary>How often an export waiting its turn says so, which keeps its time limit from running out. Set shorter by tests.</summary>
+    internal static TimeSpan SayWaitingEvery { get; set; } = TimeSpan.FromSeconds(5);
 
     public const string MissingList = "missing.txt";
 
@@ -56,12 +81,13 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
     /// <summary>
     /// What an export of <paramref name="request"/> would hold, asked before it's downloaded: how many
     /// exchanges it takes, and how many are older than the bucket's rule keeps their files. Refuses what
-    /// the export itself would refuse.
+    /// the export in the background would refuse, past <see cref="MaxInBackground"/>.
     /// </summary>
     [HttpPost("check")]
     public async Task<IActionResult> Check([FromBody] XchangeFilesExport request)
     {
-        var (ids, refusal) = await Resolve(request);
+        // Checked against what the admin UI's export then takes, in the background.
+        var (ids, refusal) = await Resolve(request, MaxInBackground);
         if (refusal != null) return refusal;
 
         var xchanges = await dbContext.Set<Xchange>().AsNoTracking().Where(x => ids.Contains(x.Id)).ToListAsync();
@@ -85,9 +111,35 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
     [HttpPost]
     public async Task<IActionResult> Post([FromBody] XchangeFilesExport request)
     {
-        var (ids, refusal) = await Resolve(request);
+        var background = Services.Background.BackgroundRequestScope.Current;
+        var (ids, refusal) = await Resolve(request, background != null ? MaxInBackground : Limit);
         if (refusal != null) return refusal;
+        if (background == null) return await Build(ids, background);
 
+        // Its turn on this node's temporary disk. Cancelled while it waits, it builds no zip but an
+        // empty one whose missing.txt says so, as a cancel part way does.
+        var held = false;
+        try
+        {
+            while (!(held = await BuildingInBackground.WaitAsync(SayWaitingEvery, background.CancelRequested)))
+                background.Progress(0, ids.Count, "Waiting for another export on this server to finish");
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        try
+        {
+            return await Build(ids, background);
+        }
+        finally
+        {
+            if (held) BuildingInBackground.Release();
+        }
+    }
+
+    private async Task<IActionResult> Build(List<string> ids, Services.Background.BackgroundRequestScope background)
+    {
         var xchanges = await dbContext.Set<Xchange>().AsNoTracking()
             .Where(x => ids.Contains(x.Id)).OrderByDescending(x => x.StartedOn).ToListAsync();
         var results = await dbContext.Set<XchangeResult>().AsNoTracking()
@@ -118,23 +170,43 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
         await using (var zip = await ZipArchive.CreateAsync(body, ZipArchiveMode.Create, leaveOpen: true,
                          entryNameEncoding: null, aborted))
         {
+            // In the background, as the admin UI asks for it: says how far it has got, and a cancel
+            // ends it between exchanges - with what it took so far, and missing.txt saying so.
+            var exported = 0;
             foreach (var xchange in xchanges)
             {
+                background?.Progress(exported, xchanges.Count, $"{exported:n0} of {xchanges.Count:n0} exchanges");
+                if (background?.CancelRequested.IsCancellationRequested == true)
+                {
+                    missing.Add($"The export was cancelled after {exported} of {xchanges.Count} exchanges; the rest aren't here.");
+                    break;
+                }
+
+                if (body.Written > MaxBytes)
+                {
+                    missing.Add($"The zip reached {Size(MaxBytes)} after {exported} of {xchanges.Count} exchanges, " +
+                                "the most one export builds; the rest aren't here. Export them separately.");
+                    break;
+                }
+
+                exported++;
                 var mainProperty = mainProperties.GetValueOrDefault(xchange.DocumentId);
                 var mainValue = mainProperty == null ? null : promoted.GetValueOrDefault(xchange.Id)?.Properties?.GetValueOrDefault(mainProperty);
                 var folder = ExchangeArchive.BaseName(mainValue, xchange.Id);
 
-                await Add(zip, xchange, XchangeFileType.Input, $"{folder}/input",
+                await Add(zip, body, xchange, XchangeFileType.Input, $"{folder}/input",
                     xchange.InputName, xchange.InputSize, xchange.InputContentType, missing, aborted);
 
                 if (!results.TryGetValue(xchange.Id, out var result)) continue;
-                await Add(zip, xchange, XchangeFileType.Output, $"{folder}/mapped",
+                await Add(zip, body, xchange, XchangeFileType.Output, $"{folder}/mapped",
                     result.OutputName, result.OutputSize, result.OutputContentType, missing, aborted,
                     result.NotStoredReason(XchangeFileType.Output));
-                await Add(zip, xchange, XchangeFileType.Response, $"{folder}/handled",
+                await Add(zip, body, xchange, XchangeFileType.Response, $"{folder}/handled",
                     result.ResponseName, result.ResponseSize, result.ResponseContentType, missing, aborted,
                     result.NotStoredReason(XchangeFileType.Response));
             }
+
+            background?.Progress(exported, xchanges.Count, $"{exported:n0} of {xchanges.Count:n0} exchanges");
 
             if (missing.Count > 0)
             {
@@ -153,8 +225,8 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
     /// gives. A file the exchange never had is left out; one storage no longer has, or never got because it
     /// couldn't be stored after the delivery (<paramref name="notStored"/>), goes on the missing list.
     /// </summary>
-    private async Task Add(ZipArchive zip, Xchange xchange, XchangeFileType type, string path, string name, int size,
-        string contentType, List<string> missing, CancellationToken aborted, string notStored = null)
+    private async Task Add(ZipArchive zip, HeldSyncWrites body, Xchange xchange, XchangeFileType type, string path,
+        string name, int size, string contentType, List<string> missing, CancellationToken aborted, string notStored = null)
     {
         if (notStored != null)
         {
@@ -164,6 +236,15 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
 
         if (size == 0) return;
         path += ExtensionOf(name, contentType);
+
+        // Checked before it is read rather than after: one large file could otherwise take the zip, and
+        // the disk it is built on, well past the limit. Its stored size; compressed, it may be less.
+        if (body.Written + size > MaxBytes)
+        {
+            missing.Add($"{path}: left out, since it would take the zip past {Size(MaxBytes)}, the most one export builds. " +
+                        "Export this exchange on its own.");
+            return;
+        }
 
         Stream file;
         try
@@ -199,6 +280,9 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
         }
     }
 
+    private static string Size(long bytes) =>
+        bytes >= 1L << 30 ? $"{bytes / (1L << 30)} GB" : bytes >= 1L << 20 ? $"{bytes / (1L << 20)} MB" : $"{bytes:n0} bytes";
+
     /// <summary>The file's own extension when it has a plain one, or else one for its content type.</summary>
     private static string ExtensionOf(string name, string contentType)
     {
@@ -215,8 +299,8 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
         };
     }
 
-    /// <summary>The exchanges <paramref name="request"/> selects, or why it can't be exported.</summary>
-    private async Task<(List<string> Ids, IActionResult Refusal)> Resolve(XchangeFilesExport request)
+    /// <summary>The exchanges <paramref name="request"/> selects, up to <paramref name="limit"/>, or why it can't be exported.</summary>
+    private async Task<(List<string> Ids, IActionResult Refusal)> Resolve(XchangeFilesExport request, int limit)
     {
         try
         {
@@ -228,13 +312,13 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
         }
 
         var selection = new XchangeSelection(dbContext);
-        var ids = await selection.Resolve(request, Limit);
+        var ids = await selection.Resolve(request, limit);
         if (ids.Count == 0) return (null, Refuse("NOTHING_SELECTED", "Select at least one exchange to export."));
-        if (ids.Count > Limit)
+        if (ids.Count > limit)
         {
-            var count = string.IsNullOrWhiteSpace(request.Filter) ? ids.Count : await selection.Count(request);
+            var count = string.IsNullOrWhiteSpace(request.Filter) ? ids.Count : await selection.Count(request, limit);
             return (null, Refuse("TOO_MANY",
-                $"{count:n0} exchanges is more than the {Limit} one export can take. Narrow the filter and export the rest after."));
+                $"{count:n0} exchanges is more than the {limit:n0} one export can take. Narrow the filter and export the rest after."));
         }
 
         return (ids, null);
@@ -255,6 +339,9 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
     {
         private readonly MemoryStream _held = new();
 
+        /// <summary>How many bytes of zip have been written so far.</summary>
+        public long Written { get; private set; }
+
         public override bool CanRead => false;
         public override bool CanSeek => false;
         public override bool CanWrite => true;
@@ -266,8 +353,17 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
             set => throw new NotSupportedException();
         }
 
-        public override void Write(byte[] buffer, int offset, int count) => _held.Write(buffer, offset, count);
-        public override void Write(ReadOnlySpan<byte> buffer) => _held.Write(buffer);
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            _held.Write(buffer, offset, count);
+            Written += count;
+        }
+
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            _held.Write(buffer);
+            Written += buffer.Length;
+        }
 
         /// <summary>Nothing to do until the next asynchronous write or flush.</summary>
         public override void Flush()
@@ -278,6 +374,7 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
         {
             await SendHeld(cancellationToken);
             await response.WriteAsync(buffer, cancellationToken);
+            Written += buffer.Length;
         }
 
         public override Task WriteAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>

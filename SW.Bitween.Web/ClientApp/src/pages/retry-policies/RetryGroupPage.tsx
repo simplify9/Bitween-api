@@ -2,7 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2 } from "lucide-react";
-import { api, type RetryAlertConfig, type RetryDelay, type RetryGroup, type RetryMatcher, type RetryResultType } from "../../api";
+import {
+  api,
+  type RetryAlertConfig,
+  type RetryDelay,
+  type RetryExhaustedAction,
+  type RetryGroup,
+  type RetryMatcher,
+  type RetryResultType,
+} from "../../api";
 import { keys } from "../../api/queryKeys";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
@@ -178,7 +186,7 @@ interface GroupDraft {
   appliesTo: RetryResultType[];
   action: RetryGroup["action"];
   matchers: RetryMatcher[];
-  budget: { maxAttemptsPerError: number; delay: RetryDelay; maxAttemptsTotal: number };
+  budget: { maxAttemptsPerError: number; delay: RetryDelay; maxAttemptsTotal: number; whenExhausted: RetryExhaustedAction };
   noTotal: boolean;
   notes: string;
   alert: RetryAlertConfig;
@@ -192,7 +200,7 @@ const draftOf = (group: RetryGroup | undefined): GroupDraft => ({
   action: group?.action ?? "Allow",
   matchers: group?.matchers ?? [],
   budget: {
-    ...(group?.budget ?? { maxAttemptsPerError: 3, delay: defaultDelayFor("exponential") }),
+    ...(group?.budget ?? { maxAttemptsPerError: 3, delay: defaultDelayFor("exponential"), whenExhausted: "Fail" as const }),
     // Kept while "No limit" is ticked, so unticking it brings back a number rather than a blank.
     maxAttemptsTotal: group?.budget?.maxAttemptsTotal ?? 10,
   },
@@ -534,6 +542,28 @@ export function RetryGroupPage({ isNew = false }: { isNew?: boolean }) {
                       </div>
                     </Field>
                   </div>
+                  {/* Only a total can run out, so without one there is nothing to choose. */}
+                  {!draft.noTotal && (
+                    <Field
+                      label="When the total runs out"
+                      htmlFor="rg-exhausted"
+                      hint={
+                        budget.whenExhausted === "Hold"
+                          ? "A message this group would retry waits instead of failing, and is retried as soon as the subscription succeeds again - after a partner's outage, say."
+                          : "A message this group would retry fails for good once the total is spent."
+                      }
+                    >
+                      <Select
+                        id="rg-exhausted"
+                        value={budget.whenExhausted}
+                        onChange={(e) => update({ budget: { ...budget, whenExhausted: e.target.value as RetryExhaustedAction } })}
+                        options={[
+                          { value: "Fail", label: "Fail the message" },
+                          { value: "Hold", label: "Hold it until the subscription succeeds" },
+                        ]}
+                      />
+                    </Field>
+                  )}
                   <Field label="Delay between attempts" htmlFor="rg-delay">
                     <Select
                       id="rg-delay"

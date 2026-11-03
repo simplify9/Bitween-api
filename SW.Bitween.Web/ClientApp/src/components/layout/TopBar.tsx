@@ -5,6 +5,7 @@ import { Link, useMatches } from "react-router";
 import { NAV_GROUPS } from "../../nav";
 import { PAGES, pageTrail, pathOf, type PageId } from "../../pages";
 import type { Branding } from "../../lib/branding";
+import { BackgroundTray } from "./BackgroundWork";
 
 /**
  * Where you are, and which instance you are on.
@@ -32,6 +33,7 @@ export function TopBar({
   return (
     <div className="sticky top-0 z-20 hidden h-12 shrink-0 items-center gap-4 border-b border-ink-100 bg-canvas/90 px-6 backdrop-blur lg:flex">
       <div className="min-w-0 flex-1">{page && <Breadcrumbs page={page} title={title} names={names} />}</div>
+      <BackgroundTray />
       <button
         onClick={onSearch}
         className="flex h-8 w-64 shrink-0 items-center gap-2 rounded-lg border border-ink-200 bg-white px-2.5 text-[13px] text-ink-500 hover:border-ink-300"

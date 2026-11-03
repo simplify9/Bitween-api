@@ -67,6 +67,31 @@ public class ExchangeExportTests(BitweenFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_file_that_would_take_the_zip_past_its_limit_is_left_out_before_it_is_read()
+    {
+        var document = await InformationType();
+        var small = await CreateExchange(document, "{\"n\":1}", "small.json");
+        var large = await CreateExchange(document, "{\"text\":\"" + new string('x', 400) + "\"}", "large.json");
+
+        var limit = XchangeExportController.MaxBytes;
+        XchangeExportController.MaxBytes = 300;
+        try
+        {
+            await using var scope = fixture.CreateScope();
+            scope.Superuser();
+            var (_, zip, _) = await Export(scope, new XchangeFilesExport { Ids = [small.Id, large.Id] });
+
+            Assert.Equal("{\"n\":1}", zip[$"{small.Id}/input.json"]);
+            Assert.False(zip.ContainsKey($"{large.Id}/input.json"));
+            Assert.Contains($"{large.Id}/input.json: left out, since it would take the zip past 300 bytes", zip["missing.txt"]);
+        }
+        finally
+        {
+            XchangeExportController.MaxBytes = limit;
+        }
+    }
+
+    [Fact]
     public async Task A_file_storage_no_longer_has_is_listed_in_missing_txt_and_the_rest_still_come()
     {
         _options.DocumentPrefix = $"temp30/{Unique("export")}";
@@ -166,6 +191,48 @@ public class ExchangeExportTests(BitweenFixture fixture) : IAsyncLifetime
 
         var (empty, _, _) = await Export(scope, new XchangeFilesExport { Ids = [] });
         Assert.True(Assert.IsType<SerializableError>(Assert.IsType<BadRequestObjectResult>(empty).Value).ContainsKey("NOTHING_SELECTED"));
+    }
+
+    [Fact]
+    public async Task In_the_background_one_export_is_built_at_a_time_and_the_next_says_it_waits()
+    {
+        var document = await InformationType();
+        var xchange = await CreateExchange(document, "{\"n\":1}", "one.json");
+        var said = new List<string>();
+        var every = XchangeExportController.SayWaitingEvery;
+        XchangeExportController.SayWaitingEvery = TimeSpan.FromMilliseconds(50);
+        // Another export is being built on this node.
+        await XchangeExportController.BuildingInBackground.WaitAsync();
+        try
+        {
+            await using var scope = fixture.CreateScope();
+            scope.Superuser();
+            using var stop = new CancellationTokenSource();
+            var exporting = Task.Run(async () =>
+            {
+                Services.Background.BackgroundRequestScope.Open(DateTime.UtcNow + Services.Background.BackgroundRequests.Limit,
+                    stop.Token, default, (_, _, summary) => { lock (said) said.Add(summary); });
+                return await Export(scope, new XchangeFilesExport { Ids = [xchange.Id] });
+            });
+
+            for (var waited = 0; !said.Contains("Waiting for another export on this server to finish"); waited += 50)
+            {
+                Assert.True(waited < 5_000, "it never said it was waiting");
+                await Task.Delay(50);
+            }
+            Assert.False(exporting.IsCompleted);
+
+            XchangeExportController.BuildingInBackground.Release();
+            var (_, zip, _) = await exporting.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.Equal("{\"n\":1}", zip[$"{xchange.Id}/input.json"]);
+            // Its turn is given back for the next.
+            Assert.Equal(1, XchangeExportController.BuildingInBackground.CurrentCount);
+        }
+        finally
+        {
+            XchangeExportController.SayWaitingEvery = every;
+            if (XchangeExportController.BuildingInBackground.CurrentCount == 0) XchangeExportController.BuildingInBackground.Release();
+        }
     }
 
     [Fact]

@@ -260,7 +260,7 @@ public class ExchangeFilterOperatorTests(BitweenFixture fixture)
     {
         var (db, xs) = Services(scope);
         var response = (SearchyResponse<XchangeRow>)await new Resources.Xchanges.Search(db, xs, scope.Superuser())
-            .Handle(new SearchyRequest(filters) { PageSize = 50 });
+            .Handle(new SearchyRequest(filters) { PageSize = 50, CountRows = true });
         Assert.Equal(response.Result.Count(), response.TotalCount);
         return response.Result.Select(r => r.Id).Order().ToArray();
     }
@@ -276,6 +276,7 @@ public class ExchangeFilterOperatorTests(BitweenFixture fixture)
     private static async Task<XchangeSummary> Summarise(AsyncServiceScope scope, params string[] filters)
     {
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
-        return (XchangeSummary)await new Summary(db, scope.Superuser()).Handle(new SearchyRequest(filters));
+        return (XchangeSummary)await new Summary(db, scope.Superuser(), scope.ServiceProvider.GetRequiredService<SlowCounts>())
+            .Handle(new SearchyRequest(filters));
     }
 }

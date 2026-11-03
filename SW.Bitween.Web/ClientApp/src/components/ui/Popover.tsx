@@ -22,13 +22,19 @@ export function Popover({
   children,
   width = "w-72",
   closeOnScroll = true,
+  title,
+  buttonClassName = "cursor-pointer rounded text-ink-500 underline-offset-2 hover:link",
 }: {
   /** Rendered inside the trigger button. */
   button: ReactNode;
   /** Accessible name for the trigger. */
   label: string;
-  /** Panel contents. */
-  children: ReactNode;
+  /** Panel contents; a function is given what closes the panel, for a choice made inside it. */
+  children: ReactNode | ((close: () => void) => ReactNode);
+  /** Hover text for the trigger. */
+  title?: string;
+  /** Classes for the trigger, in place of the inline link look. */
+  buttonClassName?: string;
   /** Tailwind width class for the panel. */
   width?: string;
   /**
@@ -86,6 +92,7 @@ export function Popover({
         ref={triggerRef}
         type="button"
         aria-label={label}
+        title={title}
         aria-expanded={open}
         // The row underneath is usually clickable; opening the panel is not
         // a request to navigate.
@@ -93,7 +100,7 @@ export function Popover({
           e.stopPropagation();
           setOpen((o) => !o);
         }}
-        className="cursor-pointer rounded text-ink-500 underline-offset-2 hover:link"
+        className={buttonClassName}
       >
         {button}
       </button>
@@ -109,7 +116,7 @@ export function Popover({
             style={{ top: pos.top, left: pos.left }}
             className={`fixed z-50 ${width} max-h-80 overflow-y-auto rounded-xl border border-ink-100 bg-white p-2 shadow-lg`}
           >
-            {children}
+            {typeof children === "function" ? children(() => setOpen(false)) : children}
           </div>,
           document.body,
         )}

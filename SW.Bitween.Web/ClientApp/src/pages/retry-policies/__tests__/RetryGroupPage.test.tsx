@@ -23,11 +23,14 @@ const timeouts = {
 };
 
 /** The policy as the server has it, and whatever the page writes back to it. */
-function server() {
-  const written: { name: string; groups: { id: string; name: string; budget?: { maxAttemptsPerError: number } }[] }[] = [];
+function server(groups: unknown[] = [timeouts]) {
+  const written: {
+    name: string;
+    groups: { id: string; name: string; budget?: { maxAttemptsPerError: number; whenExhausted?: string } }[];
+  }[] = [];
   const handlers = [
     http.get(apiPath("/retrypolicies/3"), () =>
-      HttpResponse.json({ name: "Carrier API failures", groups: [timeouts], alertChannelId: 7 }),
+      HttpResponse.json({ name: "Carrier API failures", groups, alertChannelId: 7 }),
     ),
     http.get(apiPath("/subscriptions"), () => HttpResponse.json({ result: [], totalCount: 0 })),
     http.get(apiPath("/notificationchannels"), () => HttpResponse.json({ 7: "Ops email" })),
@@ -56,6 +59,34 @@ describe("a retry group's page", () => {
     expect(written).toHaveLength(1);
     expect(written[0].name).toBe("Carrier API failures");
     expect(written[0].groups.map((g) => [g.id, g.budget?.maxAttemptsPerError])).toEqual([["g-1", 5]]);
+  });
+
+  it("keeps a group that holds when its total runs out holding, through any other edit", async () => {
+    const holds = { ...timeouts, budget: { ...timeouts.budget, whenExhausted: "Hold" } };
+    const { written, handlers } = server([holds]);
+    const { user } = renderApp("/retry-policies/3/groups/g-1?return=%2Felsewhere", { handlers });
+
+    const perMessage = await screen.findByLabelText("Retries per message");
+    expect(screen.getByLabelText("When the total runs out")).toHaveValue("Hold");
+    await user.clear(perMessage);
+    await user.type(perMessage, "5");
+    await user.click(screen.getByRole("button", { name: "Save group" }));
+
+    await waitFor(() => expect(written).toHaveLength(1));
+    expect(written[0].groups[0].budget?.whenExhausted).toBe("Hold");
+  });
+
+  it("can be set to hold when its total runs out", async () => {
+    const { written, handlers } = server();
+    const { user } = renderApp("/retry-policies/3/groups/g-1?return=%2Felsewhere", { handlers });
+
+    const choice = await screen.findByLabelText("When the total runs out");
+    expect(choice).toHaveValue("Fail");
+    await user.selectOptions(choice, "Hold");
+    await user.click(screen.getByRole("button", { name: "Save group" }));
+
+    await waitFor(() => expect(written).toHaveLength(1));
+    expect(written[0].groups[0].budget?.whenExhausted).toBe("Hold");
   });
 
   it("won't bring back a group that was removed while its page was open", async () => {

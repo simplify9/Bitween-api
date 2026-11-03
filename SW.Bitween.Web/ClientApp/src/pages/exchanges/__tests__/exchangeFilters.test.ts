@@ -3,6 +3,7 @@ import {
   filterChips,
   filterSignature,
   idsIn,
+  keepCounted,
   notWith,
   parseBound,
   propertyFilters,
@@ -251,5 +252,35 @@ describe("the search box", () => {
   it("reads key:value as a promoted property by name, added beside the ones already set", () => {
     const [first] = searchSuggestions("orderNo: SO-1", sp("prop=city:paris"));
     expect(first.changes).toEqual({ prop: ["city:paris", "orderNo:SO-1"], propertyKey: null, property: null, not: null });
+  });
+});
+
+/** A later answer that is still counting, from an app copy that hasn't caught up yet. */
+describe("keeping what was counted", () => {
+  const bucket = { start: "2026-11-03T10:00:00Z", processing: 0, success: 5, badResponse: 0, failed: 1 };
+  const counted = {
+    counts: { processing: 7, success: 100, badResponse: 0, failed: 3 },
+    buckets: [bucket],
+    bucketMinutes: 60,
+    counting: false,
+  };
+
+  it("keeps a number, and the chart, that the later answer is still counting", () => {
+    const later = keepCounted(counted, {
+      counts: { processing: null, success: 101, badResponse: 0, failed: 4 },
+      buckets: [],
+      bucketMinutes: 0,
+      counting: true,
+    });
+    expect(later.counts).toEqual({ processing: 7, success: 101, badResponse: 0, failed: 4 });
+    expect(later.buckets).toEqual([bucket]);
+    expect(later.bucketMinutes).toBe(60);
+    // Still asked again until the rest is in.
+    expect(later.counting).toBe(true);
+  });
+
+  it("takes the later answer whole once it has counted it all, an empty chart included", () => {
+    const later = { counts: { processing: 0, success: 101, badResponse: 0, failed: 4 }, buckets: [], bucketMinutes: 0, counting: false };
+    expect(keepCounted(counted, later)).toEqual(later);
   });
 });
