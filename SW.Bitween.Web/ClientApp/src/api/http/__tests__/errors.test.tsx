@@ -28,6 +28,7 @@ describe("errors from the API", () => {
     expect(shouldRetryQuery(0, new ApiRequestError("NOT_FOUND", "gone", 404))).toBe(false);
     expect(shouldRetryQuery(0, new ApiRequestError("HTTP_403", "no", 403))).toBe(false);
     expect(shouldRetryQuery(0, new ApiRequestError("DATABASE_TIMED_OUT", "too long", 504))).toBe(false);
+    expect(shouldRetryQuery(0, new ApiRequestError("ERROR", "gateway timeout", 504))).toBe(false);
     expect(shouldRetryQuery(0, new ApiRequestError("ERROR", "boom", 500))).toBe(true);
     expect(shouldRetryQuery(0, new TypeError("Failed to fetch"))).toBe(true);
     expect(shouldRetryQuery(3, new ApiRequestError("ERROR", "boom", 500))).toBe(false);

@@ -27,7 +27,9 @@ public class DatabaseTimeoutMiddleware(RequestDelegate next, ILogger<DatabaseTim
         {
             logger.LogError(ex, "{Method} {Path} ran past the database's time limit.", context.Request.Method,
                 context.Request.Path);
-            context.Response.Clear();
+            // Not Response.Clear(): that also drops the security and CORS headers set before the
+            // endpoint ran. Nothing has been written, so only a length set for another body is wrong.
+            context.Response.Headers.ContentLength = null;
             context.Response.StatusCode = StatusCodes.Status504GatewayTimeout;
             context.Response.ContentType = "application/json";
             await context.Response.Body.WriteAsync(BackgroundRequests.Problem(Code,
@@ -36,21 +38,29 @@ public class DatabaseTimeoutMiddleware(RequestDelegate next, ILogger<DatabaseTim
     }
 
     /// <summary>
-    /// A command that ran out of time, as Npgsql throws it: its own exception around a
-    /// <see cref="TimeoutException"/>. Only inside a database exception, so a call elsewhere that
-    /// timed out isn't put down to the database. SQL Server and MySQL say it differently, and keep
-    /// the 500.
+    /// A command that ran out of time: past the connection's Command Timeout, which Npgsql throws as
+    /// its own exception around a <see cref="TimeoutException"/>, or past a <c>statement_timeout</c>
+    /// set on the database, which Postgres reports as 57014. A timeout only inside a database
+    /// exception, so a call elsewhere that timed out isn't put down to the database, and not a
+    /// cancellation the caller asked for, which Postgres also reports as 57014. SQL Server and MySQL
+    /// say it differently, and keep the 500.
     /// </summary>
     internal static bool IsDatabaseTimeout(Exception ex)
     {
         var inDatabase = false;
         for (var e = ex; e != null; e = e.InnerException)
-        {
-            if (e is DbException)
-                inDatabase = true;
-            else if (e is TimeoutException && inDatabase)
-                return true;
-        }
+            switch (e)
+            {
+                case OperationCanceledException:
+                    return false;
+                case DbException { SqlState: "57014" }:
+                    return true;
+                case DbException:
+                    inDatabase = true;
+                    break;
+                case TimeoutException when inDatabase:
+                    return true;
+            }
 
         return false;
     }

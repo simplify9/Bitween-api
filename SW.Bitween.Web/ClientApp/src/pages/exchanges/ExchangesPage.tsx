@@ -601,8 +601,13 @@ export function ExchangesPage() {
                         size="sm"
                         /* Past the cap the total no longer says where the end is, so fall back to "was this
                            page full" - otherwise Next would dead-end at row 10,000 - as while it is still
-                           being counted. Below the cap the total is exact, so Next stops on the true last page. */
-                        disabled={total === undefined || totalIsCapped ? rows.length < PAGE_SIZE : query.offset + PAGE_SIZE >= total}
+                           being counted, when the number on screen may be one kept from an earlier answer.
+                           Otherwise the total is exact, so Next stops on the true last page. */
+                        disabled={
+                          total === undefined || totalIsCapped || breakdown.data?.counting
+                            ? rows.length < PAGE_SIZE
+                            : query.offset + PAGE_SIZE >= total
+                        }
                         onClick={() => apply({ offset: String(query.offset + PAGE_SIZE) }, { resetOffset: false })}
                       >
                         Next

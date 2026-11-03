@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -21,19 +22,41 @@ public class DatabaseTimeoutTests(BitweenFixture fixture)
     [Fact]
     public async Task A_query_past_the_database_time_limit_is_answered_as_a_timeout()
     {
-        // What a real timeout throws, rather than an exception made up to look like one.
-        Exception timedOut;
+        // What real timeouts throw, rather than exceptions made up to look like them: past the
+        // connection's Command Timeout, past the database's own statement_timeout, and cancelled by
+        // the caller, which is not one.
+        Exception commandTimedOut, statementTimedOut, cancelled;
         await using (var scope = fixture.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
             db.Database.SetCommandTimeout(1);
-            timedOut = await Record.ExceptionAsync(() => db.Database.ExecuteSqlRawAsync("SELECT pg_sleep(5)"));
+            commandTimedOut = await Record.ExceptionAsync(() => db.Database.ExecuteSqlRawAsync("SELECT pg_sleep(5)"));
         }
 
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            await using var transaction = await db.Database.BeginTransactionAsync();
+            await db.Database.ExecuteSqlRawAsync("SET LOCAL statement_timeout = 500");
+            statementTimedOut = await Record.ExceptionAsync(() => db.Database.ExecuteSqlRawAsync("SELECT pg_sleep(5)"));
+        }
+
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            using var cancel = new CancellationTokenSource(TimeSpan.FromMilliseconds(500));
+            cancelled = await Record.ExceptionAsync(() => db.Database.ExecuteSqlRawAsync("SELECT pg_sleep(5)", cancel.Token));
+        }
+
+        Assert.True(DatabaseTimeoutMiddleware.IsDatabaseTimeout(statementTimedOut), statementTimedOut?.ToString());
+        Assert.False(DatabaseTimeoutMiddleware.IsDatabaseTimeout(cancelled), cancelled?.ToString());
+
         var context = new DefaultHttpContext { Response = { Body = new MemoryStream() } };
-        await Answer(context, timedOut);
+        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        await Answer(context, commandTimedOut);
 
         Assert.Equal(StatusCodes.Status504GatewayTimeout, context.Response.StatusCode);
+        Assert.Equal("nosniff", context.Response.Headers["X-Content-Type-Options"]);
         context.Response.Body.Position = 0;
         Assert.Contains(DatabaseTimeoutMiddleware.Code, await new StreamReader(context.Response.Body).ReadToEndAsync());
 
