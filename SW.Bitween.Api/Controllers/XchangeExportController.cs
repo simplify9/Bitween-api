@@ -57,10 +57,22 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
     public const int MaxInBackground = 50_000;
 
     /// <summary>
-    /// The largest zip built: past it, the exchanges not yet in it are left out, and missing.txt says so.
-    /// Well inside the 2 GB of temporary disk the Helm chart gives a node.
+    /// The largest zip built: a file that would take it past this is left out, and so are the exchanges
+    /// after the zip reaches it, with missing.txt saying so. Well inside the 2 GB of temporary disk the
+    /// Helm chart gives a node, with <see cref="BuildingInBackground"/> keeping it to one zip at a time.
+    /// Set lower by tests.
     /// </summary>
-    public const long MaxBytes = 1L << 30;
+    public static long MaxBytes { get; internal set; } = 1L << 30;
+
+    /// <summary>
+    /// One export built in the background on a node at a time: each is up to <see cref="MaxBytes"/> on
+    /// its temporary disk, and two at once could fill it. Exports asked directly stream to the browser
+    /// instead, and take no disk.
+    /// </summary>
+    internal static readonly SemaphoreSlim BuildingInBackground = new(1, 1);
+
+    /// <summary>How often an export waiting its turn says so, which keeps its time limit from running out. Set shorter by tests.</summary>
+    internal static TimeSpan SayWaitingEvery { get; set; } = TimeSpan.FromSeconds(5);
 
     public const string MissingList = "missing.txt";
 
@@ -102,7 +114,32 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
         var background = Services.Background.BackgroundRequestScope.Current;
         var (ids, refusal) = await Resolve(request, background != null ? MaxInBackground : Limit);
         if (refusal != null) return refusal;
+        if (background == null) return await Build(ids, background);
 
+        // Its turn on this node's temporary disk. Cancelled while it waits, it builds no zip but an
+        // empty one whose missing.txt says so, as a cancel part way does.
+        var held = false;
+        try
+        {
+            while (!(held = await BuildingInBackground.WaitAsync(SayWaitingEvery, background.CancelRequested)))
+                background.Progress(0, ids.Count, "Waiting for another export on this server to finish");
+        }
+        catch (OperationCanceledException)
+        {
+        }
+
+        try
+        {
+            return await Build(ids, background);
+        }
+        finally
+        {
+            if (held) BuildingInBackground.Release();
+        }
+    }
+
+    private async Task<IActionResult> Build(List<string> ids, Services.Background.BackgroundRequestScope background)
+    {
         var xchanges = await dbContext.Set<Xchange>().AsNoTracking()
             .Where(x => ids.Contains(x.Id)).OrderByDescending(x => x.StartedOn).ToListAsync();
         var results = await dbContext.Set<XchangeResult>().AsNoTracking()
@@ -147,7 +184,7 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
 
                 if (body.Written > MaxBytes)
                 {
-                    missing.Add($"The zip reached {MaxBytes / (1024 * 1024 * 1024)} GB after {exported} of {xchanges.Count} exchanges, " +
+                    missing.Add($"The zip reached {Size(MaxBytes)} after {exported} of {xchanges.Count} exchanges, " +
                                 "the most one export builds; the rest aren't here. Export them separately.");
                     break;
                 }
@@ -157,14 +194,14 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
                 var mainValue = mainProperty == null ? null : promoted.GetValueOrDefault(xchange.Id)?.Properties?.GetValueOrDefault(mainProperty);
                 var folder = ExchangeArchive.BaseName(mainValue, xchange.Id);
 
-                await Add(zip, xchange, XchangeFileType.Input, $"{folder}/input",
+                await Add(zip, body, xchange, XchangeFileType.Input, $"{folder}/input",
                     xchange.InputName, xchange.InputSize, xchange.InputContentType, missing, aborted);
 
                 if (!results.TryGetValue(xchange.Id, out var result)) continue;
-                await Add(zip, xchange, XchangeFileType.Output, $"{folder}/mapped",
+                await Add(zip, body, xchange, XchangeFileType.Output, $"{folder}/mapped",
                     result.OutputName, result.OutputSize, result.OutputContentType, missing, aborted,
                     result.NotStoredReason(XchangeFileType.Output));
-                await Add(zip, xchange, XchangeFileType.Response, $"{folder}/handled",
+                await Add(zip, body, xchange, XchangeFileType.Response, $"{folder}/handled",
                     result.ResponseName, result.ResponseSize, result.ResponseContentType, missing, aborted,
                     result.NotStoredReason(XchangeFileType.Response));
             }
@@ -188,8 +225,8 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
     /// gives. A file the exchange never had is left out; one storage no longer has, or never got because it
     /// couldn't be stored after the delivery (<paramref name="notStored"/>), goes on the missing list.
     /// </summary>
-    private async Task Add(ZipArchive zip, Xchange xchange, XchangeFileType type, string path, string name, int size,
-        string contentType, List<string> missing, CancellationToken aborted, string notStored = null)
+    private async Task Add(ZipArchive zip, HeldSyncWrites body, Xchange xchange, XchangeFileType type, string path,
+        string name, int size, string contentType, List<string> missing, CancellationToken aborted, string notStored = null)
     {
         if (notStored != null)
         {
@@ -199,6 +236,15 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
 
         if (size == 0) return;
         path += ExtensionOf(name, contentType);
+
+        // Checked before it is read rather than after: one large file could otherwise take the zip, and
+        // the disk it is built on, well past the limit. Its stored size; compressed, it may be less.
+        if (body.Written + size > MaxBytes)
+        {
+            missing.Add($"{path}: left out, since it would take the zip past {Size(MaxBytes)}, the most one export builds. " +
+                        "Export this exchange on its own.");
+            return;
+        }
 
         Stream file;
         try
@@ -233,6 +279,9 @@ public class XchangeExportController(BitweenDbContext dbContext, RequestContext 
             }
         }
     }
+
+    private static string Size(long bytes) =>
+        bytes >= 1L << 30 ? $"{bytes / (1L << 30)} GB" : bytes >= 1L << 20 ? $"{bytes / (1L << 20)} MB" : $"{bytes:n0} bytes";
 
     /// <summary>The file's own extension when it has a plain one, or else one for its content type.</summary>
     private static string ExtensionOf(string name, string contentType)
