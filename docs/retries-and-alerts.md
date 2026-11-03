@@ -106,6 +106,8 @@ A budget sets two limits.
 
 When a subscription succeeds, each of its budgets that was already exhausted before that exchange started is released. Partly spent budgets are left alone.
 
+**`whenExhausted`** says what happens to a failure the group would retry once its total is spent. `Fail`, the default, fails it for good. `Hold` keeps it waiting and retries it as soon as the subscription next succeeds, so messages caught by a partner's outage go through once it is back. On a group's page it is **When the total runs out**, shown while the group has a total, and the policy's group list marks a held group "holds when spent".
+
 ### Example group
 
 ```json
@@ -136,10 +138,10 @@ When a subscription succeeds, each of its budgets that was already exhausted bef
 4. If no group matched, there is no retry.
 5. If the group blocks, there is no retry.
 6. If the message reached `maxAttemptsPerError`, there is no retry. This is checked first, so it does not spend the shared total.
-7. If the shared total is spent, there is no retry. When this failure is the one that used up the total, an alert is raised.
+7. If the shared total is spent, there is no retry, unless the group's `whenExhausted` is `Hold`: then the failure waits, with no reason recorded, and is retried when the subscription next succeeds. Either way, when this failure is the one that used up the total, an alert is raised.
 8. Otherwise a retry is scheduled after the delay, give or take a tenth, or later when the adapter [said when to try again](#when-an-adapter-says-when-to-try-again).
 
-When no retry is scheduled, the exchange result records one of these reasons.
+When no retry is scheduled, and the failure isn't held, the exchange result records one of these reasons.
 
 - No matching group (default block)
 - Group '…' explicitly blocks this error

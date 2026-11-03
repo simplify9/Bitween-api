@@ -306,7 +306,13 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
       )}
 
       {/* - failure - */}
-      {x.exception && <ExceptionBlock text={x.exception} />}
+      {/* Explain sits on the error itself, where the eye already is; any viewer may ask, it changes nothing. */}
+      {x.exception && (
+        <ExceptionBlock
+          text={x.exception}
+          action={(x.status === "failed" || x.status === "badResponse") && <ExplainFailure xchangeId={x.id} />}
+        />
+      )}
 
       {/* - delivered, with a file that could not be stored - */}
       {x.warning && (
@@ -480,8 +486,8 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
         </div>
       )}
 
-      {/* Outside the operate gate: an explanation changes nothing, so seeing the exchange is enough. */}
-      {(x.status === "failed" || x.status === "badResponse") && (
+      {/* A bad response can come without error text: then Explain has no error box to sit on. */}
+      {!x.exception && (x.status === "failed" || x.status === "badResponse") && (
         <div className={`flex items-center gap-2 ${canOperate ? "" : "border-t border-ink-100 pt-3"}`}>
           <ExplainFailure xchangeId={x.id} />
         </div>

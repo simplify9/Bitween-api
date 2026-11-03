@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -37,7 +38,8 @@ public class XchangeExplanationResponse
 /// <para>
 /// What is sent, and nothing else: the error; which step failed; the subscription's kind and
 /// adapters, and the names - never the values - of their settings; the retry policy's shape and the
-/// retry state; the last attempts' errors; and the documents with their values replaced by types.
+/// retry state; the whole retry chain, each attempt's outcome and the first line of its error; and
+/// the documents with their values replaced by types.
 /// Adapter settings are names only because the exchange holds them with partner and global values
 /// already filled in, and some of those are credentials.
 /// </para>
@@ -50,9 +52,6 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
         AiModels models)
     : ICommandHandler<XchangeExplanationRequest, XchangeExplanationResponse>
 {
-    /// <summary>Earlier attempts whose errors are worth showing beside this one.</summary>
-    const int EarlierAttempts = 3;
-
     /// <summary>The largest document masked and sent; a few records are enough to explain a failure.</summary>
     const int MaxMaskedFileBytes = 1_000_000;
 
@@ -83,6 +82,8 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
         await AddFile(files, masking, xchange, XchangeFileType.Input, xchange.InputSize, xchange.InputContentType ?? ContentTypeOf(document));
         await AddFile(files, masking, xchange, XchangeFileType.Output, result.OutputSize, result.OutputContentType);
         await AddFile(files, masking, xchange, XchangeFileType.Response, result.ResponseSize, result.ResponseContentType);
+        var chain = await Chain(xchange);
+        await SeeOtherAttempts(chain, xchange.Id, result.Exception, masking);
 
         sent.AppendLine("Failed step: " + FailedStep(xchange, result));
         if (subscription is not null)
@@ -97,8 +98,7 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
         sent.AppendLine("Handler settings (names only): " + Names(xchange.HandlerProperties));
         sent.AppendLine("Document format: " + (document?.DocumentFormat.ToString() ?? "unknown"));
         if (result.ResponseBad) sent.AppendLine("The partner's response was marked as bad data.");
-        var earlier = await EarlierErrors(xchange);
-        sent.AppendLine($"Attempt {earlier.Chain + 1} of its retry chain");
+        sent.AppendLine($"This is attempt {chain.Position} of {chain.Total}{(chain.More ? " or more" : "")} in its retry chain.");
         if (!string.IsNullOrWhiteSpace(result.RetryBlockedReason))
             sent.AppendLine("Why it won't be retried: " + masking.Error(result.RetryBlockedReason));
         if (delayed is not null) sent.AppendLine($"A retry is scheduled for {delayed.On:u}.");
@@ -109,14 +109,12 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
         sent.AppendLine(string.IsNullOrWhiteSpace(result.Exception) ? "(no error text; see the response)" : masking.Error(result.Exception));
         sent.AppendLine("</error>");
 
-        // Only each earlier error's first line: the rest is a stack trace, nearly always the same one.
-        var thisError = FirstLine(result.Exception);
-        foreach (var (attempt, error) in earlier.Errors)
+        if (chain.Total > 1)
         {
-            var line = FirstLine(error);
-            sent.AppendLine(line == thisError
-                ? $"Earlier attempt {attempt}: the same error."
-                : $"Earlier attempt {attempt}: {masking.Error(line)}");
+            sent.AppendLine();
+            sent.AppendLine("<retry_chain>");
+            foreach (var line in ChainLines(chain, xchange.Id, masking)) sent.AppendLine(line);
+            sent.AppendLine("</retry_chain>");
         }
 
         foreach (var (name, text) in files)
@@ -189,37 +187,167 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
                                (g.Budget is { } b ? $", up to {b.MaxAttemptsTotal} attempts" : "") + ")"));
     }
 
-    /// <summary>How many attempts came before this one, and the errors of the last few.</summary>
+    /// <summary>One attempt in a retry chain, numbered from the chain's first; no outcome while it is still running.</summary>
+    internal sealed record Attempt(string Id, int Number, System.DateTime StartedOn, bool? Success, bool ResponseBad, string? Error);
+
+    /// <summary>The attempts listed, where the explained one stands, and how many weren't listed.</summary>
+    internal sealed record RetryChain(List<Attempt> Attempts, int Position, int Total, bool More, int EarlierNotListed);
+
+    /// <summary>Attempts listed before and after the explained one; each side has its own room.</summary>
+    const int ListedBefore = 30, ListedAfter = 20;
+
+    /// <summary>How far the chain is followed each way to count it; past this it says "or more".</summary>
+    const int Walked = 200;
+
+    /// <summary>How much of each attempt's error is read: its first line, nearly always.</summary>
+    internal const int ErrorRead = 4_000;
+
+    /// <summary>The longest line an attempt's error is sent as, once masked.</summary>
+    internal const int MaxLineLength = 500;
+
+    /// <summary>Attempts with an error of their own whose documents are read to mask it.</summary>
+    const int OtherAttemptsRead = 10;
+
+    /// <summary>
+    /// The retry chain this exchange is in: the attempts before it and after it, since an older
+    /// attempt opened from a link still belongs to the chain's story.
+    /// </summary>
     /// <remarks>
-    /// Counted along the chain rather than read from the result's attempt number, which counts only
-    /// the retries a policy made - five attempts by hand all say 1.
+    /// Walked along RetryFor rather than read from the result's attempt number, which counts only
+    /// the retries a policy made - five attempts by hand all say 1. An exchange is retried at most
+    /// once, so the chain has no branches. Each side is counted in full up to <see cref="Walked"/>,
+    /// and listed nearest first up to its own limit, so a long past never crowds out a later success.
     /// </remarks>
-    async Task<(int Chain, List<(string Id, string Error)> Errors)> EarlierErrors(Xchange xchange)
+    async Task<RetryChain> Chain(Xchange xchange)
     {
-        var errors = new List<(string, string)>();
-        var chain = 0;
-        var id = xchange.RetryFor;
-        while (id is not null && chain < MaxChain)
+        var before = new List<string>();
+        var earlier = 0;
+        var more = false;
+        for (var id = xchange.RetryFor; id is not null;)
         {
+            if (earlier == Walked) { more = true; break; }
             var previous = await dbContext.Set<Xchange>().AsNoTracking()
                 .Where(x => x.Id == id).Select(x => new { x.Id, x.RetryFor }).FirstOrDefaultAsync();
             if (previous is null) break;
-            chain++;
-            if (errors.Count < EarlierAttempts)
-            {
-                var error = await dbContext.Set<XchangeResult>().AsNoTracking()
-                    .Where(r => r.Id == previous.Id).Select(r => r.Exception).FirstOrDefaultAsync();
-                if (!string.IsNullOrWhiteSpace(error)) errors.Add((previous.Id, error));
-            }
+            earlier++;
+            if (before.Count < ListedBefore) before.Add(previous.Id);
             id = previous.RetryFor;
         }
-        return (chain, errors);
+        var after = new List<string>();
+        var later = 0;
+        for (var id = xchange.Id;;)
+        {
+            if (later == Walked) { more = true; break; }
+            var next = await dbContext.Set<Xchange>().AsNoTracking()
+                .Where(x => x.RetryFor == id).OrderBy(x => x.StartedOn).Select(x => x.Id).FirstOrDefaultAsync();
+            if (next is null) break;
+            later++;
+            if (after.Count < ListedAfter) after.Add(next);
+            id = next;
+        }
+
+        before.Reverse();
+        var ids = before.Append(xchange.Id).Concat(after).ToList();
+        // One read for each attempt and its result, so one deleted meanwhile is gone, not "still running".
+        var rows = await (
+                from x in dbContext.Set<Xchange>().AsNoTracking()
+                where ids.Contains(x.Id)
+                join r in dbContext.Set<XchangeResult>().AsNoTracking() on x.Id equals r.Id into results
+                from r in results.DefaultIfEmpty()
+                select new
+                {
+                    x.Id, x.StartedOn,
+                    Success = r == null ? (bool?)null : r.Success,
+                    ResponseBad = r != null && r.ResponseBad,
+                    Error = r == null || r.Exception == null ? null : r.Exception.Substring(0, ErrorRead),
+                })
+            .ToDictionaryAsync(r => r.Id);
+
+        var first = earlier - before.Count + 1;
+        var attempts = ids.Select((id, i) => (id, number: first + i))
+            .Where(a => rows.ContainsKey(a.id))
+            .Select(a =>
+            {
+                var r = rows[a.id];
+                return new Attempt(a.id, a.number, r.StartedOn, r.Success, r.ResponseBad, r.Error);
+            })
+            .ToList();
+        return new RetryChain(attempts, earlier + 1, earlier + 1 + later, more, earlier - before.Count);
     }
 
-    /// <summary>A chain is walked this far at most; a longer one says so as "50+" would, by stopping.</summary>
-    const int MaxChain = 50;
+    /// <summary>
+    /// Reads the documents of the other attempts whose error differs from this one's, so masking
+    /// knows their values too: a later attempt's response can hold what this one's documents don't.
+    /// </summary>
+    async Task SeeOtherAttempts(RetryChain chain, string thisId, string? thisError, Masking masking)
+    {
+        var thisLine = WholeFirstLine(thisError ?? "");
+        var ids = chain.Attempts
+            .Where(a => a.Id != thisId && !string.IsNullOrWhiteSpace(a.Error) && WholeFirstLine(a.Error) != thisLine)
+            .Select(a => a.Id).Take(OtherAttemptsRead).ToList();
+        if (ids.Count == 0) return;
+        var xchanges = await dbContext.Set<Xchange>().AsNoTracking().Where(x => ids.Contains(x.Id)).ToListAsync();
+        var results = await dbContext.Set<XchangeResult>().AsNoTracking().Where(r => ids.Contains(r.Id)).ToDictionaryAsync(r => r.Id);
+        foreach (var x in xchanges)
+        {
+            if (!results.TryGetValue(x.Id, out var r)) continue;
+            var ignored = new List<(string, string)>();
+            await AddFile(ignored, masking, x, XchangeFileType.Output, r.OutputSize, r.OutputContentType);
+            await AddFile(ignored, masking, x, XchangeFileType.Response, r.ResponseSize, r.ResponseContentType);
+        }
+    }
 
-    static string FirstLine(string? text) => (text ?? "").Split('\n')[0].Trim();
+    /// <summary>
+    /// The chain as the model reads it: one line per attempt, its outcome and its error's first line,
+    /// with a run of the same outcome and error folded into one line.
+    /// </summary>
+    internal static IEnumerable<string> ChainLines(RetryChain chain, string thisId, Masking masking)
+    {
+        string Describe(Attempt a)
+        {
+            if (a.Success is null) return "still running";
+            if (a.Success == true && !a.ResponseBad) return "succeeded";
+            var what = a.ResponseBad ? "delivered, bad response" : "failed";
+            if (string.IsNullOrWhiteSpace(a.Error)) return what;
+            // Masked whole, then cut: a cut first could leave half a value masking can't recognise.
+            var line = masking.Error(WholeFirstLine(a.Error));
+            return $"{what}: {(line.Length > MaxLineLength ? line[..MaxLineLength] + " ..." : line)}";
+        }
+
+        if (chain.EarlierNotListed > 0)
+            yield return $"({chain.EarlierNotListed} earlier attempts not listed)";
+        var list = chain.Attempts;
+        var i = 0;
+        while (i < list.Count)
+        {
+            var what = Describe(list[i]);
+            var j = i;
+            // The opened attempt keeps a line of its own, so the model knows which one it is explaining.
+            while (j + 1 < list.Count && list[j + 1].Id != thisId && list[i].Id != thisId && Describe(list[j + 1]) == what) j++;
+            var at = list[i].StartedOn.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+            var which = i == j ? $"Attempt {list[i].Number}" : $"Attempts {list[i].Number}-{list[j].Number}";
+            var mark = list[i].Id == thisId ? " (this one)" : "";
+            yield return $"{which}{mark}, from {at} UTC: {what}";
+            i = j + 1;
+        }
+    }
+
+    /// <summary>
+    /// An error's first line. Only <see cref="ErrorRead"/> characters are read, so a first line that
+    /// runs past them is cut back to before its last, possibly partial, word - and before a quote it
+    /// opened and never closed - rather than send half a value masking can't recognise.
+    /// </summary>
+    internal static string WholeFirstLine(string text)
+    {
+        var newline = text.IndexOf('\n');
+        if (newline >= 0) return text[..newline].Trim();
+        if (text.Length < ErrorRead) return text.Trim();
+        var end = Math.Max(text.LastIndexOf(' '), 0);
+        foreach (var quote in new[] { '\'', '"' })
+            if (text[..end].Count(c => c == quote) % 2 == 1)
+                end = text.LastIndexOf(quote, end - 1);
+        return (end > 0 ? text[..end].Trim() + " " : "") + "...";
+    }
 
     static string? ContentTypeOf(Document? document) => document?.DocumentFormat switch
     {

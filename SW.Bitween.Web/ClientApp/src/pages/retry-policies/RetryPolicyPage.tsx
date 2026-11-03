@@ -234,12 +234,12 @@ export function RetryPolicyPage() {
   }, [policy.data, loaded, name, alertChannelId]);
 
   const save = useMutation({
-    mutationFn: () =>
-      api.updateRetryPolicy(policyId, {
-        name,
-        groups: policy.data!.groups,
-        alertChannelId,
-      }),
+    // The groups as the server has them now, not as cached: another tab may have changed one
+    // since, and writing the cached copy back would undo it - a group set to Hold among them.
+    mutationFn: async () => {
+      const fresh = await api.getRetryPolicy(policyId);
+      await api.updateRetryPolicy(policyId, { name, groups: fresh.groups, alertChannelId });
+    },
     onSuccess: async () => {
       // Awaited before the draft is re-synced, or the re-sync would seed from stale data.
       await queryClient.invalidateQueries({ queryKey: keys.retryPolicies.all });
@@ -398,6 +398,12 @@ export function RetryPolicyPage() {
                         {g.budget.maxAttemptsPerError} tries (
                         {g.budget.maxAttemptsTotal == null ? "no total limit" : `${g.budget.maxAttemptsTotal} total`}) ·{" "}
                         {g.budget.delay.type}
+                        {g.budget.maxAttemptsTotal != null && g.budget.whenExhausted === "Hold" && (
+                          <span title="Once the total is spent, messages wait and are retried when the subscription succeeds again">
+                            {" "}
+                            · holds when spent
+                          </span>
+                        )}
                       </span>
                     ) : (
                       <span className="text-ink-500">-</span>

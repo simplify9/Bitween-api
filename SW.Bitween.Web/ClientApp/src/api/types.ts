@@ -419,6 +419,8 @@ export interface RetryAlertConfig {
   alertChannelId: number | null;
 }
 
+export type RetryExhaustedAction = "Fail" | "Hold";
+
 export interface RetryGroup {
   id: string;
   name: string;
@@ -429,8 +431,12 @@ export interface RetryGroup {
   /** OR logic; empty = any failure of the applicable kind. */
   matchers: RetryMatcher[];
   action: "Allow" | "Block";
-  /** `maxAttemptsTotal: null` is no group-wide limit - only the per-message cap applies. */
-  budget?: { maxAttemptsPerError: number; maxAttemptsTotal: number | null; delay: RetryDelay };
+  /**
+   * `maxAttemptsTotal: null` is no group-wide limit - only the per-message cap applies.
+   * `whenExhausted` is what happens to a failure once that total is spent: fail it for good, or
+   * hold it and retry it when the subscription next succeeds.
+   */
+  budget?: { maxAttemptsPerError: number; maxAttemptsTotal: number | null; delay: RetryDelay; whenExhausted: RetryExhaustedAction };
   notes?: string;
   /** Where this group's budget-exhausted alert goes, for every subscription using the policy. */
   alertMode: RetryAlertMode;
