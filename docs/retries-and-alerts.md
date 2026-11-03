@@ -106,6 +106,8 @@ A budget sets two limits.
 
 When a subscription succeeds, each of its budgets that was already exhausted before that exchange started is released. Partly spent budgets are left alone.
 
+**`whenExhausted`** says what happens to a failure the group would retry once its total is spent. `Fail`, the default, fails it for good. `Hold` keeps it waiting and retries it as soon as the subscription next succeeds, so messages caught by a partner's outage go through once it is back. On a group's page it is **When the total runs out**, shown while the group has a total, and the policy's group list marks a held group "holds when spent".
+
 ### Example group
 
 ```json

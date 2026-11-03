@@ -398,6 +398,12 @@ export function RetryPolicyPage() {
                         {g.budget.maxAttemptsPerError} tries (
                         {g.budget.maxAttemptsTotal == null ? "no total limit" : `${g.budget.maxAttemptsTotal} total`}) ·{" "}
                         {g.budget.delay.type}
+                        {g.budget.maxAttemptsTotal != null && g.budget.whenExhausted === "Hold" && (
+                          <span title="Once the total is spent, messages wait and are retried when the subscription succeeds again">
+                            {" "}
+                            · holds when spent
+                          </span>
+                        )}
                       </span>
                     ) : (
                       <span className="text-ink-500">-</span>

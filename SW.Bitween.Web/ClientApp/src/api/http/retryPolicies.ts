@@ -6,6 +6,7 @@ import {
   type RetryAlertLevel,
   type RetryAttempts,
   type RetryDelay,
+  type RetryExhaustedAction,
   type RetryGroup,
   type RetryPolicy,
   type RetryPolicyDetail,
@@ -81,6 +82,8 @@ interface RawRetryBudget {
   maxAttemptsPerError: number;
   maxAttemptsTotal: number | null;
   delayStrategy: RawDelayStrategy;
+  /** Missing on policies saved before it existed: those fail, as they always did. */
+  whenExhausted?: RetryExhaustedAction;
 }
 interface RawRetryGroup extends Omit<RetryGroup, "budget"> {
   budget?: RawRetryBudget | null;
@@ -139,6 +142,7 @@ const toGroup = ({ alertHandlerId: _retired, alertHandlerProperties: _retiredPro
         maxAttemptsPerError: g.budget.maxAttemptsPerError,
         maxAttemptsTotal: g.budget.maxAttemptsTotal,
         delay: toDelay(g.budget.delayStrategy),
+        whenExhausted: g.budget.whenExhausted ?? "Fail",
       }
     : undefined,
   // Named rather than left to the spread: a policy saved from an older client has no
@@ -155,6 +159,8 @@ const toRawGroup = (g: RetryGroup): RawRetryGroup => ({
         maxAttemptsPerError: g.budget.maxAttemptsPerError,
         maxAttemptsTotal: g.budget.maxAttemptsTotal,
         delayStrategy: toRawDelay(g.budget.delay),
+        // Sent back as read: leaving it out turned a held group into one that fails on every save.
+        whenExhausted: g.budget.whenExhausted,
       }
     : undefined,
 });
