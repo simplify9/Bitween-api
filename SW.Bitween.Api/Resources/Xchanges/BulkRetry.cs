@@ -69,38 +69,67 @@ namespace SW.Bitween.Resources.Xchanges
 
             var total = prepared.Targets.Count;
             var retried = 0;
+            // Retried and saved: what a run that stops part way has done for good.
+            var saved = 0;
             var handled = 0;
             // The retries this run made that the pipeline hasn't finished, and this save's targets.
             var unfinished = new List<string>();
             var batch = new List<string>();
+            // In the background a run can go on for hours and end with its server: who started it is
+            // recorded first, so retries it saves before then are never without an owner on record.
+            if (background != null && total > 0)
+                await _dbContext.RecordNowAsync(_requestContext, OperatorAction.BulkRetry, $"{total} exchanges",
+                    $"Started in the background: {total} to retry, {plan.SkippedCount} skipped. " +
+                    "Each save of a hundred keeps its retries; another entry says how many when it ends.");
+
             background?.Progress(0, total, Said(0, plan));
-            foreach (var id in prepared.Targets)
+            try
             {
-                // Between exchanges only, so the one under way is either done or not started; and room
-                // for a whole save at its start, so what waits never passes Waiting.
-                if (background?.CancelRequested.IsCancellationRequested == true ||
-                    background != null && handled % SaveEvery == 0 &&
-                    !await RoomFor(unfinished, background, handled, total, retried, plan))
+                foreach (var id in prepared.Targets)
                 {
-                    plan.StoppedAfter = handled;
-                    break;
+                    // Between exchanges only, so the one under way is either done or not started; and room
+                    // for a whole save at its start, so what waits never passes Waiting.
+                    if (background?.CancelRequested.IsCancellationRequested == true ||
+                        background != null && handled % SaveEvery == 0 &&
+                        !await RoomFor(unfinished, background, handled, total, retried, plan))
+                    {
+                        plan.StoppedAfter = handled;
+                        break;
+                    }
+
+                    // Only those it retried: a skipped one's retry, if it has one, is someone else's.
+                    if (await RetryOne(id, request, plan))
+                    {
+                        retried++;
+                        batch.Add(id);
+                    }
+
+                    handled++;
+
+                    if (handled % SaveEvery != 0) continue;
+                    await _dbContext.SaveChangesAsync();
+                    saved = retried;
+                    _dbContext.ChangeTracker.Clear();
+                    if (background != null) unfinished.AddRange(await RetriesOf(batch));
+                    batch.Clear();
+                    background?.Progress(handled, total, Said(retried, plan));
                 }
-
-                // Only those it retried: a skipped one's retry, if it has one, is someone else's.
-                if (await RetryOne(id, request, plan))
-                {
-                    retried++;
-                    batch.Add(id);
-                }
-
-                handled++;
-
-                if (handled % SaveEvery != 0) continue;
-                await _dbContext.SaveChangesAsync();
+            }
+            catch (System.Exception) when (saved > 0)
+            {
+                // The saves before the error kept their retries: they are recorded before it goes on.
+                // What wasn't saved yet is dropped with the error, so it isn't recorded.
                 _dbContext.ChangeTracker.Clear();
-                if (background != null) unfinished.AddRange(await RetriesOf(batch));
-                batch.Clear();
-                background?.Progress(handled, total, Said(retried, plan));
+                try
+                {
+                    await _dbContext.RecordNowAsync(_requestContext, OperatorAction.BulkRetry, $"{saved} exchanges",
+                        $"{saved} retried, {plan.SkippedCount} skipped, then it stopped with an error after {handled} of {total}");
+                }
+                catch (System.Exception)
+                {
+                    // The error that stopped the run is the one to report, not this one.
+                }
+                throw;
             }
 
             if (retried > 0)

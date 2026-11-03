@@ -81,6 +81,32 @@ public class BulkRetryInBackgroundTests(BitweenFixture fixture)
     }
 
     [Fact]
+    public async Task One_that_stops_with_an_error_part_way_has_what_it_saved_on_record()
+    {
+        await using var scope = fixture.CreateScope();
+        var (db, xs, ctx) = Services(scope);
+        var ids = await FailedXchangesAsync(db, xs, 250);
+        var target = $"{ids.Count} exchanges";
+        var from = DateTime.UtcNow;
+
+        using var stop = new CancellationTokenSource();
+        // Something fails once the first hundred are saved, as a stalled pipeline or a lost database would.
+        BackgroundRequestScope.Open(DateTime.UtcNow + BackgroundRequests.Limit, stop.Token, default,
+            (done, _, _) => { if (done >= 100) throw new InvalidOperationException("lost the database"); });
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            new Resources.Xchanges.BulkRetry(db, ctx, xs).Handle(new XchangeBulkRetry { Ids = ids }));
+
+        Assert.Equal(100, await Retries(db, ids));
+        var recorded = await db.Set<OperatorAction>().AsNoTracking()
+            .Where(a => a.Action == OperatorAction.BulkRetry && a.OccurredOn >= from &&
+                        (a.Target == target || a.Target == "100 exchanges"))
+            .OrderBy(a => a.OccurredOn).Select(a => a.Detail).ToListAsync();
+        Assert.Collection(recorded,
+            started => Assert.StartsWith($"Started in the background: {ids.Count} to retry", started),
+            stopped => Assert.StartsWith("100 retried, 0 skipped, then it stopped with an error", stopped));
+    }
+
+    [Fact]
     public async Task It_goes_at_the_pipelines_pace_holding_back_while_too_many_wait()
     {
         var (waiting, lookEvery) = (Resources.Xchanges.BulkRetry.Waiting, Resources.Xchanges.BulkRetry.LookEvery);
