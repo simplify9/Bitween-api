@@ -30,6 +30,16 @@ const ENDED: Record<string, string> = {
 /** An export's answer is the zip, which "Download" saves again rather than going back to the page. */
 const isExport = (r: BackgroundRequest) => r.path.startsWith("POST /xchanges/export");
 
+/** Done, but answered with an error: nothing to download, and not "ready". */
+const failed = (r: BackgroundRequest) =>
+  r.status === "Done" && r.resultStatus != null && (r.resultStatus < 200 || r.resultStatus >= 300);
+
+/** Finished with an answer worth having. */
+const ready = (r: BackgroundRequest) => r.status === "Done" && !failed(r);
+
+/** An export whose zip can be saved. */
+const downloadable = (r: BackgroundRequest) => isExport(r) && ready(r);
+
 /** A bring's answer is what it brought, which "Open" shows on its page: `?brought=` its id. */
 const isBring = (r: BackgroundRequest) => r.path.startsWith("POST /mirror/bring");
 
@@ -47,6 +57,7 @@ function said(r: BackgroundRequest, now: number): { text: string; title: string 
   if (r.status === "Waiting") return { text: `Waiting for a free place · ${duration(r.startedOn, now)}`, title: "How long it has waited" };
   if (r.status === "Running") return { text: `Running${counted} · ${duration(r.startedOn, now)}`, title: "How far it has got, and for how long" };
   const took = `took ${duration(r.startedOn, Date.parse(r.finishedOn ?? r.startedOn))}`;
+  if (failed(r)) return { text: "Ended with an error. Open it to see why.", title: `It ${took}` };
   if (r.status === "Done") return { text: r.summary ? `Ready · ${r.summary}` : `Ready · ${took}`, title: `It ${took}` };
   return { text: r.summary ? `${ENDED[r.status] ?? "Ended."} ${r.summary}` : (ENDED[r.status] ?? "Ended."), title: "" };
 }
@@ -69,10 +80,14 @@ function duration(from: string, to: number): string {
 
 /** Goes back to what it was for: its page - or, for an export, its zip again; for a bring, what it brought. */
 async function openWork(r: BackgroundRequest, navigate: (to: string) => void): Promise<void> {
-  if (isExport(r) && r.status === "Done") {
-    followDownload((await api.linkToBackgroundFile(r.id)).url);
-    dismissBackground([r.id]);
-    return;
+  if (downloadable(r)) {
+    try {
+      followDownload((await api.linkToBackgroundFile(r.id)).url);
+      dismissBackground([r.id]);
+      return;
+    } catch {
+      // No file after all, or no longer kept: its page says why, as for any other answer.
+    }
   }
   if (isBring(r) && r.status === "Done") {
     dismissBackground([r.id]);
@@ -88,11 +103,11 @@ export function BackgroundTray() {
   const { requests } = useBackground();
   const navigate = useNavigate();
   const running = requests.filter((r) => isRunning(r.status)).length;
-  const ready = requests.filter((r) => r.status === "Done").length;
+  const readyCount = requests.filter(ready).length;
   const now = useNow(running > 0);
   if (requests.length === 0) return null;
 
-  const summary = running ? `${running} running` : ready ? `${ready} ready` : `${requests.length} ended`;
+  const summary = running ? `${running} running` : readyCount ? `${readyCount} ready` : `${requests.length} ended`;
   return (
     <Popover
       label={`Background work: ${summary}`}
@@ -108,7 +123,7 @@ export function BackgroundTray() {
         <>
           {running ? (
             <LoaderCircle className="size-3.5 animate-spin text-ink-500" aria-hidden />
-          ) : ready ? (
+          ) : readyCount ? (
             <CircleCheck className="size-3.5 text-ok-600" aria-hidden />
           ) : (
             <CircleAlert className="size-3.5 text-warn-700" aria-hidden />
@@ -149,10 +164,10 @@ export function BackgroundTray() {
                         close();
                         void openWork(r, navigate);
                       }}
-                      title={isExport(r) && r.status === "Done" ? "Save the zip" : "Go back to the page it was for"}
+                      title={downloadable(r) ? "Save the zip" : "Go back to the page it was for"}
                       className="shrink-0 cursor-pointer rounded px-1.5 py-0.5 text-xs font-medium text-crimson-700 hover:bg-crimson-50"
                     >
-                      {isExport(r) && r.status === "Done" ? "Download" : "Open"}
+                      {downloadable(r) ? "Download" : "Open"}
                     </button>
                     <button
                       type="button"
@@ -178,7 +193,7 @@ function LineIcon({ request: r }: { request: BackgroundRequest }) {
   const className = "mt-0.5 size-4 shrink-0";
   if (r.status === "Waiting") return <Hourglass className={`${className} text-ink-400`} aria-label="Waiting" />;
   if (r.status === "Running") return <LoaderCircle className={`${className} animate-spin text-ink-400`} aria-label="Running" />;
-  if (r.status === "Done") return <CircleCheck className={`${className} text-ok-600`} aria-label="Ready" />;
+  if (ready(r)) return <CircleCheck className={`${className} text-ok-600`} aria-label="Ready" />;
   return <CircleAlert className={`${className} text-warn-700`} aria-label="Ended" />;
 }
 
@@ -216,20 +231,20 @@ export function BackgroundReadyNotice() {
   }, [notice]);
 
   if (!notice) return null;
-  const ready = notice.status === "Done";
+  const isReady = ready(notice);
   return (
     <div
       role="status"
       className="fixed right-4 bottom-4 z-40 flex max-w-sm items-center gap-2 rounded-xl border border-ink-100 bg-white px-3 py-2 text-[13px] shadow-lg"
     >
-      {ready ? (
+      {isReady ? (
         <CircleCheck className="size-4 shrink-0 text-ok-600" aria-hidden />
       ) : (
         <CircleAlert className="size-4 shrink-0 text-warn-700" aria-hidden />
       )}
       <span className="min-w-0 flex-1 truncate" title={notice.summary ?? undefined}>
         <span className="font-medium text-ink-800">{notice.label ?? "Background work"}</span>{" "}
-        <span className="text-ink-500">{ready ? "is ready" : notice.status === "Cancelled" ? "was cancelled" : "ended without an answer"}</span>
+        <span className="text-ink-500">{isReady ? "is ready" : failed(notice) ? "ended with an error" : notice.status === "Cancelled" ? "was cancelled" : "ended without an answer"}</span>
       </span>
       <button
         type="button"
@@ -237,10 +252,10 @@ export function BackgroundReadyNotice() {
           setNotice(null);
           void openWork(notice, navigate);
         }}
-        title={isExport(notice) && ready ? "Save the zip" : "Go back to the page it was for"}
+        title={downloadable(notice) ? "Save the zip" : "Go back to the page it was for"}
         className="shrink-0 cursor-pointer rounded px-1.5 py-0.5 text-xs font-medium text-crimson-700 hover:bg-crimson-50"
       >
-        {isExport(notice) && ready ? "Download" : "Open"}
+        {downloadable(notice) ? "Download" : "Open"}
       </button>
       <button
         type="button"

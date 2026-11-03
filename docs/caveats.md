@@ -102,9 +102,9 @@ These behaviours were found while documenting Bitween from its source code, and 
 | Cancelling stops the database commands a background request runs. Anything else it waits on, such as a call to another system, runs to its end, and the answer is dropped. | `Services/Background/BackgroundRequestScope.cs` |
 | The limits, 10 running and 3 of one person's, are per node, so three nodes run up to 30. A write over them - a bulk retry, an export, bringing - goes on regardless, since it can't be asked twice. | `Services/Background/BackgroundRequests.cs` |
 | A read that waits for a place starts again from the beginning when it gets one, so its first seconds of work are done twice. | `Services/Background/BackgroundRequests.cs` |
-| A bulk retry whose exchanges stop being processed - a paused subscription holds them - waits at its 1,000, and stops once 10 minutes pass without one finishing. It keeps what it did, but the audit trail doesn't record that run. | `Resources/Xchanges/BulkRetry.cs` |
+| A bulk retry whose exchanges stop being processed - a paused subscription holds them - waits at its 1,000, and stops once 10 minutes pass without one finishing. It keeps what it did, and the audit trail has the run's start and how many it had saved when it stopped. | `Resources/Xchanges/BulkRetry.cs` |
 | An export's download link opens without a sign-in for 10 minutes, to whoever has it: the owner is the only one handed it. | `Services/Background/BackgroundDownloads.cs` |
-| A bulk retry stopped by a restart keeps what it saved, a hundred at a time, and the rest is not retried. Retrying the same selection again picks up the attempts it made too, since exchanges with no result yet are included. | `Resources/Xchanges/BulkRetry.cs` |
+| A bulk retry stopped by a restart keeps what it saved, a hundred at a time, and the rest is not retried. The audit trail has the run's start, but no entry for how many it saved. Retrying the same selection again picks up the attempts it made too, since exchanges with no result yet are included. | `Resources/Xchanges/BulkRetry.cs` |
 | The hub signs in with the token in its address, as a browser's WebSocket requires. A proxy that logs full addresses logs the token; Bitween's own logs don't. | `SW.Bitween.Web/Startup.cs` |
 
 ## Deployment and tooling

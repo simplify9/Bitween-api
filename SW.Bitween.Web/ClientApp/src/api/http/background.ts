@@ -29,6 +29,8 @@ export interface BackgroundRequest {
   done?: number | null;
   total?: number | null;
   summary?: string | null;
+  /** The HTTP status it was answered with, once done: an error answer is still "Done". */
+  resultStatus?: number | null;
 }
 
 export interface BackgroundState {
