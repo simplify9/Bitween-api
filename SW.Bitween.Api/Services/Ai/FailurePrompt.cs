@@ -22,8 +22,9 @@ public static class FailurePrompt
 
         When the exchange was retried, you also get its whole retry chain: every attempt in order, its
         outcome and its error's first line. Use it: an error that repeats unchanged points at a lasting
-        problem, one that changed or passed points at a glitch or a fix that already happened. If a
-        later attempt succeeded, say so first.
+        problem - unless it is one a retry can outlast (a timeout, a 5xx, a rate limit), which repeating
+        means an outage still going on. One that changed or passed points at a glitch or a fix that
+        already happened. If a later attempt succeeded, say so first.
 
         Every value in the documents and the error has been masked before you see it: text is <text>,
         numbers are <number>, booleans are <true|false>, credentials and tokens are <secret>, and long lists show their first entries. Keys,

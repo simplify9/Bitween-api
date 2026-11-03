@@ -138,10 +138,10 @@ When a subscription succeeds, each of its budgets that was already exhausted bef
 4. If no group matched, there is no retry.
 5. If the group blocks, there is no retry.
 6. If the message reached `maxAttemptsPerError`, there is no retry. This is checked first, so it does not spend the shared total.
-7. If the shared total is spent, there is no retry. When this failure is the one that used up the total, an alert is raised.
+7. If the shared total is spent, there is no retry, unless the group's `whenExhausted` is `Hold`: then the failure waits, with no reason recorded, and is retried when the subscription next succeeds. Either way, when this failure is the one that used up the total, an alert is raised.
 8. Otherwise a retry is scheduled after the delay, give or take a tenth, or later when the adapter [said when to try again](#when-an-adapter-says-when-to-try-again).
 
-When no retry is scheduled, the exchange result records one of these reasons.
+When no retry is scheduled, and the failure isn't held, the exchange result records one of these reasons.
 
 - No matching group (default block)
 - Group '…' explicitly blocks this error

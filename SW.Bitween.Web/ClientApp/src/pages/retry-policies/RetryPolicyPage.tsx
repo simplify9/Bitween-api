@@ -234,12 +234,12 @@ export function RetryPolicyPage() {
   }, [policy.data, loaded, name, alertChannelId]);
 
   const save = useMutation({
-    mutationFn: () =>
-      api.updateRetryPolicy(policyId, {
-        name,
-        groups: policy.data!.groups,
-        alertChannelId,
-      }),
+    // The groups as the server has them now, not as cached: another tab may have changed one
+    // since, and writing the cached copy back would undo it - a group set to Hold among them.
+    mutationFn: async () => {
+      const fresh = await api.getRetryPolicy(policyId);
+      await api.updateRetryPolicy(policyId, { name, groups: fresh.groups, alertChannelId });
+    },
     onSuccess: async () => {
       // Awaited before the draft is re-synced, or the re-sync would seed from stale data.
       await queryClient.invalidateQueries({ queryKey: keys.retryPolicies.all });
