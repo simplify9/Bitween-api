@@ -155,11 +155,13 @@ export const isPermanentError = (error: unknown): boolean =>
 
 /**
  * Whether a failed query is asked again. A refusal answers the same however often it is asked:
- * retrying it only held "Loading…" on screen for the ~7s of backoff before the error showed.
- * Server errors and dropped connections are retried, up to three times.
+ * retrying it only held "Loading…" on screen for the ~7s of backoff before the error showed. A
+ * timeout (504) takes as long again each time: three more of the database's 30 seconds held a list
+ * on "Loading…" for two minutes. Other server errors and dropped connections are retried, up to
+ * three times.
  */
 export const shouldRetryQuery = (failureCount: number, error: unknown): boolean =>
-  !isPermanentError(error) && failureCount < 3;
+  !isPermanentError(error) && !(error instanceof ApiRequestError && error.status === 504) && failureCount < 3;
 
 // --- Configuration entities (sub-phase 2) ---
 

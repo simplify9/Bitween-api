@@ -12,7 +12,7 @@ import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useBackgroundProgress } from "../../lib/useBackground";
 import { followDownload } from "../../lib/saveFile";
-import { Button, EmptyState, LoadingBlock } from "../../components/ui/basics";
+import { Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { openDialogs } from "../../components/ui/dialogStack";
 import { useSubscriptionsCache } from "../../components/config/lookups";
@@ -109,10 +109,12 @@ export function ExchangesPage() {
   // keeps showing the last hour rather than the hour before the page was opened.
   // The rows alone, so they show as soon as they're found: how many match comes with the status
   // counts below, which can take far longer to work out on a busy instance.
-  const { data, isLoading, isFetching, isPlaceholderData, dataUpdatedAt, refetch } = useQuery({
+  const { data, isLoading, isFetching, isPlaceholderData, isError, error, dataUpdatedAt, refetch } = useQuery({
     queryKey: keys.exchanges.search(viewSearch(searchParams) + `&offset=${query.offset}`),
     queryFn: () => api.searchExchanges(readQuery(searchParams), { count: false }),
-    refetchInterval: refreshMs || false,
+    // A list that failed with nothing to show waits for Try again: asked every 15s, a timeout kept
+    // the database busy with the same query for as long as the page stayed open.
+    refetchInterval: (q) => (q.state.status === "error" && q.state.data === undefined ? false : refreshMs || false),
     placeholderData: keepPreviousData,
   });
   // Loads someone is waiting on: a changed filter or page (the old rows stay up meanwhile), or the
@@ -489,6 +491,9 @@ export function ExchangesPage() {
           <div className="flex min-w-0 flex-1 flex-col gap-3">
             {isLoading ? (
               <LoadingBlock />
+            ) : isError && !data ? (
+              /* Without it, a list that couldn't be read said "No exchanges match", as if there were none. */
+              <LoadError error={error} what="the exchanges" onRetry={() => void refetch()} />
             ) : rows.length === 0 ? (
               /* An empty page and an empty search are different problems. This branch replaces the
                  table, paging footer and all, so a page past the end of the list would otherwise

@@ -1088,6 +1088,10 @@ namespace SW.Bitween.Web
             app.UseHttpAsRequestContext();
             SW.Logger.Console.IAppBuilderExtensions.UseRequestContextLogEnricher(app);
 
+            // Next to the endpoints, so it sees a timeout before anything turns it into a plain 500,
+            // and after the request context, so its log line carries the caller.
+            app.UseMiddleware<SW.Bitween.Services.DatabaseTimeoutMiddleware>();
+
             if (apiDocsExposed)
                 app.UseSwaggerUI(c => { c.SwaggerEndpoint("/api/swagger.json", "Bitween Api"); });
 

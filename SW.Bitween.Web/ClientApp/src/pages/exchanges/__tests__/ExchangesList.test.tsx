@@ -412,6 +412,34 @@ describe("the exchanges list", () => {
     }
   });
 
+  it("says when the list couldn't be read, rather than that nothing matches, and reads it again on Try again", async () => {
+    let timedOut = true;
+    const list = exchanges({ total: 3 });
+    const { user } = renderApp("/exchanges?status=failed&latest=1", {
+      handlers: [
+        http.get(/\/api\/xchanges(\?|$)/, () =>
+          timedOut
+            ? HttpResponse.json(
+                { DATABASE_TIMED_OUT: ["The database took too long to answer. Asking for less, such as a shorter time range, may help."] },
+                { status: 504 },
+              )
+            : undefined,
+        ),
+        list.handler,
+        ...filterOptions,
+      ],
+    });
+
+    const alert = await screen.findByRole("alert");
+    expect(within(alert).getByText("Couldn't load the exchanges")).toBeVisible();
+    expect(within(alert).getByText(/The database took too long to answer/)).toBeVisible();
+    expect(screen.queryByText("No exchanges match")).not.toBeInTheDocument();
+
+    timedOut = false;
+    await user.click(within(alert).getByRole("button", { name: "Try again" }));
+    expect(await screen.findByText("Showing 1-3 of 3")).toBeVisible();
+  });
+
   it("can show only the newest attempt of each chain", async () => {
     const latest = (q: URLSearchParams) => q.getAll("filter").includes("LatestOnly:1:true");
     const list = exchanges({ total: (q) => (latest(q) ? 30 : 40) });

@@ -24,9 +24,10 @@ describe("errors from the API", () => {
     expect(refusal.errors).toEqual({ Name: ["A name is needed."], Port: ["The port must be a number."] });
   });
 
-  it("doesn't ask again for a refusal, but does for a server error or a dropped connection", () => {
+  it("doesn't ask again for a refusal or a timeout, but does for a server error or a dropped connection", () => {
     expect(shouldRetryQuery(0, new ApiRequestError("NOT_FOUND", "gone", 404))).toBe(false);
     expect(shouldRetryQuery(0, new ApiRequestError("HTTP_403", "no", 403))).toBe(false);
+    expect(shouldRetryQuery(0, new ApiRequestError("DATABASE_TIMED_OUT", "too long", 504))).toBe(false);
     expect(shouldRetryQuery(0, new ApiRequestError("ERROR", "boom", 500))).toBe(true);
     expect(shouldRetryQuery(0, new TypeError("Failed to fetch"))).toBe(true);
     expect(shouldRetryQuery(3, new ApiRequestError("ERROR", "boom", 500))).toBe(false);
