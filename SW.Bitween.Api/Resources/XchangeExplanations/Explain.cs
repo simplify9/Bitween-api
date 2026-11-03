@@ -357,20 +357,17 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
     }
 
     /// <summary>
-    /// An error's first line. Only <see cref="ErrorRead"/> characters are read, so a first line that
-    /// runs past them is cut back to before its last, possibly partial, word - and before a quote it
-    /// opened and never closed - rather than send half a value masking can't recognise.
+    /// An error's first line. Only <see cref="ErrorRead"/> characters are read, and a first line that
+    /// runs past them is cut somewhere masking can't see the whole of: a name's first word looks like
+    /// any other. So only what comes before its first ": " - the exception's type - is kept.
     /// </summary>
     internal static string WholeFirstLine(string text)
     {
         var newline = text.IndexOf('\n');
         if (newline >= 0) return text[..newline].Trim();
         if (text.Length < ErrorRead) return text.Trim();
-        var end = Math.Max(text.LastIndexOf(' '), 0);
-        foreach (var quote in new[] { '\'', '"' })
-            if (text[..end].Count(c => c == quote) % 2 == 1)
-                end = text.LastIndexOf(quote, end - 1);
-        return (end > 0 ? text[..end].Trim() + " " : "") + "...";
+        var type = text.IndexOf(": ", StringComparison.Ordinal);
+        return (type > 0 && type < 200 ? text[..type] + ": " : "") + "(the rest of this line is too long to send)";
     }
 
     static string? ContentTypeOf(Document? document) => document?.DocumentFormat switch

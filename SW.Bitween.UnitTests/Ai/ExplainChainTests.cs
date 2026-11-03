@@ -62,12 +62,11 @@ public class ExplainChainTests
     }
 
     [TestMethod]
-    public void A_first_line_read_only_in_part_loses_its_last_word()
+    public void A_first_line_read_only_in_part_keeps_only_its_exception_type()
     {
-        var text = "Refused for customer " + new string('y', Explain.ErrorRead);
-        Assert.AreEqual("Refused for customer ...", Explain.WholeFirstLine(text[..Explain.ErrorRead]));
-        var quoted = "Refused for 'Lina " + new string('y', Explain.ErrorRead);
-        Assert.AreEqual("Refused for ...", Explain.WholeFirstLine(quoted[..Explain.ErrorRead]));
+        var cut = ("System.Exception: Refused for customer Lina Haddad " + new string('y', Explain.ErrorRead))[..Explain.ErrorRead];
+        Assert.AreEqual("System.Exception: (the rest of this line is too long to send)", Explain.WholeFirstLine(cut));
+        Assert.AreEqual("(the rest of this line is too long to send)", Explain.WholeFirstLine(new string('y', Explain.ErrorRead)));
         Assert.AreEqual("Timeout", Explain.WholeFirstLine("Timeout\n   at Foo()"));
     }
 }
