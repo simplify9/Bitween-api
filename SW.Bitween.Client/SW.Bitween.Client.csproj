@@ -1,0 +1,35 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Bitween's exchanges from another program: search them, read their files, retry and export them,
+       signed in as a service account. Published to NuGet as SimplyWorks.Bitween.Client; the rows and
+       plans it answers with are the API's own, from SimplyWorks.Bitween.Sdk, so the two can't drift. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <PackageId>SimplyWorks.Bitween.Client</PackageId>
+    <Product>SimplyWorks.Bitween.Client</Product>
+    <Description>Bitween's exchanges from your own program: search, read files, retry, bulk retry and export, as a service account.</Description>
+    <Authors>Simplify9</Authors>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/simplify9/Bitween</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/simplify9/Bitween</RepositoryUrl>
+    <PackageIcon>icon.png</PackageIcon>
+    <RootNamespace>SW.Bitween.Client</RootNamespace>
+    <!-- The summaries go in the package, so they show where the client is used. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SW.Bitween.Sdk\SW.Bitween.Sdk.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\icon.png">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
+  </ItemGroup>
+
+</Project>

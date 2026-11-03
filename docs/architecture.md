@@ -52,13 +52,14 @@ flowchart TB
 | `SW.Bitween.Adapters` | The Bitween adapter contract: its JSON in `Contract/` and its .NET form (`IBitweenHandler`, `IBitweenMapper`, `IBitweenValidator`, `IBitweenReceiver`, `ExchangeFile`, `ValidationResult`). Targets netstandard2.0 with no dependencies; published to NuGet as `SimplyWorks.Bitween.Adapters` | none |
 | `SW.Bitween.Adapters.Tooling` | Bitween's adapters on SW-Serverless's tooling (`SimplyWorks.Serverless.Tooling`): the contract, the templates for the four kinds, and the Python and Node packages to vendor into builds, embedded from `SW.Bitween.Adapters/Contract` and `sdk/` | none |
 | `SW.Bitween.Cli` | The `bitween` command. See [The bitween CLI](cli.md) | Adapters.Tooling |
+| `SW.Bitween.Client` | The client SDK for .NET: exchanges from a client's own program, as a service account. Published to NuGet as `SimplyWorks.Bitween.Client`. See [Client SDK](client-sdk.md) | Sdk |
 | `SW.Bitween.PgSql`, `MySql`, `MsSql` | Provider contexts, migrations, design-time factories | Api |
 | `SW.Bitween.Adapters.Bus.RabbitMq`, `Bus.Sqs` | Resident broker adapters | none |
 | `SW.Bitween.Adapters.Db.Core`, `Db.PostgreSql`, `Db.MySql`, `Db.SqlServer`, `Db.Oracle` | Resident database adapters and their shared base | Db.Core |
 | `SW.Bitween.Sample*` | Example custom adapters, including a resident handler | none |
-| `SW.Bitween.UnitTests`, `IntegrationTests`, `HttpTests`, `TransportTests` | Test suites. See [Development](development.md#tests) | The projects they test; `HttpTests` hosts Web and runs the CLI |
+| `SW.Bitween.UnitTests`, `IntegrationTests`, `HttpTests`, `TransportTests` | Test suites. See [Development](development.md#tests) | The projects they test; `HttpTests` hosts Web and runs the CLI and the client |
 
-Outside the solution, `sdk/python` is the Python package `simplyworks-bitween` and `sdk/node` the Node package `@simplyworks/bitween`: the four kinds for adapters in those languages, built on SW-Serverless's `sw-serverless` and `@simplyworks/sw-serverless`.
+Outside the solution, `sdk/python` is the Python package `simplyworks-bitween` and `sdk/node` the Node package `@simplyworks/bitween`: the four kinds for adapters in those languages, built on SW-Serverless's `sw-serverless` and `@simplyworks/sw-serverless`. `sdk/node-client` is the client SDK for JavaScript and TypeScript, `@simplyworks/bitween-client`.
 
 Bitween's own projects target .NET 10, the resident adapters included, except `SW.Bitween.Adapters`, which targets netstandard2.0 so that an adapter on any supported .NET can reference it. The resident adapters share their settings attributes from `SW.Bitween.Adapters.Shared` as linked source.
 

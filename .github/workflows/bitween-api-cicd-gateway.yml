@@ -176,10 +176,12 @@ jobs:
       container-registry: 'docker.io'
       image-name: 'simplify9/bitween'
 
-      # The SDK and the adapter contract package (SimplyWorks.Bitween.Adapters) adapters reference.
+      # The SDK, the adapter contract package (SimplyWorks.Bitween.Adapters) adapters reference, and
+      # the client (SimplyWorks.Bitween.Client) clients' own programs call Bitween with.
       nuget-projects: >-
         SW.Bitween.Sdk/SW.Bitween.Sdk.csproj
         SW.Bitween.Adapters/SW.Bitween.Adapters.csproj
+        SW.Bitween.Client/SW.Bitween.Client.csproj
       run-tests: 'true'
       # Integration tests run against real Postgres/RabbitMQ/MailHog via
       # Testcontainers - self-contained, no extra CI services needed, since
