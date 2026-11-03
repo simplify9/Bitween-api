@@ -8,6 +8,8 @@
 
 The Exchanges page filters by status, subscription, partner, information type, exchange ids, correlation id, a promoted property value and a date range. Pick a promoted property to search inside its value only; any part of the value matches, ignoring case. Filters live in the URL, so a filtered view can be shared as a link. The list reloads itself every 15 seconds by default (adjustable, or paused); **Refresh**, beside the pause button, reloads the list and its counts right away.
 
+Each status above the list shows how many exchanges it holds under the other filters, up to 10,000+. The list doesn't wait for them: its rows show at once, and how many match ("Showing 1-25 of ...") comes with the counts. A count that takes more than a few seconds, such as Processing across millions of exchanges, is finished on the server and shows up once it's ready; until then that status shows no number, and the page asks again every 15 seconds. The server runs 2 such counts at a time, each for up to 10 minutes, so one can wait its turn first; one whose page was closed before its turn is dropped. A finished count is kept for 5 minutes, then counted again. The chart works the same way.
+
 - Search by **promoted property** to find a business document, such as an order number.
 - Search by **correlation id** to see every exchange in one flow, including exchanges created from responses.
 - Searching by **id** also finds retries of that exchange and the aggregation that collected it.
@@ -152,7 +154,7 @@ When a partner says a gateway refuses them, the gateway's page lists **Calls tur
 
 **Settings › About this instance** shows what this Bitween is and how it is set up, as the node that answered sees it: its version, the node's name and whether it runs data sources, the database and RabbitMQ checks `/health/ready` runs (run when the page opens), storage and queue prefix, which adapter runtimes (.NET, Python, Node.js) and pip/npm are on the node, the adapter editor's limits, rate limits, and the network and housekeeping settings that live in configuration. In a cluster, open it on each node to compare.
 
-The **Documents & storage** section of the Settings page shows the bucket's rules and what the settings do: how long files and exchanges are kept, when the job next runs, how many exchanges are listed without their files, and warnings such as exchanges that outlive their files, archives that come too late to hold them, aggregations that run less often than exchanges are kept, or a bucket that lets anyone read Bitween's files without credentials. Saving a change to these settings shows the same list and asks first.
+The **Documents & storage** section of the Settings page shows the bucket's rules and what the settings do: how long files and exchanges are kept, when the job next runs, when the oldest exchange started, and warnings such as exchanges that outlive their files, archives that come too late to hold them, aggregations that run less often than exchanges are kept, or a bucket that lets anyone read Bitween's files without credentials. Saving a change to these settings shows the same list and asks first.
 
 Exchange rows can outlive their files. Opening such a file says it was deleted by the retention policy, and so does retrying an exchange whose input has gone. A waiting retry for one is dropped with a reason.
 

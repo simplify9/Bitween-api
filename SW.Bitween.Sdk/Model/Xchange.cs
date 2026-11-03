@@ -356,30 +356,40 @@ namespace SW.Bitween.Model
         /// When the matching exchanges started, by status, in fixed buckets of
         /// <see cref="BucketMinutes"/> each - contiguous and zero-filled from the start of the
         /// filter's date range to its end. Empty when the filter has no start date: with no range
-        /// there is nothing to divide into buckets but the whole history.
+        /// there is nothing to divide into buckets but the whole history. Also empty while they are
+        /// still being worked out: see <see cref="Counting"/>.
         /// </summary>
         public List<XchangeSummaryBucket> Buckets { get; set; } = new List<XchangeSummaryBucket>();
 
         /// <summary>How long each bucket is, in minutes; 0 when there are no buckets.</summary>
         public int BucketMinutes { get; set; }
+
+        /// <summary>
+        /// True while part of this is still being worked out on the server, which takes over from a
+        /// request for anything slower than a few seconds: a count that is null, or the buckets of a
+        /// date range, are on their way. Asking again in a little while brings them.
+        /// </summary>
+        public bool Counting { get; set; }
     }
 
     /// <summary>
     /// Exchanges by status, defined exactly as the list's status filter defines them. A count of
-    /// <c>10001</c> means "more than 10,000": counting stops there, as the search's total does.
+    /// <c>10001</c> means "more than 10,000": counting stops there, as the search's total does. Null
+    /// means still being counted on the server, which a status rare across a large table can take
+    /// minutes over: see <see cref="XchangeSummary.Counting"/>.
     /// </summary>
     public class XchangeStatusCounts
     {
         /// <summary>Still running: no result yet.</summary>
-        public int Processing { get; set; }
+        public int? Processing { get; set; }
 
         /// <summary>Finished, and the response (if any) was not marked bad.</summary>
-        public int Success { get; set; }
+        public int? Success { get; set; }
 
         /// <summary>Finished, but the response was marked bad.</summary>
-        public int BadResponse { get; set; }
+        public int? BadResponse { get; set; }
 
-        public int Failed { get; set; }
+        public int? Failed { get; set; }
     }
 
     /// <summary>One bucket of <see cref="XchangeSummary.Buckets"/>: exchanges that started in it, by status.</summary>

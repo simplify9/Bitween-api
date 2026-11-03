@@ -13,7 +13,7 @@ namespace SW.Bitween;
 /// <summary>
 /// Works out what the retention settings do - as they stand, or as someone is about to change them - so
 /// the settings page can say it before anything is saved: how long files and exchanges are kept, what
-/// the next run removes, and which exchanges are left without their files.
+/// the next run removes, and whether exchanges are kept longer than their files.
 /// </summary>
 public class RetentionPlanner(BitweenDbContext dbContext, BitweenOptions options, StorageRetention storageRetention,
     StorageAccess storageAccess)
@@ -35,8 +35,8 @@ public class RetentionPlanner(BitweenDbContext dbContext, BitweenOptions options
         var now = DateTime.UtcNow;
 
         var files = Retention(prefix, rules);
-        // Exchanges already written keep the prefix they were written under, so how many are left
-        // without files depends on the prefix in force now, not on a proposed one.
+        // Exchanges already written keep the prefix they were written under, so whether they outlive
+        // their files depends on the prefix in force now, not on a proposed one.
         var currentFiles = prefix == options.DocumentPrefix ? files : Retention(options.DocumentPrefix, rules);
         var legacyPrefix = options.LegacyDocumentPrefix;
         var legacyFiles = !string.IsNullOrEmpty(legacyPrefix) && legacyPrefix != prefix ? Retention(legacyPrefix, rules) : null;
@@ -51,29 +51,10 @@ public class RetentionPlanner(BitweenDbContext dbContext, BitweenOptions options
             ? await ExchangeRetention.DueBefore(dbContext, now.AddDays(-days)).Take(CountCap).CountAsync()
             : null;
 
-        // As things stand now, whatever the proposal: those the next run removes are still listed until then.
-        // Each exchange's files follow the rule of the prefix they were written under, which a later change
-        // of prefix doesn't move; only those older than the shortest rule can have lost them.
-        int? withoutFiles = currentFiles.Days == null ? null : 0;
-        if (rules.Problem == null &&
-            rules.Lifecycle?.Rules.Where(r => r.Enabled).Select(r => (int?)r.Days).Min() is { } shortest)
-        {
-            var unrecordedPrefix = options.LegacyDocumentPrefix ?? options.DocumentPrefix;
-            var writtenUnder = await dbContext.Set<Xchange>()
-                .Where(x => x.StartedOn < now.AddDays(-shortest))
-                .Select(x => x.FilesPrefix).Distinct().ToListAsync();
-            foreach (var recorded in writtenUnder)
-            {
-                if (Retention(recorded ?? unrecordedPrefix, rules).Days is not { } filesDays) continue;
-                var filesGone = now.AddDays(-filesDays);
-                var counted = withoutFiles ?? 0;
-                withoutFiles = counted + await dbContext.Set<Xchange>()
-                    .Where(x => x.FilesPrefix == recorded && x.StartedOn < filesGone)
-                    .Take(CountCap - counted).CountAsync();
-                if (withoutFiles >= CountCap) break;
-            }
-        }
-
+        // How many exchanges have lost their files isn't counted: which rule applies depends on the
+        // prefix each was written under, and finding those meant reading every exchange older than the
+        // bucket's shortest rule - a day, with the standard temp1/ rule - which took over 30s on 5.8M
+        // exchanges and failed the page. When the oldest started is given instead.
         var oldest = await dbContext.Set<Xchange>().OrderBy(x => x.StartedOn)
             .Select(x => (DateTime?)x.StartedOn).FirstOrDefaultAsync();
 
@@ -106,7 +87,6 @@ public class RetentionPlanner(BitweenDbContext dbContext, BitweenOptions options
                 Cron = cron,
                 NextRun = nextRun,
                 DueNow = dueNow,
-                WithoutFiles = withoutFiles,
                 CountCap = CountCap,
                 Oldest = oldest
             }
@@ -145,7 +125,7 @@ public class RetentionPlanner(BitweenDbContext dbContext, BitweenOptions options
         if (currentFiles.Days is { } filesDays && (days == 0 || days > filesDays))
             warnings.Add(Warning("OUTLIVE_FILES",
                 $"Exchanges older than {filesDays} days are listed without their files: they can't be opened " +
-                $"or retried. {(exchanges.WithoutFiles == 1 ? "There is 1" : $"There are {Count(exchanges.WithoutFiles, exchanges.CountCap)}")} right now." +
+                "or retried." +
                 (newOutliveFiles ? $" New exchanges lose theirs after {newFilesDays} days." : "")));
         else if (newOutliveFiles)
             warnings.Add(Warning("OUTLIVE_FILES",

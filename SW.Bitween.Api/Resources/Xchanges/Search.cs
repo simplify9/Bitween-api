@@ -156,8 +156,12 @@ namespace SW.Bitween.Resources.Xchanges
                 // as "10,000+". 36ms drops to 2.3ms unfiltered, 264ms to 25ms on Success. Anything
                 // filtered narrowly enough to act on still gets an exact number; only views far too
                 // broad to page through lose it, and 10,000 rows is 400 pages of Next.
-                TotalCount = await query.AsNoTracking().Search(searchyRequest.Conditions)
-                    .Take(CountCap + 1).CountAsync()
+                //
+                // Not at all with count=false, as Searchy's own search does: the Exchanges page asks
+                // for its rows that way so they show at once, and has the total from the summary.
+                TotalCount = searchyRequest.CountRows
+                    ? await query.AsNoTracking().Search(searchyRequest.Conditions).Take(CountCap + 1).CountAsync()
+                    : 0
             };
 
             return searchyResponse;

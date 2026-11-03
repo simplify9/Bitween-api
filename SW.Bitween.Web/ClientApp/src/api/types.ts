@@ -1408,9 +1408,9 @@ export interface RetentionStatus {
     cron: string;
     nextRun: string | null;
     dueNow: number | null;
-    withoutFiles: number | null;
     /** Counts stop here; a count equal to it means "at least". */
     countCap: number;
+    /** When the oldest exchange still kept started. */
     oldest: string | null;
   };
   notices: RetentionNotice[];
@@ -1643,11 +1643,16 @@ export interface ExchangeVolumeBucket {
  * and, when the filter has a start time, how they spread over that range.
  */
 export interface ExchangeBreakdown {
-  /** Each capped like the list total: a value past the cap means "more than". */
-  counts: Record<ExchangeStatus, number>;
+  /**
+   * Each capped like the list total: a value past the cap means "more than". Null while it is still
+   * being counted on the server, which a status rare across a large table can take minutes over.
+   */
+  counts: Record<ExchangeStatus, number | null>;
   buckets: ExchangeVolumeBucket[];
   /** The width of one bucket; 0 when there are none. */
   bucketMinutes: number;
+  /** Part of it is still being worked out on the server: a later ask brings what is missing. */
+  counting: boolean;
 }
 
 export interface Paged<T> {
