@@ -216,8 +216,8 @@ export function ExchangesPage() {
   const filterCount = activeFilterCount(searchParams);
   const rows = data?.result ?? [];
   // How many match: the selected status's count, or every status's together - none while they're
-  // still being counted, or still the last filter's.
-  const counts = breakdown.isPlaceholderData ? undefined : breakdown.data?.counts;
+  // still being counted, still the last filter's, or the rows on screen are still the last view's.
+  const counts = breakdown.isPlaceholderData || isPlaceholderData ? undefined : breakdown.data?.counts;
   const total = counts && (query.status ? (counts[query.status] ?? undefined) : allCount(counts));
   const totalIsCapped = total !== undefined && total > COUNT_CAP;
 
@@ -266,6 +266,9 @@ export function ExchangesPage() {
   const isSelected = (id: string) => (allMatching ? !excluded.has(id) : selected.has(id));
   const allOnPageSelected = rows.length > 0 && rows.every((r) => isSelected(r.id));
   const selectedCount = allMatching ? Math.max(0, (total ?? 0) - excluded.size) : selected.size;
+  // Everything matching, while how many that is isn't known: the selection stays up, and what acts on
+  // it waits for the number.
+  const countUnknown = allMatching && total === undefined;
 
   /** What the retry acts on: the ticked rows, or the filter itself minus the unticked ones. */
   const selection: BulkRetrySelection = allMatching ? { matching: query, excludeIds: [...excluded] } : { ids: [...selected] };
@@ -599,12 +602,20 @@ export function ExchangesPage() {
             )}
 
             {/* - bulk action bar - */}
-            {selectedCount > 0 && (
+            {(selectedCount > 0 || countUnknown) && (
               <div className="sticky bottom-4 z-20 space-y-2 rounded-xl bg-ink-950 px-4 py-2.5 text-ink-100 shadow-xl">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-sm">
                     <strong className="font-semibold text-white">
-                      {totalIsCapped && allMatching ? `${COUNT_CAP.toLocaleString()}+` : selectedCount.toLocaleString()}
+                      {countUnknown ? (
+                        <span title="Still counting how many match" className="animate-pulse">
+                          …
+                        </span>
+                      ) : totalIsCapped && allMatching ? (
+                        `${COUNT_CAP.toLocaleString()}+`
+                      ) : (
+                        selectedCount.toLocaleString()
+                      )}
                     </strong>{" "}
                     selected
                     {allMatching && <span className="text-ink-300"> - everything this filter matches</span>}
@@ -622,19 +633,27 @@ export function ExchangesPage() {
                       size="sm"
                       className="!border-ink-700 !bg-ink-900 !text-ink-50 hover:!bg-ink-800 disabled:!text-ink-500"
                       busy={checkExport.isPending || exportFiles.isPending}
-                      disabled={selectedCount > EXPORT_LIMIT}
+                      disabled={countUnknown || selectedCount > EXPORT_LIMIT}
                       onClick={() => checkExport.mutate()}
                       title={
-                        selectedCount > EXPORT_LIMIT
-                          ? `One export takes at most ${EXPORT_LIMIT.toLocaleString()} exchanges. Narrow the filter or tick fewer rows.`
-                          : "Download the input, mapped and handled files of the selected exchanges as one zip, a folder per exchange"
+                        countUnknown
+                          ? "Waits until how many match is counted"
+                          : selectedCount > EXPORT_LIMIT
+                            ? `One export takes at most ${EXPORT_LIMIT.toLocaleString()} exchanges. Narrow the filter or tick fewer rows.`
+                            : "Download the input, mapped and handled files of the selected exchanges as one zip, a folder per exchange"
                       }
                     >
                       <Download className="size-3.5" aria-hidden />
                       Export files
                     </Button>
                     <Can permission="exchanges.operate">
-                      <Button size="sm" variant="primary" onClick={() => setBulkConfirm(true)}>
+                      <Button
+                        size="sm"
+                        variant="primary"
+                        disabled={countUnknown}
+                        title={countUnknown ? "Waits until how many match is counted" : undefined}
+                        onClick={() => setBulkConfirm(true)}
+                      >
                         <RotateCcw className="size-3.5" aria-hidden />
                         Retry selected…
                       </Button>

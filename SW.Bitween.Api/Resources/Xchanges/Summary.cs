@@ -182,7 +182,9 @@ public class Summary(BitweenDbContext dbContext, RequestContext requestContext, 
             return await query(deadline);
         }
         // Whatever the provider throws for a cancelled command: Npgsql an OperationCanceledException,
-        // SqlClient a SqlException. Only once the deadline has passed, so a real error still surfaces.
+        // SqlClient a SqlException. Only once the deadline has passed: an error before it surfaces, and
+        // one after it is taken for the deadline, then met again by the count in the background, which
+        // logs it.
         catch (Exception) when (deadline.IsCancellationRequested)
         {
             await transaction.RollbackToSavepointAsync(savepoint);

@@ -54,7 +54,7 @@ public class RetentionPlanner(BitweenDbContext dbContext, BitweenOptions options
         // How many exchanges have lost their files isn't counted: which rule applies depends on the
         // prefix each was written under, and finding those meant reading every exchange older than the
         // bucket's shortest rule - a day, with the standard temp1/ rule - which took over 30s on 5.8M
-        // exchanges and failed the page. Their age says enough: see OUTLIVE_FILES.
+        // exchanges and failed the page. When the oldest started is given instead.
         var oldest = await dbContext.Set<Xchange>().OrderBy(x => x.StartedOn)
             .Select(x => (DateTime?)x.StartedOn).FirstOrDefaultAsync();
 
@@ -126,9 +126,6 @@ public class RetentionPlanner(BitweenDbContext dbContext, BitweenOptions options
             warnings.Add(Warning("OUTLIVE_FILES",
                 $"Exchanges older than {filesDays} days are listed without their files: they can't be opened " +
                 "or retried." +
-                (exchanges.Oldest is { } oldest && oldest < DateTime.UtcNow.AddDays(-filesDays)
-                    ? $" Some already are: the oldest started on {oldest.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)}."
-                    : "") +
                 (newOutliveFiles ? $" New exchanges lose theirs after {newFilesDays} days." : "")));
         else if (newOutliveFiles)
             warnings.Add(Warning("OUTLIVE_FILES",

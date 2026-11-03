@@ -1,4 +1,4 @@
-import { act, cleanup, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { apiPath, renderApp } from "../../../__tests__/support/renderApp";
@@ -176,6 +176,36 @@ describe("the exchanges list", () => {
       expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     });
 
+    it("stays up while the next page loads, and what acts on it waits for the number", async () => {
+      let pageIn!: () => void;
+      const nextPage = new Promise<void>((resolve) => (pageIn = resolve));
+      const { user } = renderApp("/exchanges?status=failed", {
+        handlers: [
+          // Holds the second page, then leaves it to the list's own handler.
+          http.get(/\/api\/xchanges(\?|$)/, async ({ request }) => {
+            if (new URL(request.url).searchParams.get("page") === "1") await nextPage;
+          }),
+          exchanges({ total: 60 }).handler,
+          ...filterOptions,
+        ],
+      });
+
+      await selectAllMatching(user);
+      const selection = () => within(screen.getByText(/everything this filter matches/).parentElement!);
+      expect(selection().getByText("60")).toBeVisible();
+
+      // The first page's rows are still up: the footer's total and the selection's wait with them.
+      await user.click(screen.getByRole("button", { name: "Next" }));
+      expect(await selection().findByTitle("Still counting how many match")).toBeVisible();
+      expect(screen.getAllByTitle("Still counting how many match")).toHaveLength(2);
+      expect(screen.getByRole("button", { name: "Retry selected…" })).toBeDisabled();
+      expect(screen.getByRole("button", { name: "Export files" })).toBeDisabled();
+
+      pageIn();
+      expect(await selection().findByText("60")).toBeVisible();
+      expect(screen.getByRole("button", { name: "Retry selected…" })).toBeEnabled();
+    });
+
     it.each([
       {
         answer: "past what rounds can take, it refuses",
@@ -349,6 +379,37 @@ describe("the exchanges list", () => {
     // Under the cap, the one missing could hold any number, so all of them together has none either.
     expect(await (await tabs()).findByRole("button", { name: "Failed 3" })).toBeVisible();
     expect((await tabs()).getByRole("button", { name: "All" })).toBeVisible();
+  });
+
+  it("asks again while a status is still being counted, with live refresh paused too", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let counted = false;
+      renderApp("/exchanges", {
+        handlers: [
+          http.get(apiPath("/xchanges/summary"), () =>
+            HttpResponse.json({
+              counts: { processing: counted ? 7 : null, success: 0, badResponse: 0, failed: 3 },
+              buckets: [],
+              bucketMinutes: 0,
+              counting: !counted,
+            }),
+          ),
+          exchanges({ total: 3 }).handler,
+          ...filterOptions,
+        ],
+      });
+      const tabs = within(await screen.findByRole("group", { name: "Status" }));
+      expect(await tabs.findByRole("button", { name: "Failed 3" })).toBeVisible();
+
+      // Paused, nothing else asks again: only that the count isn't in yet.
+      fireEvent.change(screen.getByRole("combobox", { name: "Refresh interval" }), { target: { value: "0" } });
+      counted = true;
+      await act(() => vi.advanceTimersByTimeAsync(15_000));
+      expect(await tabs.findByRole("button", { name: "Processing 7" })).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("can show only the newest attempt of each chain", async () => {

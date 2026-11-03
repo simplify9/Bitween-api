@@ -262,7 +262,7 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Exchanges_already_older_than_their_files_are_pointed_out_by_the_oldest()
+    public async Task Exchanges_kept_longer_than_their_files_are_warned_of_beside_when_the_oldest_started()
     {
         var (_, subscription) = await Setup();
         _options.DocumentPrefix = $"temp30/{Guid.NewGuid():N}";
@@ -274,11 +274,14 @@ public class ExchangeRetentionTests(BitweenFixture fixture) : IAsyncLifetime
             ExchangeFilesTests.RetentionOver(
                 new CloudFilesLifecycleRule { Id = "temp30", Prefix = "temp30/", Days = 30, Enabled = true }));
 
-        // Kept for ever, files for 30 days, and an exchange 45 days old: some are listed without their files.
+        // Kept for ever, files for 30 days. Other tests leave old exchanges too, so the oldest is the
+        // database's, not necessarily this one.
         var status = await planner.Plan(new RetentionProposal { ExchangeRetentionDays = 0 });
+        var oldest = await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<Xchange>()
+            .MinAsync(x => (DateTime?)x.StartedOn);
+        Assert.Equal(oldest, status.Exchanges.Oldest);
         Assert.True(status.Exchanges.Oldest <= DateTime.UtcNow.AddDays(-45));
-        var outlive = Assert.Single(status.Notices, n => n.Code == "OUTLIVE_FILES");
-        Assert.Contains($"Some already are: the oldest started on {status.Exchanges.Oldest:yyyy-MM-dd}.", outlive.Message);
+        Assert.Single(status.Notices, n => n.Code == "OUTLIVE_FILES");
     }
 
     [Fact]

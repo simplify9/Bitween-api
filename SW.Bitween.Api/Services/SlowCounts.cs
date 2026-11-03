@@ -24,12 +24,18 @@ public sealed class SlowCounts(IServiceScopeFactory scopeFactory, IHostApplicati
 {
     /// <summary>
     /// How long an answer stands before it is counted again. It is still given out while the new one is
-    /// worked out. A failed count is tried again after as long.
+    /// worked out. A failed count is tried again after as long, and gives out nothing meanwhile.
     /// </summary>
     internal static readonly TimeSpan KeepFor = TimeSpan.FromMinutes(5);
 
     /// <summary>An answer nobody has asked for in this long is dropped.</summary>
     private static readonly TimeSpan ForgetAfter = TimeSpan.FromMinutes(30);
+
+    /// <summary>
+    /// A count whose turn comes when nobody has asked for it in this long is left uncounted: its page was
+    /// closed or moved to other filters. A page still waiting asks at least every minute.
+    /// </summary>
+    private static readonly TimeSpan StillWanted = TimeSpan.FromMinutes(2);
 
     /// <summary>The time one count gets on the database, where a request's commands get 30 seconds.</summary>
     private static readonly TimeSpan CommandTimeout = TimeSpan.FromMinutes(10);
@@ -82,10 +88,15 @@ public sealed class SlowCounts(IServiceScopeFactory scopeFactory, IHostApplicati
                 await places.WaitAsync(stopping);
                 try
                 {
+                    // Left without trying, so it starts again as soon as its page is back.
+                    if (DateTime.UtcNow - entry.AskedOn > StillWanted)
+                        return;
+
                     await using var scope = scopeFactory.CreateAsyncScope();
                     var dbContext = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
                     dbContext.Database.SetCommandTimeout(CommandTimeout);
                     entry.Last = new Kept(await count(dbContext, stopping));
+                    entry.TriedOn = DateTime.UtcNow;
                 }
                 finally
                 {
@@ -97,12 +108,14 @@ public sealed class SlowCounts(IServiceScopeFactory scopeFactory, IHostApplicati
             }
             catch (Exception ex)
             {
+                // The last answer can't be brought up to date, so it isn't given out as if it were.
+                entry.Last = null;
+                entry.TriedOn = DateTime.UtcNow;
                 logger.LogWarning(ex, "A count left to finish in the background failed. It is tried again in {Minutes} minutes.",
                     KeepFor.TotalMinutes);
             }
             finally
             {
-                entry.TriedOn = DateTime.UtcNow;
                 Interlocked.Exchange(ref entry.Counting, 0);
             }
         });
