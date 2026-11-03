@@ -62,7 +62,9 @@ public class BackgroundRequestTests(HttpFixture fixture) : IAsyncLifetime
 
         var response = await admin.SendAsync(Read("/api/slowreads/3"));
 
-        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        // Answered as the timeout it is, which the admin UI doesn't ask again for.
+        Assert.Equal(HttpStatusCode.GatewayTimeout, response.StatusCode);
+        Assert.Contains("DATABASE_TIMED_OUT", await response.Content.ReadAsStringAsync());
     }
 
     [Fact]

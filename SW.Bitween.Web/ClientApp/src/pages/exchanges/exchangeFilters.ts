@@ -1,4 +1,10 @@
-import type { ExchangePropertyFilter, ExchangeQuery, ExchangeStatus, NegatableExchangeFilter } from "../../api";
+import type {
+  ExchangeBreakdown,
+  ExchangePropertyFilter,
+  ExchangeQuery,
+  ExchangeStatus,
+  NegatableExchangeFilter,
+} from "../../api";
 
 /** Parameters to set, drop (null) or, for one that repeats, set to several values. */
 export type ParamChanges = Record<string, string | string[] | null | undefined>;
@@ -147,6 +153,20 @@ export function allCount(counts: Record<ExchangeStatus, number | null>): number 
   const counted = STATUSES.map((s) => counts[s]).filter((n): n is number => n !== null);
   const sum = counted.reduce((n, c) => n + Math.min(c, COUNT_CAP + 1), 0);
   return counted.length === STATUSES.length || sum > COUNT_CAP ? sum : undefined;
+}
+
+/**
+ * A later answer for the same view, with what it is still counting kept from the one before. The
+ * server runs as more than one copy, each counting a slow view for itself, so an answer from a copy
+ * still counting can follow one from a copy that has finished: the number on screen blinked out
+ * until the second caught up.
+ */
+export function keepCounted(previous: ExchangeBreakdown | undefined, next: ExchangeBreakdown): ExchangeBreakdown {
+  if (!previous) return next;
+  const counts = { ...next.counts };
+  for (const s of STATUSES) counts[s] ??= previous.counts[s];
+  const chart = next.counting && next.buckets.length === 0 ? previous : next;
+  return { ...next, counts, buckets: chart.buckets, bucketMinutes: chart.bucketMinutes };
 }
 
 // --- time ---

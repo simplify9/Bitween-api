@@ -412,6 +412,79 @@ describe("the exchanges list", () => {
     }
   });
 
+  /**
+   * The server runs as more than one copy, each counting a slow view for itself: after a copy that
+   * has finished, one still counting can answer.
+   */
+  it("keeps a number once it's in, while a later answer is still counting it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let asked = 0;
+      renderApp("/exchanges", {
+        handlers: [
+          http.get(apiPath("/xchanges/summary"), () =>
+            HttpResponse.json(
+              ++asked === 1
+                ? { counts: { processing: 7, success: 0, badResponse: 0, failed: 3 }, buckets: [], bucketMinutes: 0, counting: false }
+                : { counts: { processing: null, success: 0, badResponse: 0, failed: 4 }, buckets: [], bucketMinutes: 0, counting: true },
+            ),
+          ),
+          exchanges({ total: 3 }).handler,
+          ...filterOptions,
+        ],
+      });
+      const tabs = within(await screen.findByRole("group", { name: "Status" }));
+      expect(await tabs.findByRole("button", { name: "Processing 7" })).toBeVisible();
+
+      // Live refresh asks again; the copy that answers has Failed but is still counting Processing.
+      await act(() => vi.advanceTimersByTimeAsync(15_000));
+      expect(await tabs.findByRole("button", { name: "Failed 4" })).toBeVisible();
+      expect(tabs.getByRole("button", { name: "Processing 7" })).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("says when the list couldn't be read, rather than that nothing matches, and reads it again on Try again", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let timedOut = true;
+      let listAsks = 0;
+      const list = exchanges({ total: 3 });
+      renderApp("/exchanges?status=failed&latest=1", {
+        handlers: [
+          http.get(/\/api\/xchanges(\?|$)/, () => {
+            listAsks++;
+            return timedOut
+              ? HttpResponse.json(
+                  { DATABASE_TIMED_OUT: ["The database took too long to answer. Asking for less, such as a shorter time range, may help."] },
+                  { status: 504 },
+                )
+              : undefined;
+          }),
+          list.handler,
+          ...filterOptions,
+        ],
+      });
+
+      const alert = await screen.findByRole("alert");
+      expect(within(alert).getByText("Couldn't load the exchanges")).toBeVisible();
+      expect(within(alert).getByText(/The database took too long to answer/)).toBeVisible();
+      expect(screen.queryByText("No exchanges match")).not.toBeInTheDocument();
+
+      // Live refresh doesn't run the same query again meanwhile: it waits for Try again.
+      const asked = listAsks;
+      await act(() => vi.advanceTimersByTimeAsync(15_000));
+      expect(listAsks).toBe(asked);
+
+      timedOut = false;
+      fireEvent.click(within(alert).getByRole("button", { name: "Try again" }));
+      expect(await screen.findByText("Showing 1-3 of 3")).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("can show only the newest attempt of each chain", async () => {
     const latest = (q: URLSearchParams) => q.getAll("filter").includes("LatestOnly:1:true");
     const list = exchanges({ total: (q) => (latest(q) ? 30 : 40) });

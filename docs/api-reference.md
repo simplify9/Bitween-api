@@ -16,6 +16,7 @@
 | 401 | Not signed in, or the token has expired |
 | 403 | Signed in, but missing the permission |
 | 404 | Not found |
+| 504 | `DATABASE_TIMED_OUT`: a database query ran past its time limit: the connection's (30 seconds unless the connection string sets another), or a `statement_timeout` set on the database. Asking again takes as long again, so ask for less, such as a shorter time range. PostgreSQL only; SQL Server and MySQL still answer 500. |
 
 ### Search queries
 
