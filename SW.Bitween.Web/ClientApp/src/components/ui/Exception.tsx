@@ -1,4 +1,5 @@
 import { summarizeException } from "../../lib/exceptionSummary";
+import type { ReactNode } from "react";
 import { TriangleAlert } from "lucide-react";
 import { CopyButton } from "./CopyButton";
 
@@ -6,13 +7,25 @@ import { CopyButton } from "./CopyButton";
  * A failure, as an operator needs it: the message in plain words first, and the .NET trace (with
  * the server's source paths) folded away behind "Technical details", to copy into a bug report.
  */
-export function ExceptionBlock({ text, title = "What went wrong" }: { text: string; title?: string }) {
+export function ExceptionBlock({
+  text,
+  title = "What went wrong",
+  action,
+}: {
+  text: string;
+  title?: string;
+  /** A button for this failure, beside the copy button, where the eye already is. */
+  action?: ReactNode;
+}) {
   const { summary, kind, hasDetail } = summarizeException(text);
   return (
     <div className="rounded-lg bg-danger-50 px-3 py-2.5">
       <div className="mb-1 flex items-center justify-between gap-2">
         <p className="text-[11px] font-medium tracking-wide text-danger-700 uppercase">{title}</p>
-        <CopyButton value={text} label="exception" />
+        <div className="flex items-center gap-2">
+          {action}
+          <CopyButton value={text} label="exception" />
+        </div>
       </div>
       <p className="text-[13px] leading-relaxed break-words text-danger-800">{summary}</p>
       {kind && <p className="mt-0.5 font-mono text-[11px] text-danger-700">{kind}</p>}

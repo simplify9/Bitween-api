@@ -98,6 +98,27 @@ public class FailureExplanationTests(HttpFixture fixture) : IDisposable
     }
 
     [Fact]
+    public async Task An_attempt_is_explained_with_its_whole_retry_chain_even_the_attempts_after_it()
+    {
+        var (admin, xchangeId) = await FailedExchangeAsync();
+        var retried = await admin.PostAsJsonAsync($"/api/xchanges/{xchangeId}/retry", new { reason = "test", reset = false });
+        Assert.True(retried.IsSuccessStatusCode, $"retry answered {retried.StatusCode}");
+        await ConfigureAsync(admin);
+        var model = new FakeModel("""{ "summary": "S", "cause": "C", "fix": "F" }""");
+        AiModels.ModelOverride = _ => model;
+
+        // The first attempt, opened after its retry: the chain still shows the attempt after it.
+        await Api.Json(await admin.PostAsJsonAsync("/api/xchangeexplanations", new { xchangeId }));
+
+        var sent = Assert.Single(model.Asked).Message;
+        Assert.Contains("This is attempt 1 of 2 in its retry chain.", sent);
+        Assert.Contains("<retry_chain>", sent);
+        Assert.Contains("Attempt 1 (this one), from ", sent);
+        Assert.Contains("Attempt 2, from ", sent);
+        Assert.DoesNotContain("maybe", sent);
+    }
+
+    [Fact]
     public async Task Without_AI_set_up_nothing_is_read_or_sent()
     {
         var (admin, xchangeId) = await FailedExchangeAsync();

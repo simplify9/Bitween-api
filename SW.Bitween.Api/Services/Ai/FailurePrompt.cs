@@ -20,6 +20,11 @@ public static class FailurePrompt
         over HTTP, and may get a response back. A failure is either in mapping or in delivery. Failed
         exchanges can be retried by a retry policy, or by hand.
 
+        When the exchange was retried, you also get its whole retry chain: every attempt in order, its
+        outcome and its error's first line. Use it: an error that repeats unchanged points at a lasting
+        problem, one that changed or passed points at a glitch or a fix that already happened. If a
+        later attempt succeeded, say so first.
+
         Every value in the documents and the error has been masked before you see it: text is <text>,
         numbers are <number>, booleans are <true|false>, credentials and tokens are <secret>, and long lists show their first entries. Keys,
         structure and the error's wording are real. Never guess at a masked value; reason from structure,

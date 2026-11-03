@@ -37,7 +37,8 @@ public class XchangeExplanationResponse
 /// <para>
 /// What is sent, and nothing else: the error; which step failed; the subscription's kind and
 /// adapters, and the names - never the values - of their settings; the retry policy's shape and the
-/// retry state; the last attempts' errors; and the documents with their values replaced by types.
+/// retry state; the whole retry chain, each attempt's outcome and the first line of its error; and
+/// the documents with their values replaced by types.
 /// Adapter settings are names only because the exchange holds them with partner and global values
 /// already filled in, and some of those are credentials.
 /// </para>
@@ -50,9 +51,6 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
         AiModels models)
     : ICommandHandler<XchangeExplanationRequest, XchangeExplanationResponse>
 {
-    /// <summary>Earlier attempts whose errors are worth showing beside this one.</summary>
-    const int EarlierAttempts = 3;
-
     /// <summary>The largest document masked and sent; a few records are enough to explain a failure.</summary>
     const int MaxMaskedFileBytes = 1_000_000;
 
@@ -97,8 +95,9 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
         sent.AppendLine("Handler settings (names only): " + Names(xchange.HandlerProperties));
         sent.AppendLine("Document format: " + (document?.DocumentFormat.ToString() ?? "unknown"));
         if (result.ResponseBad) sent.AppendLine("The partner's response was marked as bad data.");
-        var earlier = await EarlierErrors(xchange);
-        sent.AppendLine($"Attempt {earlier.Chain + 1} of its retry chain");
+        var chain = await Chain(xchange);
+        var position = chain.FindIndex(a => a.Id == xchange.Id) + 1;
+        sent.AppendLine($"This is attempt {position} of {chain.Count} in its retry chain" + (chain.Count >= MaxChain ? " (or more)" : "") + ".");
         if (!string.IsNullOrWhiteSpace(result.RetryBlockedReason))
             sent.AppendLine("Why it won't be retried: " + masking.Error(result.RetryBlockedReason));
         if (delayed is not null) sent.AppendLine($"A retry is scheduled for {delayed.On:u}.");
@@ -109,14 +108,12 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
         sent.AppendLine(string.IsNullOrWhiteSpace(result.Exception) ? "(no error text; see the response)" : masking.Error(result.Exception));
         sent.AppendLine("</error>");
 
-        // Only each earlier error's first line: the rest is a stack trace, nearly always the same one.
-        var thisError = FirstLine(result.Exception);
-        foreach (var (attempt, error) in earlier.Errors)
+        if (chain.Count > 1)
         {
-            var line = FirstLine(error);
-            sent.AppendLine(line == thisError
-                ? $"Earlier attempt {attempt}: the same error."
-                : $"Earlier attempt {attempt}: {masking.Error(line)}");
+            sent.AppendLine();
+            sent.AppendLine("<retry_chain>");
+            foreach (var line in ChainLines(chain, xchange.Id, masking)) sent.AppendLine(line);
+            sent.AppendLine("</retry_chain>");
         }
 
         foreach (var (name, text) in files)
@@ -189,34 +186,80 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
                                (g.Budget is { } b ? $", up to {b.MaxAttemptsTotal} attempts" : "") + ")"));
     }
 
-    /// <summary>How many attempts came before this one, and the errors of the last few.</summary>
+    /// <summary>One attempt in a retry chain: null outcome fields while it is still running.</summary>
+    sealed record Attempt(string Id, System.DateTime StartedOn, bool? Success, bool ResponseBad, string? Error);
+
+    /// <summary>
+    /// The whole retry chain this exchange is in, first attempt first: the ones before it and the
+    /// ones after, since an older attempt opened from a link still belongs to the chain's story.
+    /// </summary>
     /// <remarks>
-    /// Counted along the chain rather than read from the result's attempt number, which counts only
-    /// the retries a policy made - five attempts by hand all say 1.
+    /// Walked along RetryFor rather than read from the result's attempt number, which counts only
+    /// the retries a policy made - five attempts by hand all say 1. An exchange is retried at most
+    /// once, so the chain has no branches.
     /// </remarks>
-    async Task<(int Chain, List<(string Id, string Error)> Errors)> EarlierErrors(Xchange xchange)
+    async Task<List<Attempt>> Chain(Xchange xchange)
     {
-        var errors = new List<(string, string)>();
-        var chain = 0;
-        var id = xchange.RetryFor;
-        while (id is not null && chain < MaxChain)
+        var ids = new List<string> { xchange.Id };
+        for (var id = xchange.RetryFor; id is not null && ids.Count < MaxChain;)
         {
             var previous = await dbContext.Set<Xchange>().AsNoTracking()
                 .Where(x => x.Id == id).Select(x => new { x.Id, x.RetryFor }).FirstOrDefaultAsync();
             if (previous is null) break;
-            chain++;
-            if (errors.Count < EarlierAttempts)
-            {
-                var error = await dbContext.Set<XchangeResult>().AsNoTracking()
-                    .Where(r => r.Id == previous.Id).Select(r => r.Exception).FirstOrDefaultAsync();
-                if (!string.IsNullOrWhiteSpace(error)) errors.Add((previous.Id, error));
-            }
+            ids.Insert(0, previous.Id);
             id = previous.RetryFor;
         }
-        return (chain, errors);
+        for (var id = xchange.Id; ids.Count < MaxChain;)
+        {
+            var next = await dbContext.Set<Xchange>().AsNoTracking()
+                .Where(x => x.RetryFor == id).OrderBy(x => x.StartedOn).Select(x => x.Id).FirstOrDefaultAsync();
+            if (next is null) break;
+            ids.Add(next);
+            id = next;
+        }
+
+        // Only the start of each error: its first line is what is sent.
+        var started = await dbContext.Set<Xchange>().AsNoTracking()
+            .Where(x => ids.Contains(x.Id)).Select(x => new { x.Id, x.StartedOn })
+            .ToDictionaryAsync(x => x.Id, x => x.StartedOn);
+        var results = await dbContext.Set<XchangeResult>().AsNoTracking()
+            .Where(r => ids.Contains(r.Id))
+            .Select(r => new { r.Id, r.Success, r.ResponseBad, Error = r.Exception == null ? null : r.Exception.Substring(0, 1000) })
+            .ToDictionaryAsync(r => r.Id);
+        return ids.Select(id => results.TryGetValue(id, out var r)
+                ? new Attempt(id, started.GetValueOrDefault(id), r.Success, r.ResponseBad, r.Error)
+                : new Attempt(id, started.GetValueOrDefault(id), null, false, null))
+            .ToList();
     }
 
-    /// <summary>A chain is walked this far at most; a longer one says so as "50+" would, by stopping.</summary>
+    /// <summary>
+    /// The chain as the model reads it: one line per attempt, its outcome and its error's first line,
+    /// with a run of the same outcome and error folded into one line.
+    /// </summary>
+    static IEnumerable<string> ChainLines(List<Attempt> chain, string thisId, Masking masking)
+    {
+        string Describe(Attempt a) =>
+            a.Success is null ? "still running"
+            : a.Success == true && !a.ResponseBad ? "succeeded"
+            : (a.ResponseBad ? "delivered, bad response" : "failed") +
+              (string.IsNullOrWhiteSpace(a.Error) ? "" : ": " + masking.Error(FirstLine(a.Error)));
+
+        var i = 0;
+        while (i < chain.Count)
+        {
+            var what = Describe(chain[i]);
+            var j = i;
+            // The opened attempt keeps a line of its own, so the model knows which one it is explaining.
+            while (j + 1 < chain.Count && chain[j + 1].Id != thisId && chain[i].Id != thisId && Describe(chain[j + 1]) == what) j++;
+            var at = chain[i].StartedOn.ToString("yyyy-MM-dd HH:mm", System.Globalization.CultureInfo.InvariantCulture);
+            var which = i == j ? $"Attempt {i + 1}" : $"Attempts {i + 1}-{j + 1}";
+            var mark = chain[i].Id == thisId ? " (this one)" : "";
+            yield return $"{which}{mark}, from {at} UTC: {what}";
+            i = j + 1;
+        }
+    }
+
+    /// <summary>A chain is walked this far at most, both ways together.</summary>
     const int MaxChain = 50;
 
     static string FirstLine(string? text) => (text ?? "").Split('\n')[0].Trim();
