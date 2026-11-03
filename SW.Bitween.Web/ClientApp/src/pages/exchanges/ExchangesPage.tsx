@@ -5,6 +5,7 @@ import { ArrowUp, Download, Pause, Play, Plus, RefreshCw, RotateCcw, TriangleAle
 import {
   api,
   type BulkRetrySelection,
+  type ExchangeBreakdown,
   type ExchangeStatus,
   type ExportFilesCheck,
 } from "../../api";
@@ -34,6 +35,7 @@ import {
   filterSignature,
   hasTimeFilter,
   idsIn,
+  keepCounted,
   readQuery,
   timeLabel,
   toLocalInput,
@@ -133,11 +135,15 @@ export function ExchangesPage() {
   const breakdownKey = viewSearch(withParams(searchParams, { status: null }));
   const askAgain = (q: { state: { data?: { counting: boolean } } }) =>
     refreshMs || (q.state.data?.counting ? COUNTING_MS : false);
+  // A number, once in, stays while a later answer is still counting it: see keepCounted.
+  const keepNumbers = (previous: unknown, next: unknown) =>
+    keepCounted(previous as ExchangeBreakdown | undefined, next as ExchangeBreakdown);
   const breakdown = useQuery({
     queryKey: keys.exchanges.breakdown(breakdownKey),
     queryFn: () => api.getExchangeBreakdown(readQuery(searchParams)),
     refetchInterval: askAgain,
     placeholderData: keepPreviousData,
+    structuralSharing: keepNumbers,
     retry: false,
   });
   const chartParams = timed ? null : withParams(searchParams, { range: "24h", status: null });
@@ -147,6 +153,7 @@ export function ExchangesPage() {
     enabled: !!chartParams,
     refetchInterval: askAgain,
     placeholderData: keepPreviousData,
+    structuralSharing: keepNumbers,
     retry: false,
   });
   const volume = timed ? breakdown.data : chartBreakdown.data;

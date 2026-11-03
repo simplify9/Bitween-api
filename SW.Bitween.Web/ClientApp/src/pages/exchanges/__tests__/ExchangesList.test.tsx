@@ -412,6 +412,39 @@ describe("the exchanges list", () => {
     }
   });
 
+  /**
+   * The server runs as more than one copy, each counting a slow view for itself: after a copy that
+   * has finished, one still counting can answer.
+   */
+  it("keeps a number once it's in, while a later answer is still counting it", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      let asked = 0;
+      renderApp("/exchanges", {
+        handlers: [
+          http.get(apiPath("/xchanges/summary"), () =>
+            HttpResponse.json(
+              ++asked === 1
+                ? { counts: { processing: 7, success: 0, badResponse: 0, failed: 3 }, buckets: [], bucketMinutes: 0, counting: false }
+                : { counts: { processing: null, success: 0, badResponse: 0, failed: 4 }, buckets: [], bucketMinutes: 0, counting: true },
+            ),
+          ),
+          exchanges({ total: 3 }).handler,
+          ...filterOptions,
+        ],
+      });
+      const tabs = within(await screen.findByRole("group", { name: "Status" }));
+      expect(await tabs.findByRole("button", { name: "Processing 7" })).toBeVisible();
+
+      // Live refresh asks again; the copy that answers has Failed but is still counting Processing.
+      await act(() => vi.advanceTimersByTimeAsync(15_000));
+      expect(await tabs.findByRole("button", { name: "Failed 4" })).toBeVisible();
+      expect(tabs.getByRole("button", { name: "Processing 7" })).toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("says when the list couldn't be read, rather than that nothing matches, and reads it again on Try again", async () => {
     let timedOut = true;
     const list = exchanges({ total: 3 });
