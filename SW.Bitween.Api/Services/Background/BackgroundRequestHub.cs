@@ -37,6 +37,9 @@ public class BackgroundRequestChanged
     public int? Total { get; set; }
     public string Summary { get; set; }
 
+    /// <summary>The HTTP status it was answered with, once done: an error answer is still Done.</summary>
+    public int? ResultStatus { get; set; }
+
     /// <summary>The <see cref="BackgroundRequests.Node"/> that sent it, which told its own already.</summary>
     public string Node { get; set; }
 
@@ -46,6 +49,7 @@ public class BackgroundRequestChanged
         Owner = row.Owner,
         Status = row.Status,
         Done = row.Done,
+        ResultStatus = row.ResultStatus,
         Total = row.Total,
         Summary = row.Summary,
         Node = node,

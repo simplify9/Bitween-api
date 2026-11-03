@@ -231,6 +231,32 @@ describe("work carried on in the background", () => {
     tell({ id: "bg-3", status: "Cancelled", done: 1200, total: 5000, summary: "1,200 retried, 0 skipped" });
   });
 
+  it("offers an export's zip only when it worked: one that ended in an error says so, with no Download", async () => {
+    const at = new Date().toISOString();
+    const exported = (id: string, label: string, resultStatus: number) => ({
+      id, label, page: "/exchanges", path: "POST /api/xchanges/export", status: "Done", startedOn: at, finishedOn: at, resultStatus,
+    });
+    const { user } = renderApp("/partners", {
+      handlers: [
+        http.get(apiPath("/background"), () =>
+          HttpResponse.json([exported("bg-ok", "Export files: 3", 200), exported("bg-err", "Export files: 9", 500)]),
+        ),
+        ...empty("/partners", "/subscriptions", "/apigateways", "/busgateways"),
+      ],
+    });
+
+    // Only the one that worked counts as ready.
+    const [tray] = await screen.findAllByRole("button", { name: "Background work: 1 ready" });
+    await user.click(tray);
+    const list = await screen.findByRole("list", { name: "Background work" });
+    const ok = within(list).getByText("Export files: 3").closest("li")!;
+    const err = within(list).getByText("Export files: 9").closest("li")!;
+    expect(within(ok).getByRole("button", { name: "Download" })).toBeVisible();
+    expect(within(err).getByText("Ended with an error. Open it to see why.")).toBeVisible();
+    expect(within(err).queryByRole("button", { name: "Download" })).toBeNull();
+    expect(within(err).getByRole("button", { name: "Open" })).toBeVisible();
+  });
+
   it("is only what's asked to: an ordinary page's reads are answered as they always were", async () => {
     const asked: (string | null)[] = [];
     renderApp("/partners", {

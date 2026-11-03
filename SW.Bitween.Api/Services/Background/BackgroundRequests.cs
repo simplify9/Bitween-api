@@ -493,6 +493,7 @@ public sealed class BackgroundRequests(IServiceScopeFactory scopes, IHubContext<
                 done = change.Done,
                 total = change.Total,
                 summary = change.Summary,
+                resultStatus = change.ResultStatus,
             });
         }
         catch (Exception ex)
