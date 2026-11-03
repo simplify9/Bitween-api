@@ -83,7 +83,7 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
         await AddFile(files, masking, xchange, XchangeFileType.Output, result.OutputSize, result.OutputContentType);
         await AddFile(files, masking, xchange, XchangeFileType.Response, result.ResponseSize, result.ResponseContentType);
         var chain = await Chain(xchange);
-        await SeeOtherAttempts(chain, xchange.Id, result.Exception, masking);
+        var sendable = await SeeOtherAttempts(chain, xchange.Id, result.Exception, masking);
 
         sent.AppendLine("Failed step: " + FailedStep(xchange, result));
         if (subscription is not null)
@@ -113,7 +113,7 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
         {
             sent.AppendLine();
             sent.AppendLine("<retry_chain>");
-            foreach (var line in ChainLines(chain, xchange.Id, masking)) sent.AppendLine(line);
+            foreach (var line in ChainLines(chain, xchange.Id, masking, sendable)) sent.AppendLine(line);
             sent.AppendLine("</retry_chain>");
         }
 
@@ -278,22 +278,45 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
     /// <summary>
     /// Reads the documents of the other attempts whose error differs from this one's, so masking
     /// knows their values too: a later attempt's response can hold what this one's documents don't.
+    /// Returns the attempts whose error line may be sent: this one, those with its very line, and
+    /// those whose documents were all read and masked. Any other's line is withheld, not guessed at.
     /// </summary>
-    async Task SeeOtherAttempts(RetryChain chain, string thisId, string? thisError, Masking masking)
+    async Task<HashSet<string>> SeeOtherAttempts(RetryChain chain, string thisId, string? thisError, Masking masking)
     {
         var thisLine = WholeFirstLine(thisError ?? "");
-        var ids = chain.Attempts
-            .Where(a => a.Id != thisId && !string.IsNullOrWhiteSpace(a.Error) && WholeFirstLine(a.Error) != thisLine)
-            .Select(a => a.Id).Take(OtherAttemptsRead).ToList();
-        if (ids.Count == 0) return;
+        var sendable = chain.Attempts
+            .Where(a => a.Id == thisId || string.IsNullOrWhiteSpace(a.Error) || WholeFirstLine(a.Error) == thisLine)
+            .Select(a => a.Id).ToHashSet();
+        var ids = chain.Attempts.Where(a => !sendable.Contains(a.Id)).Select(a => a.Id).Take(OtherAttemptsRead).ToList();
+        if (ids.Count == 0) return sendable;
         var xchanges = await dbContext.Set<Xchange>().AsNoTracking().Where(x => ids.Contains(x.Id)).ToListAsync();
         var results = await dbContext.Set<XchangeResult>().AsNoTracking().Where(r => ids.Contains(r.Id)).ToDictionaryAsync(r => r.Id);
         foreach (var x in xchanges)
         {
             if (!results.TryGetValue(x.Id, out var r)) continue;
-            var ignored = new List<(string, string)>();
-            await AddFile(ignored, masking, x, XchangeFileType.Output, r.OutputSize, r.OutputContentType);
-            await AddFile(ignored, masking, x, XchangeFileType.Response, r.ResponseSize, r.ResponseContentType);
+            if (await Seen(masking, x, XchangeFileType.Output, r.OutputSize, r.OutputContentType) &&
+                await Seen(masking, x, XchangeFileType.Response, r.ResponseSize, r.ResponseContentType))
+                sendable.Add(x.Id);
+        }
+        return sendable;
+    }
+
+    /// <summary>
+    /// Masks one of another attempt's documents, for its values only: whether they are now known.
+    /// Not when it is too large, gone, unreadable, or in a format masking can't read.
+    /// </summary>
+    async Task<bool> Seen(Masking masking, Xchange xchange, XchangeFileType type, int size, string? contentType)
+    {
+        if (size <= 0) return true;
+        if (size > MaxMaskedFileBytes) return false;
+        try
+        {
+            return masking.Document(await xchangeService.GetFile(xchange, type), contentType) != null;
+        }
+        catch (Exception)
+        {
+            // Storage that can't give it back now costs this attempt's line, not the explanation.
+            return false;
         }
     }
 
@@ -301,7 +324,7 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
     /// The chain as the model reads it: one line per attempt, its outcome and its error's first line,
     /// with a run of the same outcome and error folded into one line.
     /// </summary>
-    internal static IEnumerable<string> ChainLines(RetryChain chain, string thisId, Masking masking)
+    internal static IEnumerable<string> ChainLines(RetryChain chain, string thisId, Masking masking, ISet<string> sendable)
     {
         string Describe(Attempt a)
         {
@@ -309,6 +332,7 @@ public class Explain(RequestContext requestContext, BitweenDbContext dbContext, 
             if (a.Success == true && !a.ResponseBad) return "succeeded";
             var what = a.ResponseBad ? "delivered, bad response" : "failed";
             if (string.IsNullOrWhiteSpace(a.Error)) return what;
+            if (!sendable.Contains(a.Id)) return $"{what}, with a different error, not sent: its documents couldn't be read to mask it";
             // Masked whole, then cut: a cut first could leave half a value masking can't recognise.
             var line = masking.Error(WholeFirstLine(a.Error));
             return $"{what}: {(line.Length > MaxLineLength ? line[..MaxLineLength] + " ..." : line)}";
