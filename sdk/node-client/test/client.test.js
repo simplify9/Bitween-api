@@ -9,7 +9,7 @@ const { BitweenClient, BitweenClientError } = require("../src");
  * `answer`, keeping each request it was sent. The client's calls against a real one are tested in
  * SW.Bitween.HttpTests, through the .NET client that sends the same requests.
  */
-async function fakeBitween(answer) {
+async function fakeBitween(answer, { expiresIn = 3600 } = {}) {
   const seen = { signIns: 0, requests: [] };
   const server = http.createServer(async (req, res) => {
     let body = "";
@@ -20,7 +20,7 @@ async function fakeBitween(answer) {
       const { token } = JSON.parse(body);
       res.writeHead(token === "bwt_good" ? 200 : 400, { "Content-Type": "application/json" });
       return res.end(JSON.stringify(token === "bwt_good"
-        ? { jwt: `session-${seen.signIns}`, expiresIn: 3600 }
+        ? { jwt: `session-${seen.signIns}`, expiresIn }
         : { SWException: ["This token isn't valid: it's unknown, expired or revoked, or its account is disabled."] }));
     }
     const request = { method: req.method, path: url.pathname, filters: url.searchParams.getAll("filter"),
@@ -69,6 +69,22 @@ test("signs in again once when the session is refused", async () => {
   assert.deepStrictEqual(seen.requests.map((r) => r.auth), ["Bearer session-1", "Bearer session-2"]);
 });
 
+test("shares one refused sign-in between calls made at once, and keeps a short session", async () => {
+  // Sent once a call, the fifth refusal would lock the address out, a good token from it with them.
+  const { seen, client } = await fakeBitween(() => [200, page()]);
+  const stranger = client("bwt_bad");
+  const refusals = await Promise.all(Array.from({ length: 10 }, () => stranger.exchanges.search().catch((e) => e)));
+  assert.ok(refusals.every((e) => e instanceof BitweenClientError && e.status === 400));
+  assert.strictEqual(seen.signIns, 1);
+
+  // A Bitween can make sessions a minute long: renewed halfway, it is still used.
+  const { seen: brief, client: briefly } = await fakeBitween(() => [200, page()], { expiresIn: 60 });
+  const bitween = briefly();
+  await bitween.exchanges.search();
+  await bitween.exchanges.search();
+  assert.strictEqual(brief.signIns, 1);
+});
+
 test("says what Bitween refused and why", async () => {
   const { client } = await fakeBitween(() => [400, { ALREADY_RETRIED: ["This exchange was retried a moment ago."] }]);
   const error = await client().exchanges.retry("x").catch((e) => e);
@@ -96,6 +112,21 @@ test("gets one exchange by id, not its retry, and finds the retry a retry made",
   const retry = seen.requests.find((r) => r.method === "POST");
   assert.deepStrictEqual([retry.path, retry.body], ["/api/xchanges/x/retry", { reason: "Manual retry", reset: true }]);
   assert.deepStrictEqual(seen.requests.at(-1).filters, ["RetryFor:1:x"]);
+});
+
+test("reads on past an old chain's retries to the exchange, and retries without viewing", async () => {
+  // From before one retry an exchange: more retries than a page, all newer than it.
+  const retries = Array.from({ length: 25 }, (_, i) => `retry-${i}`);
+  const { seen, client } = await fakeBitween((r) =>
+    r.method === "POST" ? [200, null]
+    : r.filters[0]?.startsWith("RetryFor:") ? [403, null]
+    : [200, r.query.page === "0" ? page(...retries) : page("x")]);
+  const bitween = client();
+  assert.strictEqual((await bitween.exchanges.get("x")).id, "x");
+  assert.deepStrictEqual(seen.requests.map((r) => r.query.page), ["0", "1"]);
+
+  // The retry is made; only looking it up is refused, so it answers with no id rather than throwing.
+  assert.strictEqual(await bitween.exchanges.retry("x"), null);
 });
 
 test("sends a selection as the bulk endpoints take it", async () => {

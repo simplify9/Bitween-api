@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -32,16 +33,19 @@ public class BitweenClientTests(HttpFixture fixture)
         return (partnerId, bodies);
     }
 
-    /// <summary>A client signed in as a new service account whose one role has <paramref name="permissions"/>.</summary>
-    async Task<BitweenClient> ClientAsync(params string[] permissions)
+    /// <summary>A token of a new service account whose one role has <paramref name="permissions"/>.</summary>
+    async Task<string> TokenAsync(params string[] permissions)
     {
         using var admin = await fixture.AdminAsync();
         var roleId = await Api.CreateAsync(admin, "/api/roles", new { name = Api.Unique("client role"), permissions });
         var accountId = await Api.CreateAsync(admin, "/api/serviceaccounts", new { name = Api.Unique("client"), roleIds = new[] { roleId } });
         var issued = await Api.Json(await admin.PostAsJsonAsync($"/api/serviceaccounts/{accountId}/issueToken",
             new { name = "client", expiresInDays = 30 }));
-        return new BitweenClient(fixture.Client(), (string)issued["token"]!);
+        return (string)issued["token"]!;
     }
+
+    async Task<BitweenClient> ClientAsync(params string[] permissions) =>
+        new(fixture.Client(), await TokenAsync(permissions));
 
     [Fact]
     public async Task Searches_reads_and_retries_exchanges_as_the_Exchanges_page_does()
@@ -63,6 +67,17 @@ public class BitweenClientTests(HttpFixture fixture)
         var now = DateTimeOffset.UtcNow;
         Assert.Equal(2, (await bitween.Exchanges.SearchAsync(new ExchangeQuery { PartnerIds = [partnerId], From = now.AddHours(-1), To = now.AddHours(1) })).TotalCount);
         Assert.Equal(0, (await bitween.Exchanges.SearchAsync(new ExchangeQuery { PartnerIds = [partnerId], From = now.AddHours(1) })).TotalCount);
+        // On the Gregorian calendar whatever the caller's culture: in Thai's own, this year is 2569.
+        var culture = CultureInfo.CurrentCulture;
+        CultureInfo.CurrentCulture = new CultureInfo("th-TH");
+        try
+        {
+            Assert.Equal(2, (await bitween.Exchanges.SearchAsync(new ExchangeQuery { PartnerIds = [partnerId], From = now.AddHours(-1), To = now.AddHours(1) })).TotalCount);
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = culture;
+        }
 
         var inputs = await Task.WhenAll(page.Result.Select(x => bitween.Exchanges.ReadFileAsync(x.InputKey)));
         Assert.Equal(bodies.Order(), inputs.Order());
@@ -132,9 +147,24 @@ public class BitweenClientTests(HttpFixture fixture)
         Assert.Equal(HttpStatusCode.Forbidden, (await Assert.ThrowsAsync<BitweenClientException>(() => viewer.ScheduledRetries.RunNowAsync(id))).Status);
         Assert.NotNull((await viewer.ScheduledRetries.SearchAsync(new ScheduledRetryQuery { From = DateTimeOffset.UtcNow })).Result);
 
-        using var stranger = new BitweenClient(fixture.Client(), "bwt_" + new string('x', 40));
-        var refused = await Assert.ThrowsAsync<BitweenClientException>(() => stranger.Exchanges.SearchAsync());
-        Assert.Equal(HttpStatusCode.BadRequest, refused.Status);
-        Assert.StartsWith("This token isn't valid", refused.Message);
+        // An account that may retry but not view can't look the new attempt up: the retry is made all the
+        // same, so it answers with no id rather than a refusal that would read as the retry's.
+        using var retrier = await ClientAsync("exchanges.operate");
+        Assert.Null(await retrier.Exchanges.RetryAsync(id));
+        Assert.Single((await viewer.Exchanges.SearchAsync(new ExchangeQuery { RetryFor = id })).Result);
+
+        // Calls made at once with a bad token share its one refusal. Sent once a call, the fifth would
+        // lock the address out, and a good token from it with them.
+        using var address = fixture.Client();
+        using var stranger = new BitweenClient(address, "bwt_" + new string('x', 40));
+        var refusals = await Task.WhenAll(Enumerable.Range(0, 10)
+            .Select(_ => Assert.ThrowsAsync<BitweenClientException>(() => stranger.Exchanges.SearchAsync())));
+        Assert.All(refusals, refused =>
+        {
+            Assert.Equal(HttpStatusCode.BadRequest, refused.Status);
+            Assert.StartsWith("This token isn't valid", refused.Message);
+        });
+        using var neighbour = new BitweenClient(address, await TokenAsync("exchanges.view"));
+        Assert.Equal(2, (await neighbour.Exchanges.SearchAsync(new ExchangeQuery { PartnerIds = [partnerId] })).TotalCount);
     }
 }

@@ -48,8 +48,12 @@ var failed = await bitween.Exchanges.SearchAsync(new ExchangeQuery
 foreach (var exchange in failed.Result)
     Console.WriteLine($"{exchange.Id} {exchange.DocumentName}: {exchange.Exception}");
 
-var input = await bitween.Exchanges.ReadFileAsync(failed.Result[0].InputKey);
-var retryId = await bitween.Exchanges.RetryAsync(failed.Result[0].Id);
+var first = failed.Result.FirstOrDefault();
+if (first != null)
+{
+    var input = await bitween.Exchanges.ReadFileAsync(first.InputKey);
+    var retryId = await bitween.Exchanges.RetryAsync(first.Id);
+}
 ```
 
 Keep one `BitweenClient` for the life of the program, as a singleton in dependency injection: it can be
@@ -73,8 +77,11 @@ const { BitweenClient } = require("@simplyworks/bitween-client");
 const bitween = new BitweenClient({ url: "https://bitween.example.com", token: process.env.BITWEEN_TOKEN });
 
 const failed = await bitween.exchanges.search({ status: "failed", from: new Date(Date.now() - 86400e3), partnerIds: [7] });
-const input = await bitween.exchanges.readFile(failed.result[0].inputKey);
-const retryId = await bitween.exchanges.retry(failed.result[0].id);
+const [first] = failed.result;
+if (first) {
+  const input = await bitween.exchanges.readFile(first.inputKey);
+  const retryId = await bitween.exchanges.retry(first.id);
+}
 ```
 
 Types come with it. Rows have the API's camelCase names, and times are ISO strings.
@@ -87,7 +94,7 @@ Types come with it. Rows have the API's camelCase names, and times are ISO strin
 | `Exchanges.GetAsync(id)` | `exchanges.get(id)` | One exchange, or null |
 | `Exchanges.ReadFileAsync(key)` | `exchanges.readFile(key)` | A file's text, by the row's `inputKey`, `outputKey` or `responseKey` |
 | `Exchanges.GetRetryTreeAsync(id)` | `exchanges.retryTree(id)` | Every attempt in the retry chain, oldest first |
-| `Exchanges.RetryAsync(id, reset)` | `exchanges.retry(id, { reset })` | Runs it again from its input, and answers with the new attempt's id. `reset` uses the subscription's current settings. |
+| `Exchanges.RetryAsync(id, reset)` | `exchanges.retry(id, { reset })` | Runs it again from its input, and answers with the new attempt's id: null when the account may retry but not view, so can't look it up. `reset` uses the subscription's current settings. |
 | `Exchanges.PreviewBulkRetryAsync(selection)` | `exchanges.previewBulkRetry(selection)` | What a bulk retry would do, changing nothing |
 | `Exchanges.BulkRetryAsync(selection)` | `exchanges.bulkRetry(selection)` | Retries a selection, and says what it did |
 | `Exchanges.CheckExportAsync(selection)` | `exchanges.checkExport(selection)` | How many the export takes, and how many are older than storage keeps files |

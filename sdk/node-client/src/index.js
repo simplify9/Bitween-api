@@ -112,10 +112,14 @@ class Exchanges {
 
   /** One exchange, or null when there is none by that id. */
   async get(id) {
-    // The id search also finds the exchange's retry, which is newer, and the exchanges it rolled
-    // up, which are older: newest first, the exchange itself is first or second.
-    const found = await this.search({ ids: [id] }, { page: 0, size: 2, count: false });
-    return found.result.find((x) => x.id === id) ?? null;
+    // The id search also finds the exchange's retries, which are newer, and the exchanges it rolled
+    // up, which are older. One retry is all an exchange gets now, but chains from before that rule
+    // can have several, so it is read a page at a time until the exchange is found or the rows end.
+    for (let page = 0; ; page++) {
+      const found = await this.search({ ids: [id] }, { page, size: 25, count: false });
+      const exchange = found.result.find((x) => x.id === id);
+      if (exchange || found.result.length < 25) return exchange ?? null;
+    }
   }
 
   /** One of an exchange's files, by the key its row gives: inputKey, outputKey or responseKey. */
@@ -130,15 +134,22 @@ class Exchanges {
   }
 
   /**
-   * Runs an exchange again from its input file, and resolves to the new attempt's id. An exchange is
-   * retried at most once: one that has been is refused with ALREADY_RETRIED. One with an automatic
-   * retry booked is refused with AUTO_RETRY_SCHEDULED; use scheduledRetries.runNow instead.
+   * Runs an exchange again from its input file, and resolves to the new attempt's id: null when the
+   * account may retry but not view exchanges, so can't look it up. An exchange is retried at most
+   * once: one that has been is refused with ALREADY_RETRIED. One with an automatic retry booked is
+   * refused with AUTO_RETRY_SCHEDULED; use scheduledRetries.runNow instead.
    */
   async retry(id, { reset = false, reason = "Manual retry" } = {}) {
     await this.#request("POST", `api/xchanges/${encodeURIComponent(id)}/retry`, { reason, reset });
-    // Answered with nothing: the new attempt is the one that says it retries this.
-    const retry = await this.search({ retryFor: id }, { page: 0, size: 1, count: false });
-    return retry.result[0]?.id ?? null;
+    // Answered with nothing: the new attempt is the newest that says it retries this. Looking it up
+    // needs exchanges.view, and the retry is made by then, so a refusal mustn't read as the retry's.
+    try {
+      const retry = await this.search({ retryFor: id }, { page: 0, size: 1, count: false });
+      return retry.result[0]?.id ?? null;
+    } catch (e) {
+      if (e instanceof BitweenClientError && e.status === 403) return null;
+      throw e;
+    }
   }
 
   /** What bulkRetry would do with the same selection, changing nothing. */
@@ -242,7 +253,8 @@ class BitweenClient {
 
   /**
    * The session to send: the one held, unless it is about to end or is `refused`, when the token is
-   * traded for a new one. Calls that find it so together trade it once between them.
+   * traded for a new one. Calls that find it so together share one trade and its answer, a refusal
+   * included: a bad token sent once a call would soon lock the address out.
    */
   async #session(refused) {
     const held = this.#held;
@@ -260,8 +272,10 @@ class BitweenClient {
     if (!response.ok) throw await refusal(response);
     const answer = await response.json();
     if (!answer?.jwt) throw new BitweenClientError("Bitween answered the sign-in without a session; is this a Bitween?", response.status);
-    // Renewed a minute early, so no call goes out on a session that ends on its way.
-    this.#held = { jwt: answer.jwt, renewAfter: Date.now() + Math.max(0, (answer.expiresIn ?? 0) - 60) * 1000 };
+    // Renewed a minute early, so no call goes out on a session that ends on its way; halfway through
+    // one shorter than two minutes, so it is still used.
+    const lifetime = answer.expiresIn ?? 0;
+    this.#held = { jwt: answer.jwt, renewAfter: Date.now() + (lifetime - Math.min(60, lifetime / 2)) * 1000 };
     return this.#held;
   }
 }

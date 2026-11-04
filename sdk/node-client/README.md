@@ -10,7 +10,7 @@ const { BitweenClient } = require("@simplyworks/bitween-client");
 const bitween = new BitweenClient({ url: "https://bitween.example.com", token: process.env.BITWEEN_TOKEN });
 
 const failed = await bitween.exchanges.search({ status: "failed", partnerIds: [7] });
-const retryId = await bitween.exchanges.retry(failed.result[0].id);
+for (const exchange of failed.result) console.log(exchange.id, exchange.exception);
 ```
 
 The token is a service account's (Team > Service accounts in Bitween). Keep it on your server, never

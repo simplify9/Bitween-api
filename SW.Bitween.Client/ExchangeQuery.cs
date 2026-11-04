@@ -1,3 +1,5 @@
+using System.Globalization;
+
 namespace SW.Bitween.Client;
 
 /// <summary>An exchange's status, as the Exchanges page's tabs divide them.</summary>
@@ -97,7 +99,9 @@ public class ExchangeQuery
         return filters;
     }
 
-    internal static string Time(DateTimeOffset time) => time.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffZ");
+    /// <summary>In UTC to the tick, and on the Gregorian calendar whatever the caller's culture uses.</summary>
+    internal static string Time(DateTimeOffset time) =>
+        time.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ", CultureInfo.InvariantCulture);
 
     /// <summary>Filters, paging and the rest as a query string, every value escaped.</summary>
     internal static string QueryString(IEnumerable<string> filters, params (string Name, string Value)[] more) =>

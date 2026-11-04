@@ -161,7 +161,7 @@ export interface ScheduledRetryRow {
   retryPolicyName: string | null;
 }
 
-export declare class Exchanges {
+export interface Exchanges {
   search(query?: ExchangeQuery, paging?: { page?: number; size?: number; count?: boolean }): Promise<Page<ExchangeRow>>;
   get(id: string): Promise<ExchangeRow | null>;
   readFile(key: string): Promise<string>;
@@ -174,7 +174,7 @@ export declare class Exchanges {
   export(selection: ExchangeSelection): Promise<ReadableStream<Uint8Array>>;
 }
 
-export declare class ScheduledRetries {
+export interface ScheduledRetries {
   search(query?: ScheduledRetryQuery, paging?: { page?: number; size?: number }): Promise<Page<ScheduledRetryRow>>;
   runNow(id: string): Promise<void>;
 }

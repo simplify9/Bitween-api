@@ -29,7 +29,8 @@ public sealed class BitweenClient : IDisposable
     readonly HttpClient http;
     readonly bool ownsHttp;
     readonly string token;
-    readonly SemaphoreSlim signingIn = new(1, 1);
+    readonly Lock signInLock = new();
+    Task<Session>? signingIn;
     volatile Session? session;
 
     /// <param name="url">The Bitween's address, such as <c>https://bitween.example.com</c>.</param>
@@ -118,32 +119,43 @@ public sealed class BitweenClient : IDisposable
 
     /// <summary>
     /// The session to send: the one held, unless it is about to end or is <paramref name="refused"/>,
-    /// when the token is traded for a new one. Calls that find it so together trade it once between them.
+    /// when the token is traded for a new one. Calls that find it so together share one trade and its
+    /// answer, a refusal included: a bad token sent once a call would soon lock the address out.
     /// </summary>
     async Task<Session> SessionAsync(Session? refused, CancellationToken cancellation)
     {
         var held = session;
         if (Usable(held, refused)) return held!;
 
-        await signingIn.WaitAsync(cancellation);
-        try
+        Task<Session> signIn;
+        lock (signInLock)
         {
             held = session;
             if (Usable(held, refused)) return held!;
+            // Started apart from this lock, so it can't finish, and clear itself, before it is kept.
+            signIn = signingIn ??= Task.Run(SignInAsync);
+        }
+        return await signIn.WaitAsync(cancellation);
+    }
 
-            using var response = await http.PostAsJsonAsync("api/accounts/servicetoken", new { token }, Json, cancellation);
-            if (!response.IsSuccessStatusCode) throw await BitweenClientException.FromAsync(response, cancellation);
-            var answer = await response.Content.ReadFromJsonAsync<SignIn>(Json, cancellation);
+    async Task<Session> SignInAsync()
+    {
+        try
+        {
+            using var response = await http.PostAsJsonAsync("api/accounts/servicetoken", new { token }, Json);
+            if (!response.IsSuccessStatusCode) throw await BitweenClientException.FromAsync(response, CancellationToken.None);
+            var answer = await response.Content.ReadFromJsonAsync<SignIn>(Json);
             if (string.IsNullOrEmpty(answer?.Jwt))
                 throw new BitweenClientException("Bitween answered the sign-in without a session; is this a Bitween?", response.StatusCode);
 
-            // Renewed a minute early, so no call goes out on a session that ends on its way.
-            session = new Session(answer.Jwt, DateTimeOffset.UtcNow.AddSeconds(Math.Max(0, answer.ExpiresIn - 60)));
-            return session;
+            // Renewed a minute early, so no call goes out on a session that ends on its way; halfway
+            // through one shorter than two minutes, so it is still used.
+            var early = Math.Min(60, answer.ExpiresIn / 2);
+            return session = new Session(answer.Jwt, DateTimeOffset.UtcNow.AddSeconds(answer.ExpiresIn - early));
         }
         finally
         {
-            signingIn.Release();
+            lock (signInLock) signingIn = null;
         }
     }
 
@@ -153,7 +165,6 @@ public sealed class BitweenClient : IDisposable
     public void Dispose()
     {
         if (ownsHttp) http.Dispose();
-        signingIn.Dispose();
     }
 
     sealed record Session(string Jwt, DateTimeOffset RenewAfter);
