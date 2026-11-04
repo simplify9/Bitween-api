@@ -4,7 +4,9 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using SW.Bitween.Client;
@@ -119,6 +121,9 @@ public class BitweenClientTests(HttpFixture fixture)
         Assert.Equal(2, preview.WillRetry);
         Assert.Equal(3, (await bitween.Exchanges.SearchAsync(partners)).TotalCount);
 
+        // No ids would read as no filter, and select every exchange.
+        Assert.Throws<ArgumentException>(() => ExchangeSelection.Matching(new ExchangeQuery { Ids = [] }));
+
         var plan = await bitween.Exchanges.BulkRetryAsync(ExchangeSelection.Of(ids.Take(2)));
         Assert.Equal(2, plan.WillRetry);
         Assert.Equal(5, (await bitween.Exchanges.SearchAsync(partners)).TotalCount);
@@ -133,6 +138,26 @@ public class BitweenClientTests(HttpFixture fixture)
         await zip.CopyToAsync(copy);
         using var archive = new ZipArchive(copy, ZipArchiveMode.Read);
         Assert.All(ids, id => Assert.Contains(archive.Entries, e => e.FullName.Contains(id)));
+    }
+
+    [Fact]
+    public async Task Runs_a_scheduled_retry_now()
+    {
+        var (partnerId, _) = await ExchangesAsync(1);
+        using var bitween = await ClientAsync("exchanges.view", "exchanges.operate");
+        var id = (await bitween.Exchanges.SearchAsync(new ExchangeQuery { PartnerIds = [partnerId] })).Result.Single().Id;
+        // Booked as a retry policy books one, an hour out so the retry job leaves it.
+        await fixture.InDbAsync(db =>
+        {
+            db.Add(new Domain.DelayedRetry { Id = id, On = DateTime.UtcNow.AddHours(1) });
+            return db.SaveChangesAsync();
+        });
+        var booked = new ScheduledRetryQuery { From = DateTimeOffset.UtcNow };
+        Assert.Contains((await bitween.ScheduledRetries.SearchAsync(booked)).Result, r => r.Id == id);
+
+        await bitween.ScheduledRetries.RunNowAsync(id);
+        Assert.Single((await bitween.Exchanges.SearchAsync(new ExchangeQuery { RetryFor = id })).Result);
+        Assert.DoesNotContain((await bitween.ScheduledRetries.SearchAsync(booked)).Result, r => r.Id == id);
     }
 
     [Fact]
@@ -155,7 +180,9 @@ public class BitweenClientTests(HttpFixture fixture)
 
         // Calls made at once with a bad token share its one refusal. Sent once a call, the fifth would
         // lock the address out, and a good token from it with them.
-        using var address = fixture.Client();
+        var signIns = new SignInCounter();
+        using var address = fixture.App.CreateDefaultClient(new Uri("https://localhost"), signIns);
+        address.DefaultRequestHeaders.Add("X-Forwarded-For", $"10.{Random.Shared.Next(255)}.{Random.Shared.Next(255)}.{Random.Shared.Next(1, 255)}");
         using var stranger = new BitweenClient(address, "bwt_" + new string('x', 40));
         var refusals = await Task.WhenAll(Enumerable.Range(0, 10)
             .Select(_ => Assert.ThrowsAsync<BitweenClientException>(() => stranger.Exchanges.SearchAsync())));
@@ -164,7 +191,20 @@ public class BitweenClientTests(HttpFixture fixture)
             Assert.Equal(HttpStatusCode.BadRequest, refused.Status);
             Assert.StartsWith("This token isn't valid", refused.Message);
         });
+        Assert.Equal(1, signIns.Count);
         using var neighbour = new BitweenClient(address, await TokenAsync("exchanges.view"));
         Assert.Equal(2, (await neighbour.Exchanges.SearchAsync(new ExchangeQuery { PartnerIds = [partnerId] })).TotalCount);
+    }
+
+    /// <summary>Counts the calls that trade a token for a session.</summary>
+    sealed class SignInCounter : DelegatingHandler
+    {
+        public int Count;
+
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellation)
+        {
+            if (request.RequestUri!.AbsolutePath == "/api/accounts/servicetoken") Interlocked.Increment(ref Count);
+            return base.SendAsync(request, cancellation);
+        }
     }
 }

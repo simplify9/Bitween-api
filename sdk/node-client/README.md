@@ -14,7 +14,7 @@ for (const exchange of failed.result) console.log(exchange.id, exchange.exceptio
 ```
 
 The token is a service account's (Team > Service accounts in Bitween). Keep it on your server, never
-in browser code. See [Client SDK](../../docs/client-sdk.md) for every call, queries, selections and errors.
+in browser code. See [Client SDK](https://github.com/simplify9/Bitween-api/blob/releases/r10.0/docs/client-sdk.md) for every call, queries, selections and errors.
 
 Tests: `node --test`. They run against a stand-in Bitween; the same calls against a real one are tested
 in `SW.Bitween.HttpTests`, through the .NET client.

@@ -60,6 +60,7 @@ test("searches with the Exchanges page's filters, signed in once for calls made 
   assert.deepStrictEqual([search.query.page, search.query.size, search.query.count], ["2", "10", "false"]);
   assert.deepStrictEqual([plain.filters, plain.query.page, plain.query.size, plain.query.count], [[], "0", "25", undefined]);
   await assert.rejects(bitween.exchanges.search({ status: "broken" }), TypeError);
+  await assert.rejects(bitween.exchanges.search({ status: "toString" }), TypeError);
 });
 
 test("signs in again once when the session is refused", async () => {
@@ -127,6 +128,9 @@ test("reads on past an old chain's retries to the exchange, and retries without 
 
   // The retry is made; only looking it up is refused, so it answers with no id rather than throwing.
   assert.strictEqual(await bitween.exchanges.retry("x"), null);
+
+  const { client: failing } = await fakeBitween((r) => r.method === "POST" ? [200, null] : [503, null]);
+  assert.strictEqual(await failing().exchanges.retry("x"), null);
 });
 
 test("sends a selection as the bulk endpoints take it", async () => {
@@ -136,6 +140,9 @@ test("sends a selection as the bulk endpoints take it", async () => {
   await bitween.exchanges.previewBulkRetry({ matching: { status: "failed", partnerIds: [7] }, except: ["c"] }, { reset: true });
   await bitween.exchanges.checkExport({ matching: {} });
   await assert.rejects(bitween.exchanges.bulkRetry({}), TypeError);
+  await assert.rejects(bitween.exchanges.bulkRetry({ ids: [], matching: { status: "failed" } }), TypeError);
+  // No ids would read as no filter, and match every exchange.
+  await assert.rejects(bitween.exchanges.bulkRetry({ matching: { ids: [] } }), TypeError);
 
   const [byId, matching, everything] = seen.requests.map((r) => [r.path, r.body]);
   assert.deepStrictEqual(byId, ["/api/xchanges/bulkretry", { ids: ["a", "b"], reason: "Bulk retry", reset: false }]);

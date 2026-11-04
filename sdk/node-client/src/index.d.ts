@@ -21,7 +21,7 @@ export interface ExchangeQuery {
   latestOnly?: boolean;
   /** The error contains this text, ignoring case. */
   errorContains?: string;
-  /** By key: the value contains the text, ignoring case, or with null, the exchange promoted the key. */
+  /** By key: the value contains the text, ignoring case, or with null or blank text, the exchange promoted the key. */
   promotedProperties?: Record<string, string | null>;
   /** Filters in Bitween's own form, `Field:Rule:Value`, for what the rest doesn't cover. */
   filters?: string[];
@@ -32,7 +32,7 @@ export type ExchangeSelection = { ids: string[] } | { matching: ExchangeQuery; e
 
 export interface Page<T> {
   result: T[];
-  /** How many match. An exchange search stops counting at 10,001, meaning more than 10,000. */
+  /** How many match, or 0 when searched with `count: false`. An exchange search stops counting at 10,001, meaning more than 10,000. */
   totalCount: number;
 }
 

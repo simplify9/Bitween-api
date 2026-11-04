@@ -1,4 +1,3 @@
-using System.Net;
 using SW.Bitween.Model;
 
 namespace SW.Bitween.Client;
@@ -54,8 +53,8 @@ public sealed class Exchanges
         bitween.GetAsync<XchangeRetryTree>($"api/xchanges/retrytree?id={Uri.EscapeDataString(id)}", cancellation);
 
     /// <summary>
-    /// Runs an exchange again from its input file, and returns the new attempt's id: null when the
-    /// account may retry but not view exchanges, so can't look it up. With
+    /// Runs an exchange again from its input file, and returns the new attempt's id: null when it can't
+    /// look that up, because the account may retry but not view exchanges or the lookup failed. With
     /// <paramref name="reset"/>, the subscription's current settings are used rather than those the
     /// exchange ran with. An exchange is retried at most once: one that has been is refused with
     /// <c>ALREADY_RETRIED</c>, so retry its newest attempt instead. One with an automatic retry booked
@@ -68,13 +67,13 @@ public sealed class Exchanges
         await bitween.PostAsync($"api/xchanges/{Uri.EscapeDataString(id)}/retry",
             new XchangeRetry { Reason = reason, Reset = reset }, cancellation);
         // Answered with nothing: the new attempt is the newest that says it retries this. Looking it up
-        // needs exchanges.view, and the retry is made by then, so a refusal mustn't read as the retry's.
+        // needs exchanges.view, and the retry is made by then, so a failed lookup mustn't read as the retry's.
         try
         {
             var retry = await SearchAsync(new ExchangeQuery { RetryFor = id }, 0, 1, false, cancellation);
             return retry.Result.FirstOrDefault()?.Id;
         }
-        catch (BitweenClientException e) when (e.Status == HttpStatusCode.Forbidden)
+        catch (Exception e) when (e is BitweenClientException or HttpRequestException)
         {
             return null;
         }
