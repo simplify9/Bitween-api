@@ -25,6 +25,8 @@ EXPOSE 443
 
 # Build the admin UI (SPA) in its own stage; output lands in SW.Bitween.Web/wwwroot
 FROM node:22-alpine AS ui-build
+# node:26 images no longer include Yarn (node:22/24 do); install the pinned Yarn 1 only when missing.
+RUN command -v yarn >/dev/null || npm install -g yarn@1.22.22
 WORKDIR /src/SW.Bitween.Web/ClientApp
 COPY ["SW.Bitween.Web/ClientApp/package.json", "SW.Bitween.Web/ClientApp/yarn.lock", "./"]
 RUN yarn install --frozen-lockfile
