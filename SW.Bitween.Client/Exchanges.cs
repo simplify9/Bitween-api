@@ -73,7 +73,7 @@ public sealed class Exchanges
             var retry = await SearchAsync(new ExchangeQuery { RetryFor = id }, 0, 1, false, cancellation);
             return retry.Result.FirstOrDefault()?.Id;
         }
-        catch (Exception e) when (e is BitweenClientException or HttpRequestException)
+        catch (Exception e) when (e is not OperationCanceledException || !cancellation.IsCancellationRequested)
         {
             return null;
         }

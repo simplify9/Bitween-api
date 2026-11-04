@@ -126,8 +126,8 @@ A scheduled retry query takes `SubscriptionId`, `InformationTypeId`, `ErrorConta
 ### Selections
 
 Bulk retry and export take a selection: exchanges by id, or every exchange a query matches, however
-many pages that is, with some left out. A query with an empty id list is refused rather than read as no ids at all,
-which would match every exchange.
+many pages that is, with some left out. A query with an empty list of ids, partners, subscriptions or information types
+is refused: an empty list adds no filter, so it would widen the selection rather than narrow it.
 
 ```csharp
 ExchangeSelection.Of(["a1b2...", "c3d4..."])

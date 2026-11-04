@@ -132,9 +132,10 @@ public sealed class ExchangeSelection
     /// <summary>Every exchange <paramref name="query"/> matches, but those in <paramref name="except"/>.</summary>
     public static ExchangeSelection Matching(ExchangeQuery query, IEnumerable<string>? except = null)
     {
-        // No ids adds no filter, so it would select every exchange rather than none.
-        if (query.Ids is { Count: 0 })
-            throw new ArgumentException("Ids is empty: it would match every exchange.", nameof(query));
+        // An empty list adds no filter, so it would widen the selection rather than narrow it.
+        if (query.Ids is { Count: 0 } || query.PartnerIds is { Count: 0 } || query.SubscriptionIds is { Count: 0 }
+            || query.InformationTypeIds is { Count: 0 })
+            throw new ArgumentException("An id list is empty: it would widen the selection, not narrow it.", nameof(query));
         var filters = query.ToFilters();
         // An empty filter reads as no filter, and the selection would fall back to its ids, which are
         // none. Every attempt, not only the newest, matches everything without narrowing it.

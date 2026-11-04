@@ -121,8 +121,9 @@ public class BitweenClientTests(HttpFixture fixture)
         Assert.Equal(2, preview.WillRetry);
         Assert.Equal(3, (await bitween.Exchanges.SearchAsync(partners)).TotalCount);
 
-        // No ids would read as no filter, and select every exchange.
+        // An empty list would read as no filter, and widen the selection.
         Assert.Throws<ArgumentException>(() => ExchangeSelection.Matching(new ExchangeQuery { Ids = [] }));
+        Assert.Throws<ArgumentException>(() => ExchangeSelection.Matching(new ExchangeQuery { Status = ExchangeStatus.Failed, PartnerIds = [] }));
 
         var plan = await bitween.Exchanges.BulkRetryAsync(ExchangeSelection.Of(ids.Take(2)));
         Assert.Equal(2, plan.WillRetry);
@@ -184,8 +185,10 @@ public class BitweenClientTests(HttpFixture fixture)
         using var address = fixture.App.CreateDefaultClient(new Uri("https://localhost"), signIns);
         address.DefaultRequestHeaders.Add("X-Forwarded-For", $"10.{Random.Shared.Next(255)}.{Random.Shared.Next(255)}.{Random.Shared.Next(1, 255)}");
         using var stranger = new BitweenClient(address, "bwt_" + new string('x', 40));
-        var refusals = await Task.WhenAll(Enumerable.Range(0, 10)
-            .Select(_ => Assert.ThrowsAsync<BitweenClientException>(() => stranger.Exchanges.SearchAsync())));
+        var calls = Enumerable.Range(0, 10)
+            .Select(_ => Assert.ThrowsAsync<BitweenClientException>(() => stranger.Exchanges.SearchAsync())).ToList();
+        signIns.Open.SetResult();
+        var refusals = await Task.WhenAll(calls);
         Assert.All(refusals, refused =>
         {
             Assert.Equal(HttpStatusCode.BadRequest, refused.Status);
@@ -196,15 +199,22 @@ public class BitweenClientTests(HttpFixture fixture)
         Assert.Equal(2, (await neighbour.Exchanges.SearchAsync(new ExchangeQuery { PartnerIds = [partnerId] })).TotalCount);
     }
 
-    /// <summary>Counts the calls that trade a token for a session.</summary>
+    /// <summary>Counts the calls that trade a token for a session, and holds them until opened.</summary>
     sealed class SignInCounter : DelegatingHandler
     {
         public int Count;
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellation)
+        /// <summary>Set once every call that should share a sign-in has been made.</summary>
+        public readonly TaskCompletionSource Open = new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellation)
         {
-            if (request.RequestUri!.AbsolutePath == "/api/accounts/servicetoken") Interlocked.Increment(ref Count);
-            return base.SendAsync(request, cancellation);
+            if (request.RequestUri!.AbsolutePath == "/api/accounts/servicetoken")
+            {
+                Interlocked.Increment(ref Count);
+                await Open.Task;
+            }
+            return await base.SendAsync(request, cancellation);
         }
     }
 }

@@ -90,8 +90,9 @@ function exchangeFilters(query = {}) {
 function selectionBody(selection) {
   if (!selection?.ids === !selection?.matching) throw new TypeError("A selection is { ids } or { matching, except }.");
   if (selection.ids) return { ids: [...selection.ids] };
-  // No ids adds no filter, so it would select every exchange rather than none.
-  if (selection.matching.ids?.length === 0) throw new TypeError("matching.ids is empty: it would match every exchange.");
+  // An empty list adds no filter, so it would widen the selection rather than narrow it.
+  for (const key of ["ids", "partnerIds", "subscriptionIds", "informationTypeIds"])
+    if (selection.matching[key]?.length === 0) throw new TypeError(`matching.${key} is empty: it would widen the selection, not narrow it.`);
   const filters = exchangeFilters(selection.matching);
   // An empty filter reads as no filter, and the selection would fall back to its ids, which are
   // none. Every attempt, not only the newest, matches everything without narrowing it.
