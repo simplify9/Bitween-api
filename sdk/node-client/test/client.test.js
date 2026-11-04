@@ -141,8 +141,9 @@ test("sends a selection as the bulk endpoints take it", async () => {
   await bitween.exchanges.checkExport({ matching: {} });
   await assert.rejects(bitween.exchanges.bulkRetry({}), TypeError);
   await assert.rejects(bitween.exchanges.bulkRetry({ ids: [], matching: { status: "failed" } }), TypeError);
-  // No ids would read as no filter, and match every exchange.
+  // An empty list would read as no filter, and widen the selection.
   await assert.rejects(bitween.exchanges.bulkRetry({ matching: { ids: [] } }), TypeError);
+  await assert.rejects(bitween.exchanges.bulkRetry({ matching: { status: "failed", partnerIds: [] } }), TypeError);
 
   const [byId, matching, everything] = seen.requests.map((r) => [r.path, r.body]);
   assert.deepStrictEqual(byId, ["/api/xchanges/bulkretry", { ids: ["a", "b"], reason: "Bulk retry", reset: false }]);
