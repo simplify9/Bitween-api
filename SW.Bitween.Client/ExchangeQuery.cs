@@ -58,8 +58,8 @@ public class ExchangeQuery
     public string? ErrorContains { get; set; }
 
     /// <summary>
-    /// Promoted properties by key: the value contains the text, ignoring case, or with a null text,
-    /// the exchange promoted the key at all. Every one has to hold.
+    /// Promoted properties by key: the value contains the text, ignoring case, or with a null or blank
+    /// text, the exchange promoted the key at all. Every one has to hold.
     /// </summary>
     public IDictionary<string, string?>? PromotedProperties { get; set; }
 
@@ -132,6 +132,9 @@ public sealed class ExchangeSelection
     /// <summary>Every exchange <paramref name="query"/> matches, but those in <paramref name="except"/>.</summary>
     public static ExchangeSelection Matching(ExchangeQuery query, IEnumerable<string>? except = null)
     {
+        // No ids adds no filter, so it would select every exchange rather than none.
+        if (query.Ids is { Count: 0 })
+            throw new ArgumentException("Ids is empty: it would match every exchange.", nameof(query));
         var filters = query.ToFilters();
         // An empty filter reads as no filter, and the selection would fall back to its ids, which are
         // none. Every attempt, not only the newest, matches everything without narrowing it.
@@ -174,6 +177,9 @@ public sealed class Page<T>
 {
     public List<T> Result { get; set; } = [];
 
-    /// <summary>How many match. An exchange search stops counting at 10,001, meaning more than 10,000.</summary>
+    /// <summary>
+    /// How many match, or 0 when searched without counting. An exchange search stops counting at
+    /// 10,001, meaning more than 10,000.
+    /// </summary>
     public int TotalCount { get; set; }
 }

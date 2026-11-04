@@ -17,7 +17,7 @@ role, and issue it a token. The token, starting `bwt_`, is shown once.
 | To | The role needs |
 |---|---|
 | Search exchanges, read their files and retry chains, see scheduled retries, check and export | `exchanges.view` |
-| Retry, bulk retry, and run a scheduled retry now | `exchanges.operate` as well |
+| Retry, bulk retry, and run a scheduled retry now | `exchanges.operate` (without `exchanges.view` too, a retry can't answer with the new attempt's id) |
 
 The SDK trades the token for a session on its first call, and again whenever the session runs out or
 is refused, so the token is all you hand it.
@@ -94,7 +94,7 @@ Types come with it. Rows have the API's camelCase names, and times are ISO strin
 | `Exchanges.GetAsync(id)` | `exchanges.get(id)` | One exchange, or null |
 | `Exchanges.ReadFileAsync(key)` | `exchanges.readFile(key)` | A file's text, by the row's `inputKey`, `outputKey` or `responseKey` |
 | `Exchanges.GetRetryTreeAsync(id)` | `exchanges.retryTree(id)` | Every attempt in the retry chain, oldest first |
-| `Exchanges.RetryAsync(id, reset)` | `exchanges.retry(id, { reset })` | Runs it again from its input, and answers with the new attempt's id: null when the account may retry but not view, so can't look it up. `reset` uses the subscription's current settings. |
+| `Exchanges.RetryAsync(id, reset)` | `exchanges.retry(id, { reset })` | Runs it again from its input, and answers with the new attempt's id: null when it can't look that up, because the account may retry but not view or the lookup failed. The retry is made either way. `reset` uses the subscription's current settings. |
 | `Exchanges.PreviewBulkRetryAsync(selection)` | `exchanges.previewBulkRetry(selection)` | What a bulk retry would do, changing nothing |
 | `Exchanges.BulkRetryAsync(selection)` | `exchanges.bulkRetry(selection)` | Retries a selection, and says what it did |
 | `Exchanges.CheckExportAsync(selection)` | `exchanges.checkExport(selection)` | How many the export takes, and how many are older than storage keeps files |
@@ -117,7 +117,7 @@ to hold.
 | `CorrelationId` / `correlationId` | This correlation id |
 | `LatestOnly` / `latestOnly` | Only the newest attempt of each retry chain |
 | `ErrorContains` / `errorContains` | The error contains the text, ignoring case |
-| `PromotedProperties` / `promotedProperties` | By key: the value contains the text, or with no text, the key was promoted |
+| `PromotedProperties` / `promotedProperties` | By key: the value contains the text, or with no text (null or blank), the key was promoted |
 | `Filters` / `filters` | Filters in Bitween's own `Field:Rule:Value` form, for the rest. See [Exchanges](api-reference.md#exchanges). |
 
 A scheduled retry query takes `SubscriptionId`, `InformationTypeId`, `ErrorContains`, and `From` and
@@ -126,7 +126,8 @@ A scheduled retry query takes `SubscriptionId`, `InformationTypeId`, `ErrorConta
 ### Selections
 
 Bulk retry and export take a selection: exchanges by id, or every exchange a query matches, however
-many pages that is, with some left out.
+many pages that is, with some left out. A query with an empty id list is refused rather than read as no ids at all,
+which would match every exchange.
 
 ```csharp
 ExchangeSelection.Of(["a1b2...", "c3d4..."])

@@ -65,7 +65,7 @@ function exchangeFilters(query = {}) {
     filters.push(values.length === 1 ? `${field}:1:${values[0]}` : `${field}:9:numeric|${values.join("|")}`);
   };
   if (query.status != null) {
-    if (!(query.status in STATUS)) throw new TypeError(`status is one of ${Object.keys(STATUS).join(", ")}.`);
+    if (!Object.hasOwn(STATUS, query.status)) throw new TypeError(`status is one of ${Object.keys(STATUS).join(", ")}.`);
     filters.push(`StatusFilter:1:${STATUS[query.status]}`);
   }
   oneOf("PartnerId", query.partnerIds);
@@ -88,8 +88,10 @@ function exchangeFilters(query = {}) {
 
 /** A selection as the bulk endpoints take it: `{ ids }`, or `{ matching, except }`. */
 function selectionBody(selection) {
-  if (selection?.ids) return { ids: [...selection.ids] };
-  if (!selection?.matching) throw new TypeError("A selection is { ids } or { matching, except }.");
+  if (!selection?.ids === !selection?.matching) throw new TypeError("A selection is { ids } or { matching, except }.");
+  if (selection.ids) return { ids: [...selection.ids] };
+  // No ids adds no filter, so it would select every exchange rather than none.
+  if (selection.matching.ids?.length === 0) throw new TypeError("matching.ids is empty: it would match every exchange.");
   const filters = exchangeFilters(selection.matching);
   // An empty filter reads as no filter, and the selection would fall back to its ids, which are
   // none. Every attempt, not only the newest, matches everything without narrowing it.
@@ -134,21 +136,20 @@ class Exchanges {
   }
 
   /**
-   * Runs an exchange again from its input file, and resolves to the new attempt's id: null when the
-   * account may retry but not view exchanges, so can't look it up. An exchange is retried at most
+   * Runs an exchange again from its input file, and resolves to the new attempt's id: null when it
+   * can't look that up, because the account may retry but not view exchanges or the lookup failed. An exchange is retried at most
    * once: one that has been is refused with ALREADY_RETRIED. One with an automatic retry booked is
    * refused with AUTO_RETRY_SCHEDULED; use scheduledRetries.runNow instead.
    */
   async retry(id, { reset = false, reason = "Manual retry" } = {}) {
     await this.#request("POST", `api/xchanges/${encodeURIComponent(id)}/retry`, { reason, reset });
     // Answered with nothing: the new attempt is the newest that says it retries this. Looking it up
-    // needs exchanges.view, and the retry is made by then, so a refusal mustn't read as the retry's.
+    // needs exchanges.view, and the retry is made by then, so a failed lookup mustn't read as the retry's.
     try {
       const retry = await this.search({ retryFor: id }, { page: 0, size: 1, count: false });
       return retry.result[0]?.id ?? null;
-    } catch (e) {
-      if (e instanceof BitweenClientError && e.status === 403) return null;
-      throw e;
+    } catch {
+      return null;
     }
   }
 

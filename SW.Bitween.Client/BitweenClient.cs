@@ -84,7 +84,15 @@ public sealed class BitweenClient : IDisposable
     internal async Task<Stream> PostForStreamAsync(string path, object body, CancellationToken cancellation)
     {
         var response = await SendAsync(() => Post(path, body), HttpCompletionOption.ResponseHeadersRead, cancellation);
-        return await response.Content.ReadAsStreamAsync(cancellation);
+        try
+        {
+            return await response.Content.ReadAsStreamAsync(cancellation);
+        }
+        catch
+        {
+            response.Dispose();
+            throw;
+        }
     }
 
     static HttpRequestMessage Post(string path, object body) =>
