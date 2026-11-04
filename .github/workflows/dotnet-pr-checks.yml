@@ -43,6 +43,14 @@ jobs:
           --no-build --configuration Release
           --logger "trx;LogFileName=unit-tests.trx"
           --results-directory TestResults
+      # SimplyWorks.Bitween.Client against a real Bitween (Testcontainers): clients build their own
+      # screens on it, so a change that breaks it is stopped here rather than found after they upgrade.
+      - run: >
+          dotnet test SW.Bitween.HttpTests/SW.Bitween.HttpTests.csproj
+          --no-build --configuration Release
+          --filter "FullyQualifiedName~BitweenClientTests"
+          --logger "trx;LogFileName=client-tests.trx"
+          --results-directory TestResults
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: failure()
         with:

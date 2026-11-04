@@ -1,0 +1,12 @@
+{
+  "name": "@simplyworks/bitween-client",
+  "version": "10.0.0",
+  "description": "Bitween's exchanges from your own program: search, read files, retry, bulk retry and export, as a service account.",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "files": ["src"],
+  "engines": { "node": ">=22" },
+  "scripts": { "test": "node --test" },
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/simplify9/Bitween-api", "directory": "sdk/node-client" }
+}
