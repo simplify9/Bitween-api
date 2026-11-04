@@ -454,7 +454,7 @@ Instances of abusive, harassing, or otherwise unacceptable behavior may be repor
 
 By submitting a contribution to Bitween, you agree that:
 
-- your contribution is licensed under the GNU Affero General Public License v3.0, or under the MIT License if it is in `SW.Bitween.Sdk` or a `SW.Bitween.Sample*` project;
+- your contribution is licensed under the GNU Affero General Public License v3.0, or under the MIT License if it is in `SW.Bitween.Sdk`, the client SDK (`SW.Bitween.Client`, `sdk/node-client`) or a `SW.Bitween.Sample*` project;
 - you grant Simplify9 a perpetual, worldwide, royalty-free right to also license your contribution under other terms, including commercial licenses; and
 - you have the right to make the contribution (for example, your employer permits it).
 

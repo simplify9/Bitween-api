@@ -111,6 +111,7 @@ The database schema is created on first start. A new database refuses to start w
 | [Adapters](docs/adapters.md) | Every built-in adapter and its properties, custom adapters in .NET, Python and JavaScript, publishing, the adapter editor and the source viewer |
 | [Adapter contract](docs/adapter-contract.md) | What Bitween calls on an adapter of each kind and what it passes, in every language |
 | [The bitween CLI](docs/cli.md) | Signing in from a terminal, and writing, building, checking and publishing adapters |
+| [Client SDK](docs/client-sdk.md) | Exchanges from your own program, in .NET or JavaScript: search, read files, retry, bulk retry and export |
 | [Mapping](docs/mapping.md) | The rules-based mapper and the legacy Scriban JSON mapper |
 | [Data sources](docs/data-sources.md) | Long-lived connections: enabling them, placement, health and resource limits |
 | [External brokers](docs/external-brokers.md) | Reading from and publishing to a customer's RabbitMQ or Amazon SQS |
@@ -146,6 +147,7 @@ Deeper reference written alongside the features:
 | `SW.Bitween.Adapters` | The adapter contract and its .NET interfaces, published to NuGet as `SimplyWorks.Bitween.Adapters` |
 | `SW.Bitween.Adapters.Tooling` | Bitween's adapters on SW-Serverless's tooling: the contract, templates and Python and Node packages the CLI and the adapter editor use |
 | `SW.Bitween.Cli` | The `bitween` command |
+| `SW.Bitween.Client`, `sdk/node-client` | The client SDK, for exchanges from your own program: `SimplyWorks.Bitween.Client` on NuGet and `@simplyworks/bitween-client` on npm |
 | `sdk/python`, `sdk/node` | The adapter contract for Python (`simplyworks-bitween`) and for JavaScript and TypeScript (`@simplyworks/bitween`) |
 | `SW.Bitween.PgSql`, `SW.Bitween.MySql`, `SW.Bitween.MsSql` | Provider-specific database contexts and migrations |
 | `SW.Bitween.Sample*` | Sample custom adapters, including a resident handler |
@@ -162,7 +164,7 @@ Bitween is licensed under the [GNU Affero General Public License v3.0](LICENSE),
 - You can use, run and modify Bitween for free, including in production inside your organization.
 - If you distribute Bitween or offer it as a service to others, you must release your source code under the AGPL and keep the "Based on Bitween by Simplify9" attribution.
 - Forks and modified versions must use a different name. "Bitween" is a Simplify9 trademark.
-- `SW.Bitween.Sdk` (the `SimplyWorks.Bitween.Sdk` NuGet package) and the `SW.Bitween.Sample*` projects stay under the MIT License, so your custom adapters can use any license.
+- `SW.Bitween.Sdk` (the `SimplyWorks.Bitween.Sdk` NuGet package), the client SDK (`SW.Bitween.Client` and `sdk/node-client`) and the `SW.Bitween.Sample*` projects stay under the MIT License, so your custom adapters and client apps can use any license.
 - Versions released before the license change remain available under the MIT License.
 
 A commercial license is available from Simplify9 ([info@simplify9.com](mailto:info@simplify9.com)) for embedding Bitween in closed-source products or hosting it for third parties without releasing source code.

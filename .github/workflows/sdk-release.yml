@@ -1,11 +1,12 @@
 name: SDK release
 
 # Publishes the adapter contract for Python to PyPI as simplyworks-bitween and for JavaScript and
-# TypeScript to npm as @simplyworks/bitween. Never run by hand or by a tag: the release run on
+# TypeScript to npm as @simplyworks/bitween, and the client for JavaScript and TypeScript to npm as
+# @simplyworks/bitween-client. Never run by hand or by a tag: the release run on
 # releases/r10.0 (bitween-api-cicd-gateway.yml) calls it with the version it computed, so they carry
-# Bitween's version. Only a release version is published. Each is tested first against
-# SW-Serverless's SDK from its default branch, and a version already on its registry is left alone,
-# so a failed run can simply be run again.
+# Bitween's version. Only a release version is published. Each is tested first (the adapter
+# contracts against SW-Serverless's SDK from its default branch), and a version already on its
+# registry is left alone, so a failed run can simply be run again.
 on:
   workflow_call:
     inputs:
@@ -82,6 +83,39 @@ jobs:
       - name: Test
         env:
           SW_SERVERLESS_NODE: ${{ github.workspace }}/sw-serverless/sdk/node/src
+        run: node --test
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          name=$(node -p "require('./package.json').name")
+          if npm view "$name@${{ steps.version.outputs.value }}" version >/dev/null 2>&1; then
+            echo "$name@${{ steps.version.outputs.value }} is already on npm."
+          else
+            npm publish --access public
+          fi
+
+  node-client:
+    if: ${{ !contains(inputs.version, '-') }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sdk/node-client
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: "22"
+          registry-url: "https://registry.npmjs.org"
+      - name: Version
+        id: version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          v="$VERSION"
+          npm version "$v" --no-git-tag-version --allow-same-version
+          echo "value=$v" >> "$GITHUB_OUTPUT"
+      - name: Test
         run: node --test
       - name: Publish
         env:

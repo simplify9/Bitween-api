@@ -43,11 +43,13 @@ network. Section 13 still applies when anyone else interacts with it remotely.
 COMPONENTS UNDER THE MIT LICENSE
 --------------------------------
 
-So that custom adapters built on them are not affected by the AGPL, the
-following directories remain under the MIT License (see the LICENSE file in
-each directory):
+So that custom adapters and client apps built on them are not affected by the
+AGPL, the following directories remain under the MIT License (see the LICENSE
+file in each directory):
 
     SW.Bitween.Sdk                     (NuGet: SimplyWorks.Bitween.Sdk)
+    SW.Bitween.Client                  (NuGet: SimplyWorks.Bitween.Client)
+    sdk/node-client                    (npm: @simplyworks/bitween-client)
     SW.Bitween.Sample*                 (sample adapters, handlers and mappers)
 
 
