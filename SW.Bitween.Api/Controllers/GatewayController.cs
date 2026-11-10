@@ -34,6 +34,12 @@ public class GatewayController(
     public const string DuplicateOfHeader = "Bitween-Duplicate-Of";
 
     /// <summary>
+    /// The exchange a call made or was answered with, on every answer that has one. A sync answer's
+    /// body is the destination's response, so without it the caller couldn't tell which exchange it was.
+    /// </summary>
+    public const string ExchangeIdHeader = "Bitween-Exchange-Id";
+
+    /// <summary>
     /// <c>{gateway's url name}/sync</c> or <c>/async</c>. The url name can be several segments,
     /// so it is everything before the last one - a route can't put a literal after a catch-all.
     /// </summary>
@@ -79,6 +85,7 @@ public class GatewayController(
         // whole wait (up to Bitween:MaxResponseWaitSeconds), are garbage before the wait starts.
         var call = await CreateAsync(gatewayApiName, resultSync);
         if (call.Answer != null) return call.Answer;
+        if (call.XchangeId != null) Response.Headers[ExchangeIdHeader] = call.XchangeId;
         if (!resultSync) return Accepted(call.XchangeId);
         return await WaitAsync(call);
     }

@@ -94,6 +94,8 @@ The claim named in the gateway's partner claim, `sub` unless set, must equal a p
 | Failure | Depends on the gateway's **When a delivery fails** setting, below |
 | Wait ended before a result | `202` with the exchange id |
 
+Every answer that has an exchange, async or sync, also names it in the header `Bitween-Exchange-Id`: a sync answer's body is the destination's response, so the header is how a caller tells which exchange it was.
+
 What a failure answers is set per gateway, under **When a delivery fails** (`failureAnswer` in the API and in `bitween apply`).
 
 | Setting | Failure, a retry scheduled | Failure, the message couldn't be mapped | Failure, no retry |
