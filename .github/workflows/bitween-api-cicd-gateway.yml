@@ -176,12 +176,8 @@ jobs:
       container-registry: 'docker.io'
       image-name: 'simplify9/bitween'
 
-      # The SDK, the adapter contract package (SimplyWorks.Bitween.Adapters) adapters reference, and
-      # the client (SimplyWorks.Bitween.Client) clients' own programs call Bitween with.
-      nuget-projects: >-
-        SW.Bitween.Sdk/SW.Bitween.Sdk.csproj
-        SW.Bitween.Adapters/SW.Bitween.Adapters.csproj
-        SW.Bitween.Client/SW.Bitween.Client.csproj
+      # No nuget-projects: the packages are published by the nuget job below, with Trusted
+      # Publishing, which can't happen in here. The tests still run (build and test, no pack).
       run-tests: 'true'
       # Integration tests run against real Postgres/RabbitMQ/MailHog via
       # Testcontainers - self-contained, no extra CI services needed, since
@@ -224,7 +220,6 @@ jobs:
       chartmuseum-username: ${{ secrets.CM_USER }}
       chartmuseum-password: ${{ secrets.CM_PASSWORD }}
       github-token: ${{ secrets.GITHUB_TOKEN }}
-      nuget-api-key: ${{ secrets.SWNUGETKEY }}
       dependabot-alerts-token: ${{ secrets.DEPENDABOT_ALERTS_TOKEN }}
 
       # Production cluster kubeconfig (V2, Gateway API)
@@ -253,6 +248,54 @@ jobs:
     uses: ./.github/workflows/cli-release.yml
     with:
       version: ${{ needs.Prod.outputs.version }}
+
+  # The NuGet packages: the SDK, the adapter contract package (SimplyWorks.Bitween.Adapters) adapters
+  # reference, and the client (SimplyWorks.Bitween.Client) clients' own programs call Bitween with.
+  #
+  # Published with nuget.org Trusted Publishing: GitHub's OIDC token is traded for an API key that
+  # lasts an hour, so there is no stored key to expire. nuget.org takes the workflow file from the
+  # token's job_workflow_ref and requires it to be in this repository, so the login can't run in the
+  # shared reusable workflow (its job_workflow_ref is simplify9/.github's); it runs here, in this
+  # file, which is what the nuget.org policy names. The policy: owner simplify9, repository
+  # Bitween-api, workflow bitween-api-cicd-gateway.yml. NUGET_USER (a repository or organisation
+  # variable) is the nuget.org user who created it.
+  #
+  # After Prod, which has tagged the version by then: a failed push is re-run on its own, and
+  # --skip-duplicate makes that safe.
+  nuget:
+    needs: Prod
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Build
+        env:
+          VERSION: ${{ needs.Prod.outputs.version }}
+        run: |
+          for project in SW.Bitween.Sdk/SW.Bitween.Sdk.csproj SW.Bitween.Adapters/SW.Bitween.Adapters.csproj SW.Bitween.Client/SW.Bitween.Client.csproj; do
+            dotnet build "$project" --configuration Release "-p:Version=$VERSION"
+          done
+      - name: NuGet login (OIDC to a one-hour API key)
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: ${{ vars.NUGET_USER }}
+      - name: Pack and push
+        uses: simplify9/.github/.github/actions/dotnet-pack-push@main
+        with:
+          projects: >-
+            SW.Bitween.Sdk/SW.Bitween.Sdk.csproj
+            SW.Bitween.Adapters/SW.Bitween.Adapters.csproj
+            SW.Bitween.Client/SW.Bitween.Client.csproj
+          configuration: Release
+          version: ${{ needs.Prod.outputs.version }}
+          api-key: ${{ steps.login.outputs.NUGET_API_KEY }}
+          nuget-source: 'https://api.nuget.org/v3/index.json'
 
   sdk-release:
     needs: Prod
