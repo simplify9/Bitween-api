@@ -2,7 +2,7 @@
 const test = require("node:test");
 const assert = require("node:assert");
 const http = require("node:http");
-const { BitweenClient, BitweenClientError } = require("../src");
+const { BitweenClient, BitweenGateway, BitweenClientError } = require("../src");
 
 /**
  * A stand-in Bitween: answers sign-ins with a new session each time, and everything else from
@@ -26,14 +26,16 @@ async function fakeBitween(answer, { expiresIn = 3600 } = {}) {
     const request = { method: req.method, path: url.pathname, filters: url.searchParams.getAll("filter"),
       query: Object.fromEntries(url.searchParams), auth: req.headers.authorization, body: body ? JSON.parse(body) : undefined };
     seen.requests.push(request);
-    const [status, reply, type = "application/json"] = answer(request) ?? [200, null];
-    res.writeHead(status, { "Content-Type": type });
+    request.headers = req.headers;
+    const [status, reply, type = "application/json", headers = {}] = answer(request) ?? [200, null];
+    res.writeHead(status, { "Content-Type": type, ...headers });
     res.end(reply == null ? "" : typeof reply === "string" || Buffer.isBuffer(reply) ? reply : JSON.stringify(reply));
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
   test.after(() => server.close());
-  const client = (token = "bwt_good") => new BitweenClient({ url: `http://127.0.0.1:${server.address().port}/`, token });
-  return { seen, client };
+  const url = `http://127.0.0.1:${server.address().port}/`;
+  const client = (token = "bwt_good") => new BitweenClient({ url, token });
+  return { seen, client, url };
 }
 
 const page = (...ids) => ({ result: ids.map((id) => ({ id })), totalCount: ids.length });
@@ -173,4 +175,116 @@ test("reads files, retry trees and scheduled retries, and streams an export", as
   assert.deepStrictEqual([scheduled.path, scheduled.filters],
     ["/api/delayedretries", ["SubscriptionId:1:4", "Exception:4:down", "On:8:2026-11-03T10:00:00.000Z"]]);
   assert.deepStrictEqual([runNow.method, runNow.path], ["POST", "/api/delayedretries/x/runnow"]);
+});
+
+test("lists, reads, creates, saves and deletes the configuration areas", async () => {
+  const { seen, client } = await fakeBitween((r) =>
+    r.path === "/api/partners/generatekey" ? [200, "abc123", "text/plain"]
+    : r.path === "/api/partners/404" ? [404, null]
+    : r.path === "/api/partners/5" && r.method === "GET" ? [200, null]
+    : r.method === "POST" && /^\/api\/[a-z]+$/.test(r.path) ? [200, 31]
+    : r.path.endsWith("/addroute") ? [200, 9]
+    : r.path.endsWith("/test") ? [200, { sent: false, error: "no such host" }]
+    : [200, page()]);
+  const bitween = client();
+
+  await bitween.partners.search({ nameContains: " Acme ", filters: ["Keys:5:0"] }, { page: 1, size: 5 });
+  await bitween.subscriptions.search({ type: "busGateway", informationTypeId: 3, partnerId: 7 });
+  await assert.rejects(bitween.subscriptions.search({ type: "nope" }), TypeError);
+  assert.strictEqual(await bitween.partners.get(404), null);
+  assert.strictEqual(await bitween.partners.get(5), null);
+  assert.strictEqual(await bitween.partners.newKey(), "abc123");
+  assert.strictEqual(await bitween.partners.create({ name: "Acme", secretProperties: ["token"] }), 31);
+  await bitween.partners.update(31, { name: "Acme 2" });
+  await bitween.partners.delete(31);
+  const expression = { type: "and", left: { type: "one_of", path: "issuer.id", values: ["7"] }, right: { type: "not_one_of", path: "kind", values: ["draft"] } };
+  assert.strictEqual(await bitween.busGateways.addRoute(2, { subscriptionId: 4, partnerId: 7, matchExpression: expression }), 9);
+  await bitween.busGateways.removeRoute(2, 9);
+  await bitween.apiGateways.attachPartner(3, { partnerId: 7, subscriptionId: 4 });
+  await bitween.apiGateways.detachPartner(3, 7);
+  assert.deepStrictEqual(await bitween.notificationChannels.test(6), { sent: false, error: "no such host" });
+
+  const sent = seen.requests.map((r) => [r.method, r.path, r.filters.length ? r.filters : r.body]);
+  assert.deepStrictEqual(sent, [
+    ["GET", "/api/partners", ["Name:4:Acme", "Keys:5:0"]],
+    ["GET", "/api/subscriptions", ["Type:1:32", "DocumentId:1:3", "PartnerId:1:7"]],
+    ["GET", "/api/partners/404", undefined],
+    ["GET", "/api/partners/5", undefined],
+    ["GET", "/api/partners/generatekey", undefined],
+    ["POST", "/api/partners", { name: "Acme", secretProperties: ["token"] }],
+    ["POST", "/api/partners/31", { name: "Acme 2" }],
+    ["DELETE", "/api/partners/31", undefined],
+    ["POST", "/api/busgateways/2/addroute", { subscriptionId: 4, partnerId: 7, matchExpression: expression }],
+    ["POST", "/api/busgateways/2/removeroute", { routeId: 9 }],
+    ["POST", "/api/apigateways/3/addpartner", { partnerId: 7, subscriptionId: 4 }],
+    ["POST", "/api/apigateways/3/removepartner", { partnerId: 7 }],
+    ["POST", "/api/notificationchannels/6/test", {}],
+  ]);
+  assert.deepStrictEqual([seen.requests[0].query.page, seen.requests[0].query.size], ["1", "5"]);
+});
+
+test("switches a subscription on, and pauses it, only when it isn't already", async () => {
+  let stored = { name: "Invoices", documentId: 3, inactive: true, pausedOn: null };
+  const { seen, client } = await fakeBitween((r) => {
+    if (r.method === "GET") return [200, stored];
+    if (r.path.endsWith("/pause")) stored = { ...stored, pausedOn: stored.pausedOn ? null : "2026-11-10T10:00:00Z" };
+    else stored = r.body;
+    return [200, null];
+  });
+  const bitween = client();
+  assert.strictEqual(await bitween.subscriptions.activate(8), true);
+  assert.strictEqual(await bitween.subscriptions.activate(8), false);
+  assert.strictEqual(stored.inactive, false);
+  assert.strictEqual(stored.name, "Invoices");
+  assert.strictEqual(await bitween.subscriptions.pause(8), true);
+  assert.strictEqual(await bitween.subscriptions.pause(8), false);
+  assert.strictEqual(await bitween.subscriptions.resume(8), true);
+  assert.strictEqual(stored.pausedOn, null);
+  assert.deepStrictEqual(seen.requests.filter((r) => r.method === "POST").map((r) => r.path),
+    ["/api/subscriptions/8", "/api/subscriptions/8/pause", "/api/subscriptions/8/pause"]);
+});
+
+test("sends to a gateway as a partner and reads how the delivery went", async () => {
+  const id = { "Bitween-Exchange-Id": "x1" };
+  const answers = {
+    "/api/gateway/invoices/async": [202, "x1", "text/plain", { ...id, "Idempotent-Replay": "true" }],
+    "/api/gateway/bare/sync": [200, "x1", "text/plain", id],
+    "/api/gateway/answers/sync": [200, { accepted: true }, "application/json", id],
+    "/api/gateway/later/sync": [202, { exchangeId: "x1", status: "retrying", nextAttemptOn: "2026-11-10T10:05:00Z" }, "application/json", id],
+    "/api/gateway/slow/sync": [202, "x1", "text/plain"],
+    "/api/gateway/bad/sync": [400, { reason: "unknown customer" }, "application/json", id],
+    "/api/gateway/legacy/sync": [400, null, "application/json", id],
+    "/api/gateway/down/sync": [502, { exchangeId: "x1", status: "failed", error: "The delivery to the destination failed." }, "application/json", id],
+    "/api/gateway/schema/sync": [400, { error: "SCHEMA_MISMATCH", errors: ["$.total is required"] }],
+  };
+  const { seen, url } = await fakeBitween((r) => answers[r.path] ?? (r.headers.partnerkey === "k1" ? [404, null] : [401, null]));
+  const gateway = new BitweenGateway({ url, partnerKey: "k1" });
+
+  assert.deepStrictEqual(await gateway.send("invoices", { invoice: "INV-1" }, { idempotencyKey: "INV-1" }),
+    { exchangeId: "x1", replayed: true, duplicateOf: null });
+  const call = seen.requests[0];
+  assert.deepStrictEqual([call.headers.partnerkey, call.headers["idempotency-key"], call.body], ["k1", "INV-1", { invoice: "INV-1" }]);
+
+  const outcome = async (name) => {
+    const a = await gateway.sendAndWait(name, "{}", { waitSeconds: 30 });
+    return [a.outcome, a.status, a.exchangeId, a.body];
+  };
+  assert.deepStrictEqual(await outcome("bare"), ["delivered", 200, "x1", null]);
+  assert.deepStrictEqual(await outcome("answers"), ["delivered", 200, "x1", "{\"accepted\":true}"]);
+  assert.deepStrictEqual(await outcome("later"), ["retrying", 202, "x1", null]);
+  assert.deepStrictEqual(await outcome("slow"), ["stillRunning", 202, "x1", null]);
+  assert.deepStrictEqual(await outcome("bad"), ["badResponse", 400, "x1", "{\"reason\":\"unknown customer\"}"]);
+  assert.deepStrictEqual(await outcome("legacy"), ["failed", 400, "x1", null]);
+  const down = await gateway.sendAndWait("down", "{}");
+  assert.deepStrictEqual([down.outcome, down.error], ["failed", "The delivery to the destination failed."]);
+  assert.strictEqual(seen.requests.at(-1).headers["wait-period"], undefined);
+  assert.strictEqual(seen.requests.at(-2).headers["wait-period"], "30");
+
+  const mismatch = await gateway.sendAndWait("schema", "{}").catch((e) => e);
+  assert.deepStrictEqual([mismatch.status, mismatch.code, mismatch.message], [400, "SCHEMA_MISMATCH", "$.total is required"]);
+  assert.strictEqual((await gateway.send("nowhere", "{}").catch((e) => e)).status, 404);
+  const stranger = new BitweenGateway({ url, partnerKey: "wrong" });
+  assert.match((await stranger.send("nowhere", "{}").catch((e) => e)).message, /didn't take the key/);
+  // No sign-in: a partner's key goes on the call itself.
+  assert.strictEqual(seen.signIns, 0);
 });

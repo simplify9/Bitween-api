@@ -11,7 +11,10 @@ namespace SW.Bitween.Client;
 /// call, and traded again whenever the session runs out or is refused, so the token is all a caller
 /// hands over. Keep one for the life of the program: it can be used from many threads at once, and
 /// they share one session. What the account may do is what its roles allow: <c>exchanges.view</c> to
-/// read, and <c>exchanges.operate</c> to retry.
+/// read exchanges and <c>exchanges.operate</c> to retry them; <c>partners.*</c>,
+/// <c>subscriptions.*</c>, <c>documents.view</c>, <c>api-gateways.*</c>, <c>bus-gateways.*</c> and
+/// <c>notifiers.*</c> for the configuration each area manages. Sending to a gateway is a partner's
+/// call, not an account's: see <see cref="BitweenGateway"/>.
 /// </summary>
 /// <example>
 /// <code>
@@ -23,7 +26,7 @@ public sealed class BitweenClient : IDisposable
 {
     internal static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
     {
-        Converters = { new JsonStringEnumConverter() },
+        Converters = { new JsonStringEnumConverter(), new MatchSpecificationConverter() },
     };
 
     readonly HttpClient http;
@@ -54,6 +57,12 @@ public sealed class BitweenClient : IDisposable
         this.token = token.Trim();
         Exchanges = new Exchanges(this);
         ScheduledRetries = new ScheduledRetries(this);
+        Partners = new Partners(this);
+        Subscriptions = new Subscriptions(this);
+        InformationTypes = new InformationTypes(this);
+        ApiGateways = new ApiGateways(this);
+        BusGateways = new BusGateways(this);
+        NotificationChannels = new NotificationChannels(this);
     }
 
     /// <summary>Search exchanges, read their files, and retry or export them.</summary>
@@ -62,12 +71,67 @@ public sealed class BitweenClient : IDisposable
     /// <summary>The automatic retries waiting to run, and running one now.</summary>
     public ScheduledRetries ScheduledRetries { get; }
 
+    /// <summary>Partners: who an integration runs for, their settings and secrets, and their keys.</summary>
+    public Partners Partners { get; }
+
+    /// <summary>Subscriptions: the integrations themselves, switched on and off and paused.</summary>
+    public Subscriptions Subscriptions { get; }
+
+    /// <summary>Information types (documents, in the API): what kinds of message there are. Read only.</summary>
+    public InformationTypes InformationTypes { get; }
+
+    /// <summary>API gateways, and which partner runs which subscription through each.</summary>
+    public ApiGateways ApiGateways { get; }
+
+    /// <summary>Bus gateways, and the routes that send their messages to subscriptions.</summary>
+    public BusGateways BusGateways { get; }
+
+    /// <summary>Notification channels: where a subscription's results and alerts are sent.</summary>
+    public NotificationChannels NotificationChannels { get; }
+
     internal async Task<T> GetAsync<T>(string path, CancellationToken cancellation)
     {
         using var response = await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, path),
             HttpCompletionOption.ResponseContentRead, cancellation);
         return (await response.Content.ReadFromJsonAsync<T>(Json, cancellation))!;
     }
+
+    /// <summary>The answer, or null when there is none by that id: a 404, or an empty answer.</summary>
+    internal async Task<T?> GetOrNullAsync<T>(string path, CancellationToken cancellation) where T : class
+    {
+        try
+        {
+            using var response = await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, path),
+                HttpCompletionOption.ResponseContentRead, cancellation);
+            var body = await response.Content.ReadAsStringAsync(cancellation);
+            return string.IsNullOrWhiteSpace(body) ? null : JsonSerializer.Deserialize<T>(body, Json);
+        }
+        catch (BitweenClientException e) when (e.Status == HttpStatusCode.NotFound)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>The answer's body as text, unquoted when it is a JSON string.</summary>
+    internal async Task<string> GetTextAsync(string path, CancellationToken cancellation)
+    {
+        using var response = await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, path),
+            HttpCompletionOption.ResponseContentRead, cancellation);
+        var text = (await response.Content.ReadAsStringAsync(cancellation)).Trim();
+        return text.StartsWith('"') ? JsonSerializer.Deserialize<string>(text) ?? "" : text;
+    }
+
+    internal async Task DeleteAsync(string path, CancellationToken cancellation)
+    {
+        using var _ = await SendAsync(() => new HttpRequestMessage(HttpMethod.Delete, path),
+            HttpCompletionOption.ResponseContentRead, cancellation);
+    }
+
+    /// <summary>A page of a searchy list, the filters <c>Field:Rule:Value</c>.</summary>
+    internal Task<Page<T>> SearchAsync<T>(string resource, List<string> filters, int page, int size,
+        CancellationToken cancellation) =>
+        GetAsync<Page<T>>($"{resource}?{ExchangeQuery.QueryString(filters, ("page", page.ToString()), ("size", size.ToString()))}",
+            cancellation);
 
     internal async Task<T> PostAsync<T>(string path, object body, CancellationToken cancellation)
     {
