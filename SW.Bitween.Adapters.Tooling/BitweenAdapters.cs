@@ -52,7 +52,8 @@ public static class BitweenAdapters
 
     /// <summary>
     /// Bitween's kinds for Python (simplyworks-bitween) and Node (@simplify9/bitween), for a build to
-    /// vendor beside the SDK.
+    /// vendor beside the SDK. The Node package is vendored under its old name too, @simplyworks/bitween,
+    /// so adapters written before the move to @simplify9 still build and run.
     /// </summary>
     public static IList<VendoredPackage> Packages()
     {
@@ -67,7 +68,9 @@ public static class BitweenAdapters
             if (normalized.StartsWith("python/", StringComparison.Ordinal)) python.Files[normalized["python/".Length..]] = buffer.ToArray();
             else if (normalized.StartsWith("node/", StringComparison.Ordinal)) node.Files[normalized["node/".Length..]] = buffer.ToArray();
         }
-        return [python, node];
+        var legacy = new VendoredPackage { Runtime = AdapterManifest.NodeRuntime, Name = "@simplyworks/bitween" };
+        foreach (var (path, bytes) in node.Files) legacy.Files[legacy.Name + path[node.Name.Length..]] = bytes;
+        return [python, node, legacy];
     }
 
     /// <summary>A build request for a Bitween adapter: Bitween's packages are vendored.</summary>
