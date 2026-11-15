@@ -97,7 +97,7 @@ A handler whose partner **rejected** the message doesn't fail. It returns the pa
 |---|---|---|
 | .NET | `SimplyWorks.Bitween.Adapters` (`SW.Bitween.Adapters`), with `SimplyWorks.Serverless.Sdk` | `IBitweenHandler`, `IBitweenMapper`, `IBitweenValidator`, `IBitweenReceiver`, with `ExchangeFile` and `ValidationResult` |
 | Python 3.12 or later | `simplyworks-bitween` (`sdk/python`, imported as `simplyworks_bitween`), with `sw-serverless` | `Handler`, `Mapper`, `Validator`, `Receiver`, with `ExchangeFile` and `ValidationResult` |
-| JavaScript and TypeScript, Node 22 or later | `@simplyworks/bitween` (`sdk/node`), with `@simplyworks/sw-serverless` | `Handler`, `Mapper`, `Validator`, `Receiver`, with `ExchangeFile` and `ValidationResult` |
+| JavaScript and TypeScript, Node 22 or later | `@simplify9/bitween` (`sdk/node`), with `@simplyworks/sw-serverless` | `Handler`, `Mapper`, `Validator`, `Receiver`, with `ExchangeFile` and `ValidationResult` |
 
 `sw-serverless` and `@simplyworks/sw-serverless` are SW-Serverless's SDKs: they run the adapter and declare its settings. The Bitween packages add the four kinds and their payloads. `bitween adapter build` vendors both into every Python and Node package it builds, so neither has to be installed from a package registry. See [Custom adapters](adapters.md#custom-adapters).
 

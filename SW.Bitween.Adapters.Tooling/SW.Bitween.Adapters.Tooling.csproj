@@ -17,8 +17,8 @@
   <ItemGroup>
     <EmbeddedResource Include="../SW.Bitween.Adapters/Contract/*.json" LogicalName="contract/%(Filename)%(Extension)" />
     <EmbeddedResource Include="../sdk/python/src/simplyworks_bitween/*.py" LogicalName="python/simplyworks_bitween/%(Filename)%(Extension)" />
-    <EmbeddedResource Include="../sdk/node/package.json" LogicalName="node/@simplyworks/bitween/package.json" />
-    <EmbeddedResource Include="../sdk/node/src/*.js;../sdk/node/src/*.d.ts" LogicalName="node/@simplyworks/bitween/src/%(Filename)%(Extension)" />
+    <EmbeddedResource Include="../sdk/node/package.json" LogicalName="node/@simplify9/bitween/package.json" />
+    <EmbeddedResource Include="../sdk/node/src/*.js;../sdk/node/src/*.d.ts" LogicalName="node/@simplify9/bitween/src/%(Filename)%(Extension)" />
   </ItemGroup>
 
 </Project>

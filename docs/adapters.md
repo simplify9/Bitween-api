@@ -410,13 +410,13 @@ node, whether or not `Bitween:BusProvidersEnabled` is on.
 
 ### Custom adapters in JavaScript or TypeScript
 
-The same, on Node 22 or later, with `@simplyworks/sw-serverless` and `@simplyworks/bitween`
+The same, on Node 22 or later, with `@simplyworks/sw-serverless` and `@simplify9/bitween`
 (`sdk/node`). Extend a kind and implement its methods, named as in Python but in camelCase:
 `handle`, `map`, `validate`, and `listFiles`, `getFile`, `deleteFile`.
 
 ```ts
 import { expect, run, valueOf } from "@simplyworks/sw-serverless";
-import { ExchangeFile, Handler } from "@simplyworks/bitween";
+import { ExchangeFile, Handler } from "@simplify9/bitween";
 
 class Orders extends Handler {
   constructor() {

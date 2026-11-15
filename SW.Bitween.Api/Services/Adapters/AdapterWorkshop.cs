@@ -393,7 +393,7 @@ public class AdapterWorkshop(
     }
 
     static readonly string[] OwnPackages = ["sw-serverless", "sw_serverless", "simplyworks-bitween", "simplyworks_bitween",
-        "@simplyworks/sw-serverless", "@simplyworks/bitween"];
+        "@simplyworks/sw-serverless", "@simplify9/bitween", "@simplyworks/bitween"];
 
     /// <summary>
     /// What the editor won't build because of the packages a draft names. Without
