@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using System.Threading.Tasks;
 using SW.PrimitiveTypes;
@@ -67,26 +69,105 @@ public class AiModels(BitweenOptions options)
     public string ModelName => options.Ai.ResolvedModel;
 
     /// <exception cref="SWValidationException"><c>AI_NOT_CONFIGURED</c> until Settings, AI has a key.</exception>
-    public IAiModel Current()
+    public IAiModel Current() => For(options.Ai);
+
+    /// <summary>A model for these settings - the saved ones, or ones Settings is about to save.</summary>
+    /// <exception cref="SWValidationException"><c>AI_NOT_CONFIGURED</c> while they're incomplete.</exception>
+    public IAiModel For(AiOptions ai)
     {
-        var ai = options.Ai;
         if (!ai.IsSet)
             throw new SWValidationException("AI_NOT_CONFIGURED",
-                string.IsNullOrWhiteSpace(ai.ApiKey)
-                    ? "AI features are off until an API key is set under Settings, AI."
-                    : "AI features are off until a model is named under Settings, AI.");
-
-        // Checked here as well as when the setting is saved: configuration binds it without the check.
-        if (AiOptions.AddressProblem(ai.BaseUrl) is { } problem)
-            throw new SWValidationException("AI_NOT_CONFIGURED", $"The API address under Settings, AI can't be used: {problem}");
+                ai.Known is null ? $"'{ai.Provider}' isn't an AI provider Bitween knows."
+                : ai.NeedsKey && string.IsNullOrWhiteSpace(ai.ApiKey) ? "AI features are off until an API key is set under Settings, AI."
+                : ai.ResolvedModel is null ? "AI features are off until a model is named under Settings, AI."
+                : $"AI features are off until the {ai.Info.Part ?? "API address"} is set under Settings, AI.");
+        CheckAddress(ai);
 
         if (ModelOverride is { } model) return model(ai);
 
-        var baseUrl = string.IsNullOrWhiteSpace(ai.BaseUrl) ? null : ai.BaseUrl.Trim();
         return ai.IsAnthropic
-            ? new AnthropicModel(ai.ApiKey.Trim(), ai.ResolvedModel, baseUrl, Client)
-            : new OpenAiModel(ai.ApiKey.Trim(), ai.ResolvedModel, baseUrl, Client);
+            ? new AnthropicModel(ai.ApiKey.Trim(), ai.ResolvedModel, ai.ResolvedBaseUrl, Client)
+            : new OpenAiModel(NameOf(ai), KeyOf(ai), ai.ResolvedModel, ai.ResolvedBaseUrl, Client);
     }
+
+    /// <summary>
+    /// The chat models these settings' provider lists, for Settings to offer. Null for a provider
+    /// that doesn't list them, such as Azure OpenAI, whose deployments only its portal names.
+    /// </summary>
+    public async Task<List<string>> Models(AiOptions ai)
+    {
+        if (ai.Known is null)
+            throw new SWValidationException("AI_NOT_CONFIGURED", $"'{ai.Provider}' isn't an AI provider Bitween knows.");
+        if (!ai.Info.Lists) return null;
+        if (ai.NeedsKey && string.IsNullOrWhiteSpace(ai.ApiKey))
+            throw new SWValidationException("AI_NOT_CONFIGURED", "Set the API key to see this provider's models.");
+        if (ai.ResolvedBaseUrl is null)
+            throw new SWValidationException("AI_NOT_CONFIGURED", "Set the API address to see this provider's models.");
+        CheckAddress(ai);
+
+        var listed = ai.IsAnthropic
+            ? await AnthropicModel.List(ai.ApiKey.Trim(), ai.ResolvedBaseUrl, Client)
+            : await OpenAiModel.List(NameOf(ai), KeyOf(ai), ai.ResolvedBaseUrl, Client);
+
+        return listed
+            // Gemini lists "models/gemini-…" but is called with the bare name.
+            .Select(id => id.StartsWith("models/", StringComparison.Ordinal) ? id["models/".Length..] : id)
+            .Where(id => !NotChat.Any(word => id.Contains(word, StringComparison.OrdinalIgnoreCase)))
+            .Distinct()
+            .Order(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>
+    /// Words in the names of models that can't answer a chat - embeddings, speech, images - which
+    /// the providers list beside the ones that can. A model this misses can still be typed in.
+    /// </summary>
+    static readonly string[] NotChat =
+        ["embed", "whisper", "tts", "dall-e", "image", "imagen", "veo", "sora", "audio", "speech", "transcribe",
+         "realtime", "moderation", "rerank", "ocr", "babbage", "davinci", "guard"];
+
+    /// <summary>
+    /// Sends these settings' model a small request shaped like the real ones - instructions, a
+    /// message, a JSON answer - so a wrong key, model or address shows in Settings, not later in a
+    /// mapping. Returns how long it took.
+    /// </summary>
+    public async Task<TimeSpan> Check(AiOptions ai)
+    {
+        var model = For(ai);
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        var answer = await model.Complete(new AiPrompt(
+            "You check that a connection works. Answer with one JSON object and nothing else.",
+            """Answer with exactly this JSON object: {"ok": true}""",
+            Json: true, MaxTokens: 2000));
+
+        var start = answer.IndexOf('{');
+        var end = answer.LastIndexOf('}');
+        try
+        {
+            if (start < 0 || end < start) throw new System.Text.Json.JsonException();
+            using var _ = System.Text.Json.JsonDocument.Parse(answer[start..(end + 1)]);
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            throw new SWValidationException("AI_NOT_JSON",
+                "The model answered, but not with JSON. AI features need a model that can; choose a larger one.");
+        }
+        return started.Elapsed;
+    }
+
+    static void CheckAddress(AiOptions ai)
+    {
+        // Checked here as well as when the setting is saved: configuration binds it without the check.
+        if (AiOptions.AddressProblem(ai.BaseUrl) is { } problem)
+            throw new SWValidationException("AI_NOT_CONFIGURED", $"The API address under Settings, AI can't be used: {problem}");
+    }
+
+    /// <summary>Named after the provider while it's at one of its own addresses; after the address otherwise.</summary>
+    static string NameOf(AiOptions ai) =>
+        string.IsNullOrWhiteSpace(ai.BaseUrl) || ai.Info.Owns(ai.BaseUrl) ? ai.Known : $"The AI provider at {ai.ResolvedBaseUrl}";
+
+    /// <summary>The SDK refuses an empty key; a server that takes none ignores whatever it's sent.</summary>
+    static string KeyOf(AiOptions ai) => string.IsNullOrWhiteSpace(ai.ApiKey) ? "none" : ai.ApiKey.Trim();
 
     // Fixed wording rather than the SDK's exception message: that can carry whatever the far end
     // answered, and the far end is an address an administrator typed in.

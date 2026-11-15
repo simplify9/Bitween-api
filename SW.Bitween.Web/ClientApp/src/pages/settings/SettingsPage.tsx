@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { RotateCcw } from "lucide-react";
-import { api, resetAppConfig, type SettingRow } from "../../api";
+import { api, resetAppConfig, type AiCandidate, type SettingRow } from "../../api";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { HistoryCard } from "../../components/config/HistoryCard";
@@ -17,6 +17,17 @@ import { NoticeList, RetentionPanel } from "./RetentionPanel";
 import { AboutPanel } from "./AboutPanel";
 import { NotificationChannelsPanel } from "./NotificationChannelsPanel";
 import { MarketplacePanel, MARKETPLACE_SECTION } from "./MarketplacePanel";
+import { AiAddressRow, AiModelPicker, AiTestBar } from "./AiPanel";
+import {
+  AI_KEYS,
+  AI_SECTION,
+  aiCandidate,
+  aiCheckOnSave,
+  changeProvider,
+  useAiModels,
+  useAiProviders,
+  type AiCheckOutcome,
+} from "../../lib/aiSettings";
 
 /** Not a section of the catalog: a read-only view of the instance, after the editable ones. */
 const ABOUT_SECTION = "About this instance";
@@ -100,11 +111,17 @@ function SettingRowEditor({
   row,
   staged,
   canEdit,
+  aiModels,
+  onStage,
 }: {
   row: SettingRow;
   /** undefined = untouched; null = reset-to-default pending; string = new value pending. */
   staged: string | null | undefined;
   canEdit: boolean;
+  /** For the AI model row: what the provider lists, to pick from. */
+  aiModels?: ReturnType<typeof useAiModels>;
+  /** Stages a change in place of staging this row alone - for a row whose change empties others. */
+  onStage?: (value: string | null) => void;
 }) {
   const effective = staged !== undefined ? (staged ?? row.defaultValue) : (row.value ?? row.defaultValue);
   const [draft, setDraft] = useState(effective);
@@ -118,7 +135,7 @@ function SettingRowEditor({
     }
   }, [effective, focused, staged]);
 
-  const stage = (value: string | null) => settingsDraft.stage(row, value);
+  const stage = (value: string | null) => (onStage ? onStage(value) : settingsDraft.stage(row, value));
 
   const commitIfChanged = (value: string) => {
     setFocused(false);
@@ -182,6 +199,8 @@ function SettingRowEditor({
               className="max-w-40 font-mono uppercase"
             />
           </div>
+        ) : row.key === AI_KEYS.model && aiModels ? (
+          <AiModelPicker row={row} value={effective} disabled={disabled} models={aiModels} onChange={stage} />
         ) : row.choices ? (
           <Select
             aria-label={row.label}
@@ -276,6 +295,8 @@ export function SettingsPage() {
   const rows = canView ? settingRows : [];
   const draft = useSettingsDraft();
   const [confirmingRetention, setConfirmingRetention] = useState(false);
+  const [aiFailedOnSave, setAiFailedOnSave] = useState<string | null>(null);
+  const [aiOutcome, setAiOutcome] = useState<AiCheckOutcome | null>(null);
 
   const [searchParams] = useSearchParams();
   const sections = canView ? sectionsOf(rows ?? [], canViewChannels) : [CHANNELS_SECTION];
@@ -314,6 +335,15 @@ export function SettingsPage() {
       resetAppConfig();
       void queryClient.invalidateQueries({ queryKey: keys.appConfig });
     },
+  });
+
+  const aiProviders = useAiProviders(section === AI_SECTION && canView);
+  const aiModels = useAiModels(rows ?? [], draft, section === AI_SECTION && canEdit, aiProviders.data);
+  // Remembers the outcome against the settings tested, so the bar only shows it while they're the ones on screen.
+  const aiCheck = useMutation({
+    mutationFn: (candidate: AiCandidate) => api.checkAi(candidate),
+    onSuccess: (result, candidate) => setAiOutcome({ for: JSON.stringify(candidate), result }),
+    onError: (error, candidate) => setAiOutcome({ for: JSON.stringify(candidate), error: error.message }),
   });
 
   if (canView && isLoading) return <LoadingBlock label="Loading settings…" />;
@@ -428,13 +458,39 @@ export function SettingsPage() {
           {section === RETENTION_SECTION && <RetentionPanel rows={rows} draft={draft} />}
           {section === ABOUT_SECTION && <AboutPanel />}
           {section === MARKETPLACE_SECTION && <MarketplacePanel rows={rows} canEdit={canEdit} />}
+          {section === AI_SECTION && (
+            <AiTestBar
+              candidate={aiCandidate(rows, draft)}
+              outcome={aiOutcome}
+              busy={aiCheck.isPending}
+              canEdit={canEdit}
+              onTest={() => aiCheck.mutate(aiCandidate(rows, draft))}
+            />
+          )}
           {section === CHANNELS_SECTION ? (
             <NotificationChannelsPanel />
           ) : (
             <div className="divide-y divide-ink-100">
               {sectionRows.map((row) =>
-                row.access === "editable" ? (
-                  <SettingRowEditor key={row.key} row={row} staged={draft[row.key]} canEdit={canEdit} />
+                row.key === AI_KEYS.baseUrl && aiModels.provider ? (
+                  <AiAddressRow
+                    key={row.key}
+                    row={row}
+                    staged={draft[row.key]}
+                    provider={aiModels.provider}
+                    canEdit={canEdit}
+                  />
+                ) : row.access === "editable" ? (
+                  <SettingRowEditor
+                    key={row.key}
+                    row={row}
+                    staged={draft[row.key]}
+                    canEdit={canEdit}
+                    aiModels={row.key === AI_KEYS.model ? aiModels : undefined}
+                    onStage={
+                      row.key === AI_KEYS.provider ? (v) => changeProvider(rows, v ?? row.defaultValue) : undefined
+                    }
+                  />
                 ) : (
                   <EnvironmentSettingRow key={row.key} row={row} />
                 ),
@@ -460,12 +516,41 @@ export function SettingsPage() {
 
       {dirtyCount > 0 && (
         <UnsavedBar
-          busy={saveAll.isPending}
+          busy={saveAll.isPending || aiCheck.isPending}
           error={saveAll.error?.message}
-          onSave={() =>
-            retentionProposal(rows, draft) !== null ? setConfirmingRetention(true) : saveAll.mutate()
-          }
+          onSave={async () => {
+            // Changed AI settings are tried first, so a wrong key or model is caught while it's on screen.
+            const candidate = aiCheckOnSave(rows, draft, aiProviders.data);
+            if (candidate) {
+              try {
+                await aiCheck.mutateAsync(candidate);
+              } catch (e) {
+                setAiFailedOnSave(e instanceof Error ? e.message : "The test call failed.");
+                return;
+              }
+            }
+            if (retentionProposal(rows, draft) !== null) setConfirmingRetention(true);
+            else saveAll.mutate();
+          }}
           onDiscard={() => settingsDraft.discardAll()}
+        />
+      )}
+
+      {aiFailedOnSave !== null && (
+        <ConfirmDialog
+          title="Save AI settings that failed the test?"
+          body={
+            <div className="space-y-3">
+              <p>The test call failed:</p>
+              <ProblemText>{aiFailedOnSave}</ProblemText>
+            </div>
+          }
+          confirmLabel="Save anyway"
+          onConfirm={async () => {
+            if (retentionProposal(rows, draft) !== null) setConfirmingRetention(true);
+            else await saveAll.mutateAsync();
+          }}
+          onClose={() => setAiFailedOnSave(null)}
         />
       )}
 

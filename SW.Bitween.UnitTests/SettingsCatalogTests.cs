@@ -152,7 +152,13 @@ public class SettingsCatalogTests
 
         Assert.IsTrue(ai.Values.All(d => d.Access == SettingAccess.Editable));
         CollectionAssert.AreEqual(new[] { "Bitween.Ai.ApiKey" }, ai.Values.Where(d => d.Secret).Select(d => d.Key).ToArray());
-        CollectionAssert.AreEqual(new[] { "Anthropic", "OpenAI" }, ai["Bitween.Ai.Provider"].Choices.ToArray());
+        CollectionAssert.AreEqual(
+            new[]
+            {
+                "Anthropic", "OpenAI", "Azure OpenAI", "Amazon Bedrock", "Google Gemini", "Mistral", "Cohere", "xAI", "DeepSeek",
+                "Alibaba Cloud (Qwen)", "Groq", "Together AI", "Fireworks AI", "Cerebras", "OpenRouter", "Ollama", "Other (OpenAI-compatible)",
+            },
+            ai["Bitween.Ai.Provider"].Choices.ToArray());
         Assert.AreEqual("Anthropic", SettingsService.DefaultOf(ai["Bitween.Ai.Provider"]));
 
         var target = new SettingsTarget(new BitweenOptions(), new ThemeOptions());
@@ -165,13 +171,42 @@ public class SettingsCatalogTests
         ai["Bitween.Ai.Provider"].Write(target, "openai");
         Assert.AreEqual("OpenAI", target.Bitween.Ai.Provider);
         Assert.IsFalse(target.Bitween.Ai.IsSet, "OpenAI has no default model");
-        Assert.ThrowsException<System.FormatException>(() => ai["Bitween.Ai.Provider"].Write(target, "Gemini"));
+        Assert.ThrowsException<System.FormatException>(() => ai["Bitween.Ai.Provider"].Write(target, "Perplexity"));
 
         Assert.ThrowsException<System.FormatException>(() => ai["Bitween.Ai.BaseUrl"].Write(target, "localhost:11434"));
         // Plain http would send the key in the clear anywhere but this machine.
         Assert.ThrowsException<System.FormatException>(() => ai["Bitween.Ai.BaseUrl"].Write(target, "http://ollama.lan:11434/v1/"));
         ai["Bitween.Ai.BaseUrl"].Write(target, "http://localhost:11434/v1/");
         Assert.AreEqual("http://localhost:11434/v1/", target.Bitween.Ai.BaseUrl);
+
+        // The presets bring their own address; one typed in Settings still wins.
+        target.Bitween.Ai.BaseUrl = null;
+        ai["Bitween.Ai.Provider"].Write(target, "google gemini");
+        Assert.AreEqual("https://generativelanguage.googleapis.com/v1beta/openai/", target.Bitween.Ai.ResolvedBaseUrl);
+        ai["Bitween.Ai.BaseUrl"].Write(target, "https://proxy.example.com/v1/");
+        Assert.AreEqual("https://proxy.example.com/v1/", target.Bitween.Ai.ResolvedBaseUrl);
+        target.Bitween.Ai.BaseUrl = null;
+
+        // Azure has no address of its own to fill in.
+        target.Bitween.Ai.Model = "my-deployment";
+        ai["Bitween.Ai.Provider"].Write(target, "azure openai");
+        Assert.IsFalse(target.Bitween.Ai.IsSet, "Azure needs the resource's address");
+        ai["Bitween.Ai.BaseUrl"].Write(target, "https://my-resource.openai.azure.com/openai/v1/");
+        Assert.IsTrue(target.Bitween.Ai.IsSet);
+        target.Bitween.Ai.BaseUrl = null;
+
+        // An address built from a template counts as the provider's own; any other is a proxy.
+        var bedrock = SW.Bitween.Services.Ai.AiOptions.Catalog.Single(p => p.Name == "Amazon Bedrock");
+        Assert.IsTrue(bedrock.Owns("https://bedrock-runtime.me-central-1.amazonaws.com/openai/v1/"));
+        Assert.IsFalse(bedrock.Owns("https://evil.example.com/?https://bedrock-runtime.x.amazonaws.com/openai/v1/"));
+
+        // Ollama runs here and takes no key.
+        target.Bitween.Ai.ApiKey = null;
+        ai["Bitween.Ai.Provider"].Write(target, "Ollama");
+        Assert.IsTrue(target.Bitween.Ai.IsSet, "Ollama needs no key");
+        Assert.AreEqual("http://localhost:11434/v1/", target.Bitween.Ai.ResolvedBaseUrl);
+        ai["Bitween.Ai.Provider"].Write(target, "Groq");
+        Assert.IsFalse(target.Bitween.Ai.IsSet, "every other provider needs a key");
 
         // A misspelt provider from configuration is off, not sent down the OpenAI path.
         target.Bitween.Ai.Model = "some-model";
