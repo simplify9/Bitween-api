@@ -49,7 +49,7 @@ file in each directory):
 
     SW.Bitween.Sdk                     (NuGet: SimplyWorks.Bitween.Sdk)
     SW.Bitween.Client                  (NuGet: SimplyWorks.Bitween.Client)
-    sdk/node-client                    (npm: @simplyworks/bitween-client)
+    sdk/node-client                    (npm: @simplify9/bitween-client)
     SW.Bitween.Sample*                 (sample adapters, handlers and mappers)
 
 

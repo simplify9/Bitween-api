@@ -51,13 +51,13 @@ public static class BitweenAdapters
     }
 
     /// <summary>
-    /// Bitween's kinds for Python (simplyworks-bitween) and Node (@simplyworks/bitween), for a build to
+    /// Bitween's kinds for Python (simplyworks-bitween) and Node (@simplify9/bitween), for a build to
     /// vendor beside the SDK.
     /// </summary>
     public static IList<VendoredPackage> Packages()
     {
         var python = new VendoredPackage { Runtime = AdapterManifest.PythonRuntime, Name = "simplyworks-bitween" };
-        var node = new VendoredPackage { Runtime = AdapterManifest.NodeRuntime, Name = "@simplyworks/bitween" };
+        var node = new VendoredPackage { Runtime = AdapterManifest.NodeRuntime, Name = "@simplify9/bitween" };
         foreach (var name in Assembly.GetManifestResourceNames())
         {
             var normalized = name.Replace('\\', '/');
@@ -427,7 +427,7 @@ public static class BitweenAdapters
             // vendors the copies it carries. Other dependencies go here too, and are installed into
             // the package.
             yield return ("package.json", Scaffolder.NodePackageJson(id, typeScript,
-                new Dictionary<string, string> { ["@simplyworks/bitween"] = ">=" + BitweenAdaptersPackageVersion }));
+                new Dictionary<string, string> { ["@simplify9/bitween"] = ">=" + BitweenAdaptersPackageVersion }));
 
             if (typeScript)
                 yield return ("tsconfig.json", Scaffolder.TsConfig);
@@ -467,11 +467,11 @@ public static class BitweenAdapters
             var header = ts
                 ? $$"""
                     import { expect, run, valueOf } from "@simplyworks/sw-serverless";
-                    import { ExchangeFile, {{Pascal(kind)}}{{(kind == "validator" ? ", ValidationResult" : "")}} } from "@simplyworks/bitween";
+                    import { ExchangeFile, {{Pascal(kind)}}{{(kind == "validator" ? ", ValidationResult" : "")}} } from "@simplify9/bitween";
                     """
                 : $$"""
                     const { expect, run, valueOf } = require("@simplyworks/sw-serverless");
-                    const { ExchangeFile, {{Pascal(kind)}}{{(kind == "validator" ? ", ValidationResult" : "")}} } = require("@simplyworks/bitween");
+                    const { ExchangeFile, {{Pascal(kind)}}{{(kind == "validator" ? ", ValidationResult" : "")}} } = require("@simplify9/bitween");
                     """;
             string T(string type) => ts ? type : "";
             var body = kind switch

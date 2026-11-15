@@ -6,7 +6,7 @@
  * in SW.Bitween.Adapters; this is its JavaScript form.
  *
  *   const sw = require("@simplyworks/sw-serverless");
- *   const { ExchangeFile, Handler } = require("@simplyworks/bitween");
+ *   const { ExchangeFile, Handler } = require("@simplify9/bitween");
  *
  *   class Orders extends Handler {
  *     constructor() { super(); sw.expect("Url", { description: "Where orders go" }); }

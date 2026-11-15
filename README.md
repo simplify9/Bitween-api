@@ -147,8 +147,8 @@ Deeper reference written alongside the features:
 | `SW.Bitween.Adapters` | The adapter contract and its .NET interfaces, published to NuGet as `SimplyWorks.Bitween.Adapters` |
 | `SW.Bitween.Adapters.Tooling` | Bitween's adapters on SW-Serverless's tooling: the contract, templates and Python and Node packages the CLI and the adapter editor use |
 | `SW.Bitween.Cli` | The `bitween` command |
-| `SW.Bitween.Client`, `sdk/node-client` | The client SDK, for exchanges from your own program: `SimplyWorks.Bitween.Client` on NuGet and `@simplyworks/bitween-client` on npm |
-| `sdk/python`, `sdk/node` | The adapter contract for Python (`simplyworks-bitween`) and for JavaScript and TypeScript (`@simplyworks/bitween`) |
+| `SW.Bitween.Client`, `sdk/node-client` | The client SDK, for exchanges from your own program: `SimplyWorks.Bitween.Client` on NuGet and `@simplify9/bitween-client` on GitHub Packages |
+| `sdk/python`, `sdk/node` | The adapter contract for Python (`simplyworks-bitween`) and for JavaScript and TypeScript (`@simplify9/bitween`) |
 | `SW.Bitween.PgSql`, `SW.Bitween.MySql`, `SW.Bitween.MsSql` | Provider-specific database contexts and migrations |
 | `SW.Bitween.Sample*` | Sample custom adapters, including a resident handler |
 | `SW.Bitween.UnitTests`, `SW.Bitween.IntegrationTests`, `SW.Bitween.HttpTests`, `SW.Bitween.TransportTests` | Test suites |
