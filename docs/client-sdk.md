@@ -14,7 +14,7 @@ A program that runs an integration for each of its own customers can set each on
 it and follow what happened. See [One integration per customer](#one-integration-per-customer).
 
 It comes for .NET (`SimplyWorks.Bitween.Client` on NuGet) and for JavaScript and
-TypeScript (`@simplyworks/bitween-client` on npm), with the same calls in each.
+TypeScript (`@simplify9/bitween-client` on GitHub Packages), with the same calls in each.
 
 It calls the same API the admin UI calls, and answers with the same rows. Each release of Bitween
 from `releases/r10.0` publishes both packages at Bitween's version; use the version of the Bitween you
@@ -89,14 +89,23 @@ and `DelayedRetryRow`; `PartnerCreate`/`PartnerUpdate`, `SubscriptionCreate`/`Su
 
 ## JavaScript and TypeScript
 
+It is on GitHub Packages, which asks for a sign-in even to install. Make a GitHub personal access
+token (classic) with only `read:packages`, and tell npm where `@simplify9` packages come from, in the
+project's `.npmrc`:
+
+```
+@simplify9:registry=https://npm.pkg.github.com
+//npm.pkg.github.com/:_authToken=${GITHUB_TOKEN}
+```
+
 ```sh
-npm install @simplyworks/bitween-client
+GITHUB_TOKEN=<the token> npm install @simplify9/bitween-client
 ```
 
 It needs Node 22 or later, and has no dependencies.
 
 ```js
-const { BitweenClient } = require("@simplyworks/bitween-client");
+const { BitweenClient } = require("@simplify9/bitween-client");
 
 const bitween = new BitweenClient({ url: "https://bitween.example.com", token: process.env.BITWEEN_TOKEN });
 
@@ -169,7 +178,7 @@ if (answer.Outcome == GatewayOutcome.Delivered) Console.WriteLine(answer.Body);
 ```
 
 ```js
-const { BitweenGateway } = require("@simplyworks/bitween-client");
+const { BitweenGateway } = require("@simplify9/bitween-client");
 const gateway = new BitweenGateway({ url: "https://bitween.example.com", partnerKey });
 const { exchangeId } = await gateway.send("invoices", invoice, { idempotencyKey: invoice.number });
 ```

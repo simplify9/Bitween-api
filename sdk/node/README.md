@@ -1,4 +1,4 @@
-# @simplyworks/bitween
+# @simplify9/bitween
 
 The Bitween adapter contract for JavaScript and TypeScript: the kinds of adapter Bitween runs and what
 it passes them. It is the JavaScript form of `SW.Bitween.Adapters/Contract/bitween-adapter-contract.v1.json`,
@@ -14,7 +14,7 @@ as `SimplyWorks.Bitween.Adapters` is its .NET one and `simplyworks-bitween` its 
 
 ```ts
 import { expect, run } from "@simplyworks/sw-serverless";
-import { ExchangeFile, Handler } from "@simplyworks/bitween";
+import { ExchangeFile, Handler } from "@simplify9/bitween";
 
 class Orders extends Handler {
   constructor() {

@@ -1,10 +1,10 @@
 name: SDK release
 
 # Publishes the adapter contract for Python to PyPI as simplyworks-bitween and for JavaScript and
-# TypeScript to npm as @simplyworks/bitween, and the client for JavaScript and TypeScript to npm as
-# @simplyworks/bitween-client. Never run by hand or by a tag: the release run on
-# releases/r10.0 (bitween-api-cicd-gateway.yml) calls it with the version it computed, so they carry
-# Bitween's version. Only a release version is published. Each is tested first (the adapter
+# TypeScript to GitHub Packages as @simplify9/bitween, and the client for JavaScript and TypeScript
+# to GitHub Packages as @simplify9/bitween-client, both with the run's own GITHUB_TOKEN. Never run
+# by hand or by a tag: the release run on releases/r10.0 (bitween-api-cicd-gateway.yml) calls it
+# with the version it computed, so they carry Bitween's version. Only a release version is published. Each is tested first (the adapter
 # contracts against SW-Serverless's SDK from its default branch), and a version already on its
 # registry is left alone, so a failed run can simply be run again.
 on:
@@ -58,19 +58,26 @@ jobs:
   node:
     if: ${{ !contains(inputs.version, '-') }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     defaults:
       run:
         working-directory: sdk/node
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/checkout@v4
         with:
+          persist-credentials: false
           repository: simplify9/SW-Serverless
           path: sw-serverless
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          registry-url: "https://registry.npmjs.org"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@simplify9"
       - name: Version
         id: version
         env:
@@ -86,18 +93,21 @@ jobs:
         run: node --test
       - name: Publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           name=$(node -p "require('./package.json').name")
           if npm view "$name@${{ steps.version.outputs.value }}" version >/dev/null 2>&1; then
-            echo "$name@${{ steps.version.outputs.value }} is already on npm."
+            echo "$name@${{ steps.version.outputs.value }} is already published."
           else
-            npm publish --access public
+            npm publish
           fi
 
   node-client:
     if: ${{ !contains(inputs.version, '-') }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     defaults:
       run:
         working-directory: sdk/node-client
@@ -106,7 +116,8 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
-          registry-url: "https://registry.npmjs.org"
+          registry-url: "https://npm.pkg.github.com"
+          scope: "@simplify9"
       - name: Version
         id: version
         env:
@@ -119,11 +130,11 @@ jobs:
         run: node --test
       - name: Publish
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           name=$(node -p "require('./package.json').name")
           if npm view "$name@${{ steps.version.outputs.value }}" version >/dev/null 2>&1; then
-            echo "$name@${{ steps.version.outputs.value }} is already on npm."
+            echo "$name@${{ steps.version.outputs.value }} is already published."
           else
-            npm publish --access public
+            npm publish
           fi

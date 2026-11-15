@@ -5,7 +5,7 @@
  * BitweenGateway sends to an API gateway as a partner. The JavaScript form of
  * SimplyWorks.Bitween.Client, with the same calls.
  *
- *   const { BitweenClient } = require("@simplyworks/bitween-client");
+ *   const { BitweenClient } = require("@simplify9/bitween-client");
  *
  *   const bitween = new BitweenClient({ url: "https://bitween.example.com", token: process.env.BITWEEN_TOKEN });
  *   const failed = await bitween.exchanges.search({ status: "failed" });

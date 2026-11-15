@@ -1,4 +1,4 @@
-# @simplyworks/bitween-client
+# @simplify9/bitween-client
 
 Bitween from your own program, as a service account: search exchanges, read their files, follow their
 retry chains, retry and export them, and set integrations up: partners, subscriptions, API and bus
@@ -7,7 +7,7 @@ and TypeScript form of `SimplyWorks.Bitween.Client`, with the same calls. Node 2
 dependencies.
 
 ```js
-const { BitweenClient } = require("@simplyworks/bitween-client");
+const { BitweenClient } = require("@simplify9/bitween-client");
 
 const bitween = new BitweenClient({ url: "https://bitween.example.com", token: process.env.BITWEEN_TOKEN });
 

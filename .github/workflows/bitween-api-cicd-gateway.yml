@@ -301,6 +301,7 @@ jobs:
     needs: Prod
     permissions:
       contents: read
+      packages: write
     uses: ./.github/workflows/sdk-release.yml
     with:
       version: ${{ needs.Prod.outputs.version }}
