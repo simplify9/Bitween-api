@@ -355,6 +355,22 @@ export declare class BitweenGateway {
     options?: { waitSeconds?: number; idempotencyKey?: string; contentType?: string }): Promise<GatewayAnswer>;
 }
 
+/** An adapter version's manifest as published, every section kept, a host's own included. */
+export type AdapterManifest = Record<string, unknown> & {
+  id: string;
+  version?: string;
+  displayName?: string;
+  properties?: Array<Record<string, unknown> & {
+    name: string; displayName?: string; description?: string; type?: string;
+    required?: boolean; secret?: boolean; default?: string; options?: string[]; group?: string;
+  }>;
+};
+
+export interface Adapters {
+  /** The manifest, the current version's unless one is named; null when there is none, or the version is withdrawn. */
+  getManifest(adapterId: string, options?: { version?: string }): Promise<AdapterManifest | null>;
+}
+
 export declare class BitweenClient {
   constructor(options: { url: string; token: string; fetch?: typeof fetch });
   readonly exchanges: Exchanges;
@@ -365,6 +381,7 @@ export declare class BitweenClient {
   readonly apiGateways: ApiGateways;
   readonly busGateways: BusGateways;
   readonly notificationChannels: NotificationChannels;
+  readonly adapters: Adapters;
 }
 
 export declare class BitweenClientError extends Error {

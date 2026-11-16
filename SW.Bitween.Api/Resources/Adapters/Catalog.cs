@@ -79,7 +79,8 @@ public class Catalog(
                     // only where there is something to show.
                     HasSource = v.Manifest?.Source?.Files is { Count: > 0 },
                     // Which the editor can open: Python and Node versions with their source.
-                    v.Manifest?.Runtime
+                    v.Manifest?.Runtime,
+                    Properties = PropertiesOf(v.Manifest)
                 })
                 .ToList(),
             DisplayName = a.Manifest?.DisplayName,
@@ -96,9 +97,30 @@ public class Catalog(
             a.Manifest?.Runtime,
             a.Manifest?.Lifecycle,
             Icon = a.Catalog?.IconDataUri,
+            // The current manifest's properties as it declares them, typed - startupValues carries
+            // the same settings in the shape an adapter describes itself in, which has no type.
+            Properties = PropertiesOf(a.Manifest),
             MinBitweenVersion = a.Manifest?.Compatibility?.MinVersionOf(Services.Adapters.AdapterCatalog.Application)
         });
     }
+
+    /// <summary>
+    /// A manifest's properties as a form needs them, null when there is no manifest. A secret's
+    /// default is withheld, as it is from the startup values.
+    /// </summary>
+    internal static List<AdapterPropertyRow> PropertiesOf(SW.Serverless.Contract.Catalog.AdapterManifest manifest) =>
+        manifest?.Properties?.Select(p => new AdapterPropertyRow
+        {
+            Name = p.Name,
+            DisplayName = p.DisplayName,
+            Description = p.Description,
+            Type = p.Type ?? SW.Serverless.Contract.Catalog.AdapterProperty.TextType,
+            Required = p.Required,
+            Secret = p.Secret,
+            Default = p.Secret ? null : p.Default,
+            Options = p.Options,
+            Group = p.Group
+        }).ToList();
 
     private async Task<IDictionary<string, StartupValue>> Describe(string adapterId)
     {
@@ -115,4 +137,26 @@ public class Catalog(
             return new Dictionary<string, StartupValue>();
         }
     }
+}
+
+/// <summary>One property an adapter's manifest declares, as <see cref="Catalog"/> lists it.</summary>
+public class AdapterPropertyRow
+{
+    public string Name { get; set; }
+    public string DisplayName { get; set; }
+    public string Description { get; set; }
+
+    /// <summary>text, multiline, number, boolean, select or json.</summary>
+    public string Type { get; set; }
+
+    public bool Required { get; set; }
+    public bool Secret { get; set; }
+
+    /// <summary>Never a secret's.</summary>
+    public string Default { get; set; }
+
+    /// <summary>The choices, for select.</summary>
+    public List<string> Options { get; set; }
+
+    public string Group { get; set; }
 }
