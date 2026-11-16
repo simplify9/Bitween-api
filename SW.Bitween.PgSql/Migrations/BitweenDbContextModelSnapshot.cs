@@ -1428,6 +1428,24 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("partner_key_header");
 
+                    b.Property<string>("SignatureHeader")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("signature_header");
+
+                    b.Property<int>("SignatureScheme")
+                        .HasColumnType("integer")
+                        .HasColumnName("signature_scheme");
+
+                    b.Property<string>("SignatureSecretProperty")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("signature_secret_property");
+
+                    b.Property<int?>("SignatureToleranceSeconds")
+                        .HasColumnType("integer")
+                        .HasColumnName("signature_tolerance_seconds");
+
                     b.Property<string>("UrlName")
                         .IsRequired()
                         .HasMaxLength(200)

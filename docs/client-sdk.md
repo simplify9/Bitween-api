@@ -157,6 +157,7 @@ keys masked, and sending those back keeps the stored values.
 | `ApiGateways.AttachPartnerAsync(id, attachment)` | `apiGateways.attachPartner(id, attachment)` | Attaches a partner to run a `GatewayApiCall` subscription |
 | `ApiGateways.UpdatePartnerAsync(id, partnerId, subscriptionId)` | `apiGateways.updatePartner(...)` | Points it at another subscription |
 | `ApiGateways.DetachPartnerAsync(id, partnerId)` | `apiGateways.detachPartner(id, partnerId)` | Detaches it |
+| `ApiGateways.CallAddress(urlName, sync)` | `apiGateways.callAddress(urlName, { sync })` | The address partners call it at, such as the callback to give a webhook sender. `/async` unless `sync`. No call is made. |
 | `BusGateways.AddRouteAsync(id, route)` | `busGateways.addRoute(id, route)` | Adds a route and answers with its id |
 | `BusGateways.UpdateRouteAsync(id, route)` | `busGateways.updateRoute(id, route)` | Replaces a route's subscription, partner and expression |
 | `BusGateways.RemoveRouteAsync(id, routeId)` | `busGateways.removeRoute(id, routeId)` | Removes it |

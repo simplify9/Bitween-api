@@ -105,6 +105,8 @@ namespace SW.Bitween
                 ag.Property(p => p.JwtIssuer).HasMaxLength(500);
                 ag.Property(p => p.JwtAudience).HasMaxLength(500);
                 ag.Property(p => p.JwtPartnerClaim).HasMaxLength(100);
+                ag.Property(p => p.SignatureHeader).HasMaxLength(100);
+                ag.Property(p => p.SignatureSecretProperty).HasMaxLength(200);
                 ag.Property(p => p.PartnerKeyHeader).HasMaxLength(100);
                 ag.HasMany(p => p.Partners).WithOne(p => p.ApiGateway).HasForeignKey(p => p.ApiGatewayId)
                     .OnDelete(DeleteBehavior.Restrict);
