@@ -112,6 +112,27 @@ describe("a gateway taking signed calls", () => {
     ).toBeVisible();
   });
 
+  it("drops a tolerance left behind when switching to the plain format, so it can't block the save", async () => {
+    let sent: Record<string, unknown> | null = null;
+    const { user } = openGateway(SIGNED, (body) => (sent = body));
+
+    await user.type(await screen.findByLabelText("Tolerance (seconds)"), "0");
+    expect(
+      screen.getAllByText("Between 1 second and a day.").length,
+    ).toBeGreaterThan(0);
+    await user.selectOptions(
+      screen.getByLabelText("Signature format"),
+      "HmacSha256",
+    );
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await expect.poll(() => sent).not.toBeNull();
+    expect(
+      (sent!.authentication as Record<string, unknown>)
+        .signatureToleranceSeconds,
+    ).toBeNull();
+  });
+
   it("won't save a signed gateway missing its header or secret property", async () => {
     let sent: Record<string, unknown> | null = null;
     const { user } = openGateway(KEYS, (body) => (sent = body));

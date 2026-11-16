@@ -31,6 +31,7 @@ public class SignedGatewayTests(BitweenFixture fixture)
     const string Header = "X-Hook-Signature";
     const string SecretProperty = "WebhookSecret";
     const string Body = "{\"id\":42,\"event\":\"invoice.updated\"}";
+    const string LongName = "WebhookSecretWebhookSecretWebhookSecretWebhookSecretWebhookSecretWebhookSecretWebhookSecretWebhookSecretWebhookSecretWebhookSecretWebhookSecretWebhookSecretWebhookSecretWebhookSecretWebhookSecretWebhookSecretWebhookSecretW";
 
     private static int _seq;
     private static string Unique(string prefix) => $"{prefix}-{Interlocked.Increment(ref _seq)}";
@@ -177,6 +178,7 @@ public class SignedGatewayTests(BitweenFixture fixture)
     [InlineData("Authorization", GatewaySignatureScheme.TimestampedHmacSha256, SecretProperty, "GATEWAY_SIGNATURE_HEADER_INVALID")]
     [InlineData(Header, null, SecretProperty, "GATEWAY_SIGNATURE_SCHEME_INVALID")]
     [InlineData(Header, GatewaySignatureScheme.TimestampedHmacSha256, " ", "GATEWAY_SIGNATURE_SECRET_REQUIRED")]
+    [InlineData(Header, GatewaySignatureScheme.TimestampedHmacSha256, LongName, "GATEWAY_SIGNATURE_SECRET_REQUIRED")]
     public async Task A_signed_gateway_that_could_never_work_is_refused(string header, GatewaySignatureScheme? scheme,
         string secretProperty, string error)
     {
