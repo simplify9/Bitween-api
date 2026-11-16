@@ -514,6 +514,29 @@ class BitweenGateway {
   }
 }
 
+/** Adapters, as their catalog describes them: read only. */
+class Adapters {
+  #request;
+  constructor(request) { this.#request = request; }
+
+  /**
+   * An adapter version's manifest, whole and as written - the sections Bitween itself does not read
+   * included - or null when there is none: an adapter published without one, a version never
+   * published, or one withdrawn. Without a version, the current one's.
+   */
+  async getManifest(adapterId, { version } = {}) {
+    if (!adapterId?.trim()) throw new TypeError("adapterId is required.");
+    const query = { adapterId: adapterId.trim(), ...(version?.trim() ? { version: version.trim() } : {}) };
+    try {
+      const text = await (await this.#request("GET", `api/adapters/manifest?${queryString([], query)}`)).text();
+      return text.trim() ? JSON.parse(text) : null;
+    } catch (e) {
+      if (e instanceof BitweenClientError && e.status === 404) return null;
+      throw e;
+    }
+  }
+}
+
 const EXCHANGE_ID_HEADER = "bitween-exchange-id";
 
 class BitweenClient {
@@ -552,6 +575,8 @@ class BitweenClient {
     this.busGateways = new BusGateways(request);
     /** Notification channels: where results and alerts are sent. */
     this.notificationChannels = new NotificationChannels(request);
+    /** Adapters: an adapter version's manifest, as published. Read only. */
+    this.adapters = new Adapters(request);
   }
 
   async #request(method, path, body) {

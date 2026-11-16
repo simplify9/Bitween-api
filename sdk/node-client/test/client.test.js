@@ -223,6 +223,25 @@ test("lists, reads, creates, saves and deletes the configuration areas", async (
   assert.deepStrictEqual([seen.requests[0].query.page, seen.requests[0].query.size], ["1", "5"]);
 });
 
+test("reads an adapter's manifest whole, and null when there is none", async () => {
+  const manifest = { id: "acme.handlers.send", version: "1.2.0", "x-host": { steps: [{ name: "send" }] } };
+  const { seen, client } = await fakeBitween((r) =>
+    r.path === "/api/adapters/manifest" && r.query.adapterId === "acme.handlers.send" && r.query.version !== "1.1.0"
+      ? [200, manifest] : [404, null]);
+  const bitween = client();
+
+  assert.deepStrictEqual(await bitween.adapters.getManifest("acme.handlers.send"), manifest);
+  assert.deepStrictEqual(await bitween.adapters.getManifest("acme.handlers.send", { version: "1.2.0" }), manifest);
+  assert.strictEqual(await bitween.adapters.getManifest("acme.handlers.send", { version: "1.1.0" }), null);
+  await assert.rejects(bitween.adapters.getManifest(" "), TypeError);
+
+  assert.deepStrictEqual(seen.requests.map((r) => r.query), [
+    { adapterId: "acme.handlers.send" },
+    { adapterId: "acme.handlers.send", version: "1.2.0" },
+    { adapterId: "acme.handlers.send", version: "1.1.0" },
+  ]);
+});
+
 test("switches a subscription on, and pauses it, only when it isn't already", async () => {
   let stored = { name: "Invoices", documentId: 3, inactive: true, pausedOn: null };
   const { seen, client } = await fakeBitween((r) => {
