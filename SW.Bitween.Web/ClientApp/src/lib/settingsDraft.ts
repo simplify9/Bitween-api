@@ -34,7 +34,11 @@ export const settingsDraft = {
 
   /** Stage a change; passing the row's current saved value removes the stage. */
   stage(row: SettingRow, value: string | null) {
-    const unchanged = value === row.value || (value !== null && !row.overridden && value === row.defaultValue);
+    // A secret's value never reaches the browser, so its row says null either way: one that's set
+    // changes with any edit, one that isn't stays unset when cleared.
+    const unchanged = row.secret
+      ? !row.hasValue && !value
+      : value === row.value || (value !== null && !row.overridden && value === row.defaultValue);
     if (unchanged) {
       if (!(row.key in cache)) return;
       const { [row.key]: _dropped, ...rest } = cache;
@@ -42,6 +46,14 @@ export const settingsDraft = {
     } else {
       cache = { ...cache, [row.key]: value };
     }
+    persist();
+  },
+
+  /** Drops one staged change, so the saved value shows again. */
+  unstage(key: string) {
+    if (!(key in cache)) return;
+    const { [key]: _dropped, ...rest } = cache;
+    cache = rest;
     persist();
   },
 

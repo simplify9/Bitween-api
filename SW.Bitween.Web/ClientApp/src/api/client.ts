@@ -100,6 +100,9 @@ import type {
   ScheduleHealth,
   Session,
   RetentionProposal,
+  AiCandidate,
+  AiCheckResult,
+  AiProvider,
   RetentionStatus,
   SettingRow,
   InstanceAbout,
@@ -717,6 +720,12 @@ export interface ApiClient {
   getRetention(refresh?: boolean): Promise<RetentionStatus>;
   /** The same, for settings not saved yet. Changes nothing. */
   previewRetention(proposal: RetentionProposal): Promise<RetentionStatus>;
+  /** The providers Settings, AI offers, and how each one's address is made. */
+  listAiProviders(): Promise<AiProvider[]>;
+  /** Sends the model these AI settings name a small request. Changes nothing; throws with the reason when it fails. */
+  checkAi(candidate: AiCandidate): Promise<AiCheckResult>;
+  /** The chat models the provider lists; null for Azure OpenAI, whose deployment names only the portal shows. */
+  listAiModels(candidate: AiCandidate): Promise<string[] | null>;
   /** Whether exchanges would be removed before an aggregation on these schedules rolls them up. Changes nothing. */
   checkAggregationRetention(schedules: Schedule[]): Promise<AggregationRetentionCheck>;
   /** `value: null` resets the setting back to its default. */

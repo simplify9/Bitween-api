@@ -1373,6 +1373,41 @@ export interface SettingRow {
   access: SettingAccess;
 }
 
+// --- AI checks ---
+
+/** Settings, AI as it shows on screen, saved or not. A missing `apiKey` uses the saved key. */
+export interface AiCandidate {
+  provider: string;
+  apiKey?: string;
+  model: string;
+  baseUrl: string;
+}
+
+/**
+ * A provider Settings, AI offers, and how its address is made: its own (`address`), one of its
+ * regions (`places`), a `part` the customer fills into `template`, or - with none of them - typed whole.
+ */
+export interface AiProvider {
+  name: string;
+  address?: string | null;
+  places?: { label: string; address: string }[] | null;
+  /** The address with `{0}` where the part goes. */
+  template?: string | null;
+  /** What the customer fills in, e.g. "AWS region". */
+  part?: string | null;
+  example?: string | null;
+  keyless: boolean;
+  /** Lists its models; false where only the provider's console shows the names. */
+  lists: boolean;
+  modelHint?: string | null;
+}
+
+/** A test call that worked: the model that answered and how long it took. */
+export interface AiCheckResult {
+  model: string;
+  milliseconds: number;
+}
+
 // --- Retention ---
 
 /** Retention settings to preview before saving; anything left out keeps its current value. */

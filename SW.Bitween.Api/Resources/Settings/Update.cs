@@ -49,15 +49,18 @@ public class Update(
             throw new SWValidationException("SETTING_INVALID_VALUE", $"{definition.Label}: {ex.Message}");
         }
 
-        var before = settings.LiveValue(definition);
-        await Store(definition, value);
-        settings.Apply(definition, value);
-        if (definition.Clears is { } clears && settings.LiveValue(definition) != before)
-            foreach (var cleared in clears.Select(SettingsCatalog.Find))
+        // Cleared before the change is stored or applied, so there's no moment with the new value
+        // beside settings meant for the old one - another AI provider handed the last one's key. A
+        // secret that can't be stored here comes from configuration, and stays as configured.
+        if (definition.Clears is { } clears && SettingsService.Normalized(definition, value) != settings.LiveValue(definition))
+            foreach (var cleared in clears.Select(SettingsCatalog.Find).Where(settings.CanStore))
             {
                 await Store(cleared, string.Empty);
                 settings.Apply(cleared, string.Empty);
             }
+
+        await Store(definition, value);
+        settings.Apply(definition, value);
 
         // Some settings need more than the property assignment above - re-scheduling a job, for
         // instance. Runs after Apply so the hook reads the value that's now in effect.

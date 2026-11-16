@@ -1,5 +1,5 @@
 import type { ApiClient } from "../client";
-import type { AggregationRetentionCheck, ClusterNodes, InstanceAbout, RetentionProposal, RetentionStatus, Schedule, SettingRow } from "../types";
+import type { AiCandidate, AiCheckResult, AiProvider, AggregationRetentionCheck, ClusterNodes, InstanceAbout, RetentionProposal, RetentionStatus, Schedule, SettingRow } from "../types";
 import { get, post, request } from "./request";
 import { toRawSchedules } from "./subscriptionBody";
 
@@ -29,6 +29,18 @@ export const settingsMethods = {
 
   previewRetention(proposal: RetentionProposal): Promise<RetentionStatus> {
     return post<RetentionStatus>("/retention/preview", proposal);
+  },
+
+  listAiProviders(): Promise<AiProvider[]> {
+    return get<AiProvider[]>("/aichecks/providers");
+  },
+
+  checkAi(candidate: AiCandidate): Promise<AiCheckResult> {
+    return post<AiCheckResult>("/aichecks", candidate);
+  },
+
+  async listAiModels(candidate: AiCandidate): Promise<string[] | null> {
+    return (await post<{ models: string[] | null }>("/aichecks/models", candidate)).models;
   },
 
   checkAggregationRetention(schedules: Schedule[]): Promise<AggregationRetentionCheck> {

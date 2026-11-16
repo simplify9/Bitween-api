@@ -366,6 +366,9 @@ See [Data sources](data-sources.md) and [Databases](databases.md).
 | `GET /api/settings/about` | `settings.view`. This instance as the answering node sees it: version, node, database, storage, broker, the readiness checks run now, which adapter runtimes and pip/npm the node has, the adapter editor's limits, rate limits and other effective settings from configuration. Never a secret. |
 | `POST /api/settings/{key}` | `settings.edit`. `{ value }` |
 | `DELETE /api/settings/{key}` | `settings.edit`. Resets to the product default. |
+| `POST /api/aichecks` | `settings.edit`. Sends the model in `{ provider, apiKey, model, baseUrl }` a small request, before they're saved; replies `{ model, milliseconds }`, or 400 with the reason. Without `apiKey` it uses the saved key, but only for the provider and address it was saved for. See [AI](configuration.md#ai). |
+| `POST /api/aichecks/models` | `settings.edit`. The chat models that provider lists, sorted: `{ models }`, null for a provider that doesn't list them (Azure OpenAI, Amazon Bedrock). Same body and key rule. |
+| `GET /api/aichecks/providers` | `settings.view`. The providers Settings, AI offers and how each address is made: `address`, `places`, or a `template` with the `part` to fill in. |
 | `GET /api/retention?refresh=` | `settings.view`. What the retention settings do; `refresh=true` reads the bucket's rules again. |
 | `POST /api/retention/preview` | `settings.view`. The same for proposed values, without saving them. |
 | `GET /api/audit?offset=&limit=&entityName=&entityKey=&userId=&correlationId=&from=&to=` | `audit.view` |
