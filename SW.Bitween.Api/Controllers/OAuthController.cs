@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Resources.Accounts;
@@ -186,6 +188,13 @@ public class OAuthController(
         if (renewed is null) account.SignedIn();
         var refresh = sessions.Start(account.Id, LoginMethod.EmailAndPassword, client.Id, client.Name);
         await dbContext.SaveChangesAsync();
+
+        // Disconnected while renewing: Disconnect removed the spent token, and must not miss the new one.
+        if (renewed is not null && !await dbContext.Set<RefreshToken>().AnyAsync(t => t.Id == renewed.Id))
+        {
+            await dbContext.Set<RefreshToken>().Where(t => t.Id == refresh.Id).ExecuteDeleteAsync();
+            return Error("invalid_grant", "This sign-in has ended. Connect the app again.");
+        }
 
         var lifetime = TimeSpan.FromMinutes(options.JwtExpiryMinutes);
         return Ok(new Dictionary<string, object>

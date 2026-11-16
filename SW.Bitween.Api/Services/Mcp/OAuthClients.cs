@@ -61,7 +61,7 @@ public class OAuthClients(IConfiguration configuration, IMemoryCache cache, ILog
         foreach (var uri in redirectUris)
             if (RedirectProblem(uri) is { } problem) throw new ArgumentException(problem);
 
-        var cleanName = Clean(name) ?? new Uri(redirectUris[0]).Host;
+        var cleanName = Clean(name) ?? Clean(new Uri(redirectUris[0]).Host)!;
         var payload = JsonSerializer.Serialize(new Registration(cleanName, redirectUris.ToList()));
         var id = RegisteredPrefix + SignInCodes.Base64Url(Encoding.UTF8.GetBytes(payload)) + "." +
                  SignInCodes.Base64Url(HMACSHA256.HashData(Key, Encoding.UTF8.GetBytes(payload)));
@@ -145,10 +145,13 @@ public class OAuthClients(IConfiguration configuration, IMemoryCache cache, ILog
             var http = HandlerOverride is { } handler ? new HttpClient(handler()) { Timeout = FetchTimeout } : Http.Value;
             using var response = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
             if (!response.IsSuccessStatusCode || response.Content.Headers.ContentLength > MaxDocumentBytes) return null;
-            var bytes = await response.Content.ReadAsByteArrayAsync();
-            if (bytes.Length > MaxDocumentBytes) return null;
+            // Read no further than the limit allows: a server that sends no length could send anything.
+            var bytes = new byte[MaxDocumentBytes + 1];
+            await using var stream = await response.Content.ReadAsStreamAsync();
+            var read = await stream.ReadAtLeastAsync(bytes, bytes.Length, throwOnEndOfStream: false);
+            if (read > MaxDocumentBytes) return null;
 
-            using var document = JsonDocument.Parse(bytes);
+            using var document = JsonDocument.Parse(bytes.AsMemory(0, read));
             var root = document.RootElement;
             // The document has to name itself by the address it was fetched from, or anyone's could be passed off as anyone's.
             if (root.ValueKind != JsonValueKind.Object ||
@@ -160,7 +163,7 @@ public class OAuthClients(IConfiguration configuration, IMemoryCache cache, ILog
                 .Where(u => RedirectProblem(u) is null).Take(MaxRedirectUris).ToList();
             if (redirectUris.Count == 0) return null;
             var name = root.TryGetProperty("client_name", out var n) && n.ValueKind == JsonValueKind.String ? Clean(n.GetString()) : null;
-            return new OAuthClient(clientId, name ?? url.Host, redirectUris);
+            return new OAuthClient(clientId, name ?? Clean(url.Host)!, redirectUris);
         }
         catch (Exception e) when (e is HttpRequestException or TaskCanceledException or JsonException or InvalidOperationException)
         {

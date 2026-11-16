@@ -69,7 +69,8 @@ public class SignInCodes(IConfiguration configuration)
         var parts = payload.Split('.');
         if (parts.Length != 6 || parts[0] != Version) return null;
         if (!int.TryParse(parts[1], out var accountId) || !long.TryParse(parts[2], out var expires)) return null;
-        if (now.ToUnixTimeSeconds() > expires) return null;
+        // Over at its expiry second, as its record of use is cleared then: no window where it works twice.
+        if (now >= DateTimeOffset.FromUnixTimeSeconds(expires)) return null;
         if (parts[5] != Bind(binding)) return null;
 
         var expected = Encoding.ASCII.GetBytes(parts[3]);

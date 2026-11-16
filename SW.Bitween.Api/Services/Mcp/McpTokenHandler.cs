@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using SW.Bitween.Domain.Accounts;
@@ -31,11 +32,19 @@ public class McpTokenHandler(
     /// <summary>Carried on the identity, so what an AI app does can be told from what its person did.</summary>
     public const string ViaClaim = "bitween_via";
 
+    /// <summary>The bearer token a request carries, or null; the rate limiter budgets by it too.</summary>
+    public static string BearerOf(HttpRequest request)
+    {
+        var header = request.Headers.Authorization.ToString();
+        if (!header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) return null;
+        var token = header["Bearer ".Length..].Trim();
+        return token.Length == 0 ? null : token;
+    }
+
     protected override async Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        var header = Request.Headers.Authorization.ToString();
-        if (!header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)) return AuthenticateResult.NoResult();
-        var token = header["Bearer ".Length..].Trim();
+        var token = BearerOf(Request);
+        if (token is null) return AuthenticateResult.NoResult();
 
         if (token.StartsWith(ServiceToken.Prefix, StringComparison.Ordinal))
         {

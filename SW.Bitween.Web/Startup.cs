@@ -883,10 +883,12 @@ namespace SW.Bitween.Web
                             });
 
                     // /mcp signs its callers in after this runs, and many of them arrive from one AI
-                    // provider's few addresses, so each token gets its own budget instead.
+                    // provider's few addresses, so each token gets its own budget instead. A made-up
+                    // token buys nothing: an access token is checked in memory, and wrong service
+                    // tokens lock their address out (ServiceTokens).
                     if (context.Request.Path.StartsWithSegments(SW.Bitween.Services.Mcp.McpTokenHandler.Path))
                         return RateLimitPartition.GetFixedWindowLimiter(
-                            context.Request.Headers.Authorization.ToString() is { Length: > 0 } bearer
+                            SW.Bitween.Services.Mcp.McpTokenHandler.BearerOf(context.Request) is { Length: > 0 } bearer
                                 ? $"mcp:{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(bearer)))}"
                                 : $"anon:{ClientAddress(context)}",
                             _ => new FixedWindowRateLimiterOptions

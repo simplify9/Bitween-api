@@ -239,13 +239,13 @@ public class BitweenTools(ApiJson json)
 
     [McpServerTool(Name = "pause_subscription", Title = "Pause a subscription", Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Pauses a subscription: what arrives for it waits instead of running, until it's resumed.")]
-    public Task<string> PauseSubscription(Subscriptions.Get get, Subscriptions.Pause pause, int id) =>
-        Answer(() => SetPaused(get, pause, id, true));
+    public Task<string> PauseSubscription(Subscriptions.Pause pause, int id) =>
+        Answer(() => SetPaused(pause, id, true));
 
     [McpServerTool(Name = "resume_subscription", Title = "Resume a subscription", Destructive = false, Idempotent = true, OpenWorld = false)]
     [Description("Resumes a paused subscription: what waited for it runs.")]
-    public Task<string> ResumeSubscription(Subscriptions.Get get, Subscriptions.Pause pause, int id) =>
-        Answer(() => SetPaused(get, pause, id, false));
+    public Task<string> ResumeSubscription(Subscriptions.Pause pause, int id) =>
+        Answer(() => SetPaused(pause, id, false));
 
     [McpServerTool(Name = "list_partners", Title = "List partners", ReadOnly = true, OpenWorld = false)]
     [Description("Partners - the systems Bitween exchanges documents with - as the Partners page lists them.")]
@@ -321,15 +321,8 @@ public class BitweenTools(ApiJson json)
         return row;
     }
 
-    static async Task<object> SetPaused(Subscriptions.Get get, Subscriptions.Pause pause, int id, bool paused)
-    {
-        var subscription = await get.Read(id);
-        // The API toggles, so it's read first.
-        if ((subscription.PausedOn != null) == paused)
-            return new { Id = id, Paused = paused, Changed = false };
-        await pause.Handle(id, new SubscriptionPause());
-        return new { Id = id, Paused = paused, Changed = true };
-    }
+    static Task<object> SetPaused(Subscriptions.Pause pause, int id, bool paused) =>
+        pause.Handle(id, new SubscriptionPause { Paused = paused });
 
     /// <summary>One part of a combined answer: its result, or why it couldn't be read, so the rest still answers.</summary>
     async Task<object> Part(Func<Task<object>> read)

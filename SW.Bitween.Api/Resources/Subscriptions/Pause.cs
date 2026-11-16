@@ -17,7 +17,10 @@ public class Pause(BitweenDbContext dbContext, RequestContext requestContext, II
 
             var entity = await dbContext.FindAsync<Subscription>(key)
                          ?? throw new SWNotFoundException(key.ToString());
-            if (entity!.PausedOn == null)
+            var paused = request?.Paused ?? entity!.PausedOn == null;
+            if (paused == (entity!.PausedOn != null))
+                return new { entity.Id, Paused = paused, Changed = false };
+            if (paused)
                 entity.Pause();
             else
                 entity.UnPause();
@@ -28,10 +31,7 @@ public class Pause(BitweenDbContext dbContext, RequestContext requestContext, II
             // has the mirror problem: its handler re-reads the cache, finds the copy still paused
             // and returns early, leaving everything it held on hold.
             await cache.BroadcastRevoke();
-            return new
-            {
-                entity.Id
-            };
+            return new { entity.Id, Paused = paused, Changed = true };
         }
     }
 }
