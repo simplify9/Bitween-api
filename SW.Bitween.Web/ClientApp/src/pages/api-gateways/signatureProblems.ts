@@ -17,9 +17,11 @@ export const signatureProblems = (
       : !/^[A-Za-z0-9!#$%&'*+.^_`|~-]{1,100}$/.test(header)
         ? "Letters, digits and - or _ only, with no spaces."
         : undefined,
-    signatureSecretProperty: a.signatureSecretProperty.trim()
-      ? undefined
-      : "Required: the partner property holding the shared secret.",
+    signatureSecretProperty: !a.signatureSecretProperty.trim()
+      ? "Required: the partner property holding the shared secret."
+      : a.signatureSecretProperty.trim().length > 200
+        ? "At most 200 characters."
+        : undefined,
     signatureToleranceSeconds:
       tolerance != null && (tolerance < 1 || tolerance > 86400)
         ? "Between 1 second and a day."

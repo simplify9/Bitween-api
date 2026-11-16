@@ -52,6 +52,11 @@ export function SignatureFields({
             onChange({
               ...auth,
               signatureScheme: e.target.value as GatewaySignatureScheme,
+              // The plain format carries no time: a tolerance left behind would block the save, hidden.
+              signatureToleranceSeconds:
+                e.target.value === "HmacSha256"
+                  ? null
+                  : auth.signatureToleranceSeconds,
             })
           }
         />

@@ -56,7 +56,7 @@ internal static class GatewayAuthentication
         var secretProperty = Trimmed(model.SignatureSecretProperty);
         if (model.Method == GatewayAuthMethod.Signature)
         {
-            if (signatureHeader == null || PartnerKeyHeaders.Problem(signatureHeader) is not null)
+            if (signatureHeader == null || signatureHeader.Length > 100 || PartnerKeyHeaders.Problem(signatureHeader) is not null)
                 throw new SWValidationException("GATEWAY_SIGNATURE_HEADER_INVALID",
                     "Name the header the signature comes in, as a plain header name.");
             if (model.SignatureScheme is not { } scheme || !Enum.IsDefined(scheme))
@@ -64,6 +64,9 @@ internal static class GatewayAuthentication
             if (secretProperty == null)
                 throw new SWValidationException("GATEWAY_SIGNATURE_SECRET_REQUIRED",
                     "Name the partner property holding the secret the caller signs with.");
+            if (secretProperty.Length > 200)
+                throw new SWValidationException("GATEWAY_SIGNATURE_SECRET_REQUIRED",
+                    "The secret property's name is at most 200 characters.");
             if (model.SignatureToleranceSeconds is < 1 or > 86400)
                 throw new SWValidationException("GATEWAY_SIGNATURE_TOLERANCE_INVALID",
                     "The tolerance is between 1 second and a day.");
