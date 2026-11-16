@@ -1184,6 +1184,20 @@ namespace SW.Bitween.MySql.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<string>("SignatureHeader")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
+
+                    b.Property<int>("SignatureScheme")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SignatureSecretProperty")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
+                    b.Property<int?>("SignatureToleranceSeconds")
+                        .HasColumnType("int");
+
                     b.Property<string>("UrlName")
                         .IsRequired()
                         .HasMaxLength(200)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Net.Http.Json;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
@@ -250,6 +251,67 @@ public class BitweenClientConfigurationTests(HttpFixture fixture)
         await bitween.ApiGateways.DetachPartnerAsync(gatewayId, partnerId);
         Assert.Empty((await bitween.ApiGateways.GetAsync(gatewayId))!.Partners);
         await Assert.ThrowsAsync<BitweenClientException>(() => gateway.SendAsync(urlName, "{}"));
+        await bitween.ApiGateways.DeleteAsync(gatewayId);
+    }
+
+    [Fact]
+    public async Task Sets_up_a_gateway_taking_signed_calls_and_hands_out_its_address()
+    {
+        using var bitween = await ClientAsync(Configure);
+        var informationTypeId = await InformationTypeAsync();
+        var subscriptionId = await bitween.Subscriptions.CreateAsync(new SubscriptionCreate
+        {
+            Name = Api.Unique("Signed hooks"), DocumentId = informationTypeId, Type = SubscriptionType.GatewayApiCall, Inactive = false,
+        });
+        var secret = Guid.NewGuid().ToString("N");
+        var partnerId = await bitween.Partners.CreateAsync(new PartnerCreate
+        {
+            Name = Api.Unique("Hook sender"),
+            AdapterProperties = new Dictionary<string, string> { ["WebhookSecret"] = secret },
+            SecretProperties = ["WebhookSecret"],
+        });
+
+        var urlName = $"hooks-{Guid.NewGuid():N}"[..20];
+        var gatewayId = await bitween.ApiGateways.CreateAsync(new ApiGatewayCreate
+        {
+            Name = Api.Unique("Hooks"),
+            UrlName = urlName,
+            Authentication = new ApiGatewayAuthentication
+            {
+                Method = GatewayAuthMethod.Signature,
+                SignatureHeader = "X-Hook-Signature",
+                SignatureScheme = GatewaySignatureScheme.TimestampedHmacSha256,
+                SignatureSecretProperty = "WebhookSecret",
+            },
+        });
+        await bitween.ApiGateways.AttachPartnerAsync(gatewayId, new ApiGatewayPartnerCreate { PartnerId = partnerId, SubscriptionId = subscriptionId });
+
+        var saved = (await bitween.ApiGateways.GetAsync(gatewayId))!.Authentication!;
+        Assert.Equal(GatewayAuthMethod.Signature, saved.Method);
+        Assert.Equal("X-Hook-Signature", saved.SignatureHeader);
+        Assert.Equal(GatewaySignatureScheme.TimestampedHmacSha256, saved.SignatureScheme);
+        Assert.Equal("WebhookSecret", saved.SignatureSecretProperty);
+
+        var address = bitween.ApiGateways.CallAddress(urlName);
+        Assert.Equal($"/api/gateway/{urlName}/async", address.AbsolutePath);
+
+        // Called as the sender would: no key, the body signed with the partner's secret.
+        const string body = "{\"id\":42}";
+        async Task<HttpStatusCode> CallAsync(string? signature)
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, address)
+                { Content = new StringContent(body, System.Text.Encoding.UTF8, "application/json") };
+            if (signature != null) request.Headers.TryAddWithoutValidation("X-Hook-Signature", signature);
+            using var http = fixture.Client();
+            return (await http.SendAsync(request)).StatusCode;
+        }
+        var t = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var mac = Convert.ToHexString(System.Security.Cryptography.HMACSHA256.HashData(
+            System.Text.Encoding.UTF8.GetBytes(secret), System.Text.Encoding.UTF8.GetBytes($"{t}.{body}"))).ToLowerInvariant();
+        Assert.Equal(HttpStatusCode.Accepted, await CallAsync($"t={t},v1={mac}"));
+        Assert.Equal(HttpStatusCode.Unauthorized, await CallAsync(null));
+        Assert.Equal(HttpStatusCode.Unauthorized, await CallAsync($"t={t},v1={new string('0', 64)}"));
+
         await bitween.ApiGateways.DeleteAsync(gatewayId);
     }
 

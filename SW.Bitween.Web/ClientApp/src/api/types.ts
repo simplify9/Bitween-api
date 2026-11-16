@@ -1088,7 +1088,9 @@ export interface ApiGatewayAttachment {
   partnerLoginIdentity: string | null;
 }
 /** How a gateway's callers prove who they are: the gateway chooses, not the caller. */
-export type GatewayAuthMethod = "PartnerKey" | "Jwt";
+export type GatewayAuthMethod = "PartnerKey" | "Jwt" | "Signature";
+/** Signature: how the header is written and what is signed. */
+export type GatewaySignatureScheme = "HmacSha256" | "TimestampedHmacSha256";
 export interface GatewayAuthentication {
   method: GatewayAuthMethod;
   /** PartnerKey: the header keys are sent in on this gateway; empty uses the system-wide one. */
@@ -1099,6 +1101,13 @@ export interface GatewayAuthentication {
   audience: string;
   /** Jwt: the claim holding the partner's login server identity; empty means `sub`. */
   partnerClaim: string;
+  /** Signature: the header the signature comes in. */
+  signatureHeader: string;
+  signatureScheme: GatewaySignatureScheme;
+  /** Signature: the partner property holding the secret the caller signs with. */
+  signatureSecretProperty: string;
+  /** Signature, timestamped: how far the signed time may be from now, in seconds; empty means 300. */
+  signatureToleranceSeconds: number | null;
 }
 export interface ApiGateway {
   id: number;

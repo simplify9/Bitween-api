@@ -1190,6 +1190,20 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("SignatureHeader")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("SignatureScheme")
+                        .HasColumnType("int");
+
+                    b.Property<string>("SignatureSecretProperty")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int?>("SignatureToleranceSeconds")
+                        .HasColumnType("int");
+
                     b.Property<string>("UrlName")
                         .IsRequired()
                         .HasMaxLength(200)
