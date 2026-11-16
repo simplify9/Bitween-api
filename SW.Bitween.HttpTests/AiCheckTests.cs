@@ -26,7 +26,8 @@ public class AiCheckTests(HttpFixture fixture) : IDisposable
     {
         AiModels.HandlerOverride = null;
         using var admin = fixture.AdminAsync().GetAwaiter().GetResult();
-        admin.DeleteAsync("/api/settings/Bitween.Ai.ApiKey").GetAwaiter().GetResult();
+        foreach (var key in new[] { "Bitween.Ai.Provider", "Bitween.Ai.ApiKey", "Bitween.Ai.Model", "Bitween.Ai.BaseUrl" })
+            admin.DeleteAsync($"/api/settings/{key}").GetAwaiter().GetResult();
     }
 
     sealed class FakeProvider(Func<HttpRequestMessage, HttpResponseMessage> answer) : HttpMessageHandler
@@ -61,17 +62,24 @@ public class AiCheckTests(HttpFixture fixture) : IDisposable
         return provider;
     }
 
-    /// <summary>Saves an Anthropic key, waiting until it's the one running.</summary>
-    async Task<HttpClient> WithSavedKeyAsync()
+    /// <summary>Saves a key - for Anthropic unless a provider and address are given - waiting until it's the one running.</summary>
+    async Task<HttpClient> WithSavedKeyAsync(string? provider = null, string? baseUrl = null)
     {
         var admin = await fixture.AdminAsync();
+        // The provider first: changing it clears the key and address saved before it.
+        if (provider is not null)
+            await Api.Json(await admin.PostAsJsonAsync("/api/settings/Bitween.Ai.Provider", new { value = provider }));
         await Api.Json(await admin.PostAsJsonAsync("/api/settings/Bitween.Ai.ApiKey", new { value = "sk-saved" }));
+        if (baseUrl is not null)
+            await Api.Json(await admin.PostAsJsonAsync("/api/settings/Bitween.Ai.BaseUrl", new { value = baseUrl }));
         var live = fixture.App.Services.GetRequiredService<BitweenOptions>();
         for (int waited = 0, steady = 0; steady < 300; waited += 50)
         {
-            Assert.True(waited < 10_000, "the saved key never took effect");
+            Assert.True(waited < 10_000, "the saved settings never took effect");
             await Task.Delay(50);
-            steady = live.Ai.ApiKey == "sk-saved" ? steady + 50 : 0;
+            var applied = live.Ai.ApiKey == "sk-saved" && (provider is null || live.Ai.Provider == provider)
+                          && (baseUrl is null || live.Ai.BaseUrl == baseUrl);
+            steady = applied ? steady + 50 : 0;
         }
         return admin;
     }
@@ -148,6 +156,48 @@ public class AiCheckTests(HttpFixture fixture) : IDisposable
         Assert.Contains("Type the API key for DeepSeek", await otherProvider.Content.ReadAsStringAsync());
         Assert.Equal(HttpStatusCode.BadRequest, otherAddress.StatusCode);
         Assert.Empty(provider.Received);
+    }
+
+    [Fact]
+    public async Task A_gateway_whose_key_is_optional_is_tested_with_the_saved_key()
+    {
+        var admin = await WithSavedKeyAsync("Other (OpenAI-compatible)", "https://gateway.acme.test/v1/");
+        var provider = Answering(_ => Chat("""{"ok": true}"""));
+
+        await Api.Json(await admin.PostAsJsonAsync("/api/aichecks",
+            new { provider = "Other (OpenAI-compatible)", model = "team-chat", baseUrl = "https://gateway.acme.test/v1/" }));
+        var elsewhere = await admin.PostAsJsonAsync("/api/aichecks",
+            new { provider = "Other (OpenAI-compatible)", model = "team-chat", baseUrl = "https://other.acme.test/v1/" });
+
+        Assert.Equal(HttpStatusCode.OK, elsewhere.StatusCode);
+        Assert.Equal("Bearer sk-saved", provider.Received[0].Request.Headers.Authorization!.ToString());
+        // Not where it wasn't saved for: that one goes without it.
+        Assert.Equal("Bearer none", provider.Received[1].Request.Headers.Authorization!.ToString());
+    }
+
+    [Fact]
+    public async Task Changing_the_provider_clears_the_last_ones_key()
+    {
+        var admin = await WithSavedKeyAsync();
+
+        await Api.Json(await admin.PostAsJsonAsync("/api/settings/Bitween.Ai.Provider", new { value = "Mistral" }));
+
+        var settings = (await Api.Json(await admin.GetAsync("/api/settings"))).AsArray();
+        var key = settings.Single(s => (string)s!["key"]! == "Bitween.Ai.ApiKey")!;
+        Assert.False((bool)key["hasValue"]!);
+        Assert.True(string.IsNullOrEmpty(fixture.App.Services.GetRequiredService<BitweenOptions>().Ai.ApiKey));
+    }
+
+    [Fact]
+    public async Task Only_Gemini_model_names_lose_their_models_prefix()
+    {
+        var admin = await fixture.AdminAsync();
+        Answering(_ => ModelList("models/team-chat"));
+
+        var result = await Api.Json(await admin.PostAsJsonAsync("/api/aichecks/models",
+            new { provider = "Other (OpenAI-compatible)", baseUrl = "https://gateway.acme.test/v1/" }));
+
+        Assert.Equal("models/team-chat", (string)result["models"]![0]!);
     }
 
     [Fact]

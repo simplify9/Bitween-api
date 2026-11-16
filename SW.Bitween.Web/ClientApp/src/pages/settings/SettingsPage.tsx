@@ -23,6 +23,8 @@ import {
   AI_SECTION,
   aiCandidate,
   aiCheckOnSave,
+  aiOutcomeKey,
+  aiTestable,
   changeProvider,
   useAiModels,
   useAiProviders,
@@ -341,9 +343,9 @@ export function SettingsPage() {
   const aiModels = useAiModels(rows ?? [], draft, section === AI_SECTION && canEdit, aiProviders.data);
   // Remembers the outcome against the settings tested, so the bar only shows it while they're the ones on screen.
   const aiCheck = useMutation({
-    mutationFn: (candidate: AiCandidate) => api.checkAi(candidate),
-    onSuccess: (result, candidate) => setAiOutcome({ for: JSON.stringify(candidate), result }),
-    onError: (error, candidate) => setAiOutcome({ for: JSON.stringify(candidate), error: error.message }),
+    mutationFn: ({ candidate }: { candidate: AiCandidate; key: string }) => api.checkAi(candidate),
+    onSuccess: (result, { key }) => setAiOutcome({ for: key, result }),
+    onError: (error, { key }) => setAiOutcome({ for: key, error: error.message }),
   });
 
   if (canView && isLoading) return <LoadingBlock label="Loading settings…" />;
@@ -461,10 +463,17 @@ export function SettingsPage() {
           {section === AI_SECTION && (
             <AiTestBar
               candidate={aiCandidate(rows, draft)}
+              outcomeKey={aiOutcomeKey(rows, draft)}
               outcome={aiOutcome}
               busy={aiCheck.isPending}
               canEdit={canEdit}
-              onTest={() => aiCheck.mutate(aiCandidate(rows, draft))}
+              onTest={() => {
+                const key = aiOutcomeKey(rows, draft);
+                // Without a key there's nothing to call - and the saved one may be the one being cleared.
+                const candidate = aiTestable(rows, draft, aiProviders.data);
+                if (candidate) aiCheck.mutate({ candidate, key });
+                else setAiOutcome({ for: key, error: "Set the API key first." });
+              }}
             />
           )}
           {section === CHANNELS_SECTION ? (
@@ -519,17 +528,22 @@ export function SettingsPage() {
           busy={saveAll.isPending || aiCheck.isPending}
           error={saveAll.error?.message}
           onSave={async () => {
-            // Changed AI settings are tried first, so a wrong key or model is caught while it's on screen.
-            const candidate = aiCheckOnSave(rows, draft, aiProviders.data);
-            if (candidate) {
+            // Changed AI settings are tried first, so a wrong key or model is caught while it's on screen -
+            // and tried again if they changed while the call ran, so what's saved is what was tested.
+            for (;;) {
+              const current = settingsDraft.get();
+              const candidate = aiCheckOnSave(rows, current, aiProviders.data);
+              if (!candidate) break;
+              const key = aiOutcomeKey(rows, current);
               try {
-                await aiCheck.mutateAsync(candidate);
+                await aiCheck.mutateAsync({ candidate, key });
               } catch (e) {
                 setAiFailedOnSave(e instanceof Error ? e.message : "The test call failed.");
                 return;
               }
+              if (aiOutcomeKey(rows, settingsDraft.get()) === key) break;
             }
-            if (retentionProposal(rows, draft) !== null) setConfirmingRetention(true);
+            if (retentionProposal(rows, settingsDraft.get()) !== null) setConfirmingRetention(true);
             else saveAll.mutate();
           }}
           onDiscard={() => settingsDraft.discardAll()}

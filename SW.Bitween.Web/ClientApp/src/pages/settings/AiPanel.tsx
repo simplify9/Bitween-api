@@ -199,19 +199,22 @@ export function AiAddressRow({
  */
 export function AiTestBar({
   candidate,
+  outcomeKey,
   outcome,
   busy,
   canEdit,
   onTest,
 }: {
   candidate: AiCandidate;
+  /** Names the settings on screen, as an outcome names the ones it was for. */
+  outcomeKey: string;
   outcome: AiCheckOutcome | null;
   busy: boolean;
   canEdit: boolean;
   onTest: () => void;
 }) {
   // An outcome for other settings than the ones showing says nothing about these.
-  const current = outcome?.for === JSON.stringify(candidate) ? outcome : null;
+  const current = outcome?.for === outcomeKey ? outcome : null;
   return (
     <div className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2.5">
       <Button

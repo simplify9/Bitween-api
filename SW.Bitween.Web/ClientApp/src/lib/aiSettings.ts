@@ -76,6 +76,12 @@ function hasKey(rows: SettingRow[], draft: SettingsDraft, provider: AiProvider |
   return rows.find((r) => r.key === AI_KEYS.apiKey)?.hasValue ?? false;
 }
 
+/** The AI settings on screen when they have a key to call with - typed, saved and not being cleared, or none needed. */
+export function aiTestable(rows: SettingRow[], draft: SettingsDraft, providers: AiProvider[] | undefined): AiCandidate | null {
+  const candidate = aiCandidate(rows, draft);
+  return hasKey(rows, draft, providerNamed(providers, candidate.provider)) ? candidate : null;
+}
+
 /**
  * What saving should test first: the AI settings on screen when some are staged and they still
  * have a key. Clearing the key turns AI off on purpose, and a section nobody has given a key yet
@@ -83,8 +89,18 @@ function hasKey(rows: SettingRow[], draft: SettingsDraft, provider: AiProvider |
  */
 export function aiCheckOnSave(rows: SettingRow[], draft: SettingsDraft, providers: AiProvider[] | undefined): AiCandidate | null {
   if (!Object.values(AI_KEYS).some((key) => key in draft)) return null;
-  const candidate = aiCandidate(rows, draft);
-  return hasKey(rows, draft, providerNamed(providers, candidate.provider)) ? candidate : null;
+  return aiTestable(rows, draft, providers);
+}
+
+/**
+ * Names the settings a test outcome is about, the key included: a typed key, the saved one, or
+ * none. An outcome stays on screen only while it's the same - clearing the key, or saving a
+ * cleared one, makes an earlier "Works" no longer true.
+ */
+export function aiOutcomeKey(rows: SettingRow[], draft: SettingsDraft): string {
+  const keyRow = rows.find((r) => r.key === AI_KEYS.apiKey);
+  const key = draft[AI_KEYS.apiKey] ? "typed" : AI_KEYS.apiKey in draft ? "none" : keyRow?.hasValue ? "saved" : "none";
+  return JSON.stringify({ ...aiCandidate(rows, draft), key });
 }
 
 /**
@@ -99,7 +115,9 @@ export function changeProvider(rows: SettingRow[], value: string) {
   const backToSaved = value === (providerRow.value ?? providerRow.defaultValue);
   for (const key of [AI_KEYS.apiKey, AI_KEYS.model, AI_KEYS.baseUrl]) {
     const r = row(key);
-    if (!r) continue;
+    // A key that can't be stored here comes from configuration: there's nothing to clear, and
+    // staging it would only make the save fail.
+    if (!r || !r.editable) continue;
     if (backToSaved) settingsDraft.unstage(key);
     // A secret's saved value is null, so an empty string is what stages "no key".
     else settingsDraft.stage(r, "");

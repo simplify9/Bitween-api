@@ -179,6 +179,45 @@ describe("Settings, AI", () => {
     await waitFor(() => expect(saved).toEqual(["Bitween.Ai.ApiKey"]));
     expect(tested).toBe(false);
   });
+  it("won't test with a key that's being cleared, and drops an earlier result once it is", async () => {
+    let calls = 0;
+    const { user } = openAi([
+      http.post(apiPath("/aichecks"), () => {
+        calls++;
+        return HttpResponse.json({ model: "gemini-flash", milliseconds: 1000 });
+      }),
+    ]);
+
+    await user.click(await screen.findByRole("button", { name: "Test connection" }));
+    expect(await screen.findByText("Works")).toBeVisible();
+
+    const keyRow = screen.getByText("API key").closest("div.grid") as HTMLElement;
+    await user.click(within(keyRow).getByRole("button", { name: "Reset to default" }));
+    expect(screen.queryByText("Works")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Test connection" }));
+    expect(await screen.findByText("Set the API key first.")).toBeVisible();
+    expect(calls).toBe(1);
+  });
+
+  it("leaves a key from configuration alone when the provider changes", async () => {
+    const { user } = renderApp("/settings?section=AI", {
+      handlers: [
+        http.get(apiPath("/settings"), () =>
+          HttpResponse.json(ROWS.map((r) => (r.key === "Bitween.Ai.ApiKey" ? { ...r, editable: false } : r))),
+        ),
+        http.get(apiPath("/audit"), () => HttpResponse.json({ result: [], totalCount: 0 })),
+        http.get(apiPath("/aichecks/providers"), () => HttpResponse.json(PROVIDERS)),
+        http.post(apiPath("/aichecks/models"), () => HttpResponse.json({ models: [] })),
+      ],
+    });
+
+    await user.selectOptions(await screen.findByRole("combobox", { name: "Provider" }), "Ollama");
+
+    expect("Bitween.Ai.ApiKey" in settingsDraft.get()).toBe(false);
+    expect(settingsDraft.get()["Bitween.Ai.Provider"]).toBe("Ollama");
+  });
+
   it("shows a provider's own address, and takes another only when asked for one", async () => {
     const { user } = openAi();
 

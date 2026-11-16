@@ -109,9 +109,10 @@ public class AiModels(BitweenOptions options)
             ? await AnthropicModel.List(ai.ApiKey.Trim(), ai.ResolvedBaseUrl, Client)
             : await OpenAiModel.List(NameOf(ai), KeyOf(ai), ai.ResolvedBaseUrl, Client);
 
+        var gemini = ai.Known == "Google Gemini";
         return listed
-            // Gemini lists "models/gemini-…" but is called with the bare name.
-            .Select(id => id.StartsWith("models/", StringComparison.Ordinal) ? id["models/".Length..] : id)
+            // Gemini lists "models/gemini-…" but is called with the bare name; other names stay as listed.
+            .Select(id => gemini && id.StartsWith("models/", StringComparison.Ordinal) ? id["models/".Length..] : id)
             .Where(id => !NotChat.Any(word => id.Contains(word, StringComparison.OrdinalIgnoreCase)))
             .Distinct()
             .Order(StringComparer.OrdinalIgnoreCase)

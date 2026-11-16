@@ -196,7 +196,7 @@ public class SettingsService
     }
 
     // As the options hold it, so "true" and "True" are the same value.
-    private static string Normalized(SettingDefinition definition, string value)
+    public static string Normalized(SettingDefinition definition, string value)
     {
         var target = new SettingsTarget(new BitweenOptions(), new ThemeOptions());
         definition.Write(target, value);
