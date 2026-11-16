@@ -360,6 +360,15 @@ public static class SettingsCatalog
             t => t.Bitween.Ai.BaseUrl,
             (t, v) => t.Bitween.Ai.BaseUrl = AiAddress(v)),
 
+        // --- MCP ---
+        // Read on every request to /mcp, so turning it off stops connected apps at once.
+        new("Bitween.McpEnabled", "MCP",
+            "AI apps (MCP)",
+            "Lets AI apps such as Claude and ChatGPT connect at /mcp and act as whoever signs them in, within that account's roles: searching exchanges, reading their files, retrying them, pausing subscriptions. Files they read go to the app's AI provider.",
+            SettingKind.Boolean, false,
+            t => Str(t.Bitween.McpEnabled),
+            (t, v) => t.Bitween.McpEnabled = Bool(v)),
+
         // --- Mail server ---
         // Shared by every Email notification channel, which then only names its recipients. The
         // Email adapter reads these on each send, so a change applies to the next email.

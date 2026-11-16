@@ -112,6 +112,7 @@ The database schema is created on first start. A new database refuses to start w
 | [Adapter contract](docs/adapter-contract.md) | What Bitween calls on an adapter of each kind and what it passes, in every language |
 | [The bitween CLI](docs/cli.md) | Signing in from a terminal, and writing, building, checking and publishing adapters |
 | [Client SDK](docs/client-sdk.md) | Exchanges from your own program, in .NET or JavaScript: search, read files, retry, bulk retry and export |
+| [AI apps (MCP)](docs/mcp.md) | Claude, ChatGPT and other AI apps working with Bitween at `/mcp`: signing them in, and what they can do |
 | [Mapping](docs/mapping.md) | The rules-based mapper and the legacy Scriban JSON mapper |
 | [Data sources](docs/data-sources.md) | Long-lived connections: enabling them, placement, health and resource limits |
 | [External brokers](docs/external-brokers.md) | Reading from and publishing to a customer's RabbitMQ or Amazon SQS |

@@ -10,6 +10,7 @@ import { Avatar } from "../components/ui/Avatar";
 import { Badge, Button, FormError } from "../components/ui/basics";
 import { Field, PasswordInput, TextInput } from "../components/ui/forms";
 import { PASSWORD_HINT, validatePassword } from "../lib/passwordPolicy";
+import { ConnectedAppsList } from "./team/ConnectedApps";
 
 function Card({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -198,6 +199,10 @@ export function ProfilePage() {
               </div>
               {user.microsoftLinked ? <Badge tone="ok">Linked</Badge> : <Badge>Not linked</Badge>}
             </div>
+          </Card>
+
+          <Card title="Connected apps">
+            <ConnectedAppsList canDisconnect />
           </Card>
         </div>
       </div>

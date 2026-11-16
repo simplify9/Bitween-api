@@ -33,6 +33,7 @@ function server({ signInFails = false } = {}) {
       });
     }),
     http.post(apiPath("/accounts/changePassword"), () => HttpResponse.json(null)),
+    http.get(apiPath("/accounts/connectedapps"), () => HttpResponse.json([])),
     http.post(apiPath("/accounts/login"), async ({ request }) => {
       calls.signIn = (await request.json()) as Record<string, string>;
       return signInFails

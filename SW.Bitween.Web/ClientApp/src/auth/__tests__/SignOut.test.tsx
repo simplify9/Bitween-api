@@ -22,7 +22,12 @@ import { server } from "../../__tests__/support/server";
 
 /** Somewhere every account can be, which asks the API for nothing but the permission catalog. */
 const signedIn = () =>
-  renderApp("/profile", { handlers: [http.get(apiPath("/permissions"), () => HttpResponse.json([]))] });
+  renderApp("/profile", {
+    handlers: [
+      http.get(apiPath("/permissions"), () => HttpResponse.json([])),
+      http.get(apiPath("/accounts/connectedapps"), () => HttpResponse.json([])),
+    ],
+  });
 
 const signOut = async (user: UserEvent) => {
   await user.click(await screen.findByRole("button", { name: "Account menu" }));

@@ -230,6 +230,17 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("account_id");
 
+                    b.Property<string>("ClientId")
+                        .HasMaxLength(2048)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(2048)")
+                        .HasColumnName("client_id");
+
+                    b.Property<string>("ClientName")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)")
+                        .HasColumnName("client_name");
+
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_on");
@@ -417,6 +428,24 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasDatabaseName("ix_service_tokens_hash");
 
                     b.ToTable("ServiceTokens", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.SignInCodeUse", b =>
+                {
+                    b.Property<string>("Nonce")
+                        .HasMaxLength(32)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(32)")
+                        .HasColumnName("nonce");
+
+                    b.Property<DateTime>("ExpiresOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("expires_on");
+
+                    b.HasKey("Nonce")
+                        .HasName("pk_sign_in_code_uses");
+
+                    b.ToTable("SignInCodeUses", "infolink");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.AdapterDraft", b =>
@@ -663,6 +692,11 @@ namespace SW.Bitween.PgSql.Migrations
                         .IsUnicode(false)
                         .HasColumnType("character varying(50)")
                         .HasColumnName("user_id");
+
+                    b.Property<string>("Via")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("via");
 
                     b.HasKey("Id")
                         .HasName("pk_audit_entries");

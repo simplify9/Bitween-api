@@ -69,6 +69,13 @@ See [Entry points](entry-points.md) for status codes.
 | `POST /api/accounts/cligrant` | signed in | Signs the bitween CLI in as the caller: `{ codeChallenge }`, the CLI's S256 PKCE challenge. Returns `{ code }`, good for two minutes. The admin UI's `/cli-login` page calls it after the member confirms. |
 | `POST /api/accounts/clitoken` | none | The CLI trades that code for a session: `{ code, codeVerifier }`. Returns `{ jwt, refreshToken, email }`. |
 | `POST /api/accounts/servicetoken` | none | A service account signs in: `{ token }`, one of its `bwt_` tokens. Returns `{ jwt, expiresIn, id, name }`, with no refresh token: trade the token again when the session ends. Shares the sign-in rate limit; unknown tokens count toward the address's lockout. |
+| `GET /api/accounts/connectedapps?accountId=` | signed in; another member's needs `users.view` | The AI apps an account signed in with OAuth: `[{ clientId, name, lastRenewedOn }]`. |
+| `POST /api/accounts/disconnectapp` | signed in; another member's needs `users.edit` | `{ clientId, accountId }`: ends that app's sessions. |
+| `POST /mcp` | a `bwt_` token or an OAuth access token for `/mcp` | The MCP server, while Settings, MCP is on. See [AI apps (MCP)](mcp.md). |
+| `GET /.well-known/oauth-protected-resource/mcp`, `GET /.well-known/oauth-authorization-server` | none | How AI apps sign in to `/mcp` (RFC 9728, RFC 8414). 404 while MCP is off. |
+| `POST /api/oauth/register` | none | An app registering itself (RFC 7591): `{ client_name, redirect_uris }`. Shares the sign-in rate limit. |
+| `GET /api/oauth/client?client_id=&redirect_uri=`, `POST /api/oauth/grant` | signed in | The Connect page: who's asking, and the member's answer, `{ redirectTo }` with a one-time code or `access_denied`. |
+| `POST /api/oauth/token` | none | Form-encoded `authorization_code` (with `code_verifier`) or `refresh_token` grants, for an access token good at `/mcp` and a refresh token. Shares the sign-in rate limit. |
 | `GET /api/accounts/profile` | signed in | The current member, roles and permissions |
 | `POST /api/accounts/changePassword` | signed in | Change your own password |
 | `POST /api/accounts/forgotPassword` | none | `{ email }`. Emails a reset link when the address is a member's; answers the same either way. `400 PASSWORD_RESET_OFF` without a mail server or `Bitween:PublicUrl`. Shares the sign-in rate limit. |

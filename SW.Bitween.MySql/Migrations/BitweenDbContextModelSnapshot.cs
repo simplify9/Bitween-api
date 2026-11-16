@@ -187,6 +187,15 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<int>("AccountId")
                         .HasColumnType("int");
 
+                    b.Property<string>("ClientId")
+                        .HasMaxLength(2048)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(2048)");
+
+                    b.Property<string>("ClientName")
+                        .HasMaxLength(200)
+                        .HasColumnType("varchar(200)");
+
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("datetime(6)");
 
@@ -341,6 +350,21 @@ namespace SW.Bitween.MySql.Migrations
                         .IsUnique();
 
                     b.ToTable("ServiceTokens", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.SignInCodeUse", b =>
+                {
+                    b.Property<string>("Nonce")
+                        .HasMaxLength(32)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<DateTime>("ExpiresOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Nonce");
+
+                    b.ToTable("SignInCodeUses", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.AdapterDraft", b =>
@@ -544,6 +568,10 @@ namespace SW.Bitween.MySql.Migrations
                         .HasMaxLength(50)
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Via")
+                        .HasMaxLength(100)
+                        .HasColumnType("varchar(100)");
 
                     b.HasKey("Id");
 

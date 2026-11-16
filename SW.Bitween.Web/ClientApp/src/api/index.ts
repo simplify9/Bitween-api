@@ -9,6 +9,10 @@ export const api: ApiClient = httpClient;
 
 export { getAppConfig, resetAppConfig } from "./http/appConfig";
 export { grantCliSignIn } from "./http/cliSignIn";
+export { answerOAuthSignIn, describeOAuthClient } from "./http/oauthSignIn";
+export type { OAuthClientInfo } from "./http/oauthSignIn";
+export { disconnectApp, listConnectedApps } from "./http/connectedApps";
+export type { ConnectedApp } from "./http/connectedApps";
 export type { AppConfig } from "./http/appConfig";
 export { referencesGlobal, referencesPartnerProp } from "./http/references";
 export { onSessionEnded, onSignedOutElsewhere } from "./http/request";

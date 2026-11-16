@@ -754,6 +754,16 @@ namespace SW.Bitween
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.AccountId);
                 b.Property(p => p.LoginMethod).HasConversion<byte>();
+                // An app's client id can be the address of its metadata document.
+                b.Property(p => p.ClientId).IsUnicode(false).HasMaxLength(2048);
+                b.Property(p => p.ClientName).HasMaxLength(200);
+            });
+
+            modelBuilder.Entity<SignInCodeUse>(b =>
+            {
+                b.ToTable("SignInCodeUses");
+                b.HasKey(p => p.Nonce);
+                b.Property(p => p.Nonce).IsUnicode(false).HasMaxLength(32);
             });
 
             modelBuilder.Entity<ServiceToken>(b =>
@@ -831,6 +841,7 @@ namespace SW.Bitween
                 b.Property(p => p.EntityName).HasMaxLength(200).IsRequired();
                 b.Property(p => p.EntityKey).HasMaxLength(200);
                 b.Property(p => p.State).IsUnicode(false).HasMaxLength(10).IsRequired();
+                b.Property(p => p.Via).HasMaxLength(100);
 
                 b.HasIndex(p => new { p.EntityName, p.EntityKey, p.OccurredOn });
                 b.HasIndex(p => p.CorrelationId);
@@ -923,8 +934,9 @@ namespace SW.Bitween
                 {
                     // Finalized after the save because that is when a generated primary key exists;
                     // an entry for a newly created row would otherwise record no key at all.
+                    var via = requestContext.User?.FindFirst(Services.Mcp.McpTokenHandler.ViaClaim)?.Value;
                     foreach (var diff in pendingAudit.FinalizeAuditDiffJson())
-                        Add(new AuditEntry(diff));
+                        Add(new AuditEntry(diff, via));
 
                     // base, deliberately: re-entering this override would audit the audit rows and
                     // write every domain event to the outbox a second time.

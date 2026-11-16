@@ -8,6 +8,8 @@ interface RawAuditEntry {
   occurredOn: string;
   userId: string | null;
   userDisplayName: string | null;
+  /** What the change came through, when not the account's own session: "Claude via MCP", say. */
+  via?: string | null;
   entityName: string;
   entityKey: string;
   state: "Added" | "Modified" | "Deleted";
@@ -25,7 +27,8 @@ const toEntry = (r: RawAuditEntry): TrailEntry => ({
   action: r.state,
   // The backend resolves the name on read, so a deleted account leaves the id showing
   // rather than a name that is no longer true.
-  by: r.userDisplayName ?? (r.userId ? `#${r.userId}` : "System"),
+  // An AI app's changes say so beside its member's name.
+  by: (r.userDisplayName ?? (r.userId ? `#${r.userId}` : "System")) + (r.via ? ` (${r.via})` : ""),
   byUserId: r.userDisplayName ? (r.userId ?? undefined) : undefined,
   entityName: r.entityName,
   entityKey: r.entityKey,

@@ -80,7 +80,7 @@ applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
 | `AzureManagedIdentityClientId` | | Client id of a user-assigned identity. Falls back to `AZURE_CLIENT_ID` or `MSI_CLIENT_ID`. |
 | `StorageProvider` | `S3` | `S3`, `AS` for Azure Blob, `OC` for Oracle Cloud, or `Local`. `Local` is refused outside Development. |
 | `DocumentPrefix` | `temp30/Bitweendocs` | First value of the runtime setting: the storage key prefix new exchange files are written under. |
-| `PublicUrl` | | The address partners reach Bitween on, such as `https://bitween.example.com`. The chart sets it from its host name. Exchange file links are built on it, including aggregation roll-ups. Without it, roll-ups link through the instance's own address, which only adapters running in Bitween can open. Password reset emails need it too. |
+| `PublicUrl` | | The address partners reach Bitween on, such as `https://bitween.example.com`. The chart sets it from its host name. Exchange file links are built on it, including aggregation roll-ups. Without it, roll-ups link through the instance's own address, which only adapters running in Bitween can open. Password reset emails need it too. AI apps signing in to `/mcp` with OAuth are given addresses built on it too. |
 | `ExchangeRetentionDays`, `ArchiveExchanges`, `ExchangeRetentionCron` | `0`, `true`, `0 0 4 * * ?` | First values of the retention settings. |
 | `Version` | | Leave it unset. A Bitween's release, as `10.0.93`, is stamped on its build by CI, so every image knows it wherever it runs: **Settings, About** shows it, with the commit as the build (`10.0.93+<commit>`), and an adapter's or connector's "needs Bitween X or later" is checked against it. A build CI didn't stamp, as a local one, is `10.0.0`. Set this only to override the stamped version. |
 | `AdapterPath` | `adapters` | Storage key prefix for custom adapter packages. |
@@ -193,6 +193,7 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.Ai.Provider` | AI | Yes | `Anthropic` |
 | `Bitween.Ai.ApiKey` | AI | Yes, secret | empty, AI features off |
 | `Bitween.Ai.Model`, `BaseUrl` | AI | Yes | empty |
+| `Bitween.McpEnabled` | MCP | Yes | `false`; see [AI apps (MCP)](mcp.md) |
 | `Bitween.MailServer.Host`, `Port`, `UseTls`, `CertificateThumbprint`, `Username`, `From`, `FromName` | Mail server | Yes | port `587`, `UseTls` `true`, the rest empty |
 | `Bitween.MailServer.Password` | Mail server | Yes, secret | empty |
 | `Bitween.Mirror.Target` | Prod mirror | Read-only | `false` |

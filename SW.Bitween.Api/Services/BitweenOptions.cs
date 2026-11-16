@@ -413,6 +413,12 @@ namespace SW.Bitween
         public bool RegistryUsageReports { get; set; }
 
         /// <summary>
+        /// Whether AI apps may connect at /mcp. Off until an administrator turns it on: it lets an app
+        /// act as whoever signs it in, within that account's roles.
+        /// </summary>
+        public bool McpEnabled { get; set; }
+
+        /// <summary>
         /// Allowed CORS origins for credential-bearing requests (cookies).
         /// When set, enables AllowCredentials() on the CORS policy.
         /// Example: ["https://localhost:3000", "https://slim-dev.starlinks-me.com"]
