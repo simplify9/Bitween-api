@@ -28,8 +28,9 @@ public class AuditEntry : BaseEntity<string>
     {
     }
 
-    public AuditEntry(GenericAuditDiffJson diff)
+    public AuditEntry(GenericAuditDiffJson diff, string via = null)
     {
+        Via = via;
         Id = Guid.NewGuid().ToString("N");
         CorrelationId = diff.CorrelationId;
         Sequence = diff.Sequence;
@@ -58,6 +59,12 @@ public class AuditEntry : BaseEntity<string>
     /// rewrite history.
     /// </summary>
     public string UserId { get; private set; }
+
+    /// <summary>
+    /// What the change came through when it wasn't the account's own session, such as <c>MCP</c> or
+    /// <c>Claude via MCP</c> for an AI app; null otherwise.
+    /// </summary>
+    public string Via { get; private set; }
 
     /// <summary>The entity's display name, e.g. <c>Subscription</c>.</summary>
     public string EntityName { get; private set; }

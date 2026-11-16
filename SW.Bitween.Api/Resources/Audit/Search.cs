@@ -95,6 +95,7 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext)
             Sequence = e.Sequence,
             OccurredOn = e.OccurredOn,
             UserId = e.UserId,
+            Via = e.Via,
             UserDisplayName = int.TryParse(e.UserId, out var accountId)
                 ? names.GetValueOrDefault(accountId)
                 : null,

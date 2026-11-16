@@ -596,6 +596,16 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.Id).IsUnicode(false).HasMaxLength(50);
                 b.Property(p => p.AccountId);
                 b.Property(p => p.LoginMethod).HasConversion<byte>();
+                // An app's client id can be the address of its metadata document.
+                b.Property(p => p.ClientId).IsUnicode(false).HasMaxLength(2048);
+                b.Property(p => p.ClientName).HasMaxLength(200);
+            });
+
+            modelBuilder.Entity<SignInCodeUse>(b =>
+            {
+                b.ToTable("SignInCodeUses");
+                b.HasKey(p => p.Nonce);
+                b.Property(p => p.Nonce).IsUnicode(false).HasMaxLength(32);
             });
 
             modelBuilder.Entity<ServiceToken>(b =>
@@ -673,6 +683,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.EntityName).HasMaxLength(200).IsRequired();
                 b.Property(p => p.EntityKey).HasMaxLength(200);
                 b.Property(p => p.State).IsUnicode(false).HasMaxLength(10).IsRequired();
+                b.Property(p => p.Via).HasMaxLength(100);
 
                 b.HasIndex(p => new { p.EntityName, p.EntityKey, p.OccurredOn });
                 b.HasIndex(p => p.CorrelationId);

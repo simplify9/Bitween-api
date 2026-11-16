@@ -97,7 +97,7 @@ namespace SW.Bitween
             return new MicrosoftIdentity(email.ToLowerInvariant(), $"{oid}@{tid}");
         }
 
-        private static ClaimsIdentity CreateClaimsIdentity(this Account account, LoginMethod loginMethod)
+        internal static ClaimsIdentity CreateClaimsIdentity(this Account account, LoginMethod loginMethod)
         {
             var claims = new List<Claim>
             {
@@ -134,12 +134,16 @@ namespace SW.Bitween
             return new ClaimsIdentity(claims, "Bitween");
         }
 
+        /// <param name="via">What the session came through when not the admin UI, such as the CLI: the
+        /// audit trail shows it next to the member's name.</param>
         public static string CreateJwt(this Account account, LoginMethod loginMethod,
-            JwtTokenParameters jwtTokenParameters, TimeSpan jwtExpiry = default)
+            JwtTokenParameters jwtTokenParameters, TimeSpan jwtExpiry = default, string via = null)
         {
+            var identity = CreateClaimsIdentity(account, loginMethod);
+            if (via is not null) identity.AddClaim(new Claim(Services.Mcp.McpTokenHandler.ViaClaim, via));
             return jwtExpiry == default
-                ? jwtTokenParameters.WriteJwt(CreateClaimsIdentity(account, loginMethod))
-                : jwtTokenParameters.WriteJwt(CreateClaimsIdentity(account, loginMethod), jwtExpiry);
+                ? jwtTokenParameters.WriteJwt(identity)
+                : jwtTokenParameters.WriteJwt(identity, jwtExpiry);
         }
     }
 }

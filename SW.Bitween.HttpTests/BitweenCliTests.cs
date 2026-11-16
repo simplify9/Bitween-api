@@ -222,6 +222,43 @@ public class BitweenCliTests(HttpFixture fixture) : IDisposable
     }
 
     [Fact]
+    public async Task A_change_made_through_the_cli_says_so_in_the_audit_trail_even_after_renewing()
+    {
+        var verifier = new string('c', 43);
+        var challenge = Convert.ToBase64String(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.ASCII.GetBytes(verifier)))
+            .TrimEnd('=').Replace('+', '-').Replace('/', '_');
+        using var admin = await fixture.AdminAsync();
+        var grant = await admin.PostAsJsonAsync("/api/accounts/cligrant", new { codeChallenge = challenge });
+        var code = (await grant.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>())!["code"]!.ToString();
+        var session = (await (await fixture.Client().PostAsJsonAsync("/api/accounts/clitoken", new { code, codeVerifier = verifier }))
+            .Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>())!;
+
+        async Task<string> ViaOfARoleMadeWith(string jwt)
+        {
+            using var cli = fixture.Client();
+            cli.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", jwt);
+            var roleId = await Api.CreateAsync(cli, "/api/roles", new { name = Api.Unique("CLI audit role"), permissions = Array.Empty<string>() });
+            return await fixture.InDbAsync(db => Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstAsync(
+                db.Set<SW.Bitween.Domain.AuditEntry>()
+                    .Where(e => e.EntityName == "Role" && e.EntityKey == roleId.ToString()).Select(e => e.Via)));
+        }
+
+        Assert.Equal("CLI", await ViaOfARoleMadeWith(session["jwt"]!.ToString()));
+
+        // Renewed the way the CLI renews: the session still says it's the CLI's.
+        var renewed = await fixture.Client().PostAsJsonAsync("/api/accounts/login", new { refreshToken = session["refreshToken"]!.ToString() });
+        Assert.True(renewed.IsSuccessStatusCode);
+        var jwt = (await renewed.Content.ReadFromJsonAsync<System.Text.Json.Nodes.JsonObject>())!["jwt"]!.ToString();
+        Assert.Equal("CLI", await ViaOfARoleMadeWith(jwt));
+
+        // The admin UI's own session isn't marked.
+        var roleId = await Api.CreateAsync(admin, "/api/roles", new { name = Api.Unique("UI audit role"), permissions = Array.Empty<string>() });
+        Assert.Null(await fixture.InDbAsync(db => Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.FirstAsync(
+            db.Set<SW.Bitween.Domain.AuditEntry>()
+                .Where(e => e.EntityName == "Role" && e.EntityKey == roleId.ToString()).Select(e => e.Via))));
+    }
+
+    [Fact]
     public async Task A_sign_in_code_is_refused_without_its_verifier_or_when_altered()
     {
         var verifier = new string('v', 43);

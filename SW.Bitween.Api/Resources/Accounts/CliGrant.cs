@@ -17,11 +17,11 @@ public class CliGrantRequest
 /// must change its password never gets here; the pipeline refuses its token everywhere else.
 /// </summary>
 [HandlerName("cligrant")]
-public class CliGrant(RequestContext requestContext, CliSignInCodes codes) : ICommandHandler<CliGrantRequest, object>
+public class CliGrant(RequestContext requestContext, SignInCodes codes) : ICommandHandler<CliGrantRequest, object>
 {
     public Task<object> Handle(CliGrantRequest request)
     {
-        if (!CliSignInCodes.IsChallenge(request?.CodeChallenge))
+        if (!SignInCodes.IsChallenge(request?.CodeChallenge))
             throw new SWValidationException("CodeChallenge", "This isn't a sign-in request from the bitween CLI.");
 
         var accountId = Convert.ToInt32(requestContext.GetNameIdentifier());

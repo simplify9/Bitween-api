@@ -26,6 +26,8 @@ namespace SW.Bitween.Model
 
     public class SubscriptionPause
     {
+        /// <summary>The state wanted; left out, it switches to the other one.</summary>
+        public bool? Paused { get; set; }
     }
 
     public class SubscriptionAggregateNow

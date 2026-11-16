@@ -247,6 +247,8 @@ public sealed class BitweenFixture : IAsyncLifetime
 
                     services.AddMemoryCache();
                     services.AddSingleton<SignInThrottle>();
+                    services.AddScoped<SW.Bitween.Services.Sessions>();
+                    services.AddScoped<SW.Bitween.Services.ServiceTokens>();
                     services.AddSingleton<AccountMail>();
                     services.AddScoped<RequestContext>();
 

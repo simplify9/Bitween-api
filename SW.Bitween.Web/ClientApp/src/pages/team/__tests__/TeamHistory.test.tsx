@@ -67,6 +67,7 @@ describe("team history", () => {
     const { user } = renderApp("/team/members", {
       handlers: [
         // `RawAccount` in src/api/http/team.ts.
+        http.get(apiPath("/accounts/connectedapps"), () => HttpResponse.json([])),
         http.get(apiPath("/accounts"), () =>
           HttpResponse.json({
             result: [

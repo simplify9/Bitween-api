@@ -66,6 +66,9 @@ Signing in through the browser works for every account, however it signs in, and
 configured. An account that must change its password changes it in the browser first; the CLI can't be
 signed in as it until then.
 
+A change made through a session signed in through the browser is in the audit trail under the member,
+marked `CLI`; signing in with `--email` or a service account's token isn't marked.
+
 ### As a service account
 
 A job with no one to sign in, such as a pipeline or a Kubernetes CronJob, signs in as a **service account**

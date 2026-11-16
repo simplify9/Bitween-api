@@ -3,9 +3,9 @@ import { useMutation } from "@tanstack/react-query";
 import { useSearchParams } from "react-router";
 import { Terminal } from "lucide-react";
 import { grantCliSignIn } from "../../api";
-import { useSession } from "../../auth/useSession";
-import { Button, FormError } from "../../components/ui/basics";
+import { Button } from "../../components/ui/basics";
 import { AuthLayout } from "./AuthLayout";
+import { SignInConsent } from "./SignInConsent";
 
 const CHALLENGE = /^[A-Za-z0-9_-]{43}$/;
 const STATE = /^[A-Za-z0-9_-]{8,128}$/;
@@ -25,7 +25,6 @@ function loopbackPort(raw: string | null): number | null {
  * must not sign a terminal in without the member saying so.
  */
 export function CliLoginPage() {
-  const { session } = useSession();
   const [params] = useSearchParams();
   const challenge = params.get("challenge") ?? "";
   const state = params.get("state") ?? "";
@@ -80,32 +79,24 @@ export function CliLoginPage() {
       ) : done === "signed-in" ? (
         <p className="mt-4 text-sm text-ink-600">Handing the sign-in back to the CLI…</p>
       ) : (
-        <>
-          <p className="mt-4 text-sm text-ink-600">
+        <SignInConsent
+          warning={
+            <>
+              Only continue if you just ran <code>bitween login</code>.
+            </>
+          }
+          approveLabel="Sign in the CLI"
+          busy={grant.isPending}
+          error={grant.error?.message}
+          onApprove={() => grant.mutate()}
+          onCancel={cancel}
+        >
+          <p>
             A bitween CLI {port !== null ? "on this computer " : ""}is asking to sign in to this Bitween as you. It
             will be able to do what you can do here, until you run <code>bitween logout</code> or it goes unused for
             30 days.
           </p>
-          {session && (
-            <p className="mt-3 rounded-md bg-ink-50 px-3 py-2 text-sm text-ink-600">
-              Signed in as <span className="font-medium text-ink-900">{session.user.email}</span>
-            </p>
-          )}
-          <p className="mt-3 text-sm text-ink-500">Only continue if you just ran <code>bitween login</code>.</p>
-          {grant.error && (
-            <div className="mt-3">
-              <FormError>{grant.error.message}</FormError>
-            </div>
-          )}
-          <div className="mt-6 flex gap-2">
-            <Button onClick={cancel} disabled={grant.isPending}>
-              Cancel
-            </Button>
-            <Button variant="primary" busy={grant.isPending} onClick={() => grant.mutate()}>
-              Sign in the CLI
-            </Button>
-          </div>
-        </>
+        </SignInConsent>
       )}
     </AuthLayout>
   );
