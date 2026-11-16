@@ -277,15 +277,35 @@ export interface InformationTypes {
   get(id: number): Promise<(Record<string, unknown> & { id: number; name: string }) | null>;
 }
 
+/** How a gateway's callers prove who they are. */
+export interface ApiGatewayAuthentication {
+  method: "PartnerKey" | "Jwt" | "Signature";
+  keyHeader?: string | null;
+  issuer?: string | null;
+  audience?: string | null;
+  partnerClaim?: string | null;
+  /** Signature: the header the signature comes in. */
+  signatureHeader?: string | null;
+  /** Signature: `t=…,v1=…` over `{t}.{body}`, or a plain HMAC of the body. */
+  signatureScheme?: "HmacSha256" | "TimestampedHmacSha256" | null;
+  /** Signature: the partner property holding the secret the caller signs with. */
+  signatureSecretProperty?: string | null;
+  /** Signature, timestamped: seconds the signed time may be from now; 300 when empty. */
+  signatureToleranceSeconds?: number | null;
+}
+
 export interface ApiGateway {
   name: string;
   urlName: string;
   inactive?: boolean;
+  authentication?: ApiGatewayAuthentication;
   partners?: { partnerId: number; subscriptionId: number; partnerName: string; subscriptionName: string }[];
   [more: string]: unknown;
 }
 
 export interface ApiGateways extends Area<ApiGateway & { id: number }, ApiGateway & { id: number }, ApiGateway> {
+  /** The address partners call the gateway at, such as a webhook sender's callback. `/async` unless `sync`. */
+  callAddress(urlName: string, options?: { sync?: boolean }): string;
   attachPartner(id: number, attachment: { partnerId: number; subscriptionId?: number; newIntegration?: unknown }): Promise<void>;
   updatePartner(id: number, partnerId: number, subscriptionId: number): Promise<void>;
   detachPartner(id: number, partnerId: number): Promise<void>;

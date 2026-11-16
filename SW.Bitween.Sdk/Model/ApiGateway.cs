@@ -50,6 +50,27 @@ namespace SW.Bitween.Model
 
         /// <summary>A token signed by a login server the gateway trusts, sent as a bearer token.</summary>
         Jwt = 1,
+
+        /// <summary>
+        /// A signature over the request body, made with a secret the partner shares with the caller:
+        /// how webhook senders that can't add a key or a token prove who they are.
+        /// </summary>
+        Signature = 2,
+    }
+
+    /// <summary>How a signed gateway call carries its signature.</summary>
+    public enum GatewaySignatureScheme
+    {
+        /// <summary>
+        /// The header holds HMAC-SHA256 of the body, hex or base64, optionally after <c>sha256=</c>.
+        /// </summary>
+        HmacSha256 = 0,
+
+        /// <summary>
+        /// The header holds <c>t={unix seconds},v1={hex}</c>, where the hex is HMAC-SHA256 of
+        /// <c>{t}.{body}</c>. A call whose <c>t</c> is further from now than the tolerance is refused.
+        /// </summary>
+        TimestampedHmacSha256 = 1,
     }
 
     public class ApiGatewayAuthentication
@@ -76,6 +97,24 @@ namespace SW.Bitween.Model
 
         /// <summary>JWT only: the claim holding a partner's login server identity; <c>sub</c> when empty.</summary>
         public string? PartnerClaim { get; set; }
+
+        /// <summary>Signature only: the header the signature comes in. Required.</summary>
+        public string? SignatureHeader { get; set; }
+
+        /// <summary>Signature only: how the header is written and what is signed.</summary>
+        public GatewaySignatureScheme? SignatureScheme { get; set; }
+
+        /// <summary>
+        /// Signature only: the partner property holding the secret the caller signs with, best marked
+        /// secret on the partner. The caller is the attached partner whose secret makes the signature.
+        /// </summary>
+        public string? SignatureSecretProperty { get; set; }
+
+        /// <summary>
+        /// Signature, timestamped scheme only: how far the signed time may be from now, in seconds.
+        /// 300 when empty.
+        /// </summary>
+        public int? SignatureToleranceSeconds { get; set; }
     }
 
     public class ApiGatewayRow : ApiGatewayUpdate

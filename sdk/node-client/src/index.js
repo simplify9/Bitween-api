@@ -354,7 +354,17 @@ class InformationTypes {
 
 /** API gateways. A partner attached to one runs one subscription through it. */
 class ApiGateways extends Area {
-  constructor(request) { super(request, "apigateways"); }
+  #url;
+  constructor(request, url) { super(request, "apigateways"); this.#url = url; }
+
+  /**
+   * The address partners call a gateway at: what to hand an outside system, such as the callback a
+   * webhook sender posts to. `/async` unless `sync` is true.
+   */
+  callAddress(urlName, { sync = false } = {}) {
+    if (!urlName?.trim()) throw new TypeError("urlName is required.");
+    return new URL(`api/gateway/${urlName.trim().replace(/^\/+|\/+$/g, "")}/${sync ? "sync" : "async"}`, this.#url).href;
+  }
 
   /** Attaches a partner: `{ partnerId, subscriptionId }`, or `{ partnerId, newIntegration }`. */
   async attachPartner(id, attachment) { await this[POST](`${encodeURIComponent(id)}/addpartner`, attachment); }
@@ -570,7 +580,7 @@ class BitweenClient {
     /** Information types (documents, in the API). Read only. */
     this.informationTypes = new InformationTypes(request);
     /** API gateways, and which partner runs which subscription through each. */
-    this.apiGateways = new ApiGateways(request);
+    this.apiGateways = new ApiGateways(request, this.#url);
     /** Bus gateways, and the routes that send their messages to subscriptions. */
     this.busGateways = new BusGateways(request);
     /** Notification channels: where results and alerts are sent. */

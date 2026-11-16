@@ -25,6 +25,8 @@ import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { splitErrors } from "../../lib/fieldErrors";
 import { GATEWAY_ERRORS } from "./gatewayErrors";
 import { usePageTitle } from "../../lib/pageTitle";
+import { SignatureFields, SignedCallHowTo } from "./SignatureAuth";
+import { signatureProblems } from "./signatureProblems";
 
 const ATTACHMENTS_PAGE_SIZE = 10;
 
@@ -69,6 +71,7 @@ const FAILURE_ANSWERS = [
 const AUTH_METHODS = [
   { value: "PartnerKey", label: "API keys" },
   { value: "Jwt", label: "Tokens from a login server (JWT)" },
+  { value: "Signature", label: "Signed calls (webhooks)" },
 ];
 
 const trimmedAuth = (a: GatewayAuthentication): GatewayAuthentication => ({
@@ -77,7 +80,14 @@ const trimmedAuth = (a: GatewayAuthentication): GatewayAuthentication => ({
   issuer: a.issuer.trim(),
   audience: a.audience.trim(),
   partnerClaim: a.partnerClaim.trim(),
-});
+  // Only once there is a signature setup, so a key or token gateway saves what it always did.
+  ...((a.method === "Signature" || a.signatureHeader.trim()) && {
+    signatureHeader: a.signatureHeader.trim(),
+    signatureScheme: a.signatureScheme,
+    signatureSecretProperty: a.signatureSecretProperty.trim(),
+    signatureToleranceSeconds: a.signatureToleranceSeconds,
+  }),
+}) as GatewayAuthentication;
 
 /** What the server refuses too; checked here so the field says so before a save is tried. */
 const authProblems = (a: GatewayAuthentication): { keyHeader?: string; issuer?: string; audience?: string } => {
@@ -160,6 +170,10 @@ export function ApiGatewayPage() {
     issuer: "",
     audience: "",
     partnerClaim: "",
+    signatureHeader: "",
+    signatureScheme: "TimestampedHmacSha256",
+    signatureSecretProperty: "",
+    signatureToleranceSeconds: null,
   });
   const [removing, setRemoving] = useState<{ partnerId: number; partnerName: string } | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -223,6 +237,7 @@ export function ApiGatewayPage() {
   const urlProblem = urlNameProblem(urlName);
   const refused = splitErrors(save.error, GATEWAY_ERRORS);
   const authProblem = authProblems(auth);
+  const signatureProblem = Object.values(signatureProblems(auth)).find(Boolean);
   const urlChanged = finishUrlName(urlName) !== g.urlName;
   const methodChanged = auth.method !== g.authentication.method;
   const callChanged =
@@ -349,6 +364,7 @@ export function ApiGatewayPage() {
                 </div>
               </Field>
             )}
+            {auth.method === "Signature" && <SignatureFields auth={auth} canEdit={canEdit} onChange={setAuth} />}
             {auth.method === "Jwt" && (
               <>
                 <Field label="Login server" htmlFor="ag-jwt-issuer" error={authProblem.issuer}>
@@ -407,7 +423,9 @@ export function ApiGatewayPage() {
                 </span>
               )}
             </p>
-            {auth.method === "Jwt" ? (
+            {auth.method === "Signature" ? (
+              <SignedCallHowTo urlName={urlName} auth={auth} />
+            ) : auth.method === "Jwt" ? (
               <>
                 <pre className="overflow-x-auto rounded-lg bg-ink-50 px-3 py-2.5 font-mono text-[12px] leading-relaxed text-ink-700">
                   {`POST /api/gateway/${urlName}/sync\nAuthorization: Bearer <a token from the login server>\n\n<the document, as the body>`}
@@ -646,10 +664,10 @@ export function ApiGatewayPage() {
         <UnsavedBar
           busy={save.isPending}
           error={
-            urlProblem ?? authProblem.keyHeader ?? authProblem.issuer ?? authProblem.audience ?? refused.rest
+            urlProblem ?? authProblem.keyHeader ?? authProblem.issuer ?? authProblem.audience ?? signatureProblem ?? refused.rest
           }
           onSave={() => {
-            if (urlProblem || authProblem.keyHeader || authProblem.issuer || authProblem.audience) return;
+            if (urlProblem || authProblem.keyHeader || authProblem.issuer || authProblem.audience || signatureProblem) return;
             // Each cuts partners off: the URL is what they hold, and the method and key header are
             // how they prove who they are.
             if (urlChanged || methodChanged || keyHeaderChanged) setConfirmingSave(true);
@@ -703,7 +721,9 @@ export function ApiGatewayPage() {
                 <p>
                   {auth.method === "Jwt"
                     ? "Partners calling with API keys will get 401s. Only tokens from the login server are accepted, and only for partners whose login server identity is set."
-                    : "Tokens from the login server stop being accepted. Partners will need an API key."}
+                    : auth.method === "Signature"
+                      ? "Partners calling with API keys or tokens will get 401s. Only calls signed with an attached partner's secret are accepted."
+                      : "Signed calls and tokens stop being accepted. Partners will need an API key."}
                 </p>
               )}
               {keyHeaderChanged && (

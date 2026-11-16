@@ -40,6 +40,10 @@ public class GatewayCallers(
     public async Task<(bool Authorized, Partner Partner, string Reference, string KeyName)> Identify(
         ApiGateway gateway, RequestContext requestContext)
     {
+        // Signed calls are identified from their body, by IdentifyBySignature; never by a key.
+        if (gateway.AuthMethod == GatewayAuthMethod.Signature)
+            return (false, null, null, null);
+
         if (gateway.AuthMethod != GatewayAuthMethod.Jwt)
         {
             // From the cache, like the gateway itself: this was a query on every call.
@@ -69,6 +73,43 @@ public class GatewayCallers(
         }
 
         return (true, partner, $"jwt: {identity}", null);
+    }
+
+    /// <summary>
+    /// A signature gateway's caller: the attached partner whose secret (the gateway's signature
+    /// secret property) makes the signature in the gateway's signature header. Checked against every
+    /// attached partner that has one; exactly one must match, so two partners sharing a secret can't
+    /// be told apart and are both refused.
+    /// </summary>
+    public async Task<(bool Authorized, Partner Partner, string Reference)> IdentifyBySignature(
+        ApiGateway gateway, string header, ReadOnlyMemory<byte> body, DateTimeOffset now)
+    {
+        if (string.IsNullOrWhiteSpace(header) || string.IsNullOrEmpty(gateway.SignatureSecretProperty))
+            return (false, null, null);
+
+        Partner match = null;
+        foreach (var partnerId in gateway.Partners.Select(p => p.PartnerId).Distinct())
+        {
+            var partner = await cache.PartnerByIdAsync(partnerId);
+            var secret = partner?.AdapterProperties?
+                .FirstOrDefault(p => string.Equals(p.Key, gateway.SignatureSecretProperty, StringComparison.OrdinalIgnoreCase))
+                .Value;
+            if (string.IsNullOrEmpty(secret)) continue;
+            if (!GatewaySignatures.Verify(gateway.SignatureScheme, header, body.Span, secret,
+                    gateway.SignatureToleranceSeconds, now)) continue;
+            if (match != null)
+            {
+                logger.LogWarning("Two partners of gateway {Gateway} share a signing secret: {First} and {Second}",
+                    gateway.UrlName, match.Name, partner.Name);
+                return (false, null, null);
+            }
+            match = partner;
+        }
+
+        if (match == null)
+            logger.LogInformation("Signature refused on gateway {Gateway}: no attached partner's secret makes it",
+                gateway.UrlName);
+        return match == null ? (false, null, null) : (true, match, $"signature: {match.Name}");
     }
 
     async Task<string> IdentityFromToken(ApiGateway gateway, RequestContext requestContext)

@@ -34,6 +34,12 @@ public class ApiGateway : BaseEntity,IAudited
     public string JwtAudience { get; set; }
     public string JwtPartnerClaim { get; set; }
 
+    /// <summary>Signature only. See <see cref="ApiGatewayAuthentication"/> for what each one means.</summary>
+    public string SignatureHeader { get; set; }
+    public GatewaySignatureScheme SignatureScheme { get; set; }
+    public string SignatureSecretProperty { get; set; }
+    public int? SignatureToleranceSeconds { get; set; }
+
     /// <summary>
     /// What a sync call is told when the delivery behind it fails. Legacy (400, no body) for gateways
     /// made before this existed: a caller may be written against it.

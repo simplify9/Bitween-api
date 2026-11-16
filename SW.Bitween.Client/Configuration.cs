@@ -206,6 +206,16 @@ public sealed class ApiGateways
     public Task<int> CreateAsync(ApiGatewayCreate gateway, CancellationToken cancellation = default) =>
         bitween.PostAsync<int>("api/apigateways", gateway, cancellation);
 
+    /// <summary>
+    /// The address partners call the gateway at: what to hand an outside system, such as the
+    /// callback a webhook sender is told to post to. <c>/async</c> unless <paramref name="sync"/>.
+    /// </summary>
+    public Uri CallAddress(string urlName, bool sync = false)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(urlName);
+        return new Uri(bitween.Address, $"api/gateway/{urlName.Trim('/')}/{(sync ? "sync" : "async")}");
+    }
+
     /// <summary>Saves the gateway's own settings. Its partners are attached and removed on their own.</summary>
     public Task UpdateAsync(int id, ApiGatewayUpdate gateway, CancellationToken cancellation = default) =>
         bitween.PostAsync($"api/apigateways/{id}", gateway, cancellation);

@@ -11,6 +11,7 @@ import type {
   GatewayAuthentication,
   GatewayFailureAnswer,
   GatewayAuthMethod,
+  GatewaySignatureScheme,
   InlineSubscriptionDraft,
   MatchGroup,
   MirrorListFilter,
@@ -40,6 +41,10 @@ interface RawGatewayAuthentication {
   issuer: string | null;
   audience: string | null;
   partnerClaim: string | null;
+  signatureHeader?: string | null;
+  signatureScheme?: GatewaySignatureScheme | null;
+  signatureSecretProperty?: string | null;
+  signatureToleranceSeconds?: number | null;
 }
 interface RawApiGateway {
   id: number;
@@ -111,6 +116,10 @@ const toApiGatewayDetail = (raw: RawApiGateway): ApiGatewayDetail => ({
     issuer: raw.authentication?.issuer ?? "",
     audience: raw.authentication?.audience ?? "",
     partnerClaim: raw.authentication?.partnerClaim ?? "",
+    signatureHeader: raw.authentication?.signatureHeader ?? "",
+    signatureScheme: raw.authentication?.signatureScheme ?? "TimestampedHmacSha256",
+    signatureSecretProperty: raw.authentication?.signatureSecretProperty ?? "",
+    signatureToleranceSeconds: raw.authentication?.signatureToleranceSeconds ?? null,
   },
   defaultKeyHeader: raw.defaultKeyHeader ?? "partnerkey",
   failureAnswer: raw.failureAnswer ?? undefined,

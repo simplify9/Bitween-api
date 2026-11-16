@@ -22,6 +22,10 @@ internal static class GatewayAuthentication
         Issuer = gateway.JwtIssuer,
         Audience = gateway.JwtAudience,
         PartnerClaim = gateway.JwtPartnerClaim,
+        SignatureHeader = gateway.SignatureHeader,
+        SignatureScheme = gateway.SignatureHeader == null ? null : gateway.SignatureScheme,
+        SignatureSecretProperty = gateway.SignatureSecretProperty,
+        SignatureToleranceSeconds = gateway.SignatureToleranceSeconds,
     };
 
     public static void Apply(ApiGateway gateway, ApiGatewayAuthentication model)
@@ -48,7 +52,35 @@ internal static class GatewayAuthentication
                     "other system would be accepted here.");
         }
 
+        var signatureHeader = Trimmed(model.SignatureHeader);
+        var secretProperty = Trimmed(model.SignatureSecretProperty);
+        if (model.Method == GatewayAuthMethod.Signature)
+        {
+            if (signatureHeader == null || signatureHeader.Length > 100 || PartnerKeyHeaders.Problem(signatureHeader) is not null)
+                throw new SWValidationException("GATEWAY_SIGNATURE_HEADER_INVALID",
+                    "Name the header the signature comes in, as a plain header name.");
+            if (model.SignatureScheme is not { } scheme || !Enum.IsDefined(scheme))
+                throw new SWValidationException("GATEWAY_SIGNATURE_SCHEME_INVALID", "Say how the signature is written.");
+            if (secretProperty == null)
+                throw new SWValidationException("GATEWAY_SIGNATURE_SECRET_REQUIRED",
+                    "Name the partner property holding the secret the caller signs with.");
+            if (secretProperty.Length > 200)
+                throw new SWValidationException("GATEWAY_SIGNATURE_SECRET_REQUIRED",
+                    "The secret property's name is at most 200 characters.");
+            if (model.SignatureToleranceSeconds is < 1 or > 86400)
+                throw new SWValidationException("GATEWAY_SIGNATURE_TOLERANCE_INVALID",
+                    "The tolerance is between 1 second and a day.");
+        }
+
         gateway.AuthMethod = model.Method;
+        // Kept when the gateway switches to another way, as the JWT settings are.
+        if (signatureHeader != null || model.Method == GatewayAuthMethod.Signature)
+        {
+            gateway.SignatureHeader = signatureHeader;
+            gateway.SignatureScheme = model.SignatureScheme ?? GatewaySignatureScheme.HmacSha256;
+            gateway.SignatureSecretProperty = secretProperty;
+            gateway.SignatureToleranceSeconds = model.SignatureToleranceSeconds;
+        }
         gateway.PartnerKeyHeader = keyHeader;
         gateway.JwtIssuer = issuer;
         gateway.JwtAudience = audience;

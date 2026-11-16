@@ -237,6 +237,9 @@ public sealed partial class MirrorService
             if (gateway.AuthMethod == GatewayAuthMethod.Jwt)
                 return new Entered(null, NotRun: $"The gateway “{gateway.UrlName}” takes tokens from a login server, which the test can't sign: " +
                     "send this one in by hand, with a token from your test login server.");
+            if (gateway.AuthMethod == GatewayAuthMethod.Signature)
+                return new Entered(null, NotRun: $"The gateway “{gateway.UrlName}” takes signed calls, which the test can't sign: " +
+                    "send this one in by hand, signed with staging's partner secret.");
         }
         else
         {

@@ -178,7 +178,7 @@ test("reads files, retry trees and scheduled retries, and streams an export", as
 });
 
 test("lists, reads, creates, saves and deletes the configuration areas", async () => {
-  const { seen, client } = await fakeBitween((r) =>
+  const { seen, client, url } = await fakeBitween((r) =>
     r.path === "/api/partners/generatekey" ? [200, "abc123", "text/plain"]
     : r.path === "/api/partners/404" ? [404, null]
     : r.path === "/api/partners/5" && r.method === "GET" ? [200, null]
@@ -202,6 +202,8 @@ test("lists, reads, creates, saves and deletes the configuration areas", async (
   await bitween.busGateways.removeRoute(2, 9);
   await bitween.apiGateways.attachPartner(3, { partnerId: 7, subscriptionId: 4 });
   await bitween.apiGateways.detachPartner(3, 7);
+  assert.strictEqual(bitween.apiGateways.callAddress("hooks/acme"), `${url}api/gateway/hooks/acme/async`);
+  assert.strictEqual(bitween.apiGateways.callAddress("hooks", { sync: true }), `${url}api/gateway/hooks/sync`);
   assert.deepStrictEqual(await bitween.notificationChannels.test(6), { sent: false, error: "no such host" });
 
   const sent = seen.requests.map((r) => [r.method, r.path, r.filters.length ? r.filters : r.body]);

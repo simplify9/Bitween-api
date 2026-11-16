@@ -112,8 +112,24 @@ public class GatewayController(
             return new CreatedCall(NotFound());
         }
 
-        // Resolve the partner the way this gateway asks callers to prove who they are
-        var (authorized, partner, callerReference, keyName) = await callers.Identify(apiGateway, requestContext);
+        // Resolve the partner the way this gateway asks callers to prove who they are. A signature
+        // is over the exact bytes sent, so a signed call's body is read first, as bytes.
+        byte[] signedBody = null;
+        bool authorized;
+        Partner partner;
+        string callerReference, keyName = null;
+        if (apiGateway.AuthMethod == GatewayAuthMethod.Signature)
+        {
+            signedBody = await ReadBytesAsync(HttpContext.Request.Body);
+            var header = apiGateway.SignatureHeader == null ? null
+                : Request.Headers[apiGateway.SignatureHeader].FirstOrDefault();
+            (authorized, partner, callerReference) =
+                await callers.IdentifyBySignature(apiGateway, header, signedBody, DateTimeOffset.UtcNow);
+        }
+        else
+        {
+            (authorized, partner, callerReference, keyName) = await callers.Identify(apiGateway, requestContext);
+        }
 
         if (!authorized)
         {
@@ -153,7 +169,9 @@ public class GatewayController(
             return new CreatedCall(NotFound());
         }
 
-        var json = await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
+        var json = signedBody != null
+            ? new StreamReader(new MemoryStream(signedBody)).ReadToEnd()
+            : await new StreamReader(HttpContext.Request.Body).ReadToEndAsync();
 
         // The file name travels with the exchange into handlers, some of which write it to disk -
         // a slash there is a directory nobody asked for. JSON and XML types keep the ".json"
@@ -259,6 +277,13 @@ public class GatewayController(
         }
 
         return new CreatedCall(null, xchangeId, waitResponse, apiGateway.FailureAnswer);
+    }
+
+    static async Task<byte[]> ReadBytesAsync(Stream body)
+    {
+        using var buffer = new MemoryStream();
+        await body.CopyToAsync(buffer);
+        return buffer.ToArray();
     }
 
     private async Task<IActionResult> WaitAsync(CreatedCall call)

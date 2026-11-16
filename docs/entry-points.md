@@ -80,6 +80,20 @@ The claim named in the gateway's partner claim, `sub` unless set, must equal a p
 - If the login server can't be reached, calls get 401 and the log says why. Bitween waits at most 10 seconds for it.
 - Keys are cached. A key the login server stops publishing is refused as soon as Bitween reads the new list.
 
+**Signed calls (webhooks).** For senders that can't send a key or a token, only sign what they send, as most webhook senders do. The gateway names:
+
+- the **signature header** the signature comes in
+- the **format**:
+  - `TimestampedHmacSha256`: the header is `t=<unix seconds>,v1=<hex>`, the hex being HMAC-SHA256 of `{t}.{body}`. A `t` further from now than the **tolerance** (300 seconds unless set) is refused. Several `v1` parts are allowed, for a sender rotating its secret; one matching is enough. A `t` in milliseconds is read as such.
+  - `HmacSha256`: the header is HMAC-SHA256 of the body, in hex or base64, optionally after `sha256=`.
+- the **secret property**: the partner property holding the secret the sender signs with. Mark it secret on the partner page.
+
+The caller is the attached partner whose secret makes the signature, so each sender gets a partner of its own with its own secret. The signature is checked over the exact bytes received, and the exchange's input is that body.
+
+- A signed gateway refuses keys and tokens, and key and token gateways ignore signatures.
+- A missing, wrong or stale signature gets 401. Some senders switch their webhook off after a 401, so check a new setup with one test call before relying on it.
+- Two attached partners holding the same secret can't be told apart, so their calls are refused and the log says so.
+
 ### Async and sync
 
 `/async` returns `202 Accepted` with the exchange id as soon as the exchange is stored.

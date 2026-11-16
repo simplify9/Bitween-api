@@ -94,6 +94,9 @@ public sealed class BitweenClient : IDisposable
     /// <summary>Adapters: an adapter version's manifest, as published. Read only.</summary>
     public Adapters Adapters { get; }
 
+    /// <summary>The Bitween's address, as this client calls it.</summary>
+    public Uri Address => http.BaseAddress!;
+
     internal async Task<T> GetAsync<T>(string path, CancellationToken cancellation)
     {
         using var response = await SendAsync(() => new HttpRequestMessage(HttpMethod.Get, path),
