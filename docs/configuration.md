@@ -218,7 +218,7 @@ The **Mail server** section is the one SMTP server every Email notification chan
 
 The **AI** section is the provider every AI feature calls; they are [Generate with AI](mapping.md#generate-with-ai) in the mapping editor, [Explain this failure](#explaining-a-failure) on a failed exchange, [Ask](#asking-your-exchanges) on the Exchanges page, and [Suggest with AI](retries-and-alerts.md#suggesting-a-policy-with-ai) beside a subscription's retry policy. It is read on each call, and AI features stay off until an API key is set (Ollama and Other need none).
 
-- **Provider** is one of these. Any other value, such as a misspelling in configuration, leaves AI features off. Changing it clears the key, model and address.
+- **Provider** is one of these. Any other value, such as a misspelling in configuration, leaves AI features off. Changing it, or resetting it, clears the key, model and address.
 
   | Provider | Where it's called | Models |
   |---|---|---|
@@ -242,10 +242,10 @@ The **AI** section is the provider every AI feature calls; they are [Generate wi
 
   Settings asks only for what each one needs: the resource name for Azure, the AWS region for Bedrock, the region for Qwen, a whole address for Other. **Use a different address** puts a proxy or gateway in front of any of them; the setting stores the address either way (`Bitween__Ai__BaseUrl`).
 - **Model** empty uses `claude-opus-5-5` with Anthropic. Every other provider needs one. Where the provider lists its models, Settings offers them to search and pick from, leaving out ones that can't chat; any other name can still be typed.
-- **API key** is a secret setting, so storing it needs `Bitween:SettingsEncryptionKey`.
+- **API key** is set on the Settings page only: `Bitween:Ai:ApiKey` in configuration is ignored, with a warning at startup, because a key from configuration couldn't be cleared when the provider changes. It is a secret setting, so storing it needs `Bitween:SettingsEncryptionKey`.
 - **API address** must be `https`, except plain `http` to this machine (`localhost`), so the key is never sent in the clear. Calls go through the same address check as adapters: never to link-local or cloud metadata addresses, and not to private or loopback ones while `Bitween:BlockPrivateNetworkAddresses` is on.
 
-**Test connection** sends the model on screen one small request, the same kind AI features make, before anything is saved. Saving changed AI settings runs the same test first. When it fails, the reason shows and you can cancel or save anyway. Clearing the key, which turns AI off, saves without a test. A test without a typed key uses the saved one, but only for the provider and address it was saved for.
+**Test connection** sends the model on screen one small request, the same kind AI features make, before anything is saved. Saving changed AI settings runs the same test first. When it fails, the reason shows and you can cancel or save anyway. For a provider that needs a key, clearing it turns AI off and saves without a test. Ollama and Other need none, so clearing it leaves AI on, and the test runs without it; clear the model to turn AI off for them. A test without a typed key uses the saved one, but only for the provider and address it was saved for.
 
 When the provider refuses or fails a call, the message gives its HTTP status, not the text it sent back.
 

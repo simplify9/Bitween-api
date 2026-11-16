@@ -57,13 +57,13 @@ const valueOf = (rows: SettingRow[], draft: SettingsDraft, key: string) => {
 
 /**
  * The AI settings as they show on screen: staged values over saved ones. The key goes along only
- * when one was typed - a saved key never reaches the browser, and the server fills it in.
+ * when one was typed, or empty when it's being removed - a saved key never reaches the browser, and
+ * the server fills it in.
  */
 export function aiCandidate(rows: SettingRow[], draft: SettingsDraft): AiCandidate {
-  const typedKey = draft[AI_KEYS.apiKey];
   return {
     provider: valueOf(rows, draft, AI_KEYS.provider),
-    apiKey: typedKey ? typedKey : undefined,
+    apiKey: AI_KEYS.apiKey in draft ? (draft[AI_KEYS.apiKey] ?? "") : undefined,
     model: valueOf(rows, draft, AI_KEYS.model),
     baseUrl: valueOf(rows, draft, AI_KEYS.baseUrl),
   };
@@ -115,8 +115,8 @@ export function changeProvider(rows: SettingRow[], value: string) {
   const backToSaved = value === (providerRow.value ?? providerRow.defaultValue);
   for (const key of [AI_KEYS.apiKey, AI_KEYS.model, AI_KEYS.baseUrl]) {
     const r = row(key);
-    // A key that can't be stored here comes from configuration: there's nothing to clear, and
-    // staging it would only make the save fail.
+    // A key that can't be stored here is always empty: there's nothing to clear, and staging it
+    // would only make the save fail.
     if (!r || !r.editable) continue;
     if (backToSaved) settingsDraft.unstage(key);
     // A secret's saved value is null, so an empty string is what stages "no key".

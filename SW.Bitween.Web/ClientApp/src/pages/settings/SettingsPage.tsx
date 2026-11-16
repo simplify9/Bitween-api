@@ -530,9 +530,19 @@ export function SettingsPage() {
           onSave={async () => {
             // Changed AI settings are tried first, so a wrong key or model is caught while it's on screen -
             // and tried again if they changed while the call ran, so what's saved is what was tested.
+            // Whether a provider needs a key decides the check, so the list is loaded even when the AI section isn't open.
+            let providers = aiProviders.data;
+            if (!providers && Object.values(AI_KEYS).some((key) => key in settingsDraft.get())) {
+              try {
+                providers = await queryClient.fetchQuery({ queryKey: keys.settings.aiProviders, queryFn: () => api.listAiProviders() });
+              } catch (e) {
+                setAiFailedOnSave(e instanceof Error ? e.message : "The AI providers couldn't be loaded.");
+                return;
+              }
+            }
             for (;;) {
               const current = settingsDraft.get();
-              const candidate = aiCheckOnSave(rows, current, aiProviders.data);
+              const candidate = aiCheckOnSave(rows, current, providers);
               if (!candidate) break;
               const key = aiOutcomeKey(rows, current);
               try {

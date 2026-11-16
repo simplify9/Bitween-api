@@ -10,7 +10,7 @@ public class AiCandidate
 {
     public string? Provider { get; set; }
 
-    /// <summary>A key typed in Settings; null uses the saved one.</summary>
+    /// <summary>A key typed in Settings; null uses the saved one, empty is the key being removed.</summary>
     public string? ApiKey { get; set; }
 
     public string? Model { get; set; }
@@ -27,6 +27,8 @@ public class AiCandidate
     {
         var candidate = new AiOptions { Provider = Provider, ApiKey = ApiKey, Model = Model, BaseUrl = BaseUrl };
         if (!string.IsNullOrWhiteSpace(ApiKey)) return candidate;
+        // Being removed: tested without it, as it will run once saved.
+        if (ApiKey is not null) return candidate;
 
         var savedFor = candidate.Known is not null && candidate.Known == saved.Known
                        && candidate.ResolvedBaseUrl == saved.ResolvedBaseUrl;

@@ -189,6 +189,31 @@ public class AiCheckTests(HttpFixture fixture) : IDisposable
     }
 
     [Fact]
+    public async Task Resetting_the_provider_clears_the_last_ones_key()
+    {
+        var admin = await WithSavedKeyAsync("Mistral");
+
+        await Api.Json(await admin.DeleteAsync("/api/settings/Bitween.Ai.Provider"));
+
+        var settings = (await Api.Json(await admin.GetAsync("/api/settings"))).AsArray();
+        var key = settings.Single(s => (string)s!["key"]! == "Bitween.Ai.ApiKey")!;
+        Assert.False((bool)key["hasValue"]!);
+        Assert.True(string.IsNullOrEmpty(fixture.App.Services.GetRequiredService<BitweenOptions>().Ai.ApiKey));
+    }
+
+    [Fact]
+    public async Task A_key_being_removed_is_not_used_to_test()
+    {
+        var admin = await WithSavedKeyAsync("Other (OpenAI-compatible)", "https://gateway.acme.test/v1/");
+        var provider = Answering(_ => Chat("""{"ok": true}"""));
+
+        await Api.Json(await admin.PostAsJsonAsync("/api/aichecks",
+            new { provider = "Other (OpenAI-compatible)", apiKey = "", model = "team-chat", baseUrl = "https://gateway.acme.test/v1/" }));
+
+        Assert.Equal("Bearer none", Assert.Single(provider.Received).Request.Headers.Authorization!.ToString());
+    }
+
+    [Fact]
     public async Task Only_Gemini_model_names_lose_their_models_prefix()
     {
         var admin = await fixture.AdminAsync();

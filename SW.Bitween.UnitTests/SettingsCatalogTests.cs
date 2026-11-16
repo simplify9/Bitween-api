@@ -1,4 +1,5 @@
 using System.Linq;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using SW.Bitween.Services;
 
@@ -212,5 +213,19 @@ public class SettingsCatalogTests
         target.Bitween.Ai.Model = "some-model";
         target.Bitween.Ai.Provider = "Anthropc";
         Assert.IsFalse(target.Bitween.Ai.IsSet);
+    }
+
+    [TestMethod]
+    public void An_AI_key_in_configuration_is_ignored()
+    {
+        // Configuration can't be cleared when the provider changes, so its key would go to the next one.
+        var options = new BitweenOptions { SettingsEncryptionKey = "a passphrase long enough to use" };
+        options.Ai.Provider = "OpenAI";
+        options.Ai.ApiKey = "sk-from-configuration";
+
+        _ = new SettingsService(options, new ThemeOptions(), new SettingsProtector(options), NullLogger<SettingsService>.Instance);
+
+        Assert.AreEqual("", options.Ai.ApiKey ?? "");
+        Assert.AreEqual("OpenAI", options.Ai.Provider);
     }
 }
