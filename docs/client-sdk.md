@@ -136,6 +136,7 @@ sent and read as the API's JSON, so a match expression is `{ type: "one_of", pat
 | `Exchanges.ExportAsync(selection)` | `exchanges.export(selection)` | The files as one zip, a folder for each exchange, as a stream |
 | `ScheduledRetries.SearchAsync(query, page, size)` | `scheduledRetries.search(query, { page, size })` | The automatic retries waiting to run, soonest first |
 | `ScheduledRetries.RunNowAsync(id)` | `scheduledRetries.runNow(id)` | Runs an exchange's booked automatic retry now |
+| `Adapters.GetManifestAsync(adapterId, version)` | `adapters.getManifest(adapterId, { version })` | An adapter version's manifest, whole, as a `JsonObject` (an object in JavaScript), sections Bitween does not read included; the current version's without one. Null when there is none, or the version is withdrawn. Needs `subscriptions.view`. |
 
 ### Configuration
 

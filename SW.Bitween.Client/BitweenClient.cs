@@ -13,7 +13,8 @@ namespace SW.Bitween.Client;
 /// they share one session. What the account may do is what its roles allow: <c>exchanges.view</c> to
 /// read exchanges and <c>exchanges.operate</c> to retry them; <c>partners.*</c>,
 /// <c>subscriptions.*</c>, <c>documents.view</c>, <c>api-gateways.*</c>, <c>bus-gateways.*</c> and
-/// <c>notifiers.*</c> for the configuration each area manages. Sending to a gateway is a partner's
+/// <c>notifiers.*</c> for the configuration each area manages, and <c>subscriptions.view</c> to read
+/// adapters' manifests. Sending to a gateway is a partner's
 /// call, not an account's: see <see cref="BitweenGateway"/>.
 /// </summary>
 /// <example>
@@ -63,6 +64,7 @@ public sealed class BitweenClient : IDisposable
         ApiGateways = new ApiGateways(this);
         BusGateways = new BusGateways(this);
         NotificationChannels = new NotificationChannels(this);
+        Adapters = new Adapters(this);
     }
 
     /// <summary>Search exchanges, read their files, and retry or export them.</summary>
@@ -88,6 +90,9 @@ public sealed class BitweenClient : IDisposable
 
     /// <summary>Notification channels: where a subscription's results and alerts are sent.</summary>
     public NotificationChannels NotificationChannels { get; }
+
+    /// <summary>Adapters: an adapter version's manifest, as published. Read only.</summary>
+    public Adapters Adapters { get; }
 
     internal async Task<T> GetAsync<T>(string path, CancellationToken cancellation)
     {
