@@ -72,6 +72,12 @@ public sealed record SettingDefinition(
     /// </summary>
     public IReadOnlyList<string> Clears { get; init; }
 
+    /// <summary>
+    /// Set only on the Settings page: configuration is never read for it, not even once at the first
+    /// boot. Without <c>SettingsEncryptionKey</c> a secret like this can't be stored, so it stays empty.
+    /// </summary>
+    public bool PageOnly { get; init; }
+
     /// <summary>Only editable settings get a row; the rest are read straight off the options.</summary>
     public bool Stored => Access == SettingAccess.Editable;
 }
@@ -333,7 +339,12 @@ public static class SettingsCatalog
             "AI features stay off until one is set, except for providers that take none.",
             SettingKind.String, true,
             t => t.Bitween.Ai.ApiKey,
-            (t, v) => t.Bitween.Ai.ApiKey = Trimmed(v)),
+            (t, v) => t.Bitween.Ai.ApiKey = Trimmed(v))
+        {
+            // A key from configuration can't be cleared when the provider changes, so it would go to
+            // the next provider. It's set on the Settings page or not at all.
+            PageOnly = true,
+        },
 
         new("Bitween.Ai.Model", "AI",
             "Model",

@@ -95,6 +95,12 @@ export function AiAddressRow({
     // Only when the provider changes: typing an address mustn't flip the mode under the cursor.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [provider.name]);
+  // And when the saved address comes back (Discard), so the mode matches it again.
+  const restored = staged === undefined;
+  useEffect(() => {
+    if (restored) setCustom(!hasOwnAddress(provider) || !ownsAddress(provider, value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restored]);
 
   const templatePart = provider.template ? (partOf(provider.template, value) ?? "") : "";
   const [part, setPart] = useState(templatePart);

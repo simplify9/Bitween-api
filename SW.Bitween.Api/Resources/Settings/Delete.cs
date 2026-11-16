@@ -1,6 +1,5 @@
 using System;
 using System.Threading.Tasks;
-using SW.Bitween.Domain;
 using SW.Bitween.Services;
 using SW.PrimitiveTypes;
 
@@ -36,20 +35,9 @@ public class Delete(
             throw new SWValidationException("SETTING_ENCRYPTION_UNAVAILABLE",
                 $"{definition.Label} is a secret that isn't stored, so there's nothing to reset.");
 
-        var productDefault = SettingsService.DefaultOf(definition);
-        var stored = await dbContext.Set<Setting>().FindAsync(definition.Key);
-        var toStore = settings.ToStored(definition, productDefault);
-
-        if (stored is null)
-            dbContext.Add(new Setting { Id = definition.Key, Value = toStore });
-        else
-            stored.Value = toStore;
-
-        await dbContext.SaveChangesAsync();
-
         // Resetting an already-default setting is a no-op, not an error - the UI can fire this for
-        // a staged reset it never saved a value for.
-        settings.Apply(definition, productDefault);
+        // a staged reset it never saved a value for. Like an update, it clears what it Clears.
+        await settings.Save(dbContext, definition, SettingsService.DefaultOf(definition));
 
         // A reset has to take effect the same way a write does - see Update.
         if (definition.OnChange is not null) await definition.OnChange(serviceProvider);

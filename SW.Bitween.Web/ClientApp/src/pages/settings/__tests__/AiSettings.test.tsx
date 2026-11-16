@@ -200,7 +200,7 @@ describe("Settings, AI", () => {
     expect(calls).toBe(1);
   });
 
-  it("leaves a key from configuration alone when the provider changes", async () => {
+  it("leaves a key that can't be stored here alone when the provider changes", async () => {
     const { user } = renderApp("/settings?section=AI", {
       handlers: [
         http.get(apiPath("/settings"), () =>
@@ -266,5 +266,83 @@ describe("Settings, AI", () => {
 
     await user.selectOptions(screen.getByRole("combobox", { name: "Provider" }), "Google Gemini");
     expect(settingsDraft.get()).toEqual({});
+  });
+
+  it("tests a provider that needs no key without the key being removed", async () => {
+    let tested: unknown;
+    const { user } = renderApp("/settings?section=AI", {
+      handlers: [
+        http.get(apiPath("/settings"), () =>
+          HttpResponse.json(ROWS.map((r) => (r.key === "Bitween.Ai.Provider" ? { ...r, value: "Ollama" } : r))),
+        ),
+        http.get(apiPath("/audit"), () => HttpResponse.json({ result: [], totalCount: 0 })),
+        http.get(apiPath("/aichecks/providers"), () => HttpResponse.json(PROVIDERS)),
+        http.post(apiPath("/aichecks/models"), () => HttpResponse.json({ models: ["gemini-flash"] })),
+        http.post(apiPath("/aichecks"), async ({ request }) => {
+          tested = await request.json();
+          return HttpResponse.json({ model: "gemini-flash", milliseconds: 1 });
+        }),
+      ],
+    });
+
+    const keyRow = (await screen.findByText("API key")).closest("div.grid") as HTMLElement;
+    await user.click(within(keyRow).getByRole("button", { name: "Reset to default" }));
+    await user.click(screen.getByRole("button", { name: "Test connection" }));
+
+    // Empty, not left out: left out, the server would test with the saved key that saving removes.
+    await waitFor(() => expect(tested).toEqual({ provider: "Ollama", apiKey: "", model: "gemini-flash", baseUrl: "" }));
+  });
+
+  it("puts the address back the way it was saved on Discard", async () => {
+    const { user } = renderApp("/settings?section=AI", {
+      handlers: [
+        http.get(apiPath("/settings"), () =>
+          HttpResponse.json(
+            ROWS.map((r) =>
+              r.key === "Bitween.Ai.Provider"
+                ? { ...r, value: "Azure OpenAI" }
+                : r.key === "Bitween.Ai.BaseUrl"
+                  ? { ...r, value: "https://proxy.acme.com/v1/", overridden: true, hasValue: true }
+                  : r,
+            ),
+          ),
+        ),
+        http.get(apiPath("/audit"), () => HttpResponse.json({ result: [], totalCount: 0 })),
+        http.get(apiPath("/aichecks/providers"), () => HttpResponse.json(PROVIDERS)),
+      ],
+    });
+
+    expect(await screen.findByRole("textbox", { name: "API address" })).toHaveValue("https://proxy.acme.com/v1/");
+    await user.click(await screen.findByRole("button", { name: "Use Azure OpenAI's address" }));
+    expect(screen.getByRole("textbox", { name: "Resource name" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "Discard" }));
+
+    expect(await screen.findByRole("textbox", { name: "API address" })).toHaveValue("https://proxy.acme.com/v1/");
+  });
+
+  it("tests a changed keyless provider before saving from another section", async () => {
+    let tested = false;
+    const rows = [
+      ...ROWS.map((r) => (r.key === "Bitween.Ai.Provider" ? { ...r, value: "Ollama" } : r.key === "Bitween.Ai.ApiKey" ? { ...r, hasValue: false } : r)),
+      row("Bitween.Ui.Note", "Note", "", { section: "General" }),
+    ];
+    settingsDraft.stage(rows.find((r) => r.key === "Bitween.Ai.Model")!, "llama-next");
+    const { user } = renderApp("/settings?section=General", {
+      handlers: [
+        http.get(apiPath("/settings"), () => HttpResponse.json(rows)),
+        http.get(apiPath("/audit"), () => HttpResponse.json({ result: [], totalCount: 0 })),
+        http.get(apiPath("/aichecks/providers"), () => HttpResponse.json(PROVIDERS)),
+        http.post(apiPath("/aichecks"), () => {
+          tested = true;
+          return HttpResponse.json({ model: "llama-next", milliseconds: 1 });
+        }),
+        http.post(apiPath("/settings/:key"), () => new HttpResponse(null, { status: 204 })),
+      ],
+    });
+
+    await user.click(await screen.findByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(tested).toBe(true));
   });
 });
