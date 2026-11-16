@@ -240,6 +240,9 @@ export const keys = {
     retention: ["settings", "retention"] as const,
     retentionPreview: (proposal: string) => ["settings", "retention", "preview", proposal] as const,
     aggregationRetention: (schedules: string) => ["settings", "retention", "aggregation", schedules] as const,
+    aiProviders: ["settings", "aiProviders"] as const,
+    /** By provider, address and typed key: the list depends on all three. */
+    aiModels: (candidate: string) => ["settings", "aiModels", candidate] as const,
   },
 
   /** The anonymous branding/config endpoint, read by the sign-in page and the app shell alike. */

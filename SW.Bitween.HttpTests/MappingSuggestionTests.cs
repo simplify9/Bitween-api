@@ -72,19 +72,25 @@ public class MappingSuggestionTests(HttpFixture fixture) : IDisposable
     async Task<HttpClient> ConfiguredAsync(params (string Key, string Value)[] settings)
     {
         var admin = await fixture.AdminAsync();
-        var all = new[] { ("Bitween.Ai.ApiKey", "sk-test-key") }.Concat(settings).ToArray();
+        // The provider first: changing it clears the key, model and address saved before it.
+        var all = settings.Where(s => s.Key == "Bitween.Ai.Provider")
+            .Append(("Bitween.Ai.ApiKey", "sk-test-key"))
+            .Concat(settings.Where(s => s.Key != "Bitween.Ai.Provider"))
+            .ToArray();
         foreach (var (key, value) in all)
             await Api.Json(await admin.PostAsJsonAsync($"/api/settings/{key}", new { value }));
 
         // Each save also broadcasts a reload, which this node handles a moment later; one started by
         // an earlier save can read the table before a later save lands and briefly put the earlier
-        // values back. Wait until what was saved is what's running, as it is by the time anyone
-        // clicks Generate after saving Settings.
+        // values back - and so can one from the previous test's clean-up. Wait until what was saved
+        // has stayed what's running for a moment, as it has by the time anyone clicks Generate
+        // after saving Settings.
         var live = fixture.App.Services.GetRequiredService<BitweenOptions>();
-        for (var waited = 0; !all.All(s => Live(live, s.Item1) == s.Item2); waited += 50)
+        for (int waited = 0, steady = 0; steady < 300; waited += 50)
         {
             Assert.True(waited < 10_000, "the saved AI settings never took effect");
             await Task.Delay(50);
+            steady = all.All(s => Live(live, s.Item1) == s.Item2) ? steady + 50 : 0;
         }
         return admin;
     }
@@ -372,5 +378,49 @@ public class MappingSuggestionTests(HttpFixture fixture) : IDisposable
         var sent = JsonNode.Parse(body)!;
         Assert.Equal("local-model", (string)sent["model"]!);
         Assert.Equal("json_object", (string)sent["response_format"]!["type"]!);
+    }
+
+    [Theory]
+    [InlineData("Google Gemini", "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions")]
+    [InlineData("DeepSeek", "https://api.deepseek.com/v1/chat/completions")]
+    [InlineData("Mistral", "https://api.mistral.ai/v1/chat/completions")]
+    [InlineData("Groq", "https://api.groq.com/openai/v1/chat/completions")]
+    [InlineData("OpenRouter", "https://openrouter.ai/api/v1/chat/completions")]
+    [InlineData("Cohere", "https://api.cohere.ai/compatibility/v1/chat/completions")]
+    [InlineData("xAI", "https://api.x.ai/v1/chat/completions")]
+    [InlineData("Alibaba Cloud (Qwen)", "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions")]
+    [InlineData("Together AI", "https://api.together.xyz/v1/chat/completions")]
+    [InlineData("Fireworks AI", "https://api.fireworks.ai/inference/v1/chat/completions")]
+    [InlineData("Cerebras", "https://api.cerebras.ai/v1/chat/completions")]
+    [InlineData("OpenAI", "https://api.openai.com/v1/chat/completions")]
+    public async Task A_named_provider_is_called_at_its_own_address_without_one_typed_in(string providerName, string expected)
+    {
+        var admin = await ConfiguredAsync(("Bitween.Ai.Provider", providerName), ("Bitween.Ai.Model", "cheap-model"));
+        var provider = new FakeProvider((_, _) => Ok(new
+        {
+            id = "chatcmpl-1", @object = "chat.completion", created = 1760000000, model = "cheap-model",
+            choices = new[] { new { index = 0, message = new { role = "assistant", content = Right }, finish_reason = "stop" } },
+            usage = new { prompt_tokens = 10, completion_tokens = 10, total_tokens = 20 },
+        }));
+        AiModels.HandlerOverride = () => provider;
+
+        var result = await Api.Json(await SuggestAsync(admin));
+
+        Assert.True((bool)result["matchesTarget"]!, result.ToJsonString());
+        var (request, _) = Assert.Single(provider.Received);
+        Assert.Equal(expected, request.RequestUri!.ToString());
+        Assert.Equal("Bearer sk-test-key", request.Headers.Authorization!.ToString());
+    }
+
+    [Fact]
+    public async Task A_named_provider_that_fails_is_named_in_the_message()
+    {
+        var admin = await ConfiguredAsync(("Bitween.Ai.Provider", "DeepSeek"), ("Bitween.Ai.Model", "cheap-model"));
+        AiModels.HandlerOverride = () => new FakeProvider((_, _) => new HttpResponseMessage(HttpStatusCode.Unauthorized));
+
+        var response = await SuggestAsync(admin);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("DeepSeek refused the request", await response.Content.ReadAsStringAsync());
     }
 }

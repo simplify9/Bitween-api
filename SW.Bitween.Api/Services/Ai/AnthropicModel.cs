@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Anthropic;
 using Anthropic.Exceptions;
 using Anthropic.Models.Messages;
+using Anthropic.Models.Models;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Services.Ai;
@@ -28,10 +29,6 @@ sealed class AnthropicModel(string apiKey, string model, string baseUrl, HttpCli
 
     public async Task<string> Complete(AiPrompt prompt)
     {
-        var client = baseUrl == null
-            ? new AnthropicClient { ApiKey = apiKey, HttpClient = http, Timeout = AiModels.CallTimeout }
-            : new AnthropicClient { ApiKey = apiKey, HttpClient = http, Timeout = AiModels.CallTimeout, BaseUrl = baseUrl };
-
         var parameters = new MessageCreateParams
         {
             Model = model,
@@ -43,10 +40,36 @@ sealed class AnthropicModel(string apiKey, string model, string baseUrl, HttpCli
             Messages = [new() { Role = Role.User, Content = prompt.Message }],
         };
 
-        Message response;
+        var response = await Call(model, () => Client(apiKey, baseUrl, http).Messages.Create(parameters));
+
+        if (response.StopReason == "refusal")
+            throw new SWValidationException("AI_REFUSED",
+                $"The model declined this request{(response.StopDetails?.Explanation is { } why ? ": " + why : ".")}");
+
+        if (response.StopReason == "max_tokens")
+            throw new SWValidationException("AI_TRUNCATED",
+                "The model's answer was too long and was cut off. Try smaller samples.");
+
+        return string.Concat(response.Content.Select(b => b.Value).OfType<TextBlock>().Select(t => t.Text));
+    }
+
+    /// <summary>The names of the models this key can use.</summary>
+    public static async Task<List<string>> List(string apiKey, string baseUrl, HttpClient http)
+    {
+        var page = await Call(null, () => Client(apiKey, baseUrl, http).Models.List(new ModelListParams { Limit = 1000 }));
+        return page.Items.Select(m => m.ID).ToList();
+    }
+
+    static AnthropicClient Client(string apiKey, string baseUrl, HttpClient http) => baseUrl == null
+        ? new AnthropicClient { ApiKey = apiKey, HttpClient = http, Timeout = AiModels.CallTimeout }
+        : new AnthropicClient { ApiKey = apiKey, HttpClient = http, Timeout = AiModels.CallTimeout, BaseUrl = baseUrl };
+
+    /// <param name="model">Null when listing models, where a 404 means the address rather than a model.</param>
+    static async Task<T> Call<T>(string model, Func<Task<T>> call)
+    {
         try
         {
-            response = await client.Messages.Create(parameters);
+            return await call();
         }
         catch (AnthropicUnauthorizedException)
         {
@@ -54,7 +77,9 @@ sealed class AnthropicModel(string apiKey, string model, string baseUrl, HttpCli
         }
         catch (AnthropicNotFoundException)
         {
-            throw AiModels.Refused(Name, $"there's no model called '{model}'. Check Settings, AI.");
+            throw AiModels.Refused(Name, model is null
+                ? "nothing at this address lists models. Check the API address under Settings, AI."
+                : $"there's no model called '{model}'. Check Settings, AI.");
         }
         catch (AnthropicRateLimitException)
         {
@@ -72,15 +97,5 @@ sealed class AnthropicModel(string apiKey, string model, string baseUrl, HttpCli
         {
             throw AiModels.Unreachable(Name, AiModels.NoConnection);
         }
-
-        if (response.StopReason == "refusal")
-            throw new SWValidationException("AI_REFUSED",
-                $"The model declined this request{(response.StopDetails?.Explanation is { } why ? ": " + why : ".")}");
-
-        if (response.StopReason == "max_tokens")
-            throw new SWValidationException("AI_TRUNCATED",
-                "The model's answer was too long and was cut off. Try smaller samples.");
-
-        return string.Concat(response.Content.Select(b => b.Value).OfType<TextBlock>().Select(t => t.Text));
     }
 }

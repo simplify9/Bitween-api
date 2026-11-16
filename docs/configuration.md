@@ -216,12 +216,36 @@ The **Mail server** section is the one SMTP server every Email notification chan
 
 ### AI
 
-The **AI** section is the provider every AI feature calls; they are [Generate with AI](mapping.md#generate-with-ai) in the mapping editor, [Explain this failure](#explaining-a-failure) on a failed exchange, [Ask](#asking-your-exchanges) on the Exchanges page, and [Suggest with AI](retries-and-alerts.md#suggesting-a-policy-with-ai) beside a subscription's retry policy. It is read on each call, and AI features stay off until an API key is set.
+The **AI** section is the provider every AI feature calls; they are [Generate with AI](mapping.md#generate-with-ai) in the mapping editor, [Explain this failure](#explaining-a-failure) on a failed exchange, [Ask](#asking-your-exchanges) on the Exchanges page, and [Suggest with AI](retries-and-alerts.md#suggesting-a-policy-with-ai) beside a subscription's retry policy. It is read on each call, and AI features stay off until an API key is set (Ollama and Other need none).
 
-- **Provider** is `Anthropic` or `OpenAI`. Any other value, such as a misspelling in configuration, leaves AI features off. `OpenAI` also covers anything that speaks its chat completions API at **API address**: an Azure OpenAI resource (`https://your-resource.openai.azure.com/openai/v1/`), a local Ollama (`http://localhost:11434/v1/`) or a proxy.
-- **Model** empty uses `claude-opus-5-5` with Anthropic. OpenAI needs one named, or the Azure deployment's name.
-- **API key** is a secret setting, so storing it needs `Bitween:SettingsEncryptionKey`.
+- **Provider** is one of these. Any other value, such as a misspelling in configuration, leaves AI features off. Changing it, or resetting it, clears the key, model and address.
+
+  | Provider | Where it's called | Models |
+  |---|---|---|
+  | `Anthropic` | `https://api.anthropic.com` | listed |
+  | `OpenAI` | `https://api.openai.com/v1/` | listed |
+  | `Azure OpenAI` | `https://{resource name}.openai.azure.com/openai/v1/` | the deployment name |
+  | `Amazon Bedrock` | `https://bedrock-runtime.{AWS region}.amazonaws.com/openai/v1/`, with a Bedrock API key | the model ID |
+  | `Google Gemini` | `https://generativelanguage.googleapis.com/v1beta/openai/` | listed |
+  | `Mistral` | `https://api.mistral.ai/v1/` | listed |
+  | `Cohere` | `https://api.cohere.ai/compatibility/v1/` | listed |
+  | `xAI` | `https://api.x.ai/v1/` | listed |
+  | `DeepSeek` | `https://api.deepseek.com/v1/` | listed |
+  | `Alibaba Cloud (Qwen)` | Singapore `https://dashscope-intl.aliyuncs.com/compatible-mode/v1/`, US (Virginia) `dashscope-us…` or China (Beijing) `dashscope…` | listed |
+  | `Groq` | `https://api.groq.com/openai/v1/` | listed |
+  | `Together AI` | `https://api.together.xyz/v1/` | listed |
+  | `Fireworks AI` | `https://api.fireworks.ai/inference/v1/` | listed |
+  | `Cerebras` | `https://api.cerebras.ai/v1/` | listed |
+  | `OpenRouter` | `https://openrouter.ai/api/v1/` | listed |
+  | `Ollama` | `http://localhost:11434/v1/`, no key | listed |
+  | `Other (OpenAI-compatible)` | the address typed in, such as vLLM or LM Studio; key optional | listed |
+
+  Settings asks only for what each one needs: the resource name for Azure, the AWS region for Bedrock, the region for Qwen, a whole address for Other. **Use a different address** puts a proxy or gateway in front of any of them; the setting stores the address either way (`Bitween__Ai__BaseUrl`).
+- **Model** empty uses `claude-opus-5-5` with Anthropic. Every other provider needs one. Where the provider lists its models, Settings offers them to search and pick from, leaving out ones that can't chat; any other name can still be typed.
+- **API key** is set on the Settings page only: `Bitween:Ai:ApiKey` in configuration is ignored, with a warning at startup, because a key from configuration couldn't be cleared when the provider changes. It is a secret setting, so storing it needs `Bitween:SettingsEncryptionKey`.
 - **API address** must be `https`, except plain `http` to this machine (`localhost`), so the key is never sent in the clear. Calls go through the same address check as adapters: never to link-local or cloud metadata addresses, and not to private or loopback ones while `Bitween:BlockPrivateNetworkAddresses` is on.
+
+**Test connection** sends the model on screen one small request, the same kind AI features make, before anything is saved. Saving changed AI settings runs the same test first. When it fails, the reason shows and you can cancel or save anyway. For a provider that needs a key, clearing it turns AI off and saves without a test. Ollama and Other need none, so clearing it leaves AI on, and the test runs without it; clear the model to turn AI off for them. A test without a typed key uses the saved one, but only for the provider and address it was saved for.
 
 When the provider refuses or fails a call, the message gives its HTTP status, not the text it sent back.
 

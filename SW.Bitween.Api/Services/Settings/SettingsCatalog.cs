@@ -72,6 +72,12 @@ public sealed record SettingDefinition(
     /// </summary>
     public IReadOnlyList<string> Clears { get; init; }
 
+    /// <summary>
+    /// Set only on the Settings page: configuration is never read for it, not even once at the first
+    /// boot. Without <c>SettingsEncryptionKey</c> a secret like this can't be stored, so it stays empty.
+    /// </summary>
+    public bool PageOnly { get; init; }
+
     /// <summary>Only editable settings get a row; the rest are read straight off the options.</summary>
     public bool Stored => Access == SettingAccess.Editable;
 }
@@ -318,31 +324,38 @@ public static class SettingsCatalog
         // Every AI feature reads these per call, so a new key or model applies to the next request.
         new("Bitween.Ai.Provider", "AI",
             "Provider",
-            "Who AI features call. OpenAI also covers anything that speaks its API - Azure OpenAI, Ollama, a company proxy - at the address below. Sample documents sent to AI features go to this provider, with the names - never the values - of partner properties and global values.",
+            "Who AI features call. Sample documents go to this provider, with the names - never the values - of partner properties and global values. Changing it clears the key, model and address.",
             SettingKind.String, false,
             t => t.Bitween.Ai.Provider,
             (t, v) => t.Bitween.Ai.Provider = Choice(v, Ai.AiOptions.Providers))
         {
-            Choices = Ai.AiOptions.Providers
+            Choices = Ai.AiOptions.Providers,
+            // Another provider's key, model and address are no use to this one.
+            Clears = ["Bitween.Ai.ApiKey", "Bitween.Ai.Model", "Bitween.Ai.BaseUrl"],
         },
 
         new("Bitween.Ai.ApiKey", "AI",
             "API key",
-            "The provider's API key. AI features stay off until one is set.",
+            "AI features stay off until one is set, except for providers that take none.",
             SettingKind.String, true,
             t => t.Bitween.Ai.ApiKey,
-            (t, v) => t.Bitween.Ai.ApiKey = Trimmed(v)),
+            (t, v) => t.Bitween.Ai.ApiKey = Trimmed(v))
+        {
+            // A key from configuration can't be cleared when the provider changes, so it would go to
+            // the next provider. It's set on the Settings page or not at all.
+            PageOnly = true,
+        },
 
         new("Bitween.Ai.Model", "AI",
             "Model",
-            $"The model AI features use. Empty uses {Ai.AiOptions.DefaultAnthropicModel} with Anthropic; OpenAI needs one named, or your Azure deployment's name.",
+            $"Empty uses {Ai.AiOptions.DefaultAnthropicModel} with Anthropic; other providers need one.",
             SettingKind.String, false,
             t => t.Bitween.Ai.Model,
             (t, v) => t.Bitween.Ai.Model = Trimmed(v)),
 
         new("Bitween.Ai.BaseUrl", "AI",
             "API address",
-            "Leave empty for the provider's own API. Set it for Azure OpenAI (https://your-resource.openai.azure.com/openai/v1/), a local Ollama (http://localhost:11434/v1/) or a proxy. Plain http only reaches this machine.",
+            "Empty uses the provider's own. Plain http is allowed only to localhost.",
             SettingKind.String, false,
             t => t.Bitween.Ai.BaseUrl,
             (t, v) => t.Bitween.Ai.BaseUrl = AiAddress(v)),

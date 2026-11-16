@@ -367,6 +367,12 @@ describe("the settings page", () => {
             },
           ]),
         ),
+        http.get(apiPath("/aichecks/providers"), () =>
+          HttpResponse.json([
+            { name: "Anthropic", address: "https://api.anthropic.com", keyless: false, lists: true },
+            { name: "OpenAI", address: "https://api.openai.com/v1/", keyless: false, lists: true },
+          ]),
+        ),
         http.post(apiPath("/settings/Bitween.Ai.Provider"), async ({ request }) => {
           posted = await request.json();
           return new HttpResponse(null, { status: 204 });

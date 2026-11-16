@@ -52,6 +52,15 @@ public class SettingsService
         _protector = protector;
         _logger = logger;
         _configured = SettingsCatalog.All.ToDictionary(d => d.Key, d => d.Read(_target) ?? string.Empty);
+
+        foreach (var definition in SettingsCatalog.All.Where(d => d.PageOnly))
+        {
+            if (_configured[definition.Key] != DefaultOf(definition))
+                _logger.LogWarning("{Key} is set in configuration, which is ignored for it. Set it on the Settings page.",
+                    definition.Key);
+            _configured[definition.Key] = DefaultOf(definition);
+            Assign(definition, DefaultOf(definition));
+        }
     }
 
     /// <summary>The product default: what this setting is without anyone having chosen anything.</summary>
@@ -196,7 +205,7 @@ public class SettingsService
     }
 
     // As the options hold it, so "true" and "True" are the same value.
-    private static string Normalized(SettingDefinition definition, string value)
+    public static string Normalized(SettingDefinition definition, string value)
     {
         var target = new SettingsTarget(new BitweenOptions(), new ThemeOptions());
         definition.Write(target, value);
@@ -231,6 +240,33 @@ public class SettingsService
 
     /// <summary>Applies one value immediately, so the request that saved it sees the effect.</summary>
     public void Apply(SettingDefinition definition, string value) => Assign(definition, value);
+
+    /// <summary>
+    /// Stores a value with the settings it clears in one save, so a failure leaves all of them as
+    /// they were, then applies them. The cleared ones go first, so there's no moment with the new
+    /// value beside settings meant for the old one - another AI provider handed the last one's key.
+    /// </summary>
+    public async Task Save(BitweenDbContext dbContext, SettingDefinition definition, string value)
+    {
+        var changes = new List<(SettingDefinition Definition, string Value)>();
+        if (definition.Clears is { } clears && Normalized(definition, value) != LiveValue(definition))
+            changes.AddRange(clears.Select(SettingsCatalog.Find).Where(CanStore).Select(d => (d, string.Empty)));
+        changes.Add((definition, value));
+
+        foreach (var (changed, changedValue) in changes)
+        {
+            var stored = await dbContext.Set<Setting>().FindAsync(changed.Key);
+            var toStore = ToStored(changed, changedValue);
+            if (stored is null)
+                dbContext.Add(new Setting { Id = changed.Key, Value = toStore });
+            else
+                stored.Value = toStore;
+        }
+
+        await dbContext.SaveChangesAsync();
+
+        foreach (var (changed, changedValue) in changes) Assign(changed, changedValue);
+    }
 
     /// <summary>
     /// Runs the real write against throwaway option objects, so the endpoint can reject "abc"
