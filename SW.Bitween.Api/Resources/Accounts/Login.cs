@@ -15,14 +15,13 @@ namespace SW.Bitween.Resources.Accounts
     [Unprotect]
     public class Login(JwtTokenParameters jwtTokenParameters, BitweenDbContext dbContext,
         BitweenOptions BitweenSettings, IHttpContextAccessor httpContextAccessor, ILogger<Login> logger,
-        SignInThrottle throttle, Services.OidcSignIn oidc, Services.AccountMail mail) : ICommandHandler<UserLogin, object>
+        SignInThrottle throttle, Services.OidcSignIn oidc, Services.AccountMail mail, Services.Sessions sessions)
+        : ICommandHandler<UserLogin, object>
     {
         // Account-wide, across every address: the backstop for guessing spread over many of them.
         // Five from any one address already locks that address out - see SignInThrottle.
         private const int MaxFailedLoginAttempts = 20;
         private static readonly TimeSpan LockoutDuration = TimeSpan.FromMinutes(15);
-        private static readonly TimeSpan RefreshTokenLifetime = TimeSpan.FromDays(30);
-        private static readonly TimeSpan RefreshGrace = TimeSpan.FromSeconds(30);
 
         // Verified against when no account matches, so an unknown email costs the same PBKDF2 work
         // as a known one. Without it the response time alone said which addresses have accounts.
@@ -58,43 +57,13 @@ namespace SW.Bitween.Resources.Accounts
             if (string.IsNullOrEmpty(refreshTokenValue) && !signingInWithCredentials)
                 refreshTokenValue = request.RefreshToken;
 
+            // What the session came through, such as the CLI, kept through each renewal.
+            string via = null;
             if (!string.IsNullOrEmpty(refreshTokenValue))
             {
-                var refreshToken = await dbContext.Set<RefreshToken>().AsNoTracking()
-                    .SingleOrDefaultAsync(x => x.Id == refreshTokenValue);
-                var now = DateTime.UtcNow;
-
-                // Marked superseded rather than deleted, with one conditional UPDATE so two requests
-                // with the same token can't both be the first. A token superseded moments ago still
-                // works, for the browser whose copy of the new one went missing; one superseded longer
-                // ago is refused. Deleting it outright used to make the loser of a race throw a
-                // concurrency error - a 500 from the sign-in endpoint - and a lost response sign out.
-                var spent = false;
-                if (refreshToken is not null)
-                {
-                    spent = await dbContext.Set<RefreshToken>()
-                        .Where(t => t.Id == refreshTokenValue && t.SupersededOn == null)
-                        .ExecuteUpdateAsync(u => u.SetProperty(t => t.SupersededOn, now)) == 1;
-
-                    if (!spent)
-                        spent = await dbContext.Set<RefreshToken>().AsNoTracking()
-                            .AnyAsync(t => t.Id == refreshTokenValue && t.SupersededOn > now - RefreshGrace);
-
-                    // Superseded ones past their grace are of no further use to anyone.
-                    var graceEnded = now - RefreshGrace;
-                    await dbContext.Set<RefreshToken>()
-                        .Where(t => t.AccountId == refreshToken.AccountId && t.SupersededOn < graceEnded)
-                        .ExecuteDeleteAsync();
-                }
-
-                // The cookie expires after 30 days, but the row did not, and a refresh token sent in
-                // the body has no cookie to expire. Each refresh issues a new token, so this is an
-                // idle limit: a session in use keeps renewing, one left alone for 30 days ends.
-                if (spent && refreshToken.CreatedOn < now - RefreshTokenLifetime)
-                {
-                    logger.LogInformation("Refresh token older than {Days} days refused.", RefreshTokenLifetime.TotalDays);
-                    spent = false;
-                }
+                var refreshToken = await sessions.Spend(refreshTokenValue, DateTime.UtcNow);
+                via = refreshToken?.ClientName;
+                var spent = refreshToken is not null;
 
                 if (!spent)
                 {
@@ -317,7 +286,7 @@ namespace SW.Bitween.Resources.Accounts
             // A sign-in, not a session renewing itself: the member's last sign-in, and the trail's.
             if (string.IsNullOrEmpty(refreshTokenValue)) account.SignedIn();
 
-            var newRefreshToken = CreateRefreshToken(account, LoginMethod.EmailAndPassword);
+            var newRefreshToken = sessions.Start(account.Id, LoginMethod.EmailAndPassword, clientName: via).Id;
             await dbContext.SaveChangesAsync();
 
             // Set refresh token as a secure, HttpOnly cookie - not accessible to JavaScript.
@@ -328,7 +297,7 @@ namespace SW.Bitween.Resources.Accounts
                 HttpOnly = true,
                 Secure = true,
                 SameSite = SameSiteMode.Lax,
-                Expires = DateTimeOffset.UtcNow.Add(RefreshTokenLifetime)
+                Expires = DateTimeOffset.UtcNow.Add(Services.Sessions.IdleLimit)
             });
 
             // Return only the JWT - refresh token stays in the cookie, not in the response body.
@@ -336,16 +305,9 @@ namespace SW.Bitween.Resources.Accounts
             // form; the token grants nothing until they do, so this is a courtesy, not the control.
             return new
             {
-                Jwt = account.CreateJwt(LoginMethod.EmailAndPassword, jwtTokenParameters, jwtExpiryTimeSpan),
+                Jwt = account.CreateJwt(LoginMethod.EmailAndPassword, jwtTokenParameters, jwtExpiryTimeSpan, via),
                 account.MustChangePassword
             };
-        }
-
-        private string CreateRefreshToken(Account account, LoginMethod loginMethod)
-        {
-            var refreshToken = new RefreshToken(account.Id, loginMethod);
-            dbContext.Add(refreshToken);
-            return refreshToken.Id;
         }
     }
 }

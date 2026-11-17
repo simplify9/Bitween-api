@@ -22,12 +22,15 @@ public class CliTokenRequest
 [HandlerName("clitoken")]
 [Unprotect]
 public class CliToken(BitweenDbContext dbContext, JwtTokenParameters jwtTokenParameters, BitweenOptions options,
-    CliSignInCodes codes, ILogger<CliToken> logger) : ICommandHandler<CliTokenRequest, object>
+    SignInCodes codes, Services.Sessions sessions, ILogger<CliToken> logger) : ICommandHandler<CliTokenRequest, object>
 {
     public async Task<object> Handle(CliTokenRequest request)
     {
-        var accountId = codes.Redeem(request?.Code, request?.CodeVerifier, DateTimeOffset.UtcNow);
-        var account = accountId is null ? null : await Members.FindAsync(dbContext, accountId.Value);
+        var now = DateTime.UtcNow;
+        var code = codes.Redeem(request?.Code, request?.CodeVerifier, now);
+        // Once only: a code redeemed before is refused like one that never was.
+        if (code is not null && !await sessions.FirstUse(code.Nonce, code.ExpiresOn, now)) code = null;
+        var account = code is null ? null : await Members.FindAsync(dbContext, code.AccountId);
 
         // Disabled or told to change its password since the code was issued: no session either way.
         if (account is null || account.Disabled || account.MustChangePassword)
@@ -37,13 +40,13 @@ public class CliToken(BitweenDbContext dbContext, JwtTokenParameters jwtTokenPar
         }
 
         account.SignedIn();
-        var refreshToken = new RefreshToken(account.Id, LoginMethod.EmailAndPassword);
-        dbContext.Add(refreshToken);
+        var refreshToken = sessions.Start(account.Id, LoginMethod.EmailAndPassword, clientName: Services.Sessions.Cli);
         await dbContext.SaveChangesAsync();
 
         return new
         {
-            Jwt = account.CreateJwt(LoginMethod.EmailAndPassword, jwtTokenParameters, TimeSpan.FromMinutes(options.JwtExpiryMinutes)),
+            Jwt = account.CreateJwt(LoginMethod.EmailAndPassword, jwtTokenParameters, TimeSpan.FromMinutes(options.JwtExpiryMinutes),
+                via: Services.Sessions.Cli),
             RefreshToken = refreshToken.Id,
             account.Email,
         };

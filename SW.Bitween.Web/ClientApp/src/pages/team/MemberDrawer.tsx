@@ -15,6 +15,7 @@ import { ConfirmDialog } from "../../components/ui/overlays";
 import { useModalFocus } from "../../components/ui/useModalFocus";
 import { formatDate, formatDateTime, timeAgo, timeUntil } from "../../lib/dates";
 import { inviteActive, statusBadge } from "./memberStatus";
+import { ConnectedAppsList } from "./ConnectedApps";
 import { keys } from "../../api/queryKeys";
 
 /** Where a member's invite stands, in a sentence. */
@@ -223,6 +224,10 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
               <dd className="text-ink-800">{u.lastActiveOn ? timeAgo(u.lastActiveOn) : "Never"}</dd>
             </div>
           </dl>
+        </Section>
+
+        <Section title="Connected apps">
+          <ConnectedAppsList accountId={u.id} canDisconnect={editable || isSelf} />
         </Section>
 
         {(editable || can("users.delete")) && !isSelf && (

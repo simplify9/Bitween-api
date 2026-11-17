@@ -1,5 +1,3 @@
-using System.Globalization;
-
 namespace SW.Bitween.Client;
 
 /// <summary>An exchange's status, as the Exchanges page's tabs divide them.</summary>
@@ -72,41 +70,20 @@ public class ExchangeQuery
     /// <summary>The filters as Bitween's search takes them, each one <c>Field:Rule:Value</c>.</summary>
     internal List<string> ToFilters()
     {
-        var filters = new List<string>();
-        // Rule 1 is "is"; 9 is "is any of", with its values typed and joined.
-        void OneOf(string field, IReadOnlyList<int>? values)
-        {
-            if (values is not { Count: > 0 }) return;
-            filters.Add(values.Count == 1 ? $"{field}:1:{values[0]}" : $"{field}:9:numeric|{string.Join("|", values)}");
-        }
-
-        if (Status != null) filters.Add($"StatusFilter:1:{(int)Status}");
-        OneOf("PartnerId", PartnerIds);
-        OneOf("SubscriptionId", SubscriptionIds);
-        OneOf("DocumentId", InformationTypeIds);
-        if (Ids is { Count: > 0 }) filters.Add($"Id:4:text|{string.Join("|", Ids)}");
-        if (!string.IsNullOrWhiteSpace(RetryFor)) filters.Add($"RetryFor:1:{RetryFor.Trim()}");
-        if (!string.IsNullOrWhiteSpace(CorrelationId)) filters.Add($"CorrelationId:1:{CorrelationId.Trim()}");
-        if (LatestOnly) filters.Add("LatestOnly:1:true");
-        if (!string.IsNullOrWhiteSpace(ErrorContains)) filters.Add($"ErrorContains:4:{ErrorContains.Trim()}");
-        foreach (var (key, text) in PromotedProperties ?? new Dictionary<string, string?>())
-            filters.Add(string.IsNullOrWhiteSpace(text) ? $"PromotedProperty:1:{key}" : $"PromotedProperty:4:{key}:{text.Trim()}");
-        // Rules 6 and 8, at or after and at or before: the range rule, 21, can't be sent a time
-        // Postgres will compare (the Exchanges page found the same).
-        if (From != null) filters.Add($"StartedOn:6:{Time(From.Value)}");
-        if (To != null) filters.Add($"StartedOn:8:{Time(To.Value)}");
+        var filters = SW.Bitween.Model.XchangeFilter.Build(
+            status: (int?)Status, from: From, to: To,
+            partnerIds: PartnerIds, subscriptionIds: SubscriptionIds, informationTypeIds: InformationTypeIds,
+            ids: Ids, retryFor: RetryFor, correlationId: CorrelationId, latestOnly: LatestOnly,
+            errorContains: ErrorContains, promotedProperties: PromotedProperties);
         filters.AddRange(Filters);
         return filters;
     }
 
-    /// <summary>In UTC to the tick, and on the Gregorian calendar whatever the caller's culture uses.</summary>
-    internal static string Time(DateTimeOffset time) =>
-        time.UtcDateTime.ToString("yyyy-MM-ddTHH:mm:ss.fffffffZ", CultureInfo.InvariantCulture);
+    internal static string Time(DateTimeOffset time) => SW.Bitween.Model.XchangeFilter.Time(time);
 
     /// <summary>Filters, paging and the rest as a query string, every value escaped.</summary>
     internal static string QueryString(IEnumerable<string> filters, params (string Name, string Value)[] more) =>
-        string.Join("&", filters.Select(f => $"filter={Uri.EscapeDataString(f)}")
-            .Concat(more.Select(p => $"{p.Name}={Uri.EscapeDataString(p.Value)}")));
+        SW.Bitween.Model.XchangeFilter.QueryString(filters, more);
 }
 
 /// <summary>
@@ -161,16 +138,8 @@ public class ScheduledRetryQuery
     /// <summary>Due at or before this.</summary>
     public DateTimeOffset? To { get; set; }
 
-    internal List<string> ToFilters()
-    {
-        var filters = new List<string>();
-        if (SubscriptionId != null) filters.Add($"SubscriptionId:1:{SubscriptionId}");
-        if (InformationTypeId != null) filters.Add($"DocumentId:1:{InformationTypeId}");
-        if (!string.IsNullOrWhiteSpace(ErrorContains)) filters.Add($"Exception:4:{ErrorContains.Trim()}");
-        if (From != null) filters.Add($"On:6:{ExchangeQuery.Time(From.Value)}");
-        if (To != null) filters.Add($"On:8:{ExchangeQuery.Time(To.Value)}");
-        return filters;
-    }
+    internal List<string> ToFilters() => SW.Bitween.Model.XchangeFilter.ScheduledRetries(
+        SubscriptionId, InformationTypeId, ErrorContains, From, To);
 }
 
 /// <summary>One page of a search, and how many match in all.</summary>

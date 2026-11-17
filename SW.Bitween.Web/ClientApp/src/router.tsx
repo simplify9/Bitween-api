@@ -5,6 +5,7 @@ import { AppShell } from "./components/layout/AppShell";
 import { LoginPage } from "./pages/auth/Login";
 import { ChangePasswordPage } from "./pages/auth/ChangePassword";
 import { CliLoginPage } from "./pages/auth/CliLogin";
+import { OAuthAuthorizePage } from "./pages/auth/OAuthAuthorize";
 import { OidcCallbackPage } from "./pages/auth/OidcCallback";
 import { ForgotPasswordPage } from "./pages/auth/ForgotPassword";
 import { SetPasswordPage } from "./pages/auth/SetPassword";
@@ -186,6 +187,8 @@ export const routes: RouteObject[] = [
       { path: "change-password", element: <ChangePasswordPage /> },
       // Where bitween login sends the browser; a session is all it needs, whatever it may do.
       { path: "cli-login", element: <CliLoginPage /> },
+      // Where an AI app sends the browser to connect it to /mcp (OAuth); a session is all it needs.
+      { path: "oauth/authorize", element: <OAuthAuthorizePage /> },
       // Where a provider sends the browser back after approving a connection.
       {
         path: "oauth-callback",

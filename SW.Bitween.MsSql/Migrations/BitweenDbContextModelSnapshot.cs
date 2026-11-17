@@ -190,6 +190,15 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<int>("AccountId")
                         .HasColumnType("int");
 
+                    b.Property<string>("ClientId")
+                        .HasMaxLength(2048)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(2048)");
+
+                    b.Property<string>("ClientName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<DateTime>("CreatedOn")
                         .HasColumnType("datetime2");
 
@@ -344,6 +353,21 @@ namespace SW.Bitween.MsSql.Migrations
                         .IsUnique();
 
                     b.ToTable("ServiceTokens", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.Accounts.SignInCodeUse", b =>
+                {
+                    b.Property<string>("Nonce")
+                        .HasMaxLength(32)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(32)");
+
+                    b.Property<DateTime>("ExpiresOn")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Nonce");
+
+                    b.ToTable("SignInCodeUses", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.AdapterDraft", b =>
@@ -547,6 +571,10 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasMaxLength(50)
                         .IsUnicode(false)
                         .HasColumnType("varchar(50)");
+
+                    b.Property<string>("Via")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.HasKey("Id");
 

@@ -44,6 +44,9 @@ public class AuditEntryModel
     /// </summary>
     public string? UserDisplayName { get; set; }
 
+    /// <summary>What the change came through, when not the account's own session: <c>Claude via MCP</c>, say.</summary>
+    public string? Via { get; set; }
+
     public string EntityName { get; set; } = null!;
     public string EntityKey { get; set; } = null!;
 

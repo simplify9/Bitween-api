@@ -33,6 +33,7 @@ function server({ signInFails = false } = {}) {
       });
     }),
     http.post(apiPath("/accounts/changePassword"), () => HttpResponse.json(null)),
+    http.get(apiPath("/accounts/connectedapps"), () => HttpResponse.json([])),
     http.post(apiPath("/accounts/login"), async ({ request }) => {
       calls.signIn = (await request.json()) as Record<string, string>;
       return signInFails
@@ -63,6 +64,17 @@ describe("the forced password change", () => {
     expect(router.state.location.pathname).toBe("/profile");
     expect(calls.signIn).toEqual({ Username: ADMIN.email, Password: NEW_PASSWORD });
     expect(getToken()).toBe("fresh-token");
+  });
+
+  it("goes on to the page you were sent from, query and all", async () => {
+    // An AI app's connection request, say: /oauth/authorize carries everything in its query.
+    const { handlers } = server();
+    const { user, router } = renderApp("/profile?keep=this", { handlers });
+
+    await choose(user);
+
+    expect(await screen.findByRole("heading", { name: "Your profile" })).toBeVisible();
+    expect(router.state.location.pathname + router.state.location.search).toBe("/profile?keep=this");
   });
 
   it("sends you to sign in when signing back in fails", async () => {

@@ -33,6 +33,7 @@ function team(...accounts: ReturnType<typeof account>[]) {
   const sent: Record<string, unknown[]> = { setRoles: [], setDisabled: [] };
   const find = (id: unknown) => accounts.find((a) => a.id === Number(id))!;
   const handlers = [
+    http.get(apiPath("/accounts/connectedapps"), () => HttpResponse.json([])),
     http.get(apiPath("/accounts"), () => HttpResponse.json({ result: accounts, totalCount: accounts.length })),
     http.get(apiPath("/roles"), () => HttpResponse.json({ result: ROLES, totalCount: ROLES.length })),
     // The drawer's History section.
@@ -74,6 +75,35 @@ describe("the member list", () => {
     // the database is TeamMemberTests.Setting_a_members_roles_replaces_the_ones_they_held.
     await expect.poll(() => row("role.swap@test.local").textContent).toContain("Member");
     expect(row("role.swap@test.local")).not.toHaveTextContent("Viewer");
+  });
+
+  it("lists the AI apps a member has connected, and disconnects one", async () => {
+    const { handlers } = team(self(), account(43, "Ai User", "ai.user@test.local", [2]));
+    let apps = [{ clientId: "https://claude.example.com/meta.json", name: "Claude", lastRenewedOn: new Date().toISOString() }];
+    const disconnected: unknown[] = [];
+    const { user } = renderApp("/team/members", {
+      handlers: [
+        http.get(apiPath("/accounts/connectedapps"), ({ request }) =>
+          HttpResponse.json(new URL(request.url).searchParams.get("accountId") === "43" ? apps : []),
+        ),
+        http.post(apiPath("/accounts/disconnectapp"), async ({ request }) => {
+          disconnected.push(await request.json());
+          apps = [];
+          return new HttpResponse(null, { status: 204 });
+        }),
+        ...handlers,
+      ],
+    });
+
+    await user.click(await screen.findByRole("row", { name: /ai.user@test.local/ }));
+    const panel = within(drawer());
+    expect(await panel.findByText("Claude")).toBeVisible();
+
+    await user.click(panel.getByRole("button", { name: "Disconnect" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Disconnect Claude?" })).getByRole("button", { name: "Disconnect" }));
+
+    expect(await panel.findByText("No AI apps connected.")).toBeVisible();
+    expect(disconnected).toEqual([{ clientId: "https://claude.example.com/meta.json", accountId: 43 }]);
   });
 
   it("disables a member, then re-enables them", async () => {

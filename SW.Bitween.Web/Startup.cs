@@ -113,7 +113,11 @@ namespace SW.Bitween.Web
             services.AddSingleton<SettingsService>();
             services.AddMemoryCache();
             services.AddSingleton<SignInThrottle>();
-            services.AddSingleton<CliSignInCodes>();
+            services.AddSingleton<SignInCodes>();
+            services.AddScoped<SW.Bitween.Services.Sessions>();
+            services.AddScoped<SW.Bitween.Services.ServiceTokens>();
+            services.AddSingleton<SW.Bitween.Services.Mcp.OAuthClients>();
+            services.AddSingleton<SW.Bitween.Services.Mcp.McpAccessTokens>();
             services.AddSingleton<GatewayActivity>();
             // The bell a sync gateway call waits on for its exchange's result.
             services.AddSingleton<ResultSignals>();
@@ -243,6 +247,8 @@ namespace SW.Bitween.Web
                 },
                 typeof(BitweenDbContext).Assembly
             );
+            // The MCP tools answer outside the API controllers, with the same JSON.
+            services.AddSingleton(new SW.Bitween.Services.ApiJson(serializer));
 
             services.AddApiClient<BitweenClient, BitweenClientOptions>();
             // The storage libraries create the bucket and its deletion rules as they register, so
@@ -525,7 +531,10 @@ namespace SW.Bitween.Web
             // });
             AddRateLimiting(services);
             services.AddJwtTokenParameters();
-            services.AddAuthorization();
+            services.AddAuthorization(options =>
+                options.AddPolicy(McpPolicy, policy => policy
+                    .AddAuthenticationSchemes(ModelContextProtocol.AspNetCore.Authentication.McpAuthenticationDefaults.AuthenticationScheme)
+                    .RequireAuthenticatedUser()));
             services.AddScoped<RunFlagUpdater>();
             services.AddControllers();
 
@@ -563,7 +572,9 @@ namespace SW.Bitween.Web
                 options.Level = CompressionLevel.Optimal);
 
 
-            services.AddAuthentication()
+            // Named, not left to be picked as the only scheme there is: the endpoint at /mcp adds schemes
+            // of its own, and everything else - the API, rate limits, background requests - reads this one.
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                 .AddJwtBearer(configureOptions =>
                 {
                     configureOptions.RequireHttpsMetadata = false;
@@ -583,6 +594,9 @@ namespace SW.Bitween.Web
                         {
                             if (context.Request.Path.StartsWithSegments("/api/gateway"))
                                 context.NoResult();
+                            // /mcp checks its own tokens (see McpTokenHandler); an API session isn't one.
+                            else if (context.Request.Path.StartsWithSegments(SW.Bitween.Services.Mcp.McpTokenHandler.Path))
+                                context.NoResult();
                             // A browser can't put a header on a WebSocket, so SignalR sends the token in
                             // the address instead; taken from there for the hub only.
                             else if (context.Request.Path.StartsWithSegments(
@@ -592,7 +606,32 @@ namespace SW.Bitween.Web
                             return Task.CompletedTask;
                         },
                     };
+                })
+                .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, SW.Bitween.Services.Mcp.McpTokenHandler>(
+                    SW.Bitween.Services.Mcp.McpTokenHandler.SchemeName, null)
+                .AddMcp(options =>
+                {
+                    options.ForwardAuthenticate = SW.Bitween.Services.Mcp.McpTokenHandler.SchemeName;
+                    // Where apps learn to sign in (RFC 9728), at this Bitween's public address, which
+                    // can be the request's own: so it's answered per request.
+                    options.Events.OnResourceMetadataRequest = context =>
+                    {
+                        var tokens = context.HttpContext.RequestServices.GetRequiredService<SW.Bitween.Services.Mcp.McpAccessTokens>();
+                        context.ResourceMetadata = new ModelContextProtocol.Authentication.ProtectedResourceMetadata
+                        {
+                            Resource = tokens.Resource,
+                            AuthorizationServers = { tokens.Issuer },
+                            ScopesSupported = ["mcp"],
+                            ResourceName = "Bitween",
+                        };
+                        return Task.CompletedTask;
+                    };
                 });
+
+            // Stateless: each request stands alone, so any node can answer it and nothing is kept between calls.
+            services.AddMcpServer(options => options.ServerInfo = new() { Name = "Bitween", Version = typeof(Startup).Assembly.GetName().Version?.ToString() ?? "" })
+                .WithHttpTransport(options => options.Stateless = true)
+                .WithTools<SW.Bitween.Services.Mcp.BitweenTools>();
 
             services.AddCors(options =>
             {
@@ -638,6 +677,9 @@ namespace SW.Bitween.Web
         /// enforced policy blanks the app, so the order matters. Switch back to
         /// "Content-Security-Policy-Report-Only" before widening the policy again.
         /// </summary>
+        /// <summary>Who may use /mcp: an AI app signed in by its own scheme, never an API session.</summary>
+        private const string McpPolicy = "Mcp";
+
         private const string ContentSecurityPolicyHeader = "Content-Security-Policy";
 
         /// <summary>
@@ -840,6 +882,21 @@ namespace SW.Bitween.Web
                                 Window = TimeSpan.FromMinutes(1)
                             });
 
+                    // /mcp signs its callers in after this runs, and many of them arrive from one AI
+                    // provider's few addresses, so each token gets its own budget instead. A made-up
+                    // token buys nothing: an access token is checked in memory, and wrong service
+                    // tokens lock their address out (ServiceTokens).
+                    if (context.Request.Path.StartsWithSegments(SW.Bitween.Services.Mcp.McpTokenHandler.Path))
+                        return RateLimitPartition.GetFixedWindowLimiter(
+                            SW.Bitween.Services.Mcp.McpTokenHandler.BearerOf(context.Request) is { Length: > 0 } bearer
+                                ? $"mcp:{Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(Encoding.UTF8.GetBytes(bearer)))}"
+                                : $"anon:{ClientAddress(context)}",
+                            _ => new FixedWindowRateLimiterOptions
+                            {
+                                PermitLimit = requestLimit,
+                                Window = TimeSpan.FromMinutes(1)
+                            });
+
                     var account = context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
                     return RateLimitPartition.GetFixedWindowLimiter(
@@ -880,7 +937,10 @@ namespace SW.Bitween.Web
                     // The password links: asking for one, reading one, and using one, all open to anyone.
                     || value.EndsWith("/accounts/forgotpassword", StringComparison.OrdinalIgnoreCase)
                     || value.EndsWith("/accounts/passwordlink", StringComparison.OrdinalIgnoreCase)
-                    || value.EndsWith("/accounts/usepasswordlink", StringComparison.OrdinalIgnoreCase));
+                    || value.EndsWith("/accounts/usepasswordlink", StringComparison.OrdinalIgnoreCase)
+                    // An AI app signing in with OAuth: trading a code or refresh token, and registering.
+                    || value.EndsWith("/oauth/token", StringComparison.OrdinalIgnoreCase)
+                    || value.EndsWith("/oauth/register", StringComparison.OrdinalIgnoreCase));
         }
 
         /// <summary>
@@ -1033,6 +1093,15 @@ namespace SW.Bitween.Web
             app.UseCors();
             app.UseDefaultFiles();
             app.UseStaticFiles();
+            // Off unless Settings turns it on, read on every request: /mcp, and where apps read how to sign
+            // in to it. The OAuth endpoints check the same setting themselves.
+            app.UseWhen(context => context.Request.Path.StartsWithSegments(SW.Bitween.Services.Mcp.McpTokenHandler.Path) ||
+                                   context.Request.Path.StartsWithSegments("/.well-known/oauth-protected-resource"),
+                branch => branch.Use(async (context, next) =>
+                {
+                    if (context.RequestServices.GetRequiredService<BitweenOptions>().McpEnabled) await next();
+                    else context.Response.StatusCode = StatusCodes.Status404NotFound;
+                }));
             app.UseRouting();
             app.UseAuthentication();
             // After authentication, so an authenticated request is counted against its account
@@ -1106,6 +1175,14 @@ namespace SW.Bitween.Web
                 // /health/ready also asks the database and the broker; see DependencyHealthChecks.
                 endpoints.MapHealthChecks("/health", new HealthCheckOptions { Predicate = _ => false });
                 endpoints.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+                endpoints.MapMcp(SW.Bitween.Services.Mcp.McpTokenHandler.Path).RequireAuthorization(McpPolicy);
+                // Anything under /.well-known that isn't served on purpose is not found, rather than
+                // the UI's page: an app reading sign-in details from there must not be handed HTML.
+                endpoints.Map("/.well-known/{**rest}", context =>
+                {
+                    context.Response.StatusCode = StatusCodes.Status404NotFound;
+                    return Task.CompletedTask;
+                });
                 endpoints.MapHealthChecks("/health/ready", new HealthCheckOptions
                 {
                     Predicate = check => check.Tags.Contains(DependencyHealthChecks.ReadyTag)

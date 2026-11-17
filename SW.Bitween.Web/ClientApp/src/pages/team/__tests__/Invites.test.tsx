@@ -31,6 +31,7 @@ const twoDaysAgo = () => new Date(Date.now() - 2 * 864e5).toISOString();
 function team(invite: (id: number) => object, ...accounts: ReturnType<typeof account>[]) {
   const sent: { created: Record<string, unknown>[]; invited: string[] } = { created: [], invited: [] };
   const handlers = [
+    http.get(apiPath("/accounts/connectedapps"), () => HttpResponse.json([])),
     http.get(apiPath("/accounts"), () => HttpResponse.json({ result: accounts, totalCount: accounts.length })),
     http.get(apiPath("/roles"), () => HttpResponse.json({ result: ROLES, totalCount: ROLES.length })),
     http.get(apiPath("/audit"), () => HttpResponse.json({ result: [], totalCount: 0 })),

@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { useSession } from "../../auth/useSession";
 import { validatePassword } from "../../lib/passwordPolicy";
 import { Button, FormError } from "../../components/ui/basics";
@@ -20,6 +20,7 @@ import { AuthLayout } from "./AuthLayout";
 export function ChangePasswordPage() {
   const { session, changePassword, signOut } = useSession();
   const navigate = useNavigate();
+  const from = (useLocation().state as { from?: string } | null)?.from;
 
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -28,9 +29,10 @@ export function ChangePasswordPage() {
 
   const change = useMutation({
     mutationFn: () => changePassword(currentPassword, newPassword),
-    // Signed back in with the new password by now, so into the app: "/" lands on the first
-    // page this account can open.
-    onSuccess: () => navigate("/", { replace: true }),
+    // Signed back in with the new password by now, so on to where they were going, or into the
+    // app: "/" lands on the first page this account can open. Only a path within the app.
+    onSuccess: () =>
+      navigate(from?.startsWith("/") && !from.startsWith("//") ? from : "/", { replace: true }),
   });
 
   const submit = (e: FormEvent) => {
