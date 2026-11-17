@@ -39,9 +39,10 @@ export function RequireAuth() {
     return <Navigate to="/login" state={{ from: location.pathname + location.search }} replace />;
   }
   // An account whose password nobody chose holds a token that grants nothing, so every screen
-  // past here would refuse it one at a time. Sent to the one screen that can end that instead.
+  // past here would refuse it one at a time. Sent to the one screen that can end that instead,
+  // remembering where they were going - an AI app's connection request, say - to go on after.
   if (session.mustChangePassword && location.pathname !== "/change-password") {
-    return <Navigate to="/change-password" replace />;
+    return <Navigate to="/change-password" state={{ from: location.pathname + location.search }} replace />;
   }
   return <Outlet />;
 }

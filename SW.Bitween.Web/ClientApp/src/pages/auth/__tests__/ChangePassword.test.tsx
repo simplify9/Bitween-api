@@ -66,6 +66,17 @@ describe("the forced password change", () => {
     expect(getToken()).toBe("fresh-token");
   });
 
+  it("goes on to the page you were sent from, query and all", async () => {
+    // An AI app's connection request, say: /oauth/authorize carries everything in its query.
+    const { handlers } = server();
+    const { user, router } = renderApp("/profile?keep=this", { handlers });
+
+    await choose(user);
+
+    expect(await screen.findByRole("heading", { name: "Your profile" })).toBeVisible();
+    expect(router.state.location.pathname + router.state.location.search).toBe("/profile?keep=this");
+  });
+
   it("sends you to sign in when signing back in fails", async () => {
     const { handlers } = server({ signInFails: true });
     const { user } = renderApp("/change-password", { handlers });
