@@ -5,6 +5,9 @@ namespace SW.Bitween.Domain.Accounts
 {
     public class RefreshToken:BaseEntity<string>, IHasCreationTime
     {
+        /// <summary>The longest <see cref="ClientId"/> the column holds; an app with a longer one can't sign in.</summary>
+        public const int MaxClientIdLength = 2048;
+
         public RefreshToken(int accountId, LoginMethod loginMethod, string clientId = null, string clientName = null)
         {
             Id = Guid.NewGuid().ToString("N");

@@ -22,6 +22,9 @@ public class Sessions(BitweenDbContext dbContext, ILogger<Sessions> logger)
 
     static readonly TimeSpan Grace = TimeSpan.FromSeconds(30);
 
+    /// <summary>How long past its expiry a used sign-in code is still remembered: longer than any request takes.</summary>
+    static readonly TimeSpan UsedCodesKept = TimeSpan.FromMinutes(5);
+
     /// <summary>
     /// The name a session the CLI signed in carries, and keeps through every renewal, so what it
     /// changes shows in the audit trail as made through the CLI.
@@ -40,11 +43,12 @@ public class Sessions(BitweenDbContext dbContext, ILogger<Sessions> logger)
 
     /// <summary>
     /// Records a sign-in code's first redemption: false when it was redeemed before, so each code
-    /// works once. Codes past their expiry are cleared on the way.
+    /// works once. Codes well past their expiry are cleared on the way: not right at it, or a
+    /// redemption that checked the expiry just before could find its code's record gone.
     /// </summary>
     public async Task<bool> FirstUse(string nonce, DateTime expiresOn, DateTime now)
     {
-        await dbContext.Set<SignInCodeUse>().Where(u => u.ExpiresOn < now).ExecuteDeleteAsync();
+        await dbContext.Set<SignInCodeUse>().Where(u => u.ExpiresOn < now - UsedCodesKept).ExecuteDeleteAsync();
         if (await dbContext.Set<SignInCodeUse>().AnyAsync(u => u.Nonce == nonce)) return false;
         dbContext.Add(new SignInCodeUse(nonce, expiresOn));
         try

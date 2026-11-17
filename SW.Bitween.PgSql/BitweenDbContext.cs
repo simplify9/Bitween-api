@@ -597,7 +597,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.AccountId);
                 b.Property(p => p.LoginMethod).HasConversion<byte>();
                 // An app's client id can be the address of its metadata document.
-                b.Property(p => p.ClientId).IsUnicode(false).HasMaxLength(2048);
+                b.Property(p => p.ClientId).IsUnicode(false).HasMaxLength(RefreshToken.MaxClientIdLength);
                 b.Property(p => p.ClientName).HasMaxLength(200);
             });
 

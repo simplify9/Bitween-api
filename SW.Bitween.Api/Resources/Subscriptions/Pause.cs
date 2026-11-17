@@ -19,7 +19,11 @@ public class Pause(BitweenDbContext dbContext, RequestContext requestContext, II
                          ?? throw new SWNotFoundException(key.ToString());
             var paused = request?.Paused ?? entity!.PausedOn == null;
             if (paused == (entity!.PausedOn != null))
+            {
+                // A call that saved but failed to tell the other servers is retried this way; tell them again.
+                await cache.BroadcastRevoke();
                 return new { entity.Id, Paused = paused, Changed = false };
+            }
             if (paused)
                 entity.Pause();
             else
