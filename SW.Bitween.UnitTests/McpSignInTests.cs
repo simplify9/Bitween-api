@@ -64,6 +64,13 @@ public class McpSignInTests
         Assert.AreEqual(60, client.Name.Length);
     }
 
+    [TestMethod]
+    public void An_app_whose_addresses_would_not_fit_its_session_is_refused_at_registration()
+    {
+        var uri = "https://app.example.com/" + new string('c', 1600);
+        Assert.ThrowsException<ArgumentException>(() => Clients().Register("Big", [uri]));
+    }
+
     static OAuthClients Clients() =>
         new(Configuration, new MemoryCache(new MemoryCacheOptions()), NullLogger<OAuthClients>.Instance);
 

@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
+using SW.Bitween.Domain.Accounts;
 
 namespace SW.Bitween.Services.Mcp;
 
@@ -65,13 +66,16 @@ public class OAuthClients(IConfiguration configuration, IMemoryCache cache, ILog
         var payload = JsonSerializer.Serialize(new Registration(cleanName, redirectUris.ToList()));
         var id = RegisteredPrefix + SignInCodes.Base64Url(Encoding.UTF8.GetBytes(payload)) + "." +
                  SignInCodes.Base64Url(HMACSHA256.HashData(Key, Encoding.UTF8.GetBytes(payload)));
+        // The id carries the addresses, and its session has to fit in the column that keeps it.
+        if (id.Length > RefreshToken.MaxClientIdLength)
+            throw new ArgumentException("The redirect_uris are too long to register; use shorter addresses.");
         return new OAuthClient(id, cleanName, redirectUris.ToList());
     }
 
     /// <summary>The app with this client id, or null when it's unknown or its metadata doesn't hold up.</summary>
     public async Task<OAuthClient?> Find(string? clientId)
     {
-        if (string.IsNullOrWhiteSpace(clientId)) return null;
+        if (string.IsNullOrWhiteSpace(clientId) || clientId.Length > RefreshToken.MaxClientIdLength) return null;
         if (clientId.StartsWith(RegisteredPrefix, StringComparison.Ordinal)) return Registered(clientId);
         if (!clientId.StartsWith("https://", StringComparison.Ordinal)) return null;
         if (cache.TryGetValue(CacheKey(clientId), out OAuthClient? known)) return known;
