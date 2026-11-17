@@ -88,7 +88,7 @@ public class OAuthClients(IConfiguration configuration, IMemoryCache cache, ILog
     /// <summary>
     /// Whether an app may be sent back to this address: one it listed, exactly - except an address on
     /// this computer (127.0.0.1 or localhost over http), where a native app such as Claude Code picks a
-    /// free port each time, so any port does.
+    /// free port each time, so any port does. Only the port: the rest must match.
     /// </summary>
     public static bool Allows(OAuthClient client, string? redirectUri)
     {
@@ -99,7 +99,7 @@ public class OAuthClients(IConfiguration configuration, IMemoryCache cache, ILog
         return IsLoopback(asked) && client.RedirectUris.Any(listed =>
             Uri.TryCreate(listed, UriKind.Absolute, out var uri) && IsLoopback(uri) &&
             string.Equals(uri.Host, asked.Host, StringComparison.OrdinalIgnoreCase) &&
-            uri.AbsolutePath == asked.AbsolutePath);
+            uri.AbsolutePath == asked.AbsolutePath && uri.Query == asked.Query);
     }
 
     /// <summary>Why an app can't be sent back to an address, or null when it can: https, or http on this computer.</summary>

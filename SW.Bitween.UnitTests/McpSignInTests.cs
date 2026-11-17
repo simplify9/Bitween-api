@@ -71,6 +71,15 @@ public class McpSignInTests
         Assert.ThrowsException<ArgumentException>(() => Clients().Register("Big", [uri]));
     }
 
+    [TestMethod]
+    public void An_app_on_this_computer_may_change_its_port_but_nothing_else()
+    {
+        var client = new OAuthClient("id", "App", ["http://127.0.0.1:1234/cb?app=one"]);
+        Assert.IsTrue(OAuthClients.Allows(client, "http://127.0.0.1:5678/cb?app=one"));
+        Assert.IsFalse(OAuthClients.Allows(client, "http://127.0.0.1:5678/cb?app=two"));
+        Assert.IsFalse(OAuthClients.Allows(client, "http://127.0.0.1:5678/other?app=one"));
+    }
+
     static OAuthClients Clients() =>
         new(Configuration, new MemoryCache(new MemoryCacheOptions()), NullLogger<OAuthClients>.Instance);
 
