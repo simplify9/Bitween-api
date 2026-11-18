@@ -14,6 +14,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext, I
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Notifiers.Create);
         await ChannelValidation.EnsureNameIsFree(dbContext, request.Name);
+        ChannelValidation.EnsureQuietMinutes(request.QuietMinutes);
         ChannelValidation.EnsureTransportIsSecure(request.HandlerId, request.HandlerProperties);
         ChannelValidation.EnsureWebhookIsHttps(request.HandlerId, request.HandlerProperties);
 
@@ -26,7 +27,8 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext, I
         {
             Name = request.Name,
             HandlerId = request.HandlerId,
-            HandlerProperties = properties
+            HandlerProperties = properties,
+            QuietMinutes = request.QuietMinutes
         };
 
         dbContext.Add(channel);

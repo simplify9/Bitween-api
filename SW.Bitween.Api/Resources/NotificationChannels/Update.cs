@@ -18,6 +18,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
                       ?? throw new SWNotFoundException(key.ToString());
 
         await ChannelValidation.EnsureNameIsFree(dbContext, request.Name, key);
+        ChannelValidation.EnsureQuietMinutes(request.QuietMinutes);
         ChannelValidation.EnsureTransportIsSecure(request.HandlerId, request.HandlerProperties);
         ChannelValidation.EnsureWebhookIsHttps(request.HandlerId, request.HandlerProperties);
 
@@ -34,6 +35,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext, I
         channel.Name = request.Name;
         channel.HandlerId = request.HandlerId;
         channel.HandlerProperties = properties;
+        channel.QuietMinutes = request.QuietMinutes;
 
         await dbContext.SaveChangesAsync();
         await cache.BroadcastRevoke();

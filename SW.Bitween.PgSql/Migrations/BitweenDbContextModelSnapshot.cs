@@ -2079,6 +2079,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("name");
 
+                    b.Property<int?>("QuietMinutes")
+                        .HasColumnType("integer")
+                        .HasColumnName("quiet_minutes");
+
                     b.HasKey("Id")
                         .HasName("pk_notification_channel");
 

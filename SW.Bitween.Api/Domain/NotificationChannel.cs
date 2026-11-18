@@ -25,6 +25,14 @@ public class NotificationChannel : BaseEntity, IAudited
     public IReadOnlyDictionary<string, string> HandlerProperties { get; set; } =
         new Dictionary<string, string>();
 
+    /// <summary>
+    /// How many minutes after this channel sends for a subscription and outcome further notifications for that
+    /// pair are held back (recorded as suppressed) rather than sent. Null follows the instance-wide
+    /// <c>NotifierQuietMinutes</c>; 0 never holds one back, for a channel read by a program that needs every
+    /// result rather than read by a person who wants one message per outage.
+    /// </summary>
+    public int? QuietMinutes { get; set; }
+
     public DateTime CreatedOn { get; set; }
     public string CreatedBy { get; set; }
     public DateTime? ModifiedOn { get; set; }

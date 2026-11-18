@@ -749,10 +749,11 @@ export interface ApiClient {
     name: string;
     handlerId: string;
     handlerProperties: Record<string, string>;
+    quietMinutes?: number | null;
   }): Promise<number>;
   updateNotificationChannel(
     id: number,
-    input: { name: string; handlerId: string; handlerProperties: Record<string, string> },
+    input: { name: string; handlerId: string; handlerProperties: Record<string, string>; quietMinutes?: number | null },
   ): Promise<void>;
   deleteNotificationChannel(id: number): Promise<void>;
   /** Sends a made-up notification through the channel as saved. */
