@@ -262,4 +262,60 @@ public class InformationTypeTests(BitweenFixture fixture)
         Assert.StartsWith("DUPLICATED_BUS_TYPE_NAME", ex.Message);
         Assert.Contains($"'{holderName}' is paused on the bus", ex.Message);
     }
+
+    private async Task<List<DocumentRow>> Search(params string[] filters)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        var handler = ActivatorUtilities.CreateInstance<Resources.Documents.Search>(scope.ServiceProvider);
+        var answer = (SearchyResponse<DocumentRow>)await handler.Handle(new SearchyRequest(filters) { PageSize = 100 }, false, null);
+        return answer.Result.ToList();
+    }
+
+    [Fact]
+    public async Task A_type_is_found_by_its_exact_code_and_by_part_of_its_name()
+    {
+        var suffix = Interlocked.Increment(ref _seq);
+        var code = "FIND_" + suffix;
+        var name = "Findable type " + suffix;
+        var id = await Create(new DocumentCreate { Name = name, Code = code });
+        await Create(new DocumentCreate { Name = name + " archive", Code = code + "_X" });
+
+        // What the .NET client's FindByCode and FindByName ask for.
+        var byCode = await Search($"Code:1:{code}");
+        var byName = await Search($"Name:4:{name}");
+
+        Assert.Equal(id, Assert.Single(byCode).Id);
+        Assert.Contains(byName, d => d.Id == id);
+        Assert.Contains(byName, d => d.Name == name + " archive");
+        // The name search is case-sensitive on PostgreSQL, so the client compares names itself.
+        Assert.DoesNotContain(await Search($"Name:4:{name.ToUpperInvariant()}"), d => d.Id == id);
+    }
+
+    [Fact]
+    public async Task A_type_can_be_created_changed_retired_and_deleted_by_id()
+    {
+        var id = await Create(new DocumentCreate { Name = Unique("Lifecycle"), Code = "LIFE_" + Interlocked.Increment(ref _seq) });
+        var renamed = Unique("Lifecycle renamed");
+        await Update(id, new DocumentUpdate { Id = id, Name = renamed, Code = "LIFE_R_" + Interlocked.Increment(ref _seq) });
+        Assert.Equal(renamed, (await Stored(id)).Name);
+
+        await using (var scope = fixture.CreateScope())
+        {
+            scope.Superuser();
+            var retire = ActivatorUtilities.CreateInstance<Resources.Documents.Retire>(scope.ServiceProvider);
+            await retire.Handle(id, new DocumentRetire());
+        }
+        Assert.NotNull((await Stored(id)).RetiredOn);
+
+        await using (var scope = fixture.CreateScope())
+        {
+            scope.Superuser();
+            var delete = ActivatorUtilities.CreateInstance<Resources.Documents.Delete>(scope.ServiceProvider);
+            await delete.Handle(id);
+        }
+        await using var check = fixture.CreateScope();
+        var db = check.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        Assert.False(await db.Set<Document>().AnyAsync(d => d.Id == id));
+    }
 }

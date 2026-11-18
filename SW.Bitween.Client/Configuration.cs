@@ -169,7 +169,11 @@ public sealed class Subscriptions
         new($"Bitween has no subscription {id}.", System.Net.HttpStatusCode.NotFound);
 }
 
-/// <summary>A Bitween's information types (documents, in the API): read only.</summary>
+/// <summary>
+/// A Bitween's information types (documents, in the API): the kinds of message that flow through it, which
+/// subscriptions and gateways are set up against. Creating and changing one needs <c>documents.create</c> and
+/// <c>documents.edit</c>, deleting <c>documents.delete</c>.
+/// </summary>
 public sealed class InformationTypes
 {
     readonly BitweenClient bitween;
@@ -183,6 +187,70 @@ public sealed class InformationTypes
     /// <summary>One information type, or null when there is none by that id.</summary>
     public Task<DocumentRow?> GetAsync(int id, CancellationToken cancellation = default) =>
         bitween.GetOrNullAsync<DocumentRow>($"api/documents/{id}", cancellation);
+
+    /// <summary>
+    /// The information type with exactly this code, or null. Codes are matched as written (upper-case
+    /// letters, digits and underscores), so this is safe to use before <see cref="CreateAsync"/>.
+    /// </summary>
+    public async Task<DocumentRow?> FindByCodeAsync(string code, CancellationToken cancellation = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(code);
+        var found = await SearchAsync(new ListQuery { Filters = [$"Code:1:{code.Trim()}"] }, 0, 2, cancellation);
+        return found.Result.FirstOrDefault(d => string.Equals(d.Code, code.Trim(), StringComparison.Ordinal));
+    }
+
+    /// <summary>
+    /// The information type with this name, or null. Names are the same type whatever their case (Bitween
+    /// refuses a second one that differs only by case), and its name search is case-sensitive, so this reads
+    /// the whole list, a page at a time, and compares the names itself.
+    /// </summary>
+    public async Task<DocumentRow?> FindByNameAsync(string name, CancellationToken cancellation = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(name);
+        var wanted = name.Trim();
+        const int size = 100;
+        for (var page = 0; ; page++)
+        {
+            var found = await SearchAsync(null, page, size, cancellation);
+            if (found.Result.FirstOrDefault(d => string.Equals(d.Name?.Trim(), wanted, StringComparison.OrdinalIgnoreCase)) is { } match)
+                return match;
+            if (found.Result.Count < size) return null;
+        }
+    }
+
+    /// <summary>
+    /// Creates an information type and returns its id. Refused when the name is taken (in any case), when the
+    /// code is, or, with the bus on, when the bus message type name is, in any case. One with the bus on
+    /// starts a queue for its messages.
+    /// </summary>
+    public Task<int> CreateAsync(DocumentCreate informationType, CancellationToken cancellation = default) =>
+        bitween.PostAsync<int>("api/documents", informationType, cancellation);
+
+    /// <summary>
+    /// Replaces the type's settings with <paramref name="informationType"/>'s, whose <c>Id</c> is
+    /// <paramref name="id"/>. Promoted properties and the validation schema left null stay as they are; empty
+    /// clears them.
+    /// </summary>
+    public Task UpdateAsync(int id, DocumentUpdate informationType, CancellationToken cancellation = default)
+    {
+        informationType.Id = id;
+        return bitween.PostAsync($"api/documents/{id}", informationType, cancellation);
+    }
+
+    /// <summary>
+    /// Takes the type out of use, or puts it back (it toggles), keeping its exchanges. Refused while
+    /// subscriptions or a bus gateway still use it.
+    /// </summary>
+    public Task RetireAsync(int id, CancellationToken cancellation = default) =>
+        bitween.PostAsync($"api/documents/{id}/retire", new DocumentRetire(), cancellation);
+
+    /// <summary>
+    /// Deletes the type <b>and every exchange recorded against it</b>: its history goes with it. Refused while
+    /// subscriptions or a bus gateway still use it. <see cref="RetireAsync"/> takes it out of use and keeps
+    /// the history.
+    /// </summary>
+    public Task DeleteAsync(int id, CancellationToken cancellation = default) =>
+        bitween.DeleteAsync($"api/documents/{id}", cancellation);
 }
 
 /// <summary>
