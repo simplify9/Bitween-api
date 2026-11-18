@@ -49,13 +49,14 @@ export const notificationChannelMethods = {
     name: string;
     handlerId: string;
     handlerProperties: Record<string, string>;
+    quietMinutes?: number | null;
   }): Promise<number> {
     return post<number>("/notificationchannels", input);
   },
 
   async updateNotificationChannel(
     id: number,
-    input: { name: string; handlerId: string; handlerProperties: Record<string, string> },
+    input: { name: string; handlerId: string; handlerProperties: Record<string, string>; quietMinutes?: number | null },
   ): Promise<void> {
     await post(`/notificationchannels/${id}`, input);
   },

@@ -577,6 +577,8 @@ export interface NotificationChannel {
   name: string;
   handlerId: string;
   handlerProperties: Record<string, string>;
+  /** Minutes after a send within which repeats for the same subscription and outcome are held back; null follows the instance's, 0 holds none back. */
+  quietMinutes?: number | null;
 }
 
 export type NotificationChannelUseKind = "Subscription" | "RetryPolicy" | "RetryGroup" | "RetryAlertOverride";
@@ -593,6 +595,7 @@ export interface NotificationChannelRow {
   id: number;
   name: string;
   handlerId: string;
+  quietMinutes?: number | null;
   usedBy: NotificationChannelUse[];
 }
 

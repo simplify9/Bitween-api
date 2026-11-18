@@ -12,6 +12,13 @@ namespace SW.Bitween.Model
 
         /// <summary>Everything the adapter needs to deliver, such as recipients or a webhook url.</summary>
         public Dictionary<string, string> HandlerProperties { get; set; } = [];
+
+        /// <summary>
+        /// Minutes after a send for a subscription and outcome within which further notifications for that pair are
+        /// recorded as suppressed rather than sent. Null follows the instance's <c>NotifierQuietMinutes</c>; 0 never
+        /// suppresses, for a channel that a program reads and that needs every result; 0 to 1440.
+        /// </summary>
+        public int? QuietMinutes { get; set; }
     }
 
     public class NotificationChannelUpdate : NotificationChannelCreate { }
@@ -27,6 +34,9 @@ namespace SW.Bitween.Model
         public int Id { get; set; }
         public string Name { get; set; } = null!;
         public string HandlerId { get; set; } = null!;
+
+        /// <summary>The channel's own quiet window in minutes; null follows the instance's.</summary>
+        public int? QuietMinutes { get; set; }
 
         /// <summary>Every place that sends through this channel, so the list can name them.</summary>
         public List<NotificationChannelUse> UsedBy { get; set; } = [];

@@ -14,7 +14,7 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext) :
     public async Task<object> Handle(SearchyRequest searchyRequest, bool lookup = false, string searchPhrase = null)
     {
         var query = dbContext.Set<NotificationChannel>().AsNoTracking()
-            .Select(c => new NotificationChannelRow { Id = c.Id, Name = c.Name, HandlerId = c.HandlerId });
+            .Select(c => new NotificationChannelRow { Id = c.Id, Name = c.Name, HandlerId = c.HandlerId, QuietMinutes = c.QuietMinutes });
 
         // Lookup returns only id/name pairs: every page that picks a channel needs the names,
         // whoever is editing it. The settings themselves are what the view permission covers.

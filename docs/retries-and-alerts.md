@@ -281,6 +281,7 @@ Microsoft retired the Office 365 *Incoming Webhook* connector for Teams in 2026.
 - Each send is tried up to three times, two and then four seconds apart.
 - Email, Teams and Slack sends share the built-in handlers' [circuit breaker](adapters.md#when-a-destination-keeps-failing). While the mail server or webhook host keeps failing, sends to it fail at once.
 - **Quiet window.** After a channel sends for a subscription and an outcome, more of the same within `Bitween:NotifierQuietMinutes` (5 by default) are held back: recorded, not sent. The next message says how many were held back (`SuppressedSinceLast`), so an outage reads as one message. `0` sends every one. Legacy notifiers work the same way.
+- **A channel's own quiet window.** A channel can set `quietMinutes` (0 to 1440), which replaces `Bitween:NotifierQuietMinutes` for that channel; empty follows the instance's. Set it to `0` on a machine-to-machine channel, one a program reads and that needs the result of every exchange: a held-back notification is recorded as suppressed and the program is never told, so only what it finds by reading Bitween itself catches up.
 - A result event delivered twice does not notify twice.
 - Each send is recorded with its channel, whether it went or was held back, and any error. The alerts for a subscription going quiet and coming back are logged instead.
 

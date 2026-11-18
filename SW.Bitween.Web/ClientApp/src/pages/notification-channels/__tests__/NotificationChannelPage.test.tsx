@@ -76,7 +76,12 @@ describe("a new notification channel", () => {
 
     await waitFor(() => expect(router.state.location.pathname).toBe("/elsewhere"));
     expect(created).toEqual([
-      { name: "Ops email", handlerId: "NativeEmailMessageHandler", handlerProperties: { To: "ops@acme.test" } },
+      {
+        name: "Ops email",
+        handlerId: "NativeEmailMessageHandler",
+        handlerProperties: { To: "ops@acme.test" },
+        quietMinutes: null,
+      },
     ]);
     // Back where the picker was, with the new channel to pick.
     expect(router.state.location.search).toBe("?draftKept=1&pickedChannel=42");
@@ -224,5 +229,50 @@ describe("a saved notification channel", () => {
 
     expect(screen.getByRole("button", { name: /Send a test message/ })).toBeDisabled();
     expect(screen.getByText("Unsaved changes")).toBeVisible();
+  });
+
+  it("shows the channel's own quiet window, and saving another change keeps it", async () => {
+    const updated: unknown[] = [];
+    const { user } = renderApp("/settings/notification-channels/5", {
+      handlers: [
+        // A channel read by a program: 0 holds nothing back.
+        http.get(apiPath("/notificationchannels/5"), () => HttpResponse.json({ ...teams, quietMinutes: 0 })),
+        http.post(apiPath("/notificationchannels/5"), async ({ request }) => {
+          updated.push(await request.json());
+          return new HttpResponse(null, { status: 204 });
+        }),
+        ...handlers.filter((h) => !String(h.info.path).endsWith("/notificationchannels/5")),
+      ],
+    });
+
+    const quiet = await screen.findByLabelText("Minutes (0 to 1440)");
+    expect(quiet).toHaveValue("0");
+
+    await user.clear(screen.getByLabelText("Name"));
+    await user.type(screen.getByLabelText("Name"), "Renamed");
+    await user.click(await screen.findByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(updated).toHaveLength(1));
+    expect(updated[0]).toMatchObject({ handlerId: "NativeTeamsMessageHandler", quietMinutes: 0 });
+  });
+
+  it("clears the quiet window to follow the instance's when the field is emptied", async () => {
+    const updated: unknown[] = [];
+    const { user } = renderApp("/settings/notification-channels/5", {
+      handlers: [
+        http.get(apiPath("/notificationchannels/5"), () => HttpResponse.json({ ...teams, quietMinutes: 30 })),
+        http.post(apiPath("/notificationchannels/5"), async ({ request }) => {
+          updated.push(await request.json());
+          return new HttpResponse(null, { status: 204 });
+        }),
+        ...handlers.filter((h) => !String(h.info.path).endsWith("/notificationchannels/5")),
+      ],
+    });
+
+    await user.clear(await screen.findByLabelText("Minutes (0 to 1440)"));
+    await user.click(await screen.findByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(updated).toHaveLength(1));
+    expect(updated[0]).toMatchObject({ quietMinutes: null });
   });
 });
