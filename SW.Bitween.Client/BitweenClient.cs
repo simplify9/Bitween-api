@@ -12,7 +12,7 @@ namespace SW.Bitween.Client;
 /// hands over. Keep one for the life of the program: it can be used from many threads at once, and
 /// they share one session. What the account may do is what its roles allow: <c>exchanges.view</c> to
 /// read exchanges and <c>exchanges.operate</c> to retry them; <c>partners.*</c>,
-/// <c>subscriptions.*</c>, <c>documents.view</c>, <c>api-gateways.*</c>, <c>bus-gateways.*</c> and
+/// <c>subscriptions.*</c>, <c>documents.*</c>, <c>api-gateways.*</c>, <c>bus-gateways.*</c> and
 /// <c>notifiers.*</c> for the configuration each area manages, and <c>subscriptions.view</c> to read
 /// adapters' manifests. Sending to a gateway is a partner's
 /// call, not an account's: see <see cref="BitweenGateway"/>.
