@@ -772,14 +772,15 @@ public class NotificationChannelTests(BitweenFixture fixture)
     }
 
     /// <summary>A channel whose messages the test responder counts under <paramref name="token"/>.</summary>
-    private async Task<int> RecordingChannel(string token, Dictionary<string, string> extra = null)
+    private async Task<int> RecordingChannel(string token, Dictionary<string, string> extra = null, int? quietMinutes = null)
     {
         await using var scope = fixture.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
         var properties = new Dictionary<string, string>(extra ?? []) { ["Body"] = token };
         var channel = new NotificationChannel
         {
-            Name = Unique("Recording"), HandlerId = nameof(NativeTestResponder), HandlerProperties = properties
+            Name = Unique("Recording"), HandlerId = nameof(NativeTestResponder), HandlerProperties = properties,
+            QuietMinutes = quietMinutes
         };
         db.Add(channel);
         await db.SaveChangesAsync();
@@ -842,6 +843,124 @@ public class NotificationChannelTests(BitweenFixture fixture)
         await using var scope = fixture.CreateScope();
         await scope.ServiceProvider.GetRequiredService<XchangeService>()
             .Process("Channels" + XchangeService.ResultQueueSuffix, JsonConvert.SerializeObject(new { Id = xchangeId }));
+    }
+
+    /// <summary>
+    /// A channel read by a program, which needs every result, sets its quiet window to 0: nothing is held back.
+    /// </summary>
+    [Fact]
+    public async Task A_channel_with_a_quiet_window_of_zero_sends_every_notification()
+    {
+        var token = Token("every");
+        var channelId = await RecordingChannel(token, quietMinutes: 0);
+        var subscriptionId = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = channelId, OnFailure = true });
+
+        for (var i = 0; i < 4; i++) await ProcessResult(await FinishedExchange(subscriptionId, failed: true));
+
+        Assert.Equal(4, NativeTestResponder.Deliveries.GetValueOrDefault(token));
+        var rows = await Sends(channelId);
+        Assert.Equal(4, rows.Count(n => n.Success));
+        Assert.DoesNotContain(rows, n => n.Suppressed);
+    }
+
+    /// <summary>
+    /// A channel without a window of its own follows the instance's (5 minutes): a send older than that doesn't hold the
+    /// next back, and one a channel's own longer window still covers does.
+    /// </summary>
+    [Fact]
+    public async Task A_channels_own_quiet_window_replaces_the_instances_for_that_channel()
+    {
+        var instanceToken = Token("instance-window");
+        var ownToken = Token("own-window");
+        var following = await RecordingChannel(instanceToken);                    // null: the instance's window
+        var longer = await RecordingChannel(ownToken, quietMinutes: 30);          // its own, longer
+        var followingSubscription = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = following, OnFailure = true });
+        var longerSubscription = await NotifyingSubscription(
+            new SubscriptionNotification { ChannelId = longer, OnFailure = true });
+
+        await ProcessResult(await FinishedExchange(followingSubscription, failed: true));
+        await ProcessResult(await FinishedExchange(longerSubscription, failed: true));
+        // Ten minutes later: outside the instance's 5, inside the 30.
+        foreach (var channelId in new[] { following, longer }) await AgeSends(channelId, TimeSpan.FromMinutes(10));
+        await ProcessResult(await FinishedExchange(followingSubscription, failed: true));
+        await ProcessResult(await FinishedExchange(longerSubscription, failed: true));
+
+        Assert.Equal(2, NativeTestResponder.Deliveries.GetValueOrDefault(instanceToken));
+        Assert.Equal(1, NativeTestResponder.Deliveries.GetValueOrDefault(ownToken));
+        Assert.Equal(1, (await Sends(longer)).Count(n => n.Suppressed));
+        Assert.DoesNotContain(await Sends(following), n => n.Suppressed);
+    }
+
+    [Fact]
+    public async Task A_channels_quiet_window_is_saved_returned_listed_and_can_be_cleared()
+    {
+        var id = await CreateWithQuietMinutes(Unique("Quiet"), 0);
+
+        Assert.Equal(0, (await Read(id)).QuietMinutes);
+        Assert.Contains(await List(), r => r.Id == id && r.QuietMinutes == 0);
+
+        await Update(id, new NotificationChannelUpdate
+        {
+            Name = (await Read(id)).Name, HandlerId = "NativeSmtpHandler", HandlerProperties = Smtp(), QuietMinutes = 15
+        });
+        Assert.Equal(15, (await Read(id)).QuietMinutes);
+
+        await Update(id, new NotificationChannelUpdate
+        {
+            Name = (await Read(id)).Name, HandlerId = "NativeSmtpHandler", HandlerProperties = Smtp(), QuietMinutes = null
+        });
+        Assert.Null((await Read(id)).QuietMinutes);
+    }
+
+    [Theory]
+    [InlineData(-1)]
+    [InlineData(1441)]
+    public async Task A_quiet_window_outside_zero_to_a_day_is_refused(int minutes)
+    {
+        var ex = await Assert.ThrowsAsync<SWValidationException>(() => CreateWithQuietMinutes(Unique("Quiet out of range"), minutes));
+        Assert.Contains("NOTIFICATION_CHANNEL_QUIET_MINUTES", ex.Message);
+    }
+
+    private async Task<int> CreateWithQuietMinutes(string name, int quietMinutes)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        return (int)await ActivatorUtilities.CreateInstance<Resources.NotificationChannels.Create>(scope.ServiceProvider)
+            .Handle(new NotificationChannelCreate
+            {
+                Name = name, HandlerId = "NativeSmtpHandler", HandlerProperties = Smtp(), QuietMinutes = quietMinutes
+            });
+    }
+
+    private async Task<NotificationChannelGet> Read(int id)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        return (NotificationChannelGet)await ActivatorUtilities.CreateInstance<Resources.NotificationChannels.Get>(scope.ServiceProvider)
+            .Handle(id);
+    }
+
+    private async Task<List<NotificationChannelRow>> List()
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        var answer = (SearchyResponse<NotificationChannelRow>)await ActivatorUtilities
+            .CreateInstance<Resources.NotificationChannels.Search>(scope.ServiceProvider)
+            .Handle(new SearchyRequest { PageSize = 200 });
+        return answer.Result.ToList();
+    }
+
+    /// <summary>Makes a channel's sends look older, as time passing would.</summary>
+    private async Task AgeSends(int channelId, TimeSpan by)
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var rows = await db.Set<XchangeNotification>().Where(n => n.ChannelId == channelId).ToListAsync();
+        foreach (var row in rows)
+            db.Entry(row).Property(nameof(XchangeNotification.FinishedOn)).CurrentValue = row.FinishedOn - by;
+        await db.SaveChangesAsync();
     }
 
     private async Task<List<XchangeNotification>> Sends(int channelId)

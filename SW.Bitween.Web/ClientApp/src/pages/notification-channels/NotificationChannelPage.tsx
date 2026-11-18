@@ -34,9 +34,11 @@ interface ChannelDraft {
   name: string;
   handlerId: string | null;
   handlerProperties: Record<string, string>;
+  /** The channel's own quiet window in minutes; null follows the instance's. */
+  quietMinutes: number | null;
 }
 
-const EMPTY: ChannelDraft = { name: "", handlerId: null, handlerProperties: {} };
+const EMPTY: ChannelDraft = { name: "", handlerId: null, handlerProperties: {}, quietMinutes: null };
 
 const SETTINGS_SECTION = `/settings?section=${encodeURIComponent("Notification channels")}`;
 
@@ -156,7 +158,12 @@ export function NotificationChannelPage({ isNew = false }: { isNew?: boolean }) 
   const saved = useMemo<ChannelDraft | null>(
     () =>
       existing.data
-        ? { name: existing.data.name, handlerId: existing.data.handlerId, handlerProperties: existing.data.handlerProperties ?? {} }
+        ? {
+            name: existing.data.name,
+            handlerId: existing.data.handlerId,
+            handlerProperties: existing.data.handlerProperties ?? {},
+            quietMinutes: existing.data.quietMinutes ?? null,
+          }
         : null,
     [existing.data],
   );
@@ -172,7 +179,12 @@ export function NotificationChannelPage({ isNew = false }: { isNew?: boolean }) 
 
   const save = useMutation({
     mutationFn: async () => {
-      const body = { name: draft!.name.trim(), handlerId: draft!.handlerId!, handlerProperties: draft!.handlerProperties };
+      const body = {
+        name: draft!.name.trim(),
+        handlerId: draft!.handlerId!,
+        handlerProperties: draft!.handlerProperties,
+        quietMinutes: draft!.quietMinutes,
+      };
       if (channelId !== null) {
         await api.updateNotificationChannel(channelId, body);
         return channelId;
@@ -367,6 +379,26 @@ export function NotificationChannelPage({ isNew = false }: { isNew?: boolean }) 
               />
             </Panel>
           )}
+          <Panel
+            title="Quiet window"
+            description="After this channel sends for a subscription and an outcome, more of the same within this many minutes are held back and counted in the next message, so an outage reads as one message. Leave it empty to follow the instance's setting. 0 sends every one: for a channel a program reads and that needs every result."
+          >
+            <div className="max-w-xs">
+              <Field label="Minutes (0 to 1440)" htmlFor="nc-quiet">
+                <TextInput
+                  id="nc-quiet"
+                  inputMode="numeric"
+                  value={draft.quietMinutes === null ? "" : String(draft.quietMinutes)}
+                  disabled={!canEdit}
+                  placeholder="Instance default"
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/\D/g, "");
+                    update({ quietMinutes: digits === "" ? null : Math.min(1440, Number(digits)) });
+                  }}
+                />
+              </Field>
+            </div>
+          </Panel>
         </div>
 
         <div className="min-w-0 space-y-5">

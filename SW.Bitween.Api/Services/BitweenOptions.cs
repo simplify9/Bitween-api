@@ -142,7 +142,8 @@ namespace SW.Bitween
         /// After a notifier sends for a subscription and outcome, further notifications for the same
         /// pair within this many minutes are recorded as suppressed rather than sent, and the next
         /// one sent says how many there were. An outage no longer means one email per failure.
-        /// Zero sends every one.
+        /// Zero sends every one. A notification channel can set its own window (<c>QuietMinutes</c>),
+        /// which replaces this for that channel: 0 for a channel read by a program that needs every result.
         /// </summary>
         public int NotifierQuietMinutes { get; set; } = 5;
         /// <summary>

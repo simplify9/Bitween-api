@@ -109,7 +109,7 @@ applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
 | `LogSqlParameterValues` | `false` | Write SQL parameter values into the logs. They hold passwords, partner keys and payloads, so it is off in every environment unless set; the repository's `launchSettings.json` turns it on for a developer's own machine. |
 | `ReceiveAttemptCleanupCron` | `0 0 3 * * ?` | Quartz cron for the receive attempt cleanup. |
 | `QuietSubscriptionsCron` | `0 0/5 * * * ?` | Quartz cron for checking subscriptions that [expect traffic](entry-points.md#when-traffic-stops). A subscription can't expect a gap shorter than five minutes, so running it less often only delays the alert. |
-| `NotifierQuietMinutes` | `5` | After a notification channel or legacy notifier sends for a subscription and an outcome, more of the same within this many minutes are held back and counted in the next message. `0` sends every one. See [Delivery](retries-and-alerts.md#delivery). |
+| `NotifierQuietMinutes` | `5` | After a notification channel or legacy notifier sends for a subscription and an outcome, more of the same within this many minutes are held back and counted in the next message. `0` sends every one. A notification channel can set its own window (`quietMinutes`), which replaces this for that channel. See [Delivery](retries-and-alerts.md#delivery). |
 | `ApiCallSubscriptionResponseAcceptedStatusCode` | `202` | First value of the runtime setting. |
 | `JwtExpiryMinutes` | `60` | First value of the runtime setting. |
 | `MsalClientId`, `MsalTenantId`, `MsalRedirectUri` | | First values of the Microsoft sign-in settings. |

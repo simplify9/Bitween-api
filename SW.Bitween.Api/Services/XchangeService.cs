@@ -1643,10 +1643,12 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             return;
         }
 
-        // One message for an outage, as a notifier sends: see NotifyResult.
+        // One message for an outage, as a notifier sends: see NotifyResult. A channel can set its own window (0 for one
+        // read by a program that needs every result); without one it follows the instance's.
+        var quietMinutes = channel.QuietMinutes ?? BitweenSettings.NotifierQuietMinutes;
         var (lastSent, suppressedSince) = await QuietWindow(
-            sends, subscription.Id, xchangeResult);
-        if (InQuietWindow(lastSent))
+            sends, subscription.Id, xchangeResult, quietMinutes);
+        if (InQuietWindow(lastSent, quietMinutes))
         {
             var held = XchangeNotification.ForChannel(xchangeResult.Id, channelId, channel.Name);
             held.Suppressed = true;
@@ -1683,8 +1685,9 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         // One message for an outage, not one per failure: within the quiet window after a send for
         // the same subscription and outcome, this one is recorded but not sent.
         var (lastSent, suppressedSince) = await QuietWindow(
-            dbContext.Set<XchangeNotification>().Where(n => n.NotifierId == notifier.Id), subscription.Id, xchangeResult);
-        if (InQuietWindow(lastSent))
+            dbContext.Set<XchangeNotification>().Where(n => n.NotifierId == notifier.Id), subscription.Id, xchangeResult,
+            BitweenSettings.NotifierQuietMinutes);
+        if (InQuietWindow(lastSent, BitweenSettings.NotifierQuietMinutes))
         {
             dbContext.Add(new XchangeNotification(xchangeResult.Id, notifier.Id, notifier.Name) { Suppressed = true, Success = false });
             await dbContext.SaveChangesAsync();
@@ -1718,9 +1721,9 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         SuppressedSinceLast = suppressedSince
     };
 
-    private bool InQuietWindow(DateTime? lastSent) =>
-        lastSent is not null && BitweenSettings.NotifierQuietMinutes > 0 &&
-        lastSent > DateTime.UtcNow.AddMinutes(-BitweenSettings.NotifierQuietMinutes);
+    private static bool InQuietWindow(DateTime? lastSent, int quietMinutes) =>
+        lastSent is not null && quietMinutes > 0 &&
+        lastSent > DateTime.UtcNow.AddMinutes(-quietMinutes);
 
     /// <summary>
     /// When one notifier or channel, given as its <paramref name="sends"/>, last sent for the
@@ -1733,9 +1736,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// this one back, and what it held back is too old to be news in the next message.
     /// </remarks>
     private async Task<(DateTime? LastSent, int SuppressedSince)> QuietWindow(IQueryable<XchangeNotification> sends,
-        int subscriptionId, XchangeResult result)
+        int subscriptionId, XchangeResult result, int minutes)
     {
-        var minutes = BitweenSettings.NotifierQuietMinutes;
         if (minutes <= 0) return (null, 0);
         var since = DateTime.UtcNow.AddMinutes(-(minutes + 60));
 

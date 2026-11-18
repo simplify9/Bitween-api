@@ -22,6 +22,17 @@ internal static class ChannelValidation
                 $"A notification channel called '{name}' already exists.");
     }
 
+    /// <summary>The longest quiet window a channel can ask for: a day.</summary>
+    public const int MaxQuietMinutes = 1440;
+
+    /// <summary>A channel's own quiet window is 0 (never hold a notification back) up to a day; null follows the instance's.</summary>
+    public static void EnsureQuietMinutes(int? quietMinutes)
+    {
+        if (quietMinutes is < 0 or > MaxQuietMinutes)
+            throw new SWValidationException("NOTIFICATION_CHANNEL_QUIET_MINUTES",
+                $"The quiet window is 0 to {MaxQuietMinutes} minutes, or empty to follow the instance's.");
+    }
+
     /// <summary>
     /// Refuses mail settings that would send the password over an unencrypted connection.
     /// </summary>
