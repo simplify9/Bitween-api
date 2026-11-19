@@ -14,7 +14,11 @@ namespace SW.Bitween.UnitTests;
 public class HttpHandlerBehaviourTests
 {
     [TestInitialize]
-    public void ForgetTokens() => OAuthTokens.Clear();
+    public void ForgetTokens()
+    {
+        OAuthTokens.Clear();
+        HttpLogin.Clear();
+    }
 
     [DataTestMethod]
     [DataRow(HttpStatusCode.TooManyRequests)]
@@ -95,6 +99,74 @@ public class HttpHandlerBehaviourTests
         var ex = await Assert.ThrowsExceptionAsync<SWException>(() => Handler(server, settings).Handle(new XchangeFile("{}")));
         StringAssert.Contains(ex.Message, "token endpoint answered 401");
         Assert.AreEqual(1, server.Requests.Count, "nothing was sent with a missing token");
+    }
+
+    private static readonly Dictionary<string, string> LoginSettings = new()
+    {
+        ["AuthType"] = "Login", ["LoginUrl"] = "https://partner.test/token", ["LoginUsername"] = "c", ["LoginPassword"] = "s",
+        ["LoginTokenPath"] = "access_token",
+        ["LoginBody"] = "{\"grant_type\":\"client_credentials\",\"client_id\":\"{{username}}\",\"client_secret\":\"{{password}}\"}",
+    };
+
+    [TestMethod]
+    public async Task A_login_token_is_fetched_once_and_reused()
+    {
+        var logins = 0;
+        var server = new Scripted(request =>
+        {
+            if (request.RequestUri!.AbsolutePath == "/token")
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                    { Content = new StringContent($"{{\"access_token\":\"tok{++logins}\",\"expires_in\":3600}}") };
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") };
+        });
+
+        await Handler(server, LoginSettings).Handle(new XchangeFile("{}"));
+        await Handler(server, LoginSettings).Handle(new XchangeFile("{}"));
+
+        Assert.AreEqual(1, logins);
+        Assert.AreEqual("Bearer tok1", server.Requests[^1].Headers.Authorization?.ToString());
+    }
+
+    [TestMethod]
+    public async Task A_reused_login_token_that_is_refused_signs_in_again_and_resends_once()
+    {
+        var logins = 0;
+        var server = new Scripted(request =>
+        {
+            if (request.RequestUri!.AbsolutePath == "/token")
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                    { Content = new StringContent($"{{\"access_token\":\"tok{++logins}\",\"expires_in\":3600}}") };
+            return request.Headers.Authorization?.Parameter == "tok1"
+                ? new HttpResponseMessage(HttpStatusCode.Unauthorized) { Content = new StringContent("revoked") }
+                : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"ok\":true}") };
+        });
+
+        await Handler(server, LoginSettings).Handle(new XchangeFile("{}")); // signs in, tok1 refused (fresh): bad response
+        var result = await Handler(server, LoginSettings).Handle(new XchangeFile("{\"n\":2}"));
+
+        Assert.IsFalse(result.BadData);
+        Assert.AreEqual(2, logins);
+        Assert.AreEqual("Bearer tok2", server.Requests[^1].Headers.Authorization?.ToString());
+        Assert.AreEqual("{\"n\":2}", await server.Requests[^1].Content!.ReadAsStringAsync(), "the message itself is sent again");
+    }
+
+    [TestMethod]
+    public async Task A_fresh_login_token_that_is_refused_is_the_partners_answer()
+    {
+        var logins = 0;
+        var server = new Scripted(request =>
+        {
+            if (request.RequestUri!.AbsolutePath == "/token")
+                return new HttpResponseMessage(HttpStatusCode.OK)
+                    { Content = new StringContent($"{{\"access_token\":\"tok{++logins}\",\"expires_in\":3600}}") };
+            return new HttpResponseMessage(HttpStatusCode.Unauthorized) { Content = new StringContent("not for you") };
+        });
+
+        var result = await Handler(server, LoginSettings).Handle(new XchangeFile("{}"));
+
+        Assert.IsTrue(result.BadData);
+        Assert.AreEqual(1, logins);
+        Assert.AreEqual(2, server.Requests.Count, "one sign-in, one send");
     }
 
     private static NativeHttpHandler Handler(Scripted server, Dictionary<string, string>? extra = null)

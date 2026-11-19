@@ -1,4 +1,6 @@
 using System;
+using System.Linq;
+using System.Text;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -13,6 +15,9 @@ namespace SW.Bitween.UnitTests;
 [TestClass]
 public class HttpLoginTests
 {
+    [TestInitialize]
+    public void ForgetTokens() => HttpLogin.Clear();
+
     // ─── Login body ─────────────────────────────────────────────────────────────
 
     [TestMethod]
@@ -118,6 +123,126 @@ public class HttpLoginTests
 
         StringAssert.Contains(ex.Message, "401");
         StringAssert.Contains(ex.Message, "bad password");
+    }
+
+    // ─── Reuse ──────────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public async Task GetToken_ReusesTheTokenUntilItExpires()
+    {
+        var server = new CountingLogin("{\"access_token\":\"tok\",\"expires_in\":3600}");
+        var client = new HttpClient(server);
+
+        var first = await HttpLogin.GetTokenReused(client, "https://api.test/token", Body, "access_token", "id", "secret", new object());
+        var second = await HttpLogin.GetTokenReused(client, "https://api.test/token", Body, "access_token", "id", "secret", new object());
+
+        Assert.AreEqual(1, server.Logins);
+        Assert.AreEqual(("tok", false), first);
+        Assert.AreEqual(("tok", true), second);
+    }
+
+    [TestMethod]
+    public async Task GetToken_DifferentCredentialsDoNotShareAToken()
+    {
+        var server = new CountingLogin("{\"access_token\":\"tok\",\"expires_in\":3600}");
+        var client = new HttpClient(server);
+
+        await HttpLogin.GetToken(client, "https://api.test/token", Body, "access_token", "id-a", "secret", new object());
+        await HttpLogin.GetToken(client, "https://api.test/token", Body, "access_token", "id-b", "secret", new object());
+
+        Assert.AreEqual(2, server.Logins);
+    }
+
+    [TestMethod]
+    public async Task GetToken_MessagesArrivingTogetherShareOneSignIn()
+    {
+        var server = new CountingLogin("{\"access_token\":\"tok\",\"expires_in\":3600}", TimeSpan.FromMilliseconds(100));
+        var client = new HttpClient(server);
+
+        var tokens = await Task.WhenAll(Enumerable.Range(0, 10).Select(_ =>
+            HttpLogin.GetToken(client, "https://api.test/token", Body, "access_token", "id", "secret", new object())));
+
+        Assert.AreEqual(1, server.Logins);
+        Assert.IsTrue(tokens.All(t => t == "tok"));
+    }
+
+    [TestMethod]
+    public async Task GetToken_AForgottenTokenSignsInAgain()
+    {
+        var server = new CountingLogin("{\"access_token\":\"tok\",\"expires_in\":3600}");
+        var client = new HttpClient(server);
+
+        var token = await HttpLogin.GetToken(client, "https://api.test/token", Body, "access_token", "id", "secret", new object());
+        HttpLogin.Forget(token);
+        await HttpLogin.GetToken(client, "https://api.test/token", Body, "access_token", "id", "secret", new object());
+
+        Assert.AreEqual(2, server.Logins);
+    }
+
+    [TestMethod]
+    public async Task GetToken_AnExpiredTokenIsNotKept()
+    {
+        var server = new CountingLogin("{\"access_token\":\"tok\",\"expires_in\":0}");
+        var client = new HttpClient(server);
+
+        await HttpLogin.GetToken(client, "https://api.test/token", Body, "access_token", "id", "secret", new object());
+        await HttpLogin.GetToken(client, "https://api.test/token", Body, "access_token", "id", "secret", new object());
+
+        Assert.AreEqual(2, server.Logins);
+    }
+
+    [TestMethod]
+    public async Task GetToken_AFailedSignInIsNotKept()
+    {
+        var handler = new FakeHandler(HttpStatusCode.Unauthorized, "no");
+        var client = new HttpClient(handler);
+
+        await Assert.ThrowsExceptionAsync<SWException>(() =>
+            HttpLogin.GetToken(client, "https://api.test/token", Body, "access_token", "id", "secret", new object()));
+        await Assert.ThrowsExceptionAsync<SWException>(() =>
+            HttpLogin.GetToken(client, "https://api.test/token", Body, "access_token", "id", "secret", new object()));
+    }
+
+    // ─── Lifetime ───────────────────────────────────────────────────────────────
+
+    [TestMethod]
+    public void Lifetime_ReadsExpiresInAsNumberOrString()
+    {
+        var now = DateTimeOffset.UtcNow;
+        Assert.AreEqual(TimeSpan.FromHours(1), HttpLogin.Lifetime("{\"expires_in\":3600}", "tok", now));
+        Assert.AreEqual(TimeSpan.FromHours(1), HttpLogin.Lifetime("{\"expires_in\":\"3600\"}", "tok", now));
+    }
+
+    [TestMethod]
+    public void Lifetime_FallsBackToTheJwtExpiry()
+    {
+        var now = DateTimeOffset.FromUnixTimeSeconds(1_800_000_000);
+        var payload = Convert.ToBase64String(Encoding.UTF8.GetBytes("{\"exp\":1800000600}")).TrimEnd('=').Replace('+', '-').Replace('/', '_');
+
+        Assert.AreEqual(TimeSpan.FromMinutes(10), HttpLogin.Lifetime("{\"jwt\":\"x\"}", $"e30.{payload}.sig", now));
+    }
+
+    [TestMethod]
+    public void Lifetime_DefaultsToFiveMinutes()
+    {
+        Assert.AreEqual(TimeSpan.FromMinutes(5), HttpLogin.Lifetime("{\"jwt\":\"opaque\"}", "opaque", DateTimeOffset.UtcNow));
+        Assert.AreEqual(TimeSpan.FromMinutes(5), HttpLogin.Lifetime("{}", "a.b.c", DateTimeOffset.UtcNow));
+    }
+
+    private const string Body = "{\"grant_type\":\"client_credentials\",\"client_id\":\"{{username}}\",\"client_secret\":\"{{password}}\"}";
+
+    private class CountingLogin(string reply, TimeSpan? delay = null) : HttpMessageHandler
+    {
+        private int logins;
+        public int Logins => logins;
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request,
+            CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref logins);
+            if (delay is { } wait) await Task.Delay(wait, cancellationToken);
+            return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(reply) };
+        }
     }
 
     private class FakeHandler(HttpStatusCode status, string responseBody) : HttpMessageHandler

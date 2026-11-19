@@ -147,6 +147,11 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
         throw new Exception(response.StatusCode.ToString());
       string resp = await response.Content.ReadAsStringAsync();
 
+      // A reused sign-in the endpoint refuses is dropped, so the next run signs in again rather
+      // than failing with the same token until it would have expired.
+      if (response.StatusCode == HttpStatusCode.Unauthorized && _options.AuthType == "Login"
+          && authorization?.Parameter is { } refused)
+        HttpLogin.Forget(refused);
       if (response.StatusCode >= HttpStatusCode.BadRequest)
         throw new Exception($"Request failed with status {response.StatusCode}: {resp}");
       return resp;

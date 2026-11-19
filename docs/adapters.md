@@ -91,6 +91,8 @@ Sends the payload to an HTTP endpoint.
 | `LoginUsername` | | Used by `Basic` and `Login`. |
 | `LoginPassword` *(secret)* | | Used by `Basic` and `Login`, and as the token for `Bearer`. |
 | `LoginUrl` | | Token endpoint for `Login` and `OAuth2`. |
+| `LoginBody` | | `Login` only: the JSON body to send, with `{{username}}` and `{{password}}` where the credentials go. Not hidden, so never type a secret into it. Empty sends `{"Email","Password"}`. |
+| `LoginTokenPath` | | `Login` only: where the token is in the reply, e.g. `access_token`. Empty reads `Jwt`. |
 | `ClientId`, `ClientSecret` *(secret)* | | Used by `OAuth2`. |
 | `ContentType` | `application/json` | `application/x-www-form-urlencoded` form-encodes a flat JSON object. `multipart/form-data` sends the payload as one part named `file`. Other types send the payload as text. |
 | `Headers` *(secret)* | | Extra headers as `Name:Value` pairs separated by commas. A value cannot contain a colon. |
@@ -102,7 +104,7 @@ Sends the payload to an HTTP endpoint.
 | `ApiKey` | Adds the header `ApiKey: {ApiKey}` |
 | `Bearer` | Adds `Authorization: Bearer {LoginPassword}` |
 | `Basic` | Basic authentication with `LoginUsername` and `LoginPassword` |
-| `Login` | POSTs `Email` and `Password` as JSON to `LoginUrl`, reads `Jwt` from the reply, and sends it as a bearer token |
+| `Login` | POSTs a JSON body to `LoginUrl`, reads the token from the reply, and sends it as a bearer token. The body is `{"Email","Password"}` unless `LoginBody` is set: a template where `{{username}}` and `{{password}}` stand for `LoginUsername` and `LoginPassword`, e.g. `{"grant_type":"client_credentials","client_id":"{{username}}","client_secret":"{{password}}"}`. The token is read from `Jwt` unless `LoginTokenPath` names another place, e.g. `access_token` or `data.token`. The token is reused until a minute before it expires (the reply's `expires_in`, else the JWT's `exp`, else five minutes), with one sign-in at a time per login. If the partner answers 401 to a reused token, the handler signs in again and sends the message once more, and the receiver drops the token so its next run signs in. |
 | `OAuth2` | Requests a client credentials token from `LoginUrl`, reads `access_token`, and sends it as a bearer token |
 
 | Reply status | Result |
