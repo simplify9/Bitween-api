@@ -76,6 +76,40 @@ public class HttpReceiverPagingTests
         Assert.AreEqual(1, server.Requests.Count);
     }
 
+    [TestMethod]
+    public async Task A_login_token_is_reused_across_runs_and_dropped_when_refused()
+    {
+        HttpLogin.Clear();
+        var logins = 0;
+        var refuse = false;
+        var server = new Scripted(request =>
+        {
+            if (request.RequestUri!.AbsolutePath == "/token")
+                return Json($"{{\"access_token\":\"tok{++logins}\",\"expires_in\":3600}}");
+            return refuse
+                ? new HttpResponseMessage(HttpStatusCode.Unauthorized) { Content = new StringContent("revoked") }
+                : Json("""{"items":[1]}""");
+        });
+        var settings = new Dictionary<string, string>
+        {
+            ["ArrayPath"] = "items", ["AuthType"] = "Login", ["LoginUrl"] = "https://partner.test/token",
+            ["LoginUsername"] = "c", ["LoginPassword"] = "s", ["LoginTokenPath"] = "access_token",
+            ["LoginBody"] = """{"client_id":"{{username}}","client_secret":"{{password}}"}""",
+        };
+
+        await Receiver(server, settings).ListFiles();
+        await Receiver(server, settings).ListFiles();
+        Assert.AreEqual(1, logins, "the second run reuses the token");
+
+        refuse = true;
+        await Assert.ThrowsExceptionAsync<Exception>(() => Receiver(server, settings).ListFiles());
+        refuse = false;
+        await Receiver(server, settings).ListFiles();
+        Assert.AreEqual(2, logins, "a refused token is not used again");
+        Assert.AreEqual("Bearer tok2", server.Requests[^1].Headers.Authorization?.ToString());
+        HttpLogin.Clear();
+    }
+
     static NativeHttpReceiver Receiver(Scripted server, Dictionary<string, string> extra)
     {
         var settings = new Dictionary<string, string> { ["Url"] = "https://partner.test/orders" };

@@ -12,6 +12,9 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
   IDictionary<string, string> elementDictionary = new Dictionary<string, string>();
   
     private HttpReceiverInput _options = new();
+    // A Login token, and the header it goes in, for this run's requests.
+    private string? _loginToken;
+    private (string Name, string Value)? _loginHeader;
     /// <summary>
     /// A required adapter setting, or a message naming it. These all used to flow into the HTTP
     /// stack as null and come back as a NullReferenceException that named nothing, so a blank
@@ -52,6 +55,8 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
     public async Task<IEnumerable<string>> ListFiles()
     {
       HttpClient client = httpProxy.GetClient(_options.Url);
+      _loginToken = null;
+      _loginHeader = null;
 
       // On the request, never on the client - see NativeHttpHandler: the client is shared by
       // every subscription calling the same origin.
@@ -68,14 +73,23 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
         authorization = new AuthenticationHeaderValue("Bearer", _options.LoginPassword);
       else if (_options.AuthType == "Login")
       {
-        string token = await HttpLogin.GetToken(client, Require(_options.LoginUrl, "LoginUrl"), _options.LoginBody,
-          _options.LoginTokenPath, _options.LoginUsername, _options.LoginPassword,
+        var (token, _) = await HttpLogin.GetTokenReused(client, new LoginOptions(Require(_options.LoginUrl, "LoginUrl"),
           new ReceiverUserLoginModel()
           {
             UserName = _options.LoginUsername,
             Password = _options.LoginPassword
-          });
-        authorization = new AuthenticationHeaderValue("Bearer", token);
+          })
+        {
+          Body = _options.LoginBody,
+          ContentType = _options.LoginContentType,
+          TokenPath = _options.LoginTokenPath,
+          ExpiresInPath = _options.LoginExpiresInPath,
+          LifetimeSeconds = _options.LoginTokenLifetimeSeconds,
+          Username = _options.LoginUsername,
+          Password = _options.LoginPassword
+        });
+        _loginToken = token;
+        _loginHeader = HttpLogin.Header(_options.LoginTokenHeader, token);
       }
       else if (_options.AuthType == "OAuth2")
       {
@@ -129,6 +143,8 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
         request.Headers.Add(name, value);
       if (authorization is not null)
         request.Headers.Authorization = authorization;
+      if (_loginHeader is { } login)
+        HttpLogin.Apply(request, login);
       if (apiKey is not null)
         request.Headers.Add("ApiKey", apiKey);
 
@@ -147,6 +163,10 @@ public class NativeHttpReceiver(IDynamicHttpProxy httpProxy) : INativeInfolinkRe
         throw new Exception(response.StatusCode.ToString());
       string resp = await response.Content.ReadAsStringAsync();
 
+      // A reused sign-in the endpoint refuses is dropped, so the next run signs in again rather
+      // than failing with the same token until it would have expired.
+      if (response.StatusCode == HttpStatusCode.Unauthorized && _loginToken is { } refused)
+        HttpLogin.Forget(refused);
       if (response.StatusCode >= HttpStatusCode.BadRequest)
         throw new Exception($"Request failed with status {response.StatusCode}: {resp}");
       return resp;
