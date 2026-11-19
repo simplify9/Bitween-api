@@ -93,9 +93,9 @@ lists its whole folder on every run before taking `BatchSize` files, so keep rec
 
 ### Existence checks
 
-`ListAsync` matches by prefix. The adapter catalog and source reader compare keys exactly. The
-marketplace check for an adapter installed outside the registry doesn't (see
-[Caveats](caveats.md)).
+`ListAsync` matches by prefix, so every existence check compares keys exactly and requires a
+non-empty object: the adapter catalog, the source reader, and the marketplace's check for an adapter
+installed outside the registry (which until this fix refused `foo` when only `foo-bar` existed).
 
 ### Privacy
 

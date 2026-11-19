@@ -260,6 +260,24 @@ public class MarketplaceInstallTests(BitweenFixture fixture) : IDisposable
     }
 
     /// <summary>
+    /// A package from before catalogs blocks only its own id. Storage lists by prefix, so the check
+    /// used to see <c>{id}-legacy</c> as <c>{id}</c> and refuse the install.
+    /// </summary>
+    [Fact]
+    public async Task A_legacy_package_whose_id_only_starts_with_the_same_text_doesnt_block_an_install()
+    {
+        var l = NewListing();
+        await using (var scope = fixture.CreateScope())
+            // "adapters" is the adapter root BitweenFixture configures.
+            await scope.ServiceProvider.GetRequiredService<ICloudFilesService>().WriteAsync(
+                new MemoryStream(PythonPackage($"{l.Id}-legacy", "1.0.0", "1.0.0")),
+                new WriteFileSettings { Key = AdapterCatalogPaths.Current("adapters", $"{l.Id}-legacy") });
+        Serve(l);
+
+        Assert.Equal(l.Id, (await Install(l)).AdapterId);
+    }
+
+    /// <summary>
     /// The data source providers were installed by hand from CLI releases before the marketplace;
     /// Simplify9's registry version of one follows it rather than being refused.
     /// </summary>
