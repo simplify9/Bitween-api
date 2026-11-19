@@ -140,7 +140,9 @@ Storage credentials live in the `CloudFiles` section and are read by the `Simply
 | `OC` | `TenantId`, `FingerPrint`, `UserId`, `RSAKey`, `Region`, `NamespaceName`, `BucketName` |
 | `Local` | `BucketName`, and optionally `StoragePath` |
 
-For an S3-compatible store other than AWS, set `AWS_REQUEST_CHECKSUM_CALCULATION` and `AWS_RESPONSE_CHECKSUM_VALIDATION` to `when_required`. The AWS SDK otherwise uploads with a trailing checksum, which some of these stores save into the file itself.
+S3-compatible stores other than AWS work with the S3 keys and their own `ServiceUrl`. Recent AWS SDKs upload with a trailing checksum by default, which some of these stores save into the file itself. SimplyWorks.CloudFiles 10.0.2 and later (the `releases/r10.0` line) turn that off. On the `releases/r8.0` line, set `AWS_REQUEST_CHECKSUM_CALCULATION` and `AWS_RESPONSE_CHECKSUM_VALIDATION` to `when_required`.
+
+What Bitween stores, where, and what it depends on from each provider: [Storage](storage.md).
 
 Azure keeps deletion rules in the storage account's lifecycle management policy, which is reached through Azure Resource Manager rather than the blob endpoint. With `SubscriptionId` and `ResourceGroupName` set, the storage library creates the temp-prefix rules at startup and the Settings page reads them. The managed identity, or a service principal in `AZURE_TENANT_ID`, `AZURE_CLIENT_ID` and `AZURE_CLIENT_SECRET`, needs `Microsoft.Storage/storageAccounts/managementPolicies/read` and `write`, for example through the Storage Account Contributor role. Without them the rules aren't created on Azure, and any policy set up by hand can't be read.
 
