@@ -62,6 +62,7 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits?
         AuthenticationHeaderValue? authorization = null;
         string? loginToken = null;
         var loginTokenWasCached = false;
+        (string Name, string Value)? loginHeader = null;
         if (_options.AuthType == "ApiKey")
             apiKey = _options.ApiKey;
         else if (_options.AuthType == "Bearer")
@@ -76,7 +77,7 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits?
         else if (_options.AuthType == "Login")
         {
             (loginToken, loginTokenWasCached) = await SignIn(client);
-            authorization = new AuthenticationHeaderValue("Bearer", loginToken);
+            loginHeader = HttpLogin.Header(_options.LoginTokenHeader, loginToken);
         }
         else if (_options.AuthType == "OAuth2")
         {
@@ -110,7 +111,7 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits?
             }
         }
 
-        HttpRequestMessage Request(AuthenticationHeaderValue? auth)
+        HttpRequestMessage Request((string Name, string Value)? login)
         {
             var request = new HttpRequestMessage()
             {
@@ -121,8 +122,10 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits?
             foreach (var (name, value) in HeaderList.Parse(_options.Headers))
                 request.Headers.Add(name, value);
 
-            if (auth is not null)
-                request.Headers.Authorization = auth;
+            if (authorization is not null)
+                request.Headers.Authorization = authorization;
+            if (login is { } header)
+                HttpLogin.Apply(request, header);
             if (apiKey is not null)
                 request.Headers.Add("ApiKey", apiKey);
 
@@ -134,11 +137,11 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits?
         // The client is shared, so the timeout is this request's own rather than the client's.
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Max(1, _options.TimeoutSeconds)));
 
-        async Task<(HttpResponseMessage Response, string Body)> Send(AuthenticationHeaderValue? auth)
+        async Task<(HttpResponseMessage Response, string Body)> Send((string Name, string Value)? login)
         {
             try
             {
-                var sent = await client.SendAsync(Request(auth), timeout.Token);
+                var sent = await client.SendAsync(Request(login), timeout.Token);
                 return (sent, await sent.Content.ReadAsStringAsync());
             }
             catch (OperationCanceledException) when (timeout.IsCancellationRequested)
@@ -153,7 +156,7 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits?
             }
         }
 
-        var (response, resp) = await Send(authorization);
+        var (response, resp) = await Send(loginHeader);
 
         // A reused sign-in the partner no longer accepts - revoked, or expired before the reply said
         // it would: forget it, sign in again and send once more. A fresh token refused is the
@@ -163,7 +166,7 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits?
             HttpLogin.Forget(loginToken);
             response.Dispose();
             var (fresh, _) = await SignIn(client);
-            (response, resp) = await Send(new AuthenticationHeaderValue("Bearer", fresh));
+            (response, resp) = await Send(HttpLogin.Header(_options.LoginTokenHeader, fresh));
         }
 
         if (DestinationCircuits.IsUnwell(response.StatusCode))
@@ -196,13 +199,21 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits?
 
 
     private Task<(string Token, bool FromCache)> SignIn(HttpClient client) =>
-        HttpLogin.GetTokenReused(client, _options.LoginUrl!, _options.LoginBody, _options.LoginTokenPath,
-            _options.LoginUsername, _options.LoginPassword,
+        HttpLogin.GetTokenReused(client, new LoginOptions(_options.LoginUrl!,
             new UserLoginModel()
             {
                 Email = _options.LoginUsername,
                 Password = _options.LoginPassword
-            });
+            })
+        {
+            Body = _options.LoginBody,
+            ContentType = _options.LoginContentType,
+            TokenPath = _options.LoginTokenPath,
+            ExpiresInPath = _options.LoginExpiresInPath,
+            LifetimeSeconds = _options.LoginTokenLifetimeSeconds,
+            Username = _options.LoginUsername,
+            Password = _options.LoginPassword
+        });
 
     /// <summary>
     /// Refuses a rendered URL that went somewhere the template does not allow. The values come

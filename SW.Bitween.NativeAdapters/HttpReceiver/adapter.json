@@ -62,6 +62,26 @@
       "description": "Optional path to the token in the login response (e.g. token, data.access_token). Empty reads the \u0027jwt\u0027 field."
     },
     {
+      "name": "LoginContentType",
+      "type": "text",
+      "description": "How the login request is sent (Login auth type): application/json (the default) or application/x-www-form-urlencoded, for token endpoints that take form fields. Either way LoginBody is written as a flat JSON object."
+    },
+    {
+      "name": "LoginExpiresInPath",
+      "type": "text",
+      "description": "Where the login reply says how long the token lasts (Login auth type): seconds, or the date and time it expires (e.g. expires_in, data.expiresAt). Empty reads expires_in."
+    },
+    {
+      "name": "LoginTokenLifetimeSeconds",
+      "type": "number",
+      "description": "How long to reuse the token when the login reply doesn\u0027t say and the token isn\u0027t a JWT (Login auth type). Default 300. 0 signs in for every message, never reusing a token."
+    },
+    {
+      "name": "LoginTokenHeader",
+      "type": "text",
+      "description": "Where the token goes on each request (Login auth type): \u0027Name: value\u0027 with {{token}} in the value, e.g. \u0027X-Auth-Token: {{token}}\u0027 or \u0027Authorization: Token {{token}}\u0027. Empty sends \u0027Authorization: Bearer {{token}}\u0027."
+    },
+    {
       "name": "Url",
       "type": "text",
       "required": true,

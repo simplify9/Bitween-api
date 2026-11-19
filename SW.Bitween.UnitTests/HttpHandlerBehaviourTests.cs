@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Threading;
@@ -167,6 +168,21 @@ public class HttpHandlerBehaviourTests
         Assert.IsTrue(result.BadData);
         Assert.AreEqual(1, logins);
         Assert.AreEqual(2, server.Requests.Count, "one sign-in, one send");
+    }
+
+    [TestMethod]
+    public async Task A_login_token_can_go_in_a_header_of_its_own()
+    {
+        var server = new Scripted(request => request.RequestUri!.AbsolutePath == "/token"
+            ? new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{\"access_token\":\"tok\"}") }
+            : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent("{}") });
+        var settings = new Dictionary<string, string>(LoginSettings) { ["LoginTokenHeader"] = "X-Auth-Token: {{token}}" };
+
+        await Handler(server, settings).Handle(new XchangeFile("{}"));
+
+        var sent = server.Requests[^1];
+        Assert.IsNull(sent.Headers.Authorization);
+        CollectionAssert.AreEqual(new[] { "tok" }, sent.Headers.GetValues("X-Auth-Token").ToList());
     }
 
     private static NativeHttpHandler Handler(Scripted server, Dictionary<string, string>? extra = null)
