@@ -37,7 +37,6 @@ These behaviours were found while documenting Bitween from its source code, and 
 | The HTTP handler's property descriptions disagree with its behaviour. `Bearer` uses `LoginPassword`; `OAuth2` is the client credentials grant; `Headers` are `Name:Value` pairs separated by commas or new lines (`Name=Value` is read too, and spaces are trimmed); `CorrelationId` is sent as a header; `patch` sends a POST. | `NativeAdapters/HttpHandler` |
 | The S3 receiver's folder prefix has no trailing slash. The S3 upload handler ignores the folder when a file name is set. | `NativeS3Receiver.cs`, `NativeS3UploadHandler.cs` |
 | The S3 receiver lists its whole folder on every run (one request per 1,000 files) before taking `BatchSize` files, so a folder that isn't drained gets slower to poll. `DeleteMovesFileTo` copies through the S3 SDK directly. | `NativeS3Receiver.cs` |
-| Installing a registry adapter is refused as "already has an adapter named … that didn't come from the registry" when another adapter's id merely starts with the same text (`foo` while `foo-bar` exists without a catalog entry): the check lists storage by prefix instead of comparing keys. | `Services/Marketplace/MarketplaceInstaller.cs` |
 | POP3 receivers read only the first attachment, and the Rebex one uses port 995 only. | `Pop3Receiver`, `RebexPop3Receiver` |
 | Property values that fail to convert fall back to the default silently. | `NativeAdapters/ReflectionExtensions.cs` |
 | Legacy notifier properties do not resolve partner or global tokens. | `XchangeService.NotifyResult` |

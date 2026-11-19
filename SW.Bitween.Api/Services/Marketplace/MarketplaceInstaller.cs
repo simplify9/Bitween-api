@@ -251,9 +251,11 @@ public class MarketplaceInstaller(
         var entry = await catalog.GetAsync(packageId);
         if (entry == null)
         {
-            // An adapter published before catalogs has a package and no entry.
-            var legacy = await cloudFiles.ListAsync(AdapterCatalogPaths.Current(serverlessOptions.AdapterRemotePath, packageId));
-            if (legacy.Any() && !bitweensOwn)
+            // An adapter published before catalogs has a package and no entry. Storage lists by
+            // prefix, so compare the key exactly: {id}-other must not count as {id}.
+            var key = AdapterCatalogPaths.Current(serverlessOptions.AdapterRemotePath, packageId);
+            var legacy = (await cloudFiles.ListAsync(key)).Any(f => string.Equals(f.Key, key, StringComparison.Ordinal) && f.Size > 0);
+            if (legacy && !bitweensOwn)
                 throw new SWValidationException("REGISTRY_ID_TAKEN",
                     $"This Bitween already has an adapter named {packageId} that didn't come from the registry.");
             return;
