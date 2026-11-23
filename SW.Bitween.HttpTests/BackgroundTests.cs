@@ -23,7 +23,7 @@ public class BackgroundTests(HttpFixture fixture)
 
         var jobs = body!["jobs"]!.AsArray();
         Assert.Equal(["Automatic retries", "Exchange retention", "Receive attempt clean-up", "Broker deduplication clean-up",
-                "Queue snapshots", "Metrics clean-up", "Quiet subscriptions"],
+                "Queue snapshots", "Metrics clean-up", "Quiet subscriptions", "Exchange status fill"],
             jobs.Select(j => (string)j!["name"]).ToArray());
         Assert.All(jobs, j =>
         {

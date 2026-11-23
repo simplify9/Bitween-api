@@ -6,6 +6,7 @@ import type {
   ExchangeQuery,
   NegatableExchangeFilter,
   ExchangeRow,
+  ExchangeStateFill,
   ExchangeStatus,
   ExportFilesCheck,
   Paged,
@@ -329,6 +330,10 @@ export const exchangeMethods = {
    * out of the filter on purpose: the tabs are the choice between statuses, so each needs its
    * count under every other filter.
    */
+  getExchangeStateFill(): Promise<ExchangeStateFill> {
+    return get<ExchangeStateFill>("/xchanges/statefill");
+  },
+
   async getExchangeBreakdown(query: ExchangeQuery): Promise<ExchangeBreakdown> {
     const params = buildExchangeFilters({ ...query, status: undefined });
     const res = await get<ExchangeBreakdown>(`/xchanges/summary${params.toString() ? `?${searchyQueryString(params)}` : ""}`);

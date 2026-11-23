@@ -24,6 +24,7 @@ namespace SW.Bitween.Domain
             InputHash = file.Hash;
             InputContentType = file.ContentType;
             StartedOn = DateTime.UtcNow;
+            Status = XchangeStatus.Processing;
             CorrelationId = correlationId;
             SourceXchangeId = source?.XchangeId;
             SourceValues = source?.Values;
@@ -149,6 +150,23 @@ namespace SW.Bitween.Domain
         public string RetryFor { get; private set; }
 
         /// <summary>
+        /// The outcome, copied from the result so the Exchanges page and dashboard can find the
+        /// unusual exchanges through an index. Blank means success; see <see cref="XchangeStatus"/>.
+        /// </summary>
+        /// <remarks>
+        /// Exchanges from before this column are filled in by a background job. Until it finishes,
+        /// the result table stays the one that is read.
+        /// </remarks>
+        public XchangeStatus? Status { get; private set; }
+
+        /// <summary>
+        /// <c>true</c> once a retry of this exchange exists. Blank means not retried; it is never set
+        /// back to blank. A copy of "some exchange's <see cref="RetryFor"/> is this one", kept here
+        /// for the same reason as <see cref="Status"/>.
+        /// </summary>
+        public bool? Retried { get; private set; }
+
+        /// <summary>
         /// <c>true</c> when a person asked for this retry, rather than the retry policy scheduling
         /// it. The policy leaves these alone, so pressing Retry never spends the group's shared
         /// budget and never quietly starts an automatic chain behind the person who pressed it.
@@ -167,5 +185,18 @@ namespace SW.Bitween.Domain
 
         /// <summary>Records where this exchange's files go. Set once, before the first file is written.</summary>
         public void StoreFilesUnder(string prefix) => FilesPrefix = prefix;
+
+        /// <summary>
+        /// Copies the result's outcome into <see cref="Status"/>. Called with every result saved, in
+        /// the same save, so the two never disagree. Matches what the Exchanges page has always called
+        /// failed, bad response and success.
+        /// </summary>
+        public void RecordOutcome(XchangeResult result) =>
+            Status = !result.Success ? XchangeStatus.Failed
+                : result.ResponseBad ? XchangeStatus.BadResponse
+                : null;
+
+        /// <summary>Marks this exchange as retried, when a retry of it is created.</summary>
+        public void MarkRetried() => Retried = true;
     }
 }

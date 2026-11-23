@@ -93,6 +93,10 @@ export function renderApp(path: string, { as = {}, config = {}, handlers = [] }:
     http.get(apiPath("/mirror/listed"), () => HttpResponse.json({ items: [], testing: null, waiting: [], error: null })),
     // Reads carried on in the background, which the header asks for as the app loads: none, unless a test says.
     http.get(apiPath("/background"), () => HttpResponse.json([])),
+    // The one-time exchange status fill, which the Exchanges page notes until it's done: done, unless a test says.
+    http.get(apiPath("/xchanges/statefill"), () =>
+      HttpResponse.json({ phase: "Done", percent: 100, estimatedFinishOn: null, quietHourUtc: 0 }),
+    ),
   );
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

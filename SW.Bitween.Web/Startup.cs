@@ -179,6 +179,7 @@ namespace SW.Bitween.Web
             services.AddSingleton<StorageAccess>();
             services.AddScoped<ExchangeArchive>();
             services.AddScoped<RetentionPlanner>();
+            services.AddScoped<Services.XchangeStates.XchangeStateFiller>();
             services.AddScoped<GatewayCallers>();
             services.AddSingleton<IGatewayIssuers, OpenIdGatewayIssuers>();
             services.AddScoped<Resources.Ops.LaneResolver>();

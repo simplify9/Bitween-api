@@ -51,6 +51,10 @@ public class SchedulerSeedService(IServiceProvider sp, ILogger<SchedulerSeedServ
         // Settings needs no re-scheduling.
         await ScheduleWithRetry(() => scheduleRepo.Schedule<ExchangeRetentionJob>(options.ExchangeRetentionCron),
             nameof(ExchangeRetentionJob), stoppingToken);
+        // Always scheduled; after the one-time fill each run only reads its progress row.
+        await ScheduleWithRetry(
+            () => scheduleRepo.Schedule<Services.XchangeStates.XchangeStateFillJob>(options.XchangeStateFillCron),
+            nameof(Services.XchangeStates.XchangeStateFillJob), stoppingToken);
 
         var subscriptions = await dbContext.Set<Subscription>()
             .Where(s =>

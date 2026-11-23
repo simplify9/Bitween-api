@@ -38,6 +38,18 @@ Tick exchanges on the Exchanges page, or select everything a filter matches, and
 | Failed, with a link to a later attempt | This attempt was already retried | Follow the chain to its newest attempt |
 | No exchange for a bus message | Nothing matched, or the information type disregards unfiltered messages | Check routes and match expressions on the Flow map |
 
+## Exchange status fill
+
+Each exchange carries its status (processing, bad response or failed; success is left empty) and whether it was retried, so the Exchanges page and the dashboard find failures and exchanges still running without reading every exchange. Exchanges from before the version that added this have neither, so after the upgrade a system job fills them in once, in the background:
+
+1. **Fill.** Every minute it works for up to 45 seconds, newest exchanges first, 5,000 at a time, and writes only the exchanges that aren't a plain success. It remembers where it stopped, so a restart carries on from there.
+2. **Index.** It builds the index the pages read without blocking writes: on PostgreSQL a partial index of the exchanges that aren't a success, on MySQL and on SQL Server Enterprise or Azure a normal one, online. SQL Server Standard and Express can't build it online, so there it waits for the **Quiet hour for upkeep** setting and builds it then, and saving exchanges pauses while it does, a few minutes on a big table.
+3. **Re-check.** It checks once more the exchanges that started since the fill began, any still marked processing, and every exchange retried since, in case a server of the earlier version handled them meanwhile. So that those servers have stopped first, it starts no sooner than 30 minutes after the fill began; a new install, with no exchanges from before, doesn't wait.
+
+Until it's done the pages keep counting the old way, which can be slow on a big database, and nothing is wrong meanwhile. The Exchanges page says *Speed upgrade in progress* with how far it has got, and **Queue health** shows the same under **Bitween's own work**. On 3 million exchanges the fill took about 3 minutes of work and the index 13 seconds, so an upgrade is usually done 30 minutes after it starts; a new install is done within a minute.
+
+A retried exchange stays marked retried even when retention later removes its retry.
+
 ## Queue health
 
 The Queue health page reads the RabbitMQ management API every 5 seconds. It needs `monitoring.view` and the three RabbitMQ management keys.
@@ -146,7 +158,7 @@ The retention job runs on the **Retention schedule** setting, 04:00 daily by def
 
 With **Archive before deleting** on, the default, each exchange is first written to `archive/{prefix}/{subscription id}/yyyy/MM/dd/{main value}_{exchange id}.json`. `{prefix}` is the document prefix without its `tempN/` part, and the main value is the exchange's value for the first promoted property of its information type; without one the file is named by the id alone. The file holds the exchange's details, its promoted properties, result and notifications, and the contents of its files while storage still has them. Handler and mapper properties are left out, because they can hold resolved secrets. If an exchange can't be archived, the run stops and keeps it for the next run.
 
-**Queue health** ends with **Bitween's own work**: each system job (automatic retries, exchange retention, receive attempt clean-up, broker deduplication clean-up) with when it last ran and runs next, flagged when it isn't scheduled, and the outbox - messages saved to be sent to the broker, how many are waiting and since when, and the last error of one that failed.
+**Queue health** ends with **Bitween's own work**: each system job (automatic retries, exchange retention, receive attempt clean-up, broker deduplication clean-up, the [exchange status fill](#exchange-status-fill) with its progress) with when it last ran and runs next, flagged when it isn't scheduled, and the outbox - messages saved to be sent to the broker, how many are waiting and since when, and the last error of one that failed.
 
 When a partner says a gateway refuses them, the gateway's page lists **Calls turned away**: how many calls were refused for each reason (key not recognised, partner not attached, gateway switched off, nothing behind it, too many calls) and the most recent with the caller's address. Each node counts the calls it refused itself, in memory, since it started. A partner's page shows when each API key was last used, so a key nobody uses any more can be found and revoked.
 

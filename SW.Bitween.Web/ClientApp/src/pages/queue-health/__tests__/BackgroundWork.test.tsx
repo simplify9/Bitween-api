@@ -23,6 +23,8 @@ describe("Bitween's own work", () => {
             jobs: [
               { name: "Automatic retries", does: "Re-runs failed exchanges.", cron: "0 * * * * ?", scheduled: true, state: "Normal", lastRanOn: "2026-10-10T08:59:00Z", nextRunOn: soon, runningNow: false },
               { name: "Exchange retention", does: "Deletes old exchanges.", cron: null, scheduled: false, state: "NotScheduled", lastRanOn: null, nextRunOn: null, runningNow: false },
+              { name: "Exchange status fill", does: "Fills in each older exchange's status.", cron: "0 * * * * ?", scheduled: true, state: "Normal", lastRanOn: "2026-10-10T08:59:00Z", nextRunOn: soon, runningNow: true,
+                progress: { phase: "Rechecking", percent: 99, estimatedFinishOn: null, quietHourUtc: 0 } },
             ],
             outbox: { pending: 4, oldestPendingOn: "2026-10-10T07:00:00Z", failing: 2, lastError: "RabbitMQ.Client.Exceptions.BrokerUnreachableException: None of the specified endpoints were reachable", publishedLastHour: 120 },
           }),
@@ -33,6 +35,7 @@ describe("Bitween's own work", () => {
     expect(await screen.findByText("Bitween's own work", undefined, { timeout: 5000 })).toBeVisible();
     expect(screen.getByText("Not scheduled")).toBeVisible();
     expect(screen.getByText("Hasn't run yet")).toBeVisible();
+    expect(screen.getByText("In progress: checking the exchanges that ran meanwhile.")).toBeVisible();
     expect(screen.getByText("4 waiting")).toBeVisible();
     expect(screen.getByText(/2 after a failed attempt/)).toBeVisible();
     expect(screen.getByText("None of the specified endpoints were reachable")).toBeVisible();

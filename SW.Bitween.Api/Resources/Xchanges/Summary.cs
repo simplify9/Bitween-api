@@ -110,10 +110,12 @@ public class Summary(BitweenDbContext dbContext, RequestContext requestContext, 
         summary.Buckets = XchangeHistogram.Fold(start, end, bucketMinutes, started);
         return summary;
 
+        // Each status asks for its own rows, so once the exchanges carry their status the filter
+        // goes on the exchange table, where its index answers it.
         Task<int?> Count(string status, CancellationToken deadline) =>
             Answer($"count:{status}|{view}", deadline,
-                ct => CountCapped(rows, status, dbContext, ct),
-                async (db, ct) => await CountCapped(await XchangeFilters.FilteredRowsAsync(db, Copy(asked)), status, db, ct));
+                async ct => await CountCapped(await XchangeFilters.FilteredRowsAsync(dbContext, Copy(asked), status), status, ct),
+                async (db, ct) => await CountCapped(await XchangeFilters.FilteredRowsAsync(db, Copy(asked), status), status, ct));
     }
 
     /// <summary>
@@ -192,11 +194,10 @@ public class Summary(BitweenDbContext dbContext, RequestContext requestContext, 
         }
     }
 
-    private static async Task<int?> CountCapped(IQueryable<XchangeRow> rows, string status, BitweenDbContext dbContext,
+    /// <param name="matching">The rows of <paramref name="status"/> alone.</param>
+    private static async Task<int?> CountCapped(IQueryable<XchangeRow> matching, string status,
         CancellationToken cancellationToken)
     {
-        var matching = rows.WhereStatus(status, dbContext);
-
         // Nearly every exchange succeeds, so the newest 10,001 successes are among about the newest
         // 10,001 exchanges. Unordered, Postgres matched the two tables by id instead, and ids aren't in
         // the order exchanges were written, so nearly every row was read from a different place on
