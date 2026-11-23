@@ -888,7 +888,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             // the result, which is being inserted anyway, rather than on the subscription row.
             if (xchange.SubscriptionId != null) xchangeResult.SetConsecutiveFailures(0);
             dbContext.Add(xchangeResult);
-            xchange.RecordOutcome(xchangeResult);
+            RecordOutcome(xchange, xchangeResult);
             if (responseFile?.BadData == true)
                 await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.BadResult, responseFile.Data,
                     xchangeResult);
@@ -920,7 +920,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             dbContext.Add(xchangeResult);
             // Overrides what the success path set, when it was its save that failed: the exchange
             // stays tracked through DiscardUnsavedOutcome.
-            xchange.RecordOutcome(xchangeResult);
+            RecordOutcome(xchange, xchangeResult);
             await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.Error, ex.ToString(), xchangeResult);
             // One line per failed exchange: a handler failure left nothing in the log, so a delivery that
             // never arrived could only be traced in the database.
@@ -1222,6 +1222,18 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
     /// A response queued for a delivery that failed must not go out either. When it was the save
     /// itself that failed, nothing else it tried to write can be trusted to save the second time.
     /// </summary>
+    /// <summary>
+    /// Sets the exchange's status from its result, written even when it matches the value loaded:
+    /// the status fill may have labeled the row processing since, and a success sets it back to empty.
+    /// </summary>
+    private void RecordOutcome(Xchange xchange, XchangeResult result)
+    {
+        xchange.RecordOutcome(result);
+        var entry = dbContext.Entry(xchange);
+        if (entry.State is EntityState.Unchanged or EntityState.Modified)
+            entry.Property(x => x.Status).IsModified = true;
+    }
+
     private void DiscardUnsavedOutcome(string xchangeId, bool saveFailed)
     {
         foreach (var entry in dbContext.ChangeTracker.Entries().ToList())

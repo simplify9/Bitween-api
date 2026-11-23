@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -61,6 +62,39 @@ public class ExchangeStateTests(BitweenFixture fixture)
         Assert.Equal(XchangeStatus.Failed, failXchange.Status);
         Assert.Null(okXchange.Retried);
         Assert.Null(failXchange.Retried);
+    }
+
+    [Fact]
+    public async Task A_success_clears_the_processing_label_the_fill_wrote_while_it_ran()
+    {
+        string id;
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var xs = scope.ServiceProvider.GetRequiredService<XchangeService>();
+            var doc = new Document(null, "State Fill Race Doc", DocumentFormat.Json);
+            db.Set<Document>().Add(doc);
+            await db.SaveChangesAsync();
+            var sub = Subscription(db, "State Fill Race Sub", doc.Id, new Dictionary<string, string> { ["DelayMs"] = "5000" });
+            await db.SaveChangesAsync();
+            scope.ServiceProvider.GetRequiredService<IInfolinkCache>().Revoke();
+            id = (await xs.CreateXchange(sub, new XchangeFile("{}"))).Id;
+            await db.SaveChangesAsync();
+            // Created before the columns: no label yet.
+            await db.Set<Xchange>().Where(x => x.Id == id)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, (XchangeStatus?)null));
+        }
+
+        // The fill labels it processing while the adapter is still working on it.
+        var run = Run(id);
+        await Task.Delay(1500);
+        await using (var scope = fixture.CreateScope())
+            await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<Xchange>().Where(x => x.Id == id)
+                .ExecuteUpdateAsync(s => s.SetProperty(x => x.Status, (XchangeStatus?)XchangeStatus.Processing));
+        await run;
+
+        Assert.True((await LoadResult(id)).Success);
+        Assert.Null((await Load(id)).Status);
     }
 
     [Fact]
