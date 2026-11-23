@@ -79,6 +79,21 @@ public class MetadataDatabaseTests
 
             // The exchange status fill is a run of updates each database translates its own way too.
             await FillsExchangeStatusAsync(app, databaseType);
+
+            // And once it's done the pages read the status columns, in queries of their own.
+            XchangeStateReadiness.Forget();
+            foreach (var status in new[] { "0", "1", "2", "3" })
+            {
+                var filters = $"filter={Uri.EscapeDataString($"StatusFilter:1:{status}")}" +
+                              $"&filter={Uri.EscapeDataString("LatestOnly:1:true")}";
+                await Api.Json(await admin.GetAsync($"/api/xchanges?{filters}&size=5"));
+                await Api.Json(await admin.GetAsync($"/api/xchanges/summary?{filters}"));
+            }
+            // Not latest-only: the fill check above made the call's exchange a retry of itself.
+            var success = await Api.Json(await admin.GetAsync("/api/xchanges/summary"));
+            Assert.True((int)success["counts"]!["success"]! >= 1, success.ToJsonString());
+            await Api.Json(await admin.GetAsync("/api/dashboard/failurestoacton"));
+            await Api.Json(await admin.GetAsync("/api/dashboard/retrysummary"));
         }
         finally
         {

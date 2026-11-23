@@ -27,6 +27,12 @@ namespace SW.Bitween.Services.XchangeStates;
 /// edition can; Standard and Express pause writes while they build, so they wait for
 /// <see cref="BitweenOptions.MaintenanceQuietHourUtc"/>.
 /// </para>
+/// <para>
+/// Status, then start time, then retried: every view lists one status newest first, which the first
+/// two give in order. Retried last because "not retried" is a blank, and a test for blank can't keep
+/// the start times in order, so ahead of them it left Postgres sorting thousands of failures to
+/// show 25; measured on 3M exchanges, 18 s against 3 ms this way.
+/// </para>
 /// </remarks>
 public static class XchangeStateIndex
 {
@@ -47,7 +53,7 @@ public static class XchangeStateIndex
         var table = StoreObjectIdentifier.Table(entity.GetTableName()!, entity.GetSchema());
         var tableSql = sql.DelimitIdentifier(table.Name, table.Schema);
         string Column(string property) => sql.DelimitIdentifier(entity.FindProperty(property)!.GetColumnName(table)!);
-        var columns = $"{Column(nameof(Xchange.Status))}, {Column(nameof(Xchange.Retried))}, {Column(nameof(Xchange.StartedOn))}";
+        var columns = $"{Column(nameof(Xchange.Status))}, {Column(nameof(Xchange.StartedOn))}, {Column(nameof(Xchange.Retried))}";
 
         var previousTimeout = db.Database.GetCommandTimeout();
         db.Database.SetCommandTimeout(BuildTimeout);
@@ -77,12 +83,19 @@ public static class XchangeStateIndex
                     await db.Database.ExecuteSqlRawAsync(
                         $"CREATE INDEX CONCURRENTLY IF NOT EXISTS {Name} ON {tableSql} ({columns}) " +
                         $"WHERE {Column(nameof(Xchange.Status))} IS NOT NULL;", cancellation);
-                    return await db.Database.SqlQueryRaw<bool>(
+                    var valid = await db.Database.SqlQueryRaw<bool>(
                         $@"SELECT i.indisvalid AS ""Value""
                            FROM pg_index i
                            JOIN pg_class c ON c.oid = i.indexrelid
                            JOIN pg_namespace n ON n.oid = c.relnamespace
                            WHERE n.nspname = '{schema}' AND c.relname = '{Name}'").SingleAsync(cancellation);
+
+                    // Postgres knows nothing yet of how the new columns are spread - the fill changes too
+                    // few rows to set off its own re-count - and guessing, it walked millions of
+                    // exchanges for the rarest statuses. A sample, so seconds on any size.
+                    if (valid)
+                        await db.Database.ExecuteSqlRawAsync($"ANALYZE {tableSql};", cancellation);
+                    return valid;
                 }
 
                 case "mysql":

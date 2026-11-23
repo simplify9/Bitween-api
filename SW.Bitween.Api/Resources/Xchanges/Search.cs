@@ -38,9 +38,12 @@ namespace SW.Bitween.Resources.Xchanges
 
             searchyRequest.DatesToUtc();
             await XchangeFilters.ResolveReceiveAttemptFilterAsync(searchyRequest, dbContext);
+            var stateReady = await Services.XchangeStates.XchangeStateReadiness.IsReadyAsync(dbContext);
             await using var dr = await dbContext.Database.BeginTransactionAsync(IsolationLevel.ReadUncommitted);
 
-            var query = from xchange in dbContext.Set<Xchange>()
+            // The status and latest-only filters on the exchange's own columns once they are filled
+            // in, which their index answers; before that, ApplySpecialFilters below works them out.
+            var query = from xchange in dbContext.Set<Xchange>().WhereState(searchyRequest, stateReady)
                         join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id into xr
                         from result in xr.DefaultIfEmpty()
                         join agg in dbContext.Set<XchangeAggregation>() on xchange.Id equals agg.Id into xa

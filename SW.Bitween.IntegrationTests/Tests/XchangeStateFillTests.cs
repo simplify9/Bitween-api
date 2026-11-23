@@ -18,8 +18,21 @@ namespace SW.Bitween.IntegrationTests.Tests;
 /// in batches, carries on after a restart, and checks once more what ran meanwhile.
 /// </summary>
 [Collection("Bitween")]
-public class XchangeStateFillTests(BitweenFixture fixture)
+public class XchangeStateFillTests(BitweenFixture fixture) : IAsyncLifetime
 {
+    public Task InitializeAsync() => Task.CompletedTask;
+
+    /// <summary>
+    /// A finished fill would switch the views to the columns, which the other tests leave as their
+    /// seeding finds them. They stay on the result and retry tables.
+    /// </summary>
+    public async Task DisposeAsync()
+    {
+        await using var scope = fixture.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<XchangeStateFill>().ExecuteDeleteAsync();
+        XchangeStateReadiness.Forget();
+    }
+
     [Fact]
     public async Task The_fill_labels_exchanges_from_before_the_columns_existed()
     {
@@ -106,9 +119,15 @@ public class XchangeStateFillTests(BitweenFixture fixture)
         var definition = await x.InDb(db => db.Database.SqlQueryRaw<string>(
             $"SELECT indexdef AS \"Value\" FROM pg_indexes WHERE schemaname = 'infolink' AND indexname = '{XchangeStateIndex.Name}'")
             .SingleAsync());
-        Assert.Contains("(status, retried, started_on)", definition);
+        Assert.Contains("(status, started_on, retried)", definition);
         Assert.Contains("WHERE (status IS NOT NULL)", definition);
         Assert.True(await IndexIsValidAsync(x));
+
+        // Statistics on the new columns, without which Postgres guesses how rare each status is.
+        Assert.Equal(2, await x.InDb(db => db.Database.SqlQueryRaw<int>(
+            "SELECT COUNT(*)::int AS \"Value\" FROM pg_stats " +
+            "WHERE schemaname = 'infolink' AND tablename = 'xchange' AND attname IN ('status', 'retried')")
+            .SingleAsync()));
     }
 
     [Fact]

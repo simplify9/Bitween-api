@@ -36,11 +36,17 @@ public class FailuresToActOn : IQueryHandler<object>
     {
         await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Dashboard.View);
 
-        var total = await _dbContext.Set<XchangeResult>().AsNoTracking()
-            .Where(result => !result.Success
-                             && !_dbContext.Set<Xchange>().Any(child => child.RetryFor == result.Id))
-            .Take(Search.CountCap + 1)
-            .CountAsync();
+        // Once exchanges carry their status, a short read of the index over it.
+        var total = await Services.XchangeStates.XchangeStateReadiness.IsReadyAsync(_dbContext)
+            ? await _dbContext.Set<Xchange>().AsNoTracking()
+                .Where(x => x.Status == XchangeStatus.Failed && x.Retried == null)
+                .Take(Search.CountCap + 1)
+                .CountAsync()
+            : await _dbContext.Set<XchangeResult>().AsNoTracking()
+                .Where(result => !result.Success
+                                 && !_dbContext.Set<Xchange>().Any(child => child.RetryFor == result.Id))
+                .Take(Search.CountCap + 1)
+                .CountAsync();
 
         return new { Total = total };
     }
