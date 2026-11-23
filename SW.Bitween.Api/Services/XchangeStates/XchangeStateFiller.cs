@@ -127,7 +127,10 @@ public class XchangeStateFiller(BitweenDbContext db, BitweenOptions options, ILo
         if (fill.PositionStartedOn is { } on)
         {
             var id = fill.PositionId;
-            query = query.Where(x => x.StartedOn < on || x.StartedOn == on && string.Compare(x.Id, id) < 0);
+            // The plain bound lets the index start at the position, rather than walk past every
+            // exchange done already; the second part only settles ties.
+            query = query.Where(x => x.StartedOn <= on
+                                     && (x.StartedOn < on || string.Compare(x.Id, id) < 0));
         }
 
         var keys = await query.OrderByDescending(x => x.StartedOn).ThenByDescending(x => x.Id)
@@ -149,7 +152,8 @@ public class XchangeStateFiller(BitweenDbContext db, BitweenOptions options, ILo
         if (fill.PositionStartedOn is { } on)
         {
             var id = fill.PositionId;
-            query = query.Where(x => x.StartedOn > on || x.StartedOn == on && string.Compare(x.Id, id) > 0);
+            query = query.Where(x => x.StartedOn >= on
+                                     && (x.StartedOn > on || string.Compare(x.Id, id) > 0));
         }
 
         var keys = await query.OrderBy(x => x.StartedOn).ThenBy(x => x.Id)
@@ -161,10 +165,14 @@ public class XchangeStateFiller(BitweenDbContext db, BitweenOptions options, ILo
         return keys.Count;
     }
 
-    /// <summary>Exchanges from one (start time, id) to another, both included.</summary>
+    /// <summary>
+    /// Exchanges from one (start time, id) to another, both included. The plain time bounds are what
+    /// the index range is taken from; the rest only settles ties at either end.
+    /// </summary>
     private static Expression<Func<Xchange, bool>> Between(DateTime fromOn, string fromId, DateTime toOn, string toId) =>
-        x => (x.StartedOn > fromOn || x.StartedOn == fromOn && string.Compare(x.Id, fromId) >= 0)
-             && (x.StartedOn < toOn || x.StartedOn == toOn && string.Compare(x.Id, toId) <= 0);
+        x => x.StartedOn >= fromOn && x.StartedOn <= toOn
+             && (x.StartedOn > fromOn || string.Compare(x.Id, fromId) >= 0)
+             && (x.StartedOn < toOn || string.Compare(x.Id, toId) <= 0);
 
     /// <summary>
     /// Sets both labels from the result and retry tables on the exchanges <paramref name="scope"/>
