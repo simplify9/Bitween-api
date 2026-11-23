@@ -2036,8 +2036,8 @@ export interface BackgroundWork {
 }
 
 /**
- * GET /xchanges/statefill, and on its row of GET /ops/background: the one-time fill, after an upgrade,
- * of each older exchange's status. Until it is done, some of the Exchanges page's counts are slow.
+ * On its row of GET /ops/background: the one-time fill, after an upgrade, of each older exchange's
+ * status. Until it is done, some of the Exchanges page's counts are slow.
  */
 export interface ExchangeStateFill {
   phase: "NotStarted" | "Filling" | "BuildingIndex" | "WaitingForQuietHour" | "Rechecking" | "Done";

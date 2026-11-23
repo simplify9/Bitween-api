@@ -174,7 +174,6 @@ export const keys = {
     all: ["exchanges"] as const,
     search: (params: string) => ["exchanges", "search", params] as const,
     breakdown: (params: string) => ["exchanges", "breakdown", params] as const,
-    stateFill: ["exchanges", "stateFill"] as const,
     newSince: (params: string) => ["exchanges", "newSince", params] as const,
     document: (key: string | null) => ["exchanges", "document", key] as const,
     /**

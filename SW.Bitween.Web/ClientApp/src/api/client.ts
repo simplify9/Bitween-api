@@ -108,7 +108,6 @@ import type {
   InstanceAbout,
   SubscriptionCategory,
   BackgroundWork,
-  ExchangeStateFill,
   GatewayRejections,
   AdapterUploadResult,
   ClusterNodes,
@@ -768,7 +767,6 @@ export interface ApiClient {
   // - exchanges -
   searchExchanges(query: ExchangeQuery, opts?: { count?: boolean }): Promise<Paged<ExchangeRow>>;
   getExchangeBreakdown(query: ExchangeQuery): Promise<ExchangeBreakdown>;
-  getExchangeStateFill(): Promise<ExchangeStateFill>;
 
   // - audit trail -
   /** Who changed what, and when. Filters narrow it; with none set it is the whole trail. */
