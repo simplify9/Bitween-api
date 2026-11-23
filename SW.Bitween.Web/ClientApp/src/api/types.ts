@@ -2029,8 +2029,24 @@ export interface BackgroundWork {
     lastRanOn: string | null;
     nextRunOn: string | null;
     runningNow: boolean;
+    /** Only on the exchange status fill's row. */
+    progress?: ExchangeStateFill | null;
   }[];
   outbox: { pending: number; oldestPendingOn: string | null; failing: number; lastError: string | null; publishedLastHour: number };
+}
+
+/**
+ * GET /xchanges/statefill, and on its row of GET /ops/background: the one-time fill, after an upgrade,
+ * of each older exchange's status. Until it is done, some of the Exchanges page's counts are slow.
+ */
+export interface ExchangeStateFill {
+  phase: "NotStarted" | "Filling" | "BuildingIndex" | "WaitingForQuietHour" | "Rechecking" | "Done";
+  /** How much of the exchanges' date range is done. 100 only once done. */
+  percent: number;
+  /** At the pace so far, while filling. */
+  estimatedFinishOn: string | null;
+  /** The hour, in UTC, a SQL Server that can't build the index online waits for. */
+  quietHourUtc: number;
 }
 
 /** A label subscriptions are filed under, to find them by. */

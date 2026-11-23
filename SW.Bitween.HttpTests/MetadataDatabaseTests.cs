@@ -94,6 +94,12 @@ public class MetadataDatabaseTests
             Assert.True((int)success["counts"]!["success"]! >= 1, success.ToJsonString());
             await Api.Json(await admin.GetAsync("/api/dashboard/failurestoacton"));
             await Api.Json(await admin.GetAsync("/api/dashboard/retrysummary"));
+
+            // Its progress, for the Exchanges page and among Queue health's system jobs.
+            var fill = await Api.Json(await admin.GetAsync("/api/xchanges/statefill"));
+            Assert.Equal("Done", (string)fill["phase"]!);
+            var jobs = (await Api.Json(await admin.GetAsync("/api/ops/background")))["jobs"]!.AsArray();
+            Assert.Equal("Done", (string)jobs.Single(j => (string)j!["name"]! == "Exchange status fill")!["progress"]!["phase"]!);
         }
         finally
         {

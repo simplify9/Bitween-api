@@ -119,9 +119,7 @@ public static class XchangeStateIndex
                         .SingleAsync(cancellation);
                     if (exists > 0) return true;
 
-                    var edition = await db.Database.SqlQueryRaw<int>(
-                        "SELECT CAST(SERVERPROPERTY('EngineEdition') AS int) AS Value").SingleAsync(cancellation);
-                    var online = BuildsOnline(edition);
+                    var online = !await NeedsQuietHourAsync(db, options, cancellation);
                     if (!online && DateTime.UtcNow.Hour != options.MaintenanceQuietHourUtc) return false;
 
                     // Transactional, so a build cut short leaves nothing behind.
@@ -146,4 +144,17 @@ public static class XchangeStateIndex
     /// (3), Azure SQL Database (5) and Managed Instance (8). Standard and Express can't.
     /// </summary>
     public static bool BuildsOnline(int engineEdition) => engineEdition is 3 or 5 or 8;
+
+    /// <summary>
+    /// Whether this database builds the index only in <see cref="BitweenOptions.MaintenanceQuietHourUtc"/>:
+    /// SQL Server editions that can't build it online.
+    /// </summary>
+    public static async Task<bool> NeedsQuietHourAsync(BitweenDbContext db, BitweenOptions options,
+        CancellationToken cancellation = default)
+    {
+        if (!string.Equals(options.DatabaseType, "MsSql", StringComparison.OrdinalIgnoreCase)) return false;
+        var edition = await db.Database.SqlQueryRaw<int>(
+            "SELECT CAST(SERVERPROPERTY('EngineEdition') AS int) AS Value").SingleAsync(cancellation);
+        return !BuildsOnline(edition);
+    }
 }

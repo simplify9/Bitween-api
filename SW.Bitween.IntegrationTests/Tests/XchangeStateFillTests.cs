@@ -114,6 +114,9 @@ public class XchangeStateFillTests(BitweenFixture fixture) : IAsyncLifetime
     public async Task The_fill_builds_a_partial_index_over_the_exchanges_with_a_status()
     {
         var x = await ArrangeAsync("Fill Index");
+        // Something to take statistics of, on a database no other test has written to yet.
+        await x.Exchange(id => new XchangeResult(id, null, null));
+        await x.Exchange(id => new XchangeResult(id, null, null, exception: "boom"));
         Assert.Equal(XchangeStateFillPhase.Ready, await RunToTheEndAsync());
 
         var definition = await x.InDb(db => db.Database.SqlQueryRaw<string>(
@@ -152,7 +155,41 @@ public class XchangeStateFillTests(BitweenFixture fixture) : IAsyncLifetime
             .SingleAsync()));
     }
 
+    [Fact]
+    public async Task Progress_says_which_step_the_fill_is_on_and_how_far_it_has_got()
+    {
+        var x = await ArrangeAsync("Fill Progress");
+        Assert.Equal(new XchangeStateProgress("NotStarted", 0, null, 0), await ProgressAsync());
+
+        for (var i = 0; i < 3; i++)
+            await x.Exchange(id => new XchangeResult(id, null, null));
+        await RunOnceAsync(TimeSpan.Zero, batchSize: 2);
+        var filling = await ProgressAsync();
+        Assert.Equal("Filling", filling.Phase);
+        Assert.InRange(filling.Percent, 0, 99);
+
+        foreach (var (phase, said) in new[]
+                 {
+                     (XchangeStateFillPhase.Index, "BuildingIndex"),
+                     (XchangeStateFillPhase.Recheck, "Rechecking"),
+                 })
+        {
+            await x.InDb(db => db.Set<XchangeStateFill>().ExecuteUpdateAsync(s => s.SetProperty(f => f.Phase, phase)));
+            Assert.Equal(new XchangeStateProgress(said, 99, null, 0), await ProgressAsync());
+        }
+
+        Assert.Equal(XchangeStateFillPhase.Ready, await RunToTheEndAsync());
+        Assert.Equal(new XchangeStateProgress("Done", 100, null, 0), await ProgressAsync());
+    }
+
     // ---------------------------------------------------------------- helpers
+
+    private async Task<XchangeStateProgress> ProgressAsync()
+    {
+        await using var scope = fixture.CreateScope();
+        return await XchangeStateProgress.ReadAsync(scope.ServiceProvider.GetRequiredService<BitweenDbContext>(),
+            scope.ServiceProvider.GetRequiredService<BitweenOptions>());
+    }
 
     private static Task<bool> IndexIsValidAsync(Arrangement x) => x.InDb(db => db.Database.SqlQueryRaw<bool>(
         $"SELECT indisvalid AS \"Value\" FROM pg_index WHERE indexrelid = 'infolink.{XchangeStateIndex.Name}'::regclass")

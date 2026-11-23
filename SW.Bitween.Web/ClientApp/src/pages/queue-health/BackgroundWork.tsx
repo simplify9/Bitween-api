@@ -5,6 +5,7 @@ import { Badge } from "../../components/ui/basics";
 import { ExceptionLine } from "../../components/ui/Exception";
 import { Panel } from "../../components/ui/Panel";
 import { formatDateTime, timeAgo, timeUntil } from "../../lib/dates";
+import { STATE_FILL_EXPLAINED, describeStateFill } from "../../lib/exchangeStateFill";
 
 /** Messages waiting this long for the broker are worth a look: the dispatcher sends within seconds. */
 const OUTBOX_SLOW_MS = 5 * 60_000;
@@ -28,6 +29,11 @@ export function BackgroundWorkPanel() {
             <span className="min-w-0">
               <span className="font-medium text-ink-900">{j.name}</span>
               <span className="block text-[12px] text-ink-500">{j.does}</span>
+              {j.progress && (
+                <span className="block text-[12px] text-ink-700" title={STATE_FILL_EXPLAINED}>
+                  {j.progress.phase === "Done" ? "Done: every exchange carries its status." : `In progress: ${describeStateFill(j.progress)}.`}
+                </span>
+              )}
             </span>
             <span className="text-right text-[12.5px]">
               {j.runningNow ? (
