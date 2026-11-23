@@ -2045,7 +2045,7 @@ export interface ExchangeStateFill {
   percent: number;
   /** At the pace so far, while filling. */
   estimatedFinishOn: string | null;
-  /** The hour, in UTC, a SQL Server that can't build the index online waits for. */
+  /** The hour, in UTC, a SQL Server that can't build the index online builds it at. */
   quietHourUtc: number;
 }
 

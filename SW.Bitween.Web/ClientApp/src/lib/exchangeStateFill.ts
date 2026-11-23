@@ -11,7 +11,7 @@ export function describeStateFill(fill: ExchangeStateFill): string {
     case "BuildingIndex":
       return "building the index";
     case "WaitingForQuietHour":
-      return `waiting for the quiet hour, ${String(fill.quietHourUtc).padStart(2, "0")}:00 UTC, to build the index`;
+      return `waiting until ${String(fill.quietHourUtc).padStart(2, "0")}:00 UTC to build the index`;
     case "Rechecking":
       // Waits until the servers of the earlier version, which don't label exchanges, have stopped.
       return fill.estimatedFinishOn

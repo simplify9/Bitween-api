@@ -481,13 +481,6 @@ public static class SettingsCatalog
             t => t.Bitween.MaxRetryAfterSeconds.ToString(CultureInfo.InvariantCulture),
             (t, v) => t.Bitween.MaxRetryAfterSeconds = NonNegativeInt(v)),
 
-        new("Bitween.MaintenanceQuietHourUtc", "Reliability & jobs",
-            "Quiet hour for upkeep (UTC)",
-            "The hour, 0 to 23 in UTC, when Bitween may do upkeep that pauses saving exchanges for a few minutes. Only a database that can't do it online waits for it: today, building the exchange status index on SQL Server Standard or Express. 0 is 03:00 in Amman and Riyadh.",
-            SettingKind.Number, false,
-            t => t.Bitween.MaintenanceQuietHourUtc.ToString(CultureInfo.InvariantCulture),
-            (t, v) => t.Bitween.MaintenanceQuietHourUtc = HourOfDay(v)),
-
         new("Bitween.RetryJobCron", "Reliability & jobs",
             "Retry poll schedule",
             "How often Bitween looks for exchanges whose scheduled retry has come due, as a cron expression: second minute hour day-of-month month day-of-week. Saving re-schedules the job straight away.",
@@ -709,9 +702,6 @@ public static class SettingsCatalog
 
     private static int NonNegativeInt(string value) =>
         Int(value) is var parsed and >= 0 ? parsed : throw new FormatException($"'{value}' can't be below 0.");
-
-    private static int HourOfDay(string value) =>
-        Int(value) is var parsed and >= 0 and <= 23 ? parsed : throw new FormatException($"'{value}' isn't an hour from 0 to 23.");
 
     /// <summary>
     /// A storage prefix: folder names of letters, digits, dots, dashes and underscores, joined by
