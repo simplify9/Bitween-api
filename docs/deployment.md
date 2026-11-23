@@ -139,7 +139,7 @@ Bitween checks its configuration and its database before it serves anything. Whe
 The migration only adds two empty columns to the exchanges table and a small progress table, so it is instant on every database. The [exchange status fill](operations.md#exchange-status-fill) then runs in the background; follow it on **Queue health**. Nothing waits for it, and the pages answer as before until it's done.
 
 - **SQL Server Standard or Express:** the index is built at 00:00 UTC, and saving exchanges pauses for the few minutes it takes. For another hour, set `Bitween__MaintenanceQuietHourUtc` (0 to 23) before deploying.
-- **Rolling back past this version** is safe: the earlier version ignores the new columns. But exchanges it handles get no status, so after upgrading again, start the fill over by deleting its progress row: `DELETE FROM infolink.xchange_state_fill;` on PostgreSQL, `DELETE FROM XchangeStateFill;` on MySQL and SQL Server.
+- **Rolling back past this version** is safe: the earlier version ignores the new columns.
 
 ### Upgrading to parallel exchanges
 
