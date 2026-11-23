@@ -111,6 +111,31 @@ public class XchangeStateFillTests(BitweenFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_recheck_flags_an_older_exchange_retried_while_the_fill_ran()
+    {
+        var x = await ArrangeAsync("Fill Recheck Original");
+        var original = await x.Exchange(id => new XchangeResult(id, null, null, exception: "boom"));
+        // Started well before the fill, which labeled it before a server without the columns
+        // retried it: the retry is recent, the original isn't, and isn't flagged.
+        await x.InDb(db => db.Set<Xchange>().Where(e => e.Id == original)
+            .ExecuteUpdateAsync(s => s.SetProperty(e => e.StartedOn, DateTime.UtcNow.AddDays(-3))));
+        await x.Retry(original);
+        await x.InDb(db => db.Set<Xchange>().Where(e => e.Id == original)
+            .ExecuteUpdateAsync(s => s.SetProperty(e => e.Retried, (bool?)null)));
+        await x.InDb(async db =>
+        {
+            var fill = new XchangeStateFill(DateTime.UtcNow.AddHours(-1));
+            fill.MoveTo(XchangeStateFillPhase.Recheck);
+            db.Add(fill);
+            return await db.SaveChangesAsync();
+        });
+
+        Assert.Equal(XchangeStateFillPhase.Ready, await RunToTheEndAsync());
+
+        Assert.Equal((XchangeStatus.Failed, (bool?)true), await LabelsOf(original));
+    }
+
+    [Fact]
     public async Task The_fill_builds_a_partial_index_over_the_exchanges_with_a_status()
     {
         var x = await ArrangeAsync("Fill Index");

@@ -103,6 +103,7 @@ public class XchangeStateFiller(BitweenDbContext db, BitweenOptions options, ILo
                     labeled += rechecked;
                     if (rechecked < batchSize)
                     {
+                        await LabelRetriedOriginalsAsync(fill, cancellation);
                         await LabelAsync(x => x.Status == XchangeStatus.Processing, cancellation);
                         fill.MoveTo(XchangeStateFillPhase.Ready);
                     }
@@ -163,6 +164,19 @@ public class XchangeStateFiller(BitweenDbContext db, BitweenOptions options, ILo
         await LabelAsync(Between(keys[0].StartedOn, keys[0].Id, keys[^1].StartedOn, keys[^1].Id), cancellation);
         fill.Advance(keys[^1].StartedOn, keys[^1].Id);
         return keys.Count;
+    }
+
+    /// <summary>
+    /// The exchanges retried since the fill began, however old: a server of the earlier version doesn't
+    /// flag them, and the re-check walks only the exchanges that started since.
+    /// </summary>
+    private async Task LabelRetriedOriginalsAsync(XchangeStateFill fill, CancellationToken cancellation)
+    {
+        var from = fill.FillBegan - ClockMargin;
+        var originals = await db.Set<Xchange>().Where(x => x.StartedOn >= from && x.RetryFor != null)
+            .Select(x => x.RetryFor).Distinct().ToListAsync(cancellation);
+        foreach (var ids in originals.Chunk(IdsPerUpdate))
+            await LabelAsync(x => ids.Contains(x.Id), cancellation);
     }
 
     /// <summary>
