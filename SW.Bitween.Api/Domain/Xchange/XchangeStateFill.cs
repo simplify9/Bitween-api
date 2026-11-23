@@ -46,6 +46,23 @@ public class XchangeStateFill
     public string PositionId { get; private set; }
 
     public DateTime UpdatedOn { get; private set; }
+
+    /// <summary>Records the last exchange done, so the next run carries on after it.</summary>
+    public void Advance(DateTime startedOn, string id)
+    {
+        PositionStartedOn = startedOn;
+        PositionId = id;
+        UpdatedOn = DateTime.UtcNow;
+    }
+
+    /// <summary>Starts the next phase from its beginning.</summary>
+    public void MoveTo(XchangeStateFillPhase phase)
+    {
+        Phase = phase;
+        PositionStartedOn = null;
+        PositionId = null;
+        UpdatedOn = DateTime.UtcNow;
+    }
 }
 
 public enum XchangeStateFillPhase

@@ -3,6 +3,11 @@ using System.Linq;
 using System.Net;
 using System.Threading.Tasks;
 using DotNet.Testcontainers.Containers;
+using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using SW.Bitween.Domain;
+using SW.Bitween.Services.XchangeStates;
 using Testcontainers.MsSql;
 using Testcontainers.MySql;
 using Xunit;
@@ -71,10 +76,50 @@ public class MetadataDatabaseTests
                 await Api.Json(await admin.GetAsync(page));
             var overview = await Api.Json(await admin.GetAsync("/api/metrics/overview"));
             Assert.True((int)overview["last24h"]!["total"]! >= 1, overview.ToJsonString());
+
+            // The exchange status fill is a run of updates each database translates its own way too.
+            await FillsExchangeStatusAsync(app);
         }
         finally
         {
             await Task.WhenAll(database.DisposeAsync().AsTask(), rabbit.DisposeAsync().AsTask());
+        }
+    }
+
+    /// <summary>
+    /// Labels the exchanges the call left as if they came from before the status columns: every one
+    /// wrongly failed, and one retried without its flag. The fill must put all of it right.
+    /// </summary>
+    static async Task FillsExchangeStatusAsync(WebApplicationFactory<Web.Program> app)
+    {
+        await using var scope = app.Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+
+        var ids = await db.Set<Xchange>().OrderBy(x => x.StartedOn).Select(x => x.Id).ToListAsync();
+        Assert.NotEmpty(ids);
+        var original = ids[0];
+        var newest = ids[^1];
+        await db.Set<Xchange>().ExecuteUpdateAsync(s => s
+            .SetProperty(x => x.Status, (XchangeStatus?)XchangeStatus.Failed)
+            .SetProperty(x => x.Retried, (bool?)null));
+        await db.Set<Xchange>().Where(x => x.Id == newest)
+            .ExecuteUpdateAsync(s => s.SetProperty(x => x.RetryFor, original));
+        await db.Set<XchangeStateFill>().ExecuteDeleteAsync();
+
+        var phase = await scope.ServiceProvider.GetRequiredService<XchangeStateFiller>()
+            .RunAsync(TimeSpan.FromMinutes(1), batchSize: 1);
+        Assert.Equal(XchangeStateFillPhase.Ready, phase);
+
+        var exchanges = await db.Set<Xchange>().AsNoTracking().ToListAsync();
+        var results = await db.Set<XchangeResult>().AsNoTracking().ToDictionaryAsync(r => r.Id);
+        foreach (var xchange in exchanges)
+        {
+            var expected = !results.TryGetValue(xchange.Id, out var result) ? XchangeStatus.Processing
+                : !result.Success ? XchangeStatus.Failed
+                : result.ResponseBad ? XchangeStatus.BadResponse
+                : (XchangeStatus?)null;
+            Assert.Equal(expected, xchange.Status);
+            Assert.Equal(xchange.Id == original ? true : (bool?)null, xchange.Retried);
         }
     }
 }

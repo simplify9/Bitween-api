@@ -468,6 +468,12 @@ namespace SW.Bitween
         public string QueueSnapshotCron { get; set; } = "0 0/5 * * * ?";
 
         /// <summary>
+        /// How often the job that fills in each exchange's status and retried flag runs. Every minute;
+        /// once it has finished, a run only reads one row.
+        /// </summary>
+        public string XchangeStateFillCron { get; set; } = "0 * * * * ?";
+
+        /// <summary>
         /// How often to look for subscriptions that expect traffic and have gone quiet. Every five
         /// minutes, which is also the shortest gap a subscription can expect.
         /// </summary>
