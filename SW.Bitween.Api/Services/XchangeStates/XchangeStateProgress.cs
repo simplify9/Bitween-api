@@ -15,7 +15,8 @@ namespace SW.Bitween.Services.XchangeStates;
 /// </param>
 /// <param name="Percent">How much of the exchanges' date range is labeled. 100 only when done.</param>
 /// <param name="EstimatedFinishOn">
-/// When the labeling should be done at the pace so far. Only while filling, once there is a pace.
+/// While filling, when the labeling should be done at the pace so far, once there is a pace and it
+/// gives a date.
 /// </param>
 /// <param name="QuietHourUtc">The hour a database that can't build online waits for.</param>
 public record XchangeStateProgress(string Phase, int Percent, DateTime? EstimatedFinishOn, int QuietHourUtc)
@@ -36,14 +37,9 @@ public record XchangeStateProgress(string Phase, int Percent, DateTime? Estimate
                 if (fill.PositionStartedOn is not { } position)
                     return new("Filling", 0, null, quietHour);
 
-                // By the time covered: the fill goes newest first, from when it began back to the oldest.
                 var oldest = await db.Set<Xchange>().MinAsync(x => (DateTime?)x.StartedOn, cancellation) ?? position;
-                var span = (fill.FillBegan - oldest).Ticks;
-                var done = span <= 0 ? 1d : Math.Clamp((double)(fill.FillBegan - position).Ticks / span, 0, 1);
-                DateTime? finish = done > 0
-                    ? fill.FillBegan + TimeSpan.FromTicks((long)((DateTime.UtcNow - fill.FillBegan).Ticks / done))
-                    : null;
-                return new("Filling", Math.Min(99, (int)(done * 100)), finish, quietHour);
+                var (percent, finish) = Estimate(fill.FillBegan, position, oldest, DateTime.UtcNow);
+                return new("Filling", percent, finish, quietHour);
 
             case XchangeStateFillPhase.Index:
                 return new(await XchangeStateIndex.NeedsQuietHourAsync(db, options, cancellation)
@@ -58,5 +54,21 @@ public record XchangeStateProgress(string Phase, int Percent, DateTime? Estimate
             default:
                 return new("Done", 100, null, quietHour);
         }
+    }
+
+    /// <summary>
+    /// How much of the date range is filled, by the time covered: the fill goes newest first, from
+    /// when it <paramref name="began"/> back to the <paramref name="oldest"/> exchange. And when it
+    /// should finish at the pace so far, unless that is past any date, as for a fill that stalled for
+    /// days just after it began.
+    /// </summary>
+    internal static (int Percent, DateTime? Finish) Estimate(DateTime began, DateTime position, DateTime oldest,
+        DateTime now)
+    {
+        var span = (began - oldest).Ticks;
+        var done = span <= 0 ? 1d : Math.Clamp((double)(began - position).Ticks / span, 0, 1);
+        var takes = done > 0 ? (now - began).Ticks / done : double.MaxValue;
+        DateTime? finish = takes < (DateTime.MaxValue - began).Ticks ? began + TimeSpan.FromTicks((long)takes) : null;
+        return (Math.Min(99, (int)(done * 100)), finish);
     }
 }
