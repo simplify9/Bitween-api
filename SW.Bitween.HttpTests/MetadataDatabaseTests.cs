@@ -78,7 +78,7 @@ public class MetadataDatabaseTests
             Assert.True((int)overview["last24h"]!["total"]! >= 1, overview.ToJsonString());
 
             // The exchange status fill is a run of updates each database translates its own way too.
-            await FillsExchangeStatusAsync(app);
+            await FillsExchangeStatusAsync(app, databaseType);
         }
         finally
         {
@@ -90,7 +90,7 @@ public class MetadataDatabaseTests
     /// Labels the exchanges the call left as if they came from before the status columns: every one
     /// wrongly failed, and one retried without its flag. The fill must put all of it right.
     /// </summary>
-    static async Task FillsExchangeStatusAsync(WebApplicationFactory<Web.Program> app)
+    static async Task FillsExchangeStatusAsync(WebApplicationFactory<Web.Program> app, string databaseType)
     {
         await using var scope = app.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
@@ -109,6 +109,12 @@ public class MetadataDatabaseTests
         var phase = await scope.ServiceProvider.GetRequiredService<XchangeStateFiller>()
             .RunAsync(TimeSpan.FromMinutes(1), batchSize: 1);
         Assert.Equal(XchangeStateFillPhase.Ready, phase);
+        var indexes = await db.Database.SqlQueryRaw<int>(databaseType == "MsSql"
+            ? $"SELECT COUNT(*) AS Value FROM sys.indexes WHERE name = '{XchangeStateIndex.Name}' AND object_id = OBJECT_ID('[Xchanges]')"
+            : $"SELECT COUNT(*) AS Value FROM information_schema.statistics WHERE table_schema = DATABASE() AND table_name = 'Xchanges' AND index_name = '{XchangeStateIndex.Name}'")
+            .SingleAsync();
+        // MySQL lists an index once per column.
+        Assert.Equal(databaseType == "MsSql" ? 1 : 3, indexes);
 
         var exchanges = await db.Set<Xchange>().AsNoTracking().ToListAsync();
         var results = await db.Set<XchangeResult>().AsNoTracking().ToDictionaryAsync(r => r.Id);

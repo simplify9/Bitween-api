@@ -97,7 +97,47 @@ public class XchangeStateFillTests(BitweenFixture fixture)
         Assert.Equal((XchangeStatus.Failed, (bool?)true), await LabelsOf(retriedUnflagged));
     }
 
+    [Fact]
+    public async Task The_fill_builds_a_partial_index_over_the_exchanges_with_a_status()
+    {
+        var x = await ArrangeAsync("Fill Index");
+        Assert.Equal(XchangeStateFillPhase.Ready, await RunToTheEndAsync());
+
+        var definition = await x.InDb(db => db.Database.SqlQueryRaw<string>(
+            $"SELECT indexdef AS \"Value\" FROM pg_indexes WHERE schemaname = 'infolink' AND indexname = '{XchangeStateIndex.Name}'")
+            .SingleAsync());
+        Assert.Contains("(status, retried, started_on)", definition);
+        Assert.Contains("WHERE (status IS NOT NULL)", definition);
+        Assert.True(await IndexIsValidAsync(x));
+    }
+
+    [Fact]
+    public async Task An_index_left_unusable_by_a_build_cut_short_is_built_again()
+    {
+        var x = await ArrangeAsync("Fill Index Rebuild");
+        Assert.Equal(XchangeStateFillPhase.Ready, await RunToTheEndAsync());
+
+        // What CREATE INDEX CONCURRENTLY leaves when its run stops part-way, and the fill back at the
+        // step that builds it, as after the restart that follows.
+        await x.InDb(db => db.Database.ExecuteSqlRawAsync(
+            $"UPDATE pg_index SET indisvalid = false WHERE indexrelid = 'infolink.{XchangeStateIndex.Name}'::regclass"));
+        await x.InDb(db => db.Set<XchangeStateFill>()
+            .ExecuteUpdateAsync(s => s.SetProperty(f => f.Phase, XchangeStateFillPhase.Index)));
+        Assert.False(await IndexIsValidAsync(x));
+
+        Assert.Equal(XchangeStateFillPhase.Ready, await RunToTheEndAsync());
+
+        Assert.True(await IndexIsValidAsync(x));
+        Assert.Equal(0, await x.InDb(db => db.Database.SqlQueryRaw<int>(
+            $"SELECT COUNT(*)::int AS \"Value\" FROM pg_indexes WHERE indexname = '{XchangeStateIndex.Name}_invalid'")
+            .SingleAsync()));
+    }
+
     // ---------------------------------------------------------------- helpers
+
+    private static Task<bool> IndexIsValidAsync(Arrangement x) => x.InDb(db => db.Database.SqlQueryRaw<bool>(
+        $"SELECT indisvalid AS \"Value\" FROM pg_index WHERE indexrelid = 'infolink.{XchangeStateIndex.Name}'::regclass")
+        .SingleAsync());
 
     private async Task<Arrangement> ArrangeAsync(string name)
     {

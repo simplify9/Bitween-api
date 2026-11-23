@@ -474,6 +474,13 @@ namespace SW.Bitween
         public string XchangeStateFillCron { get; set; } = "0 * * * * ?";
 
         /// <summary>
+        /// The hour, in UTC (0-23), when Bitween may do upkeep that pauses saving exchanges. Only a
+        /// database that can't do it online waits for it: today, building the exchange status index
+        /// on SQL Server Standard or Express. 0 by default, 03:00 in Amman and Riyadh.
+        /// </summary>
+        public int MaintenanceQuietHourUtc { get; set; }
+
+        /// <summary>
         /// How often to look for subscriptions that expect traffic and have gone quiet. Every five
         /// minutes, which is also the shortest gap a subscription can expect.
         /// </summary>

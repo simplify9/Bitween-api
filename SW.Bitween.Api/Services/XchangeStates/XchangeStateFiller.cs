@@ -26,7 +26,7 @@ namespace SW.Bitween.Services.XchangeStates;
 /// its result arrived.
 /// </para>
 /// </remarks>
-public class XchangeStateFiller(BitweenDbContext db, ILogger<XchangeStateFiller> logger)
+public class XchangeStateFiller(BitweenDbContext db, BitweenOptions options, ILogger<XchangeStateFiller> logger)
 {
     internal const int BatchSize = 5_000;
 
@@ -71,6 +71,7 @@ public class XchangeStateFiller(BitweenDbContext db, ILogger<XchangeStateFiller>
 
         var startedIn = fill.Phase;
         var labeled = 0;
+        var waiting = false;
         do
         {
             switch (fill.Phase)
@@ -82,7 +83,19 @@ public class XchangeStateFiller(BitweenDbContext db, ILogger<XchangeStateFiller>
                     break;
 
                 case XchangeStateFillPhase.Index:
-                    fill.MoveTo(XchangeStateFillPhase.Recheck);
+                    // Before the re-check, whose last step reads the processing ones through it.
+                    var builtAt = DateTime.UtcNow;
+                    if (await XchangeStateIndex.EnsureAsync(db, options, cancellation))
+                    {
+                        logger.LogInformation("Exchange status index {Index} ready in {Seconds:0.#} s.",
+                            XchangeStateIndex.Name, (DateTime.UtcNow - builtAt).TotalSeconds);
+                        fill.MoveTo(XchangeStateFillPhase.Recheck);
+                    }
+                    else
+                    {
+                        // Waiting for the quiet hour, or about to build again: a later run tries.
+                        waiting = true;
+                    }
                     break;
 
                 case XchangeStateFillPhase.Recheck:
@@ -97,7 +110,7 @@ public class XchangeStateFiller(BitweenDbContext db, ILogger<XchangeStateFiller>
             }
 
             await db.SaveChangesAsync(cancellation);
-        } while (fill.Phase != XchangeStateFillPhase.Ready && DateTime.UtcNow < until);
+        } while (fill.Phase != XchangeStateFillPhase.Ready && !waiting && DateTime.UtcNow < until);
 
         if (labeled > 0 || fill.Phase != startedIn)
             logger.LogInformation("Exchange status: {Phase}, {Labeled} exchange(s) checked this run.",
