@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using DotNet.Testcontainers.Containers;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 using SW.Bitween.Domain;
 using SW.Bitween.Services.XchangeStates;
@@ -100,6 +102,15 @@ public class MetadataDatabaseTests
             Assert.Equal("Done", (string)fill["phase"]!);
             var jobs = (await Api.Json(await admin.GetAsync("/api/ops/background")))["jobs"]!.AsArray();
             Assert.Equal("Done", (string)jobs.Single(j => (string)j!["name"]! == "Exchange status fill")!["progress"]!["phase"]!);
+
+            // Undoing the status columns' migration by hand, with the index the fill built still on them.
+            await using (var scope = app.Services.CreateAsyncScope())
+            {
+                var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+                var migrations = db.Database.GetMigrations().ToList();
+                await db.GetService<IMigrator>()
+                    .MigrateAsync(migrations[migrations.FindIndex(m => m.EndsWith("_XchangeState")) - 1]);
+            }
         }
         finally
         {

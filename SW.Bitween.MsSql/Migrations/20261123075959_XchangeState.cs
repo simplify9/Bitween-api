@@ -43,6 +43,10 @@ namespace SW.Bitween.MsSql.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            // Built by the status fill, not by a migration, and SQL Server won't drop a column an
+            // index uses.
+            migrationBuilder.Sql("DROP INDEX IF EXISTS [ix_xchange_state] ON [Xchanges];");
+
             migrationBuilder.DropTable(
                 name: "XchangeStateFill");
 
