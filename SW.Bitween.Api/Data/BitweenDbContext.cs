@@ -573,6 +573,16 @@ namespace SW.Bitween
                 b.HasIndex(i => i.SubscriptionId);
                 b.HasIndex(i => i.StartedOn);
                 b.HasIndex(i => i.RetryFor);
+                // Status and Retried have an index of their own, built by the job that fills them in,
+                // never by a migration: on a big table a migration would hold up startup while it
+                // builds. Don't declare it here.
+            });
+
+            modelBuilder.Entity<XchangeStateFill>(b =>
+            {
+                b.ToTable("XchangeStateFill");
+                b.Property(p => p.Id).ValueGeneratedNever();
+                b.Property(p => p.PositionId).IsUnicode(false).HasMaxLength(50);
             });
 
             modelBuilder.Entity<OnHoldXchange>(b =>

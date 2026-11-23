@@ -2945,6 +2945,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("integer")
                         .HasColumnName("response_subscription_id");
 
+                    b.Property<bool?>("Retried")
+                        .HasColumnType("boolean")
+                        .HasColumnName("retried");
+
                     b.Property<string>("RetryFor")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)")
@@ -2962,6 +2966,10 @@ namespace SW.Bitween.PgSql.Migrations
                     b.Property<DateTime>("StartedOn")
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("started_on");
+
+                    b.Property<byte?>("Status")
+                        .HasColumnType("smallint")
+                        .HasColumnName("status");
 
                     b.Property<int?>("SubscriptionId")
                         .HasColumnType("integer")
@@ -3257,6 +3265,39 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasName("pk_xchange_retry_claim");
 
                     b.ToTable("xchange_retry_claim", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.XchangeStateFill", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    b.Property<DateTime>("FillBegan")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("fill_began");
+
+                    b.Property<int>("Phase")
+                        .HasColumnType("integer")
+                        .HasColumnName("phase");
+
+                    b.Property<string>("PositionId")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("position_id");
+
+                    b.Property<DateTime?>("PositionStartedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("position_started_on");
+
+                    b.Property<DateTime>("UpdatedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("updated_on");
+
+                    b.HasKey("Id")
+                        .HasName("pk_xchange_state_fill");
+
+                    b.ToTable("xchange_state_fill", "infolink");
                 });
 
             modelBuilder.Entity("SW.Bitween.RunFlagUpdater+RunningResult", b =>
