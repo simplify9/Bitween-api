@@ -136,6 +136,37 @@ public class XchangeStateFillTests(BitweenFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task The_recheck_waits_for_the_servers_a_deploy_replaces_to_stop()
+    {
+        var x = await ArrangeAsync("Fill Recheck Wait");
+        await x.Exchange(id => new XchangeResult(id, null, null));
+
+        // Filled and indexed, then held: older servers may still save results without labels.
+        Assert.Equal(XchangeStateFillPhase.Recheck, await RunToTheEndAsync(XchangeStateFiller.DeployOverlap));
+        var progress = await ProgressAsync();
+        var began = (await x.InDb(db => db.Set<XchangeStateFill>().AsNoTracking().SingleAsync())).FillBegan;
+        Assert.Equal(new XchangeStateProgress("Rechecking", 99, began + XchangeStateFiller.DeployOverlap, 0), progress);
+
+        // Once they're gone it carries on.
+        Assert.Equal(XchangeStateFillPhase.Ready, await RunToTheEndAsync());
+    }
+
+    [Fact]
+    public async Task The_recheck_starts_at_once_with_no_exchanges_from_before_the_fill()
+    {
+        var x = await ArrangeAsync("Fill Recheck New Install");
+        // What a new install's first run finds: nothing started before the fill.
+        await x.InDb(async db =>
+        {
+            var oldest = await db.Set<Xchange>().MinAsync(e => (DateTime?)e.StartedOn) ?? DateTime.UtcNow;
+            db.Add(new XchangeStateFill(oldest.AddSeconds(-1)));
+            return await db.SaveChangesAsync();
+        });
+
+        Assert.Equal(XchangeStateFillPhase.Ready, await RunToTheEndAsync(XchangeStateFiller.DeployOverlap));
+    }
+
+    [Fact]
     public async Task The_fill_builds_a_partial_index_over_the_exchanges_with_a_status()
     {
         var x = await ArrangeAsync("Fill Index");
@@ -193,15 +224,9 @@ public class XchangeStateFillTests(BitweenFixture fixture) : IAsyncLifetime
         Assert.Equal("Filling", filling.Phase);
         Assert.InRange(filling.Percent, 0, 99);
 
-        foreach (var (phase, said) in new[]
-                 {
-                     (XchangeStateFillPhase.Index, "BuildingIndex"),
-                     (XchangeStateFillPhase.Recheck, "Rechecking"),
-                 })
-        {
-            await x.InDb(db => db.Set<XchangeStateFill>().ExecuteUpdateAsync(s => s.SetProperty(f => f.Phase, phase)));
-            Assert.Equal(new XchangeStateProgress(said, 99, null, 0), await ProgressAsync());
-        }
+        await x.InDb(db => db.Set<XchangeStateFill>()
+            .ExecuteUpdateAsync(s => s.SetProperty(f => f.Phase, XchangeStateFillPhase.Index)));
+        Assert.Equal(new XchangeStateProgress("BuildingIndex", 99, null, 0), await ProgressAsync());
 
         Assert.Equal(XchangeStateFillPhase.Ready, await RunToTheEndAsync());
         Assert.Equal(new XchangeStateProgress("Done", 100, null, 0), await ProgressAsync());
@@ -285,17 +310,20 @@ public class XchangeStateFillTests(BitweenFixture fixture) : IAsyncLifetime
         }
     }
 
-    private async Task<XchangeStateFillPhase> RunOnceAsync(TimeSpan budget, int batchSize = XchangeStateFiller.BatchSize)
+    /// <summary>One run. With no <paramref name="deployOverlap"/> the re-check starts at once.</summary>
+    private async Task<XchangeStateFillPhase> RunOnceAsync(TimeSpan budget, int batchSize = XchangeStateFiller.BatchSize,
+        TimeSpan? deployOverlap = null)
     {
         await using var scope = fixture.CreateScope();
-        return await scope.ServiceProvider.GetRequiredService<XchangeStateFiller>().RunAsync(budget, batchSize);
+        return await scope.ServiceProvider.GetRequiredService<XchangeStateFiller>()
+            .RunAsync(budget, batchSize, deployOverlap ?? TimeSpan.Zero);
     }
 
-    private async Task<XchangeStateFillPhase> RunToTheEndAsync()
+    private async Task<XchangeStateFillPhase> RunToTheEndAsync(TimeSpan? deployOverlap = null)
     {
         var phase = XchangeStateFillPhase.Fill;
         for (var run = 0; run < 20 && phase != XchangeStateFillPhase.Ready; run++)
-            phase = await RunOnceAsync(TimeSpan.FromSeconds(30));
+            phase = await RunOnceAsync(TimeSpan.FromSeconds(30), deployOverlap: deployOverlap);
         return phase;
     }
 

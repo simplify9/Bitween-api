@@ -139,7 +139,7 @@ public class MetadataDatabaseTests
         await db.Set<XchangeStateFill>().ExecuteDeleteAsync();
 
         var phase = await scope.ServiceProvider.GetRequiredService<XchangeStateFiller>()
-            .RunAsync(TimeSpan.FromMinutes(1), batchSize: 1);
+            .RunAsync(TimeSpan.FromMinutes(1), batchSize: 1, deployOverlap: TimeSpan.Zero);
         Assert.Equal(XchangeStateFillPhase.Ready, phase);
         var indexes = await db.Database.SqlQueryRaw<int>(databaseType == "MsSql"
             ? $"SELECT COUNT(*) AS Value FROM sys.indexes WHERE name = '{XchangeStateIndex.Name}' AND object_id = OBJECT_ID('[Xchanges]')"

@@ -101,7 +101,7 @@ public class XchangeStateReadTests(BitweenFixture fixture) : IAsyncLifetime
         for (var run = 0; run < 20; run++)
         {
             await using var scope = fixture.CreateScope();
-            if (await scope.ServiceProvider.GetRequiredService<XchangeStateFiller>().RunAsync(TimeSpan.FromSeconds(30))
+            if (await scope.ServiceProvider.GetRequiredService<XchangeStateFiller>().RunAsync(TimeSpan.FromSeconds(30), deployOverlap: TimeSpan.Zero)
                 == XchangeStateFillPhase.Ready)
                 break;
         }

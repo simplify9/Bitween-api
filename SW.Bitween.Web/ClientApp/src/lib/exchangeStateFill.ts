@@ -13,7 +13,10 @@ export function describeStateFill(fill: ExchangeStateFill): string {
     case "WaitingForQuietHour":
       return `waiting for the quiet hour, ${String(fill.quietHourUtc).padStart(2, "0")}:00 UTC, to build the index`;
     case "Rechecking":
-      return "checking the exchanges that ran meanwhile";
+      // Waits until the servers of the earlier version, which don't label exchanges, have stopped.
+      return fill.estimatedFinishOn
+        ? `waiting for older servers to stop, ${timeLeft(fill.estimatedFinishOn)}`
+        : "checking the exchanges that ran meanwhile";
     case "Done":
       return "done";
   }

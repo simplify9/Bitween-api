@@ -16,7 +16,7 @@ namespace SW.Bitween.Services.XchangeStates;
 /// <param name="Percent">How much of the exchanges' date range is labeled. 100 only when done.</param>
 /// <param name="EstimatedFinishOn">
 /// While filling, when the labeling should be done at the pace so far, once there is a pace and it
-/// gives a date.
+/// gives a date. While the re-check waits for a deploy's earlier servers to stop, when it starts.
 /// </param>
 /// <param name="QuietHourUtc">The hour a database that can't build online waits for.</param>
 public record XchangeStateProgress(string Phase, int Percent, DateTime? EstimatedFinishOn, int QuietHourUtc)
@@ -49,7 +49,8 @@ public record XchangeStateProgress(string Phase, int Percent, DateTime? Estimate
                     99, null, quietHour);
 
             case XchangeStateFillPhase.Recheck:
-                return new("Rechecking", 99, null, quietHour);
+                return new("Rechecking", 99, await XchangeStateFiller.RecheckWaitsUntilAsync(
+                    db, fill, XchangeStateFiller.DeployOverlap, cancellation), quietHour);
 
             default:
                 return new("Done", 100, null, quietHour);

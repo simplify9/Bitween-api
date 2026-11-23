@@ -23,7 +23,7 @@ namespace SW.Bitween.Services.XchangeStates;
 /// <para>
 /// The re-check covers the deploy that brings these columns in, when servers without them still
 /// finish some exchanges for a few minutes, and an exchange labeled processing by the fill just as
-/// its result arrived.
+/// its result arrived. It waits until those servers are gone: see <see cref="DeployOverlap"/>.
 /// </para>
 /// </remarks>
 public class XchangeStateFiller(BitweenDbContext db, BitweenOptions options, ILogger<XchangeStateFiller> logger)
@@ -36,15 +36,22 @@ public class XchangeStateFiller(BitweenDbContext db, BitweenOptions options, ILo
     /// <summary>Exchanges are timed by the node that made them, whose clock may be a little off.</summary>
     internal static readonly TimeSpan ClockMargin = TimeSpan.FromMinutes(5);
 
+    /// <summary>
+    /// How long after the fill began the re-check waits, so the servers of the earlier version a deploy
+    /// replaces have stopped: they save results and retries without labels, and nothing checks again
+    /// once the fill is done. A small database is filled within a minute, while they may still run.
+    /// </summary>
+    internal static readonly TimeSpan DeployOverlap = TimeSpan.FromMinutes(30);
+
     /// <summary>MySQL takes a list of ids to update, not a condition that reads the same table.</summary>
     private const int IdsPerUpdate = 1_000;
 
     /// <summary>
     /// Works until <paramref name="budget"/> has passed, always at least one step, and returns the
-    /// phase it stopped in.
+    /// phase it stopped in. <paramref name="deployOverlap"/> replaces <see cref="DeployOverlap"/>.
     /// </summary>
     public async Task<XchangeStateFillPhase> RunAsync(TimeSpan budget, int batchSize = BatchSize,
-        CancellationToken cancellation = default)
+        TimeSpan? deployOverlap = null, CancellationToken cancellation = default)
     {
         var until = DateTime.UtcNow + budget;
         db.Database.SetCommandTimeout(CommandTimeout);
@@ -99,6 +106,11 @@ public class XchangeStateFiller(BitweenDbContext db, BitweenOptions options, ILo
                     break;
 
                 case XchangeStateFillPhase.Recheck:
+                    if (await RecheckWaitsUntilAsync(db, fill, deployOverlap ?? DeployOverlap, cancellation) != null)
+                    {
+                        waiting = true;
+                        break;
+                    }
                     var rechecked = await RecheckBatchAsync(fill, batchSize, cancellation);
                     labeled += rechecked;
                     if (rechecked < batchSize)
@@ -164,6 +176,21 @@ public class XchangeStateFiller(BitweenDbContext db, BitweenOptions options, ILo
         await LabelAsync(Between(keys[0].StartedOn, keys[0].Id, keys[^1].StartedOn, keys[^1].Id), cancellation);
         fill.Advance(keys[^1].StartedOn, keys[^1].Id);
         return keys.Count;
+    }
+
+    /// <summary>
+    /// When the re-check may start, or null when it may now: <paramref name="overlap"/> after the fill
+    /// began, unless there were no exchanges before it, as on a new install, which has no servers of an
+    /// earlier version to wait for.
+    /// </summary>
+    internal static async Task<DateTime?> RecheckWaitsUntilAsync(BitweenDbContext db, XchangeStateFill fill,
+        TimeSpan overlap, CancellationToken cancellation = default)
+    {
+        if (fill.Phase != XchangeStateFillPhase.Recheck || fill.PositionStartedOn != null) return null;
+        var until = fill.FillBegan + overlap;
+        if (DateTime.UtcNow >= until) return null;
+        var began = fill.FillBegan;
+        return await db.Set<Xchange>().AnyAsync(x => x.StartedOn < began, cancellation) ? until : null;
     }
 
     /// <summary>
