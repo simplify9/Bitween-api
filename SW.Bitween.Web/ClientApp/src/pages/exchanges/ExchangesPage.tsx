@@ -18,7 +18,6 @@ import { ConfirmDialog } from "../../components/ui/overlays";
 import { openDialogs } from "../../components/ui/dialogStack";
 import { useSubscriptionsCache } from "../../components/config/lookups";
 import { timeAgo } from "../../lib/dates";
-import { STATE_FILL_EXPLAINED, describeStateFill } from "../../lib/exchangeStateFill";
 import { keys } from "../../api/queryKeys";
 import { NONE } from "../../lib/none";
 import { RetryDialog } from "./shared";
@@ -158,14 +157,6 @@ export function ExchangesPage() {
     retry: false,
   });
   const volume = timed ? breakdown.data : chartBreakdown.data;
-  // After an upgrade, until every older exchange carries its status, some counts are slow: said once,
-  // above them. Asked once a minute until done, then never again on this page.
-  const stateFill = useQuery({
-    queryKey: keys.exchanges.stateFill,
-    queryFn: () => api.getExchangeStateFill(),
-    refetchInterval: (q) => (q.state.data?.phase === "Done" ? false : 60_000),
-    retry: false,
-  }).data;
 
   // Now, rather than at the next tick - or at all, paused. The counts and the chart come along so
   // they never disagree with the rows. The chart's query is off when the list is timed, and a
@@ -458,12 +449,6 @@ export function ExchangesPage() {
       />
 
       <div className="flex flex-col gap-3.5">
-        {stateFill && stateFill.phase !== "Done" && (
-          <p className="text-[12.5px] text-ink-600" title={STATE_FILL_EXPLAINED}>
-            Speed upgrade in progress: {describeStateFill(stateFill)}. Some counts may be slow until it finishes.
-          </p>
-        )}
-
         <StatusTabs
           status={query.status}
           counts={breakdown.data?.counts}

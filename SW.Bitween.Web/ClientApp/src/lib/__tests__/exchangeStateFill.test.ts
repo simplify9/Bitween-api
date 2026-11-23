@@ -23,7 +23,7 @@ describe("the exchange status fill, in words", () => {
     expect(describeStateFill(fill({ phase: "NotStarted" }))).toBe("starting within a minute");
     expect(describeStateFill(fill({ phase: "BuildingIndex" }))).toBe("building the index");
     expect(describeStateFill(fill({ phase: "WaitingForQuietHour", quietHourUtc: 23 }))).toBe(
-      "waiting for the quiet hour, 23:00 UTC, to build the index",
+      "waiting until 23:00 UTC to build the index",
     );
     expect(describeStateFill(fill({ phase: "Rechecking" }))).toBe("checking the exchanges that ran meanwhile");
     expect(describeStateFill(fill({ phase: "Rechecking", estimatedFinishOn: inMinutes(40) }))).toBe(

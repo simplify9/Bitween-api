@@ -691,44 +691,4 @@ describe("the exchanges list", () => {
       expect(button).toHaveAttribute("title", expect.stringContaining("at most 50,000 exchanges"));
     });
   });
-
-  /**
-   * After an upgrade the older exchanges' status is filled in once, in the background. Until it is
-   * done some counts are slow, and the page says so, once, rather than leaving people to wonder.
-   */
-  describe("the speed upgrade note", () => {
-    const fill = (body: object) => http.get(apiPath("/xchanges/statefill"), () => HttpResponse.json(body));
-
-    it("says how far the fill has got while it runs", async () => {
-      renderApp("/exchanges", {
-        handlers: [
-          exchanges({ total: 3 }).handler,
-          ...filterOptions,
-          fill({ phase: "Filling", percent: 45, estimatedFinishOn: new Date(Date.now() + 40 * 60_000).toISOString(), quietHourUtc: 0 }),
-        ],
-      });
-
-      const note = await screen.findByText(/Speed upgrade in progress: 45% done, about 40m left\./);
-      expect(note).toHaveAttribute("title", expect.stringContaining("fills in each older exchange's status once"));
-    });
-
-    it("says what a SQL Server that can't build online is waiting for", async () => {
-      renderApp("/exchanges", {
-        handlers: [
-          exchanges({ total: 3 }).handler,
-          ...filterOptions,
-          fill({ phase: "WaitingForQuietHour", percent: 99, estimatedFinishOn: null, quietHourUtc: 1 }),
-        ],
-      });
-
-      expect(await screen.findByText(/waiting for the quiet hour, 01:00 UTC, to build the index/)).toBeVisible();
-    });
-
-    it("isn't there once the fill is done", async () => {
-      renderApp("/exchanges", { handlers: [exchanges({ total: 3 }).handler, ...filterOptions] });
-
-      expect(await screen.findAllByRole("checkbox", { name: /^Select (?!all\b)/ })).toHaveLength(3);
-      expect(screen.queryByText(/Speed upgrade in progress/)).toBeNull();
-    });
-  });
 });

@@ -476,7 +476,8 @@ namespace SW.Bitween
         /// <summary>
         /// The hour, in UTC (0-23), when Bitween may do upkeep that pauses saving exchanges. Only a
         /// database that can't do it online waits for it: today, building the exchange status index
-        /// on SQL Server Standard or Express. 0 by default, 03:00 in Amman and Riyadh.
+        /// on SQL Server Standard or Express. 0 by default, 03:00 in Amman and Riyadh. Configuration
+        /// only: it is too rare a case for the Settings page.
         /// </summary>
         public int MaintenanceQuietHourUtc { get; set; }
 
