@@ -108,6 +108,8 @@ applications the same `Token` values. Until they match, `Bus:OnInvalidUserToken`
 | `AuditRetentionDays` | `0` | Days to keep audit entries; the daily clean-up deletes older ones. 0 keeps them indefinitely. |
 | `LogSqlParameterValues` | `false` | Write SQL parameter values into the logs. They hold passwords, partner keys and payloads, so it is off in every environment unless set; the repository's `launchSettings.json` turns it on for a developer's own machine. |
 | `ReceiveAttemptCleanupCron` | `0 0 3 * * ?` | Quartz cron for the receive attempt cleanup. |
+| `XchangeStateFillCron` | `0 * * * * ?` | Quartz cron for the [exchange status fill](operations.md#exchange-status-fill). Each run works for up to 45 seconds; once the fill is done a run only reads one row. |
+| `MaintenanceQuietHourUtc` | `0` | First value of the runtime setting. |
 | `QuietSubscriptionsCron` | `0 0/5 * * * ?` | Quartz cron for checking subscriptions that [expect traffic](entry-points.md#when-traffic-stops). A subscription can't expect a gap shorter than five minutes, so running it less often only delays the alert. |
 | `NotifierQuietMinutes` | `5` | After a notification channel or legacy notifier sends for a subscription and an outcome, more of the same within this many minutes are held back and counted in the next message. `0` sends every one. A notification channel can set its own window (`quietMinutes`), which replaces this for that channel. See [Delivery](retries-and-alerts.md#delivery). |
 | `ApiCallSubscriptionResponseAcceptedStatusCode` | `202` | First value of the runtime setting. |
@@ -203,6 +205,7 @@ Settings are stored in the `Settings` table and edited on the Settings page.
 | `Bitween.Mirror.SourceToken`, `SourcePassword` | Prod mirror | Yes, secret | empty |
 | `Bitween.MaxRetryAfterSeconds` | Reliability & jobs | Yes | `21600`, six hours |
 | `Bitween.RetryJobCron` | Reliability & jobs | Yes | `0 * * * * ?` |
+| `Bitween.MaintenanceQuietHourUtc` | Reliability & jobs | Yes | `0` (03:00 in Amman and Riyadh). The hour, 0 to 23 UTC, when upkeep that pauses saving exchanges may run. Only a database that can't do it online waits for it: today, building the [exchange status](operations.md#exchange-status-fill) index on SQL Server Standard or Express |
 | `Bitween.QueuePrefix`, `BusDefaultQueuePrefetch`, `BusDefaultConcurrency` | Messaging | Read-only | |
 | `Bitween.RabbitMqManagementUrl`, `Username`, `Password` | Messaging | Shows whether set | |
 | `Bitween.UseAzureManagedIdentity` | Database | Read-only | `false` |
