@@ -103,6 +103,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         dbContext.Add(newXchange);
         await AddPromotedProperties(newXchange, file);
         dbContext.Add(new XchangeRetryClaim(xchange.Id, newXchange.Id));
+        MarkRetried(xchange);
     }
 
     public async Task CreateXchange(Subscription subscription, Xchange xchange, XchangeFile file,
@@ -119,6 +120,28 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         dbContext.Add(newXchange);
         await AddPromotedProperties(newXchange, file);
         dbContext.Add(new XchangeRetryClaim(xchange.Id, newXchange.Id));
+        MarkRetried(xchange);
+    }
+
+    /// <summary>
+    /// Marks the exchange being retried, in the same save as its retry. Bulk retry reads the
+    /// original without tracking it, so it is attached first; only the flag is then written.
+    /// </summary>
+    private void MarkRetried(Xchange original)
+    {
+        if (dbContext.Entry(original).State == EntityState.Detached)
+        {
+            var tracked = dbContext.Set<Xchange>().Local.FirstOrDefault(x => x.Id == original.Id);
+            if (tracked != null)
+            {
+                tracked.MarkRetried();
+                return;
+            }
+
+            dbContext.Attach(original);
+        }
+
+        original.MarkRetried();
     }
 
     private static readonly Regex ExchangeFileKey = new("/[0-9a-f]{32}/(input|output|response)$");
@@ -865,6 +888,7 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             // the result, which is being inserted anyway, rather than on the subscription row.
             if (xchange.SubscriptionId != null) xchangeResult.SetConsecutiveFailures(0);
             dbContext.Add(xchangeResult);
+            xchange.RecordOutcome(xchangeResult);
             if (responseFile?.BadData == true)
                 await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.BadResult, responseFile.Data,
                     xchangeResult);
@@ -894,6 +918,9 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             xchangeResult.SetSubscription(xchange.SubscriptionId);
             await CountFailure(xchange, xchangeResult);
             dbContext.Add(xchangeResult);
+            // Overrides what the success path set, when it was its save that failed: the exchange
+            // stays tracked through DiscardUnsavedOutcome.
+            xchange.RecordOutcome(xchangeResult);
             await TrySchedulingWithoutLosingTheResult(xchange, XchangeResultType.Error, ex.ToString(), xchangeResult);
             // One line per failed exchange: a handler failure left nothing in the log, so a delivery that
             // never arrived could only be traced in the database.

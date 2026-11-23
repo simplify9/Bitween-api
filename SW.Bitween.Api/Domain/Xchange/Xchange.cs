@@ -24,6 +24,7 @@ namespace SW.Bitween.Domain
             InputHash = file.Hash;
             InputContentType = file.ContentType;
             StartedOn = DateTime.UtcNow;
+            Status = XchangeStatus.Processing;
             CorrelationId = correlationId;
             SourceXchangeId = source?.XchangeId;
             SourceValues = source?.Values;
@@ -184,5 +185,18 @@ namespace SW.Bitween.Domain
 
         /// <summary>Records where this exchange's files go. Set once, before the first file is written.</summary>
         public void StoreFilesUnder(string prefix) => FilesPrefix = prefix;
+
+        /// <summary>
+        /// Copies the result's outcome into <see cref="Status"/>. Called with every result saved, in
+        /// the same save, so the two never disagree. Matches what the Exchanges page has always called
+        /// failed, bad response and success.
+        /// </summary>
+        public void RecordOutcome(XchangeResult result) =>
+            Status = !result.Success ? XchangeStatus.Failed
+                : result.ResponseBad ? XchangeStatus.BadResponse
+                : null;
+
+        /// <summary>Marks this exchange as retried, when a retry of it is created.</summary>
+        public void MarkRetried() => Retried = true;
     }
 }
