@@ -32,11 +32,26 @@ public class Role : BaseEntity, IAudited
         IsSystem = true;
     }
 
-    public Role(string name, string description, IEnumerable<string> permissions)
+    /// <summary>
+    /// A built-in partner role, made on startup where it is missing (see BuiltInPartnerRoles). Its
+    /// id is whatever the database gives it, which is why it is known by <see cref="PresetKey"/>:
+    /// a fixed id could already belong to a custom role on an existing installation.
+    /// </summary>
+    public static Role ForPreset(PartnerPreset preset, string name) => new()
+    {
+        Name = name,
+        Description = preset.Description,
+        IsSystem = true,
+        ForPartners = true,
+        PresetKey = preset.Key,
+    };
+
+    public Role(string name, string description, IEnumerable<string> permissions, bool forPartners = false)
     {
         Name = name;
         Description = description;
         Permissions = PermissionCatalog.Sanitize(permissions);
+        ForPartners = forPartners;
     }
 
     public string Name { get; private set; }
@@ -51,6 +66,27 @@ public class Role : BaseEntity, IAudited
     /// <summary>Built-in roles can be assigned, but never edited or deleted.</summary>
     public bool IsSystem { get; private set; }
 
+    /// <summary>
+    /// A role for a partner's own people, holding only partner portal permissions. Given only to
+    /// accounts that belong to a partner, who hold no other kind. Fixed when the role is created,
+    /// so a role already held can never change which kind of account it suits.
+    /// </summary>
+    public bool ForPartners { get; private set; }
+
+    /// <summary>Which built-in partner role this is; null for every other role, built-in or custom.</summary>
+    public string PresetKey { get; private set; }
+
+    /// <summary>
+    /// The built-in partner roles. Their grants are worked out from the catalog on every read, as
+    /// Administrator's are, so a permission added to the portal later reaches them unasked.
+    /// </summary>
+    public static readonly IReadOnlyList<PartnerPreset> PartnerPresets =
+    [
+        new("partner-viewer", "Partner viewer",
+            "For a partner's people: sees that partner's subscriptions and exchanges, with their files and errors.",
+            () => PermissionCatalog.InGroups(true, PermissionCatalog.PortalGroup)),
+    ];
+
     public void Update(string name, string description, IEnumerable<string> permissions)
     {
         Name = name;
@@ -63,7 +99,13 @@ public class Role : BaseEntity, IAudited
     /// runtime instead of storing them, so adding a permission to the catalog reaches
     /// Administrators - and the right groups - without a migration or a data fix-up.
     /// </summary>
-    public List<string> GetEffectivePermissions() => IsSystem ? SystemPermissions(Id) : Permissions;
+    public List<string> GetEffectivePermissions() => IsSystem ? BuiltInPermissions(Id, PresetKey) : Permissions;
+
+    /// <summary>What a built-in role grants: a partner preset by its key, any other by its id.</summary>
+    public static List<string> BuiltInPermissions(int roleId, string presetKey) =>
+        presetKey is null
+            ? SystemPermissions(roleId)
+            : PartnerPresets.FirstOrDefault(p => p.Key == presetKey)?.Permissions() ?? [];
 
     public static List<string> SystemPermissions(int roleId) => roleId switch
     {
@@ -78,3 +120,6 @@ public class Role : BaseEntity, IAudited
     public DateTime? ModifiedOn { get; set; }
     public string ModifiedBy { get; set; }
 }
+
+/// <summary>A built-in partner role: its key, the name it is made with, and what it grants.</summary>
+public record PartnerPreset(string Key, string Name, string Description, Func<List<string>> Permissions);

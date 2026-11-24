@@ -14,10 +14,11 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext) :
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Roles.Create);
 
         RoleValidation.EnsureKnownPermissions(model.Permissions);
+        RoleValidation.EnsureFitsAudience(model.ForPartners, model.Permissions);
         await GrantLimits.EnsureCallerHoldsPermissions(dbContext, requestContext, model.Permissions);
         await RoleValidation.EnsureNameIsFree(dbContext, model.Name);
 
-        var role = new Role(model.Name, model.Description, model.Permissions);
+        var role = new Role(model.Name, model.Description, model.Permissions, model.ForPartners);
         dbContext.Add(role);
         await dbContext.SaveChangesAsync();
         return role.Id;

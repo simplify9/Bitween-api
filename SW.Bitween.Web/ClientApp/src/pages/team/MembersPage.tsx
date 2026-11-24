@@ -65,7 +65,9 @@ export function MembersPage() {
       if (status !== "all" && u.status !== status) return false;
       if (!needle) return true;
       return (
-        u.displayName.toLowerCase().includes(needle) || u.email.toLowerCase().includes(needle)
+        u.displayName.toLowerCase().includes(needle) ||
+        u.email.toLowerCase().includes(needle) ||
+        (u.partner?.name ?? "").toLowerCase().includes(needle)
       );
     });
   }, [users.data, q, status]);
@@ -178,6 +180,7 @@ export function MembersPage() {
             technical: user.email,
             subtitle: (
               <span className="flex flex-wrap items-center gap-1">
+                <PartnerBadge user={user} />
                 {user.roleIds.map((rid) => (
                   <Badge key={rid}>{roleName(rid)}</Badge>
                 ))}
@@ -194,6 +197,12 @@ export function MembersPage() {
             <thead>
               <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
                 <th className="px-4 py-2.5 font-medium">Member</th>
+                <th
+                  className="px-4 py-2.5 font-medium"
+                  title="Our team signs in to Bitween; a partner's people sign in to the partner portal and see only that partner's data."
+                >
+                  Belongs to
+                </th>
                 <th className="px-4 py-2.5 font-medium">Roles</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
                 <th className="px-4 py-2.5 font-medium">Last signed in</th>
@@ -216,6 +225,9 @@ export function MembersPage() {
                         <p className="truncate font-mono text-xs text-ink-500">{user.email}</p>
                       </div>
                     </div>
+                  </td>
+                  <td className="px-4 py-2.5">
+                    {user.partner ? <PartnerBadge user={user} /> : <span className="text-ink-500">Our team</span>}
                   </td>
                   <td className="px-4 py-2.5">
                     <div className="flex flex-wrap gap-1">
@@ -247,5 +259,15 @@ export function MembersPage() {
         />
       )}
     </div>
+  );
+}
+
+/** Whose person a partner's account is; nothing for our own people. */
+function PartnerBadge({ user }: { user: User }) {
+  if (!user.partner) return null;
+  return (
+    <Badge tone="ink" title="A partner's person: signs in to the partner portal and sees only this partner's data.">
+      {user.partner.name ?? "Deleted partner"}
+    </Badge>
   );
 }

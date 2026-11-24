@@ -177,7 +177,8 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
         <Section title="Roles">
           {editable ? (
             <div className="space-y-2.5">
-              {(roles.data ?? []).map((role) => (
+              {/* Each side holds its own roles only, so only those are offered. */}
+              {(roles.data ?? []).filter((role) => role.forPartners === Boolean(u.partner)).map((role) => (
                 <Checkbox
                   key={role.id}
                   label={role.name}
@@ -215,6 +216,15 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
 
         <Section title="Details">
           <dl className="space-y-2 text-sm">
+            <div className="flex justify-between gap-4">
+              <dt
+                className="text-ink-500"
+                title="Our team signs in to Bitween; a partner's people sign in to the partner portal and see only that partner's data. Fixed when they were added."
+              >
+                Belongs to
+              </dt>
+              <dd className="text-ink-800">{u.partner ? (u.partner.name ?? "Deleted partner") : "Our team"}</dd>
+            </div>
             <div className="flex justify-between gap-4">
               <dt className="text-ink-500">Member since</dt>
               <dd className="text-ink-800">{formatDate(u.createdOn)}</dd>

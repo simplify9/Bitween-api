@@ -13,6 +13,7 @@ import { homePath } from "./nav";
 // shows a loading line meanwhile.
 export const AdapterEditorPage = lazy(() => import("./pages/adapters/AdapterEditorPage"));
 export const AdaptersPage = lazy(() => import("./pages/adapters/AdaptersPage").then((m) => ({ default: m.AdaptersPage })));
+export const PortalPage = lazy(() => import("./pages/portal/PortalPage").then((m) => ({ default: m.PortalPage })));
 export const ProfilePage = lazy(() => import("./pages/ProfilePage").then((m) => ({ default: m.ProfilePage })));
 export const AuditPage = lazy(() => import("./pages/audit/AuditPage").then((m) => ({ default: m.AuditPage })));
 export const NodesPage = lazy(() => import("./pages/nodes/NodesPage").then((m) => ({ default: m.NodesPage })));

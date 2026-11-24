@@ -46,6 +46,9 @@ internal static class AccountRoles
             throw new SWValidationException("ROLE_NOT_FOUND",
                 $"These roles don't exist: {string.Join(", ", unknown)}.");
 
+        var isPartner = await dbContext.Set<Account>().AnyAsync(a => a.Id == accountId && a.PartnerId != null);
+        await EnsureRolesSuit(dbContext, wanted, isPartner);
+
         var existing = await dbContext.Set<AccountRoleLink>().Where(l => l.AccountId == accountId).ToListAsync();
 
         foreach (var link in existing.Where(l => !wanted.Contains(l.RoleId)))
@@ -53,6 +56,23 @@ internal static class AccountRoles
 
         foreach (var roleId in wanted.Except(existing.Select(l => l.RoleId)))
             dbContext.Add(new AccountRoleLink(accountId, roleId));
+    }
+
+    /// <summary>
+    /// A partner's person holds partner roles only, and our own people never hold one: the two
+    /// sides never share a role, so neither can be handed the other's access.
+    /// </summary>
+    public static async Task EnsureRolesSuit(BitweenDbContext dbContext, List<int> roleIds, bool isPartner)
+    {
+        var misfits = await dbContext.Set<Role>().AsNoTracking()
+            .Where(r => roleIds.Contains(r.Id) && r.ForPartners != isPartner)
+            .Select(r => r.Name)
+            .ToListAsync();
+
+        if (misfits.Count > 0)
+            throw new SWValidationException("ROLE_DOESNT_SUIT_ACCOUNT", isPartner
+                ? $"A partner's person can hold partner roles only. Not allowed: {string.Join(", ", misfits)}."
+                : $"Partner roles are for a partner's people. Not allowed: {string.Join(", ", misfits)}.");
     }
 
     /// <summary>

@@ -44,6 +44,20 @@ export function RequireAuth() {
   if (session.mustChangePassword && location.pathname !== "/change-password") {
     return <Navigate to="/change-password" state={{ from: location.pathname + location.search }} replace />;
   }
+  // A partner's person has the portal and their password, and nothing else; every other screen
+  // would only be refused.
+  if (session.partner && !location.pathname.startsWith(PORTAL_PATH) && location.pathname !== "/change-password") {
+    return <Navigate to={PORTAL_PATH} replace />;
+  }
+  return <Outlet />;
+}
+
+export const PORTAL_PATH = "/portal";
+
+/** The partner portal is for a partner's people; our own are sent back to the app. */
+export function RequirePartner() {
+  const { session } = useSession();
+  if (!session?.partner) return <Navigate to="/" replace />;
   return <Outlet />;
 }
 

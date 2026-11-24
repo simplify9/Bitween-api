@@ -115,7 +115,7 @@ describe("inviting a member", () => {
     });
 
     const dialog = await addJane(user);
-    expect(dialog.queryByRole("radio")).not.toBeInTheDocument();
+    expect(dialog.queryByRole("radio", { name: /Send an invite|Set a password now/ })).not.toBeInTheDocument();
     expect(dialog.getByRole("checkbox", { name: /Email them that they've been added/ })).toBeChecked();
     await user.click(dialog.getByRole("button", { name: "Add member" }));
 

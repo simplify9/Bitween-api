@@ -66,6 +66,27 @@ function roles(...custom: ReturnType<typeof role>[]) {
 const box = (name: string) => screen.getByRole("checkbox", { name });
 
 describe("the role editor", () => {
+  it("makes a partner role from partner portal permissions only", async () => {
+    const { handlers, created } = roles();
+    const { user } = renderApp("/team/roles/new", { handlers });
+
+    expect(await screen.findByRole("checkbox", { name: "Partners: View" })).toBeVisible();
+    await user.click(screen.getByRole("radio", { name: "A partner's people" }));
+    expect(screen.queryByRole("checkbox", { name: "Partners: View" })).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Name"), "Acme viewers");
+    await user.click(box("Their exchanges: View"));
+    await user.click(screen.getByRole("button", { name: "Create role" }));
+
+    await waitFor(() => expect(created).toHaveLength(1));
+    expect(created[0]).toEqual({
+      name: "Acme viewers",
+      description: "",
+      permissions: ["portal-exchanges.view"],
+      forPartners: true,
+    });
+  });
+
   it("grants View along with any action, and takes the row with it when View is cleared", async () => {
     const { user } = renderApp("/team/roles/new", { handlers: roles().handlers });
 
@@ -139,7 +160,9 @@ describe("the role editor", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe("/team/roles"));
 
     // A new role in its own right, carrying the source's grants - not an edit of the source.
-    expect(created).toEqual([{ name: "Night operator", description: "", permissions: ["partners.view", "partners.edit"] }]);
+    expect(created).toEqual([
+      { name: "Night operator", description: "", permissions: ["partners.view", "partners.edit"], forPartners: false },
+    ]);
     expect(await screen.findByRole("link", { name: /Night operator/ })).toBeVisible();
   });
 });

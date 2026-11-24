@@ -26,6 +26,11 @@ export interface Role {
   permissions: PermissionKey[];
   /** Built-in roles (Administrator) can't be edited or deleted. */
   isSystem: boolean;
+  /**
+   * For a partner's people: holds partner portal permissions only, and is given only to accounts
+   * that belong to a partner. Fixed when the role is created.
+   */
+  forPartners: boolean;
   createdOn: string;
   memberCount: number;
 }
@@ -52,6 +57,8 @@ export interface User {
   hasPassword: boolean;
   /** Their latest invite while they have no password, expired or not; null otherwise. */
   invite: MemberInvite | null;
+  /** The partner whose person this is, signing in to the partner portal; null for our own people. */
+  partner?: { id: string; name: string | null } | null;
 }
 
 export interface MemberInvite {
@@ -128,6 +135,11 @@ export interface Session {
    * change it instead of leaving them staring at an empty shell.
    */
   mustChangePassword: boolean;
+  /**
+   * The partner whose person this is, or null for our own people. A partner's person signs in to
+   * the partner portal and nothing else: the backend refuses them everywhere outside it.
+   */
+  partner: { id: string; name: string } | null;
 }
 
 export interface ApiError {
@@ -2703,4 +2715,59 @@ export interface RetrySuggestion {
   days: number;
   model: string | null;
   sent: string;
+}
+
+// --- Partner portal ---
+
+export interface PortalSummary {
+  partnerName: string;
+  running: number;
+  succeeded: number;
+  failed: number;
+}
+
+export interface PortalSubscription {
+  id: string;
+  name: string;
+  type: string;
+  documentName: string;
+  paused: boolean;
+}
+
+export type PortalExchangeStatus = "running" | "success" | "failed";
+
+export interface PortalExchangeQuery {
+  status: PortalExchangeStatus | null;
+  subscriptionId: string | null;
+  /** Zero-based. */
+  page: number;
+  size: number;
+}
+
+export interface PortalExchangeFile {
+  kind: "input" | "output" | "response";
+  name: string | null;
+  size: number;
+  /** Opens without signing in; handed out only for the partner's own exchanges. */
+  url: string;
+}
+
+export interface PortalExchange {
+  id: string;
+  startedOn: string;
+  finishedOn: string | null;
+  status: PortalExchangeStatus;
+  documentName: string;
+  subscriptionId: number | null;
+  subscriptionName: string | null;
+  /** Null without the exchange errors permission, and for anything but a failure. */
+  error: string | null;
+  /** Null without the exchange files permission. */
+  files: PortalExchangeFile[] | null;
+}
+
+/** No total: the page says only whether there is another. */
+export interface PortalExchangePage {
+  result: PortalExchange[];
+  hasMore: boolean;
 }

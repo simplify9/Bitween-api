@@ -7,6 +7,7 @@ import {
   ACTION_LABELS,
   ACTION_ORDER,
   allKeysIn,
+  areasFor,
   groupsIn,
   permissionKey,
   usePermissionCatalog,
@@ -17,6 +18,7 @@ import { visibleGroups } from "../../nav";
 import { Badge, Button, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { isNotFound } from "../../components/ui/isNotFound";
 import { Field, TextInput } from "../../components/ui/forms";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
 import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import { BackLink } from "../../components/ui/BackLink";
@@ -79,7 +81,6 @@ export function RoleEditor() {
   const { can } = useSession();
   const catalog = usePermissionCatalog();
   const phone = usePhone();
-  const areas = catalog.data ?? [];
 
   const source = useQuery({
     queryKey: keys.roles.detail(sourceId),
@@ -92,6 +93,10 @@ export function RoleEditor() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [granted, setGranted] = useState<Set<PermissionKey> | null>(null);
+  // A role for a partner's people holds partner portal permissions only, and ours never do; fixed
+  // once the role exists.
+  const [forPartners, setForPartners] = useState(false);
+  const areas = areasFor(catalog.data ?? [], forPartners);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   // Which role this form is currently filled from. React Router reuses this component when the
   // route changes between /new and /:id, so tracking identity - not a plain "have we loaded"
@@ -107,14 +112,16 @@ export function RoleEditor() {
       setName("");
       setDescription("");
       setGranted(new Set());
+      setForPartners(searchParams.get("forPartners") === "1");
       setLoadedFor(identity);
     } else if (source.data) {
       setName(isNew ? `Copy of ${source.data.name}` : source.data.name);
       setDescription(source.data.description);
       setGranted(new Set(source.data.permissions));
+      setForPartners(source.data.forPartners);
       setLoadedFor(identity);
     }
-  }, [source.data, sourceId, isNew, loaded, identity]);
+  }, [source.data, sourceId, isNew, loaded, identity, searchParams]);
 
   const isSystem = !isNew && (source.data?.isSystem ?? false);
   const editable = !isSystem && (isNew ? can("roles.create") : can("roles.edit"));
@@ -134,7 +141,7 @@ export function RoleEditor() {
   const save = useMutation({
     mutationFn: () => {
       const input = { name, description, permissions: [...granted!] };
-      return isNew ? api.createRole(input) : api.updateRole(id!, input);
+      return isNew ? api.createRole({ ...input, forPartners }) : api.updateRole(id!, input);
     },
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: keys.roles.all });
@@ -203,6 +210,11 @@ export function RoleEditor() {
                 <ShieldCheck className="size-3" /> Built-in
               </Badge>
             )}
+            {!isNew && forPartners && (
+              <Badge tone="ink" title="For a partner's people: holds partner portal permissions only, and only partner accounts can hold it.">
+                Partner role
+              </Badge>
+            )}
           </h1>
           {!isNew && source.data && (
             <p className="mt-1 text-sm text-ink-500">
@@ -235,8 +247,9 @@ export function RoleEditor() {
 
       {isSystem && (
         <div className="mb-6 rounded-xl border border-ink-200 bg-ink-50 px-4 py-3 text-sm text-ink-600">
-          This role is built in: it always holds every permission, so there's always someone who can
-          manage the instance. It can't be edited or deleted.
+          {forPartners
+            ? "This role is built in and ready to give to a partner's people. It picks up new partner portal permissions as they arrive, and can't be edited or deleted. Create a role to choose permissions yourself."
+            : "This role is built in: it always holds every permission, so there's always someone who can manage the instance. It can't be edited or deleted."}
         </div>
       )}
 
@@ -262,6 +275,30 @@ export function RoleEditor() {
                   placeholder="What is this role for?"
                 />
               </Field>
+              {isNew && (
+                <div className="sm:col-span-2">
+                  <div className="mb-1.5 text-[13px] font-medium text-ink-700">Who it's for</div>
+                  <SegmentedControl
+                    label="Who it's for"
+                    value={forPartners ? "partners" : "team"}
+                    disabled={!editable}
+                    onChange={(v) => {
+                      setForPartners(v === "partners");
+                      // Neither side's permissions fit the other's roles.
+                      setGranted(new Set());
+                    }}
+                    options={[
+                      { value: "team", label: "Our team", title: "For our own people, signing in to Bitween itself." },
+                      {
+                        value: "partners",
+                        label: "A partner's people",
+                        title: "For people at a partner, signing in to the partner portal. Each sees only their own partner's data.",
+                      },
+                    ]}
+                  />
+                  <p className="mt-1 text-[13px] text-ink-500">Fixed once the role is created.</p>
+                </div>
+              )}
             </div>
           )}
 
@@ -394,7 +431,15 @@ export function RoleEditor() {
         </div>
 
         <div className="space-y-4 lg:sticky lg:top-8 lg:self-start">
-          <AccessPreview permissions={granted} total={allKeysIn(areas).length} />
+          {forPartners ? (
+            <div className="rounded-xl border border-ink-200 bg-white p-4 text-sm text-ink-600">
+              <h2 className="mb-1 text-[15px] font-semibold text-ink-900">Partner portal</h2>
+              Whoever holds this role signs in to the partner portal and sees only their own partner&apos;s data,
+              whatever is ticked here. Nothing else in Bitween opens for them.
+            </div>
+          ) : (
+            <AccessPreview permissions={granted} total={allKeysIn(areas).length} />
+          )}
 
           {/* A role that doesn't exist yet has no history, and a system role's grants are
               computed rather than stored, so nothing ever edits one. */}

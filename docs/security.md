@@ -98,6 +98,10 @@ A permission is written `area.action`. A member holds the union of their roles' 
 | Administration | `audit` | view |
 | Administration | `adapter-source` | view, edit, operate |
 | Administration | `mirror` | view, operate |
+| Partner portal | `portal-subscriptions` | view |
+| Partner portal | `portal-exchanges` | view |
+| Partner portal | `portal-exchange-files` | view |
+| Partner portal | `portal-exchange-errors` | view |
 
 - `exchanges.operate` covers retrying and resubmitting exchanges, including running a scheduled retry now.
 - `subscriptions.operate` covers pause, resume, receive now, roll up now and resetting a retry budget.
@@ -114,14 +118,28 @@ A permission is written `area.action`. A member holds the union of their roles' 
 | Administrator | Every permission, including ones added in later versions |
 | Member | Every action in the Operate, Subscriptions and Configuration groups |
 | Viewer | Only the view actions in those groups |
+| Partner viewer | For a partner's people: every view action in the Partner portal group, including new ones as they are added |
 
-Built-in roles cannot be edited or deleted. Custom roles can hold any combination, and cannot be deleted while members hold them.
+Built-in roles cannot be edited or deleted. Custom roles can hold any combination, and cannot be deleted while members hold them. Partner viewer is made on startup where it is missing, so its id differs between installations; if a custom role already uses the name, it is called "Partner viewer (built-in)".
 
 Bitween refuses to remove, disable or demote the last enabled Administrator. Members cannot disable or remove themselves.
 
 A signed-in request without the needed permission gets HTTP 403. A request that is not signed in, or whose token has expired, gets 401.
 
 `GET /api/permissions` returns the full catalogue with labels and descriptions. `GET /api/accounts/profile` returns the signed-in member's permissions.
+
+### Partner portal
+
+A partner's own people can sign in and see their partner's data, and nothing else.
+
+- **Partner accounts.** On the Members page, choose **A partner's person** when adding someone, and pick the partner. The partner is fixed once the account exists. The list shows who belongs to which partner under **Belongs to**.
+- **Partner roles.** The built-in **Partner viewer** is ticked for a new partner's person, ready to use. For anything else, create a role and choose **A partner's people** under **Who it's for**. A partner role holds only the Partner portal permissions, and any other role holds none of them. Partner accounts hold only partner roles. Roles are shared across partners: the role says what someone may do, and the account's partner says whose data. Only someone who holds the Partner portal permissions, which today means an Administrator, can create partner roles or give them out.
+- **What they see.** After signing in, a partner account goes to `/portal`: the last 24 hours of its exchanges, its exchanges newest first, and its subscriptions. Each permission opens one part. `portal-exchange-files` adds the exchange files and `portal-exchange-errors` adds why an exchange failed. Errors can name addresses and systems on your side, so give that permission with care.
+- **What they can't reach.** Partner accounts get 403 from every endpoint outside `/api/portal`, apart from signing in and out, their profile, changing their password and opening file links. This is enforced in one place for every kind of token, including `/mcp`. Administrators get 403 from `/api/portal`, because they have no partner.
+- **Which exchanges.** An exchange belongs to a partner when it carries that partner's id. Exchanges from before that column existed carry none and don't show in the portal.
+- A partner with portal users can't be deleted until they are removed.
+
+The portal is view-only for now.
 
 ## Partners and API keys
 

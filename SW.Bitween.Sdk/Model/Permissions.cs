@@ -196,6 +196,18 @@ public static class Permissions
         /// <summary>Publish a version from the editor, and make a published version the current one.</summary>
         public const string Operate = "adapter-source.operate";
     }
+
+    /// <summary>
+    /// What a partner's own people may do in the partner portal, always limited to their partner's
+    /// data. Only partner roles hold these, and partner roles hold nothing else.
+    /// </summary>
+    public static class Portal
+    {
+        public const string SubscriptionsView = "portal-subscriptions.view";
+        public const string ExchangesView = "portal-exchanges.view";
+        public const string ExchangeFilesView = "portal-exchange-files.view";
+        public const string ExchangeErrorsView = "portal-exchange-errors.view";
+    }
 }
 
 public class PermissionActionModel
@@ -369,8 +381,34 @@ public static class PermissionCatalog
         Area("mirror", "Prod mirror", "Administration",
             "A staging that copies a prod's setup, faked, to rehearse upgrades on.",
             (View, "See how close staging is to prod, and what is left to do."),
-            (Operate, "Bring prod's items onto this staging, keeping what it has, and test them with prod's traffic."))
+            (Operate, "Bring prod's items onto this staging, keeping what it has, and test them with prod's traffic.")),
+
+        // --- Partner portal ---
+        // Held only by partner roles, which hold nothing else; every one of them reaches only the
+        // signed-in partner's own data.
+        Area("portal-subscriptions", "Their subscriptions", "Partner portal",
+            "The subscriptions that deliver to or take from the partner, read-only.",
+            (View, "See their subscriptions: name, kind, information type and whether paused.")),
+
+        Area("portal-exchanges", "Their exchanges", "Partner portal",
+            "The exchanges that ran for the partner.",
+            (View, "Browse their exchanges: status, times and counts.")),
+
+        Area("portal-exchange-files", "Exchange files", "Partner portal",
+            "What each of their exchanges received, sent and got back.",
+            (View, "Open and download the files of their exchanges.")),
+
+        Area("portal-exchange-errors", "Exchange errors", "Partner portal",
+            "Why an exchange failed. Errors can name addresses and systems on our side.",
+            (View, "Read the error of a failed exchange."))
     ];
+
+    /// <summary>The group partner roles draw from, and the only one.</summary>
+    public const string PortalGroup = "Partner portal";
+
+    /// <summary>Every key a partner role may hold.</summary>
+    public static readonly HashSet<string> PortalKeys =
+        Areas.Where(a => a.Group == PortalGroup).SelectMany(a => a.Actions.Select(x => $"{a.Id}.{x.Id}")).ToHashSet();
 
     /// <summary>Every valid permission key.</summary>
     public static readonly HashSet<string> AllKeys =

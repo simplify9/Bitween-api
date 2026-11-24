@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using SW.Bitween.Domain;
 using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
@@ -52,7 +53,9 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext)
                     LockoutEnd = a.LockoutEnd,
                     LastSignInOn = a.LastSignInOn,
                     MicrosoftLinked = a.MicrosoftIdentity != null,
-                    HasPassword = a.Password != null && a.Password != ""
+                    HasPassword = a.Password != null && a.Password != "",
+                    PartnerId = a.PartnerId,
+                    PartnerName = dbContext.Set<Partner>().Where(p => p.Id == a.PartnerId).Select(p => p.Name).FirstOrDefault()
                 })
                 .ToListAsync();
 

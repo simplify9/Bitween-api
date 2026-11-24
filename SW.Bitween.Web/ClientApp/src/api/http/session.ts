@@ -14,6 +14,8 @@ interface Profile {
   roles: { id: number; name: string }[] | null;
   permissions: string[] | null;
   mustChangePassword?: boolean;
+  partnerId?: number | null;
+  partnerName?: string | null;
 }
 
 /** POST /accounts/login → { jwt }. */
@@ -42,6 +44,7 @@ const buildSession = (profile: Profile): Session => {
     // Resolved server-side from the user's roles, so a revoked role takes effect on next load.
     permissions: profile.permissions ?? [],
     mustChangePassword: profile.mustChangePassword ?? false,
+    partner: profile.partnerId != null ? { id: String(profile.partnerId), name: profile.partnerName ?? "" } : null,
   };
 };
 

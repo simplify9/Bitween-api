@@ -63,6 +63,7 @@ export const visibleGroups = (permissions: PermissionKey[]): NavGroup[] =>
  * from a colleague both still end where they were headed.
  */
 export const homePath = (session: Session): string => {
+  if (session.partner) return "/portal";
   if (session.permissions.includes("dashboard.view")) return "/dashboard";
   const groups = visibleGroups(session.permissions);
   return groups[0]?.items[0]?.path ?? "/profile";

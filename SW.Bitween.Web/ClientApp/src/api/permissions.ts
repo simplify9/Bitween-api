@@ -32,6 +32,13 @@ export function usePermissionCatalog() {
   });
 }
 
+/** The catalog group partner roles draw from, and the only one; see PermissionCatalog.PortalGroup. */
+export const PORTAL_GROUP = "Partner portal";
+
+/** The catalog areas a role for that side may hold: partner portal ones for a partner role, the rest otherwise. */
+export const areasFor = (areas: PermissionArea[], forPartners: boolean): PermissionArea[] =>
+  areas.filter((a) => (a.group === PORTAL_GROUP) === forPartners);
+
 export const allKeysIn = (areas: PermissionArea[]): PermissionKey[] =>
   areas.flatMap((area) => area.actions.map((a) => permissionKey(area.id, a.id as ActionId)));
 

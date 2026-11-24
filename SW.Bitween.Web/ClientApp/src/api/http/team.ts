@@ -33,6 +33,8 @@ interface RawAccount {
   roles: RawRoleSummary[] | null;
   hasPassword?: boolean;
   invite?: { expiresOn: string; emailedOn: string | null; emailError: string | null } | null;
+  partnerId?: number | null;
+  partnerName?: string | null;
 }
 
 interface RawRole {
@@ -40,6 +42,7 @@ interface RawRole {
   name: string;
   description: string | null;
   isSystem: boolean;
+  forPartners?: boolean;
   permissions: string[] | null;
   memberCount: number;
   createdOn: string;
@@ -60,6 +63,7 @@ const toUser = (r: RawAccount): User => ({
   // Missing from an older backend, whose members all have passwords.
   hasPassword: r.hasPassword ?? true,
   invite: r.invite ?? null,
+  partner: r.partnerId != null ? { id: String(r.partnerId), name: r.partnerName ?? null } : null,
 });
 
 const toRole = (r: RawRole): Role => ({
@@ -68,6 +72,7 @@ const toRole = (r: RawRole): Role => ({
   description: r.description ?? "",
   permissions: r.permissions ?? [],
   isSystem: r.isSystem,
+  forPartners: r.forPartners ?? false,
   createdOn: r.createdOn,
   memberCount: r.memberCount,
 });
@@ -103,18 +108,21 @@ export const teamMethods = {
     password,
     invite,
     roleIds,
+    partnerId,
   }: {
     displayName: string;
     email: string;
     password?: string;
     invite?: boolean;
     roleIds: string[];
+    partnerId?: string | null;
   }): Promise<User> {
     const id = await post<number>("/accounts", {
       name: displayName,
       email,
       ...(invite ? { invite: true } : { password }),
       roleIds: roleIds.map(Number),
+      ...(partnerId ? { partnerId: Number(partnerId) } : {}),
     });
     return fetchUser(String(id));
   },
@@ -170,6 +178,7 @@ export const teamMethods = {
     name: string;
     description: string;
     permissions: PermissionKey[];
+    forPartners?: boolean;
   }): Promise<Role> {
     const id = await post<number>("/roles", input);
     return teamMethods.getRole(String(id));

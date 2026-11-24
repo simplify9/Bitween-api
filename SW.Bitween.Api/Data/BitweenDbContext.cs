@@ -732,6 +732,7 @@ namespace SW.Bitween
                 b.Property(p => p.LoginMethods).HasConversion<byte>();
                 // Added with service accounts; every account before them is a person (0).
                 b.Property(p => p.Kind).HasConversion<byte>();
+                b.HasIndex(p => p.PartnerId);
 
                 b.HasData(
                     new
@@ -816,6 +817,9 @@ namespace SW.Bitween
                 b.Property(p => p.Name).IsRequired().HasMaxLength(100);
                 b.Property(p => p.Description).HasMaxLength(500);
                 b.Property(p => p.Permissions).StoreAsJson();
+                b.Property(p => p.PresetKey).IsUnicode(false).HasMaxLength(50);
+                // One row per preset, however many nodes start at once.
+                b.HasIndex(p => p.PresetKey).IsUnique();
 
                 b.HasData(SystemRoleSeed());
             });
