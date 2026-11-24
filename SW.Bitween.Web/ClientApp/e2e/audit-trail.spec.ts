@@ -77,7 +77,8 @@ test.describe("audit trail", () => {
 
     // Deliberately no reload: the card sits on the same page as the form that just wrote to it,
     // so it has to catch up on its own. It used to need a manual refresh.
-    await expect(panel.getByRole("row").filter({ hasText: "Changed" })).toBeVisible();
+    // The header row's "Changed by" would match too; the entry is the row with its details button.
+    await expect(panel.getByRole("row").filter({ hasText: "Changed" }).filter({ has: page.getByRole("button", { name: /Show what changed/ }) })).toBeVisible();
 
     // The before/after values are reachable without a mouse - they used to be in a title,
     // which keyboard and touch users can't get at.

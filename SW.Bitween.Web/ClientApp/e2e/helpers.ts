@@ -89,6 +89,8 @@ export async function addMember(
   await page.getByRole("button", { name: "Add member" }).click();
   await page.fill("#member-name", name);
   await page.fill("#member-email", email);
+  // The dialog opens on sending an invite; the password box shows once this is chosen.
+  await page.getByRole("radio", { name: /Set a password now/ }).check();
   await page.fill("#member-password", password);
   await page.getByRole("radio", { name: startsWith(role) }).check();
   await page.getByRole("button", { name: "Add member" }).last().click();

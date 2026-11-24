@@ -261,7 +261,8 @@ test("a member locked by wrong passwords from many addresses shows as Locked, is
   }
 
   await page.goto("team/members");
-  const status = page.getByRole("row", { name: new RegExp(email) }).getByRole("cell").nth(2);
+  // Member, Belongs to, Roles, Status.
+  const status = page.getByRole("row", { name: new RegExp(email) }).getByRole("cell").nth(3);
   await expect(status).toHaveText("Locked");
 
   await signOut(page);
