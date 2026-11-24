@@ -6,6 +6,7 @@ import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHo
 import { loadMapping, saveMapping, toWire } from "../../lib/nativeMapper/serialize";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
 import type { SourceDocument } from "../config/sourceValues";
+import { useMapperEditorServices } from "./editorServices";
 
 /**
  * Where the editor reads its mapping from and writes it back to.
@@ -97,6 +98,7 @@ const PREVIEW_DEBOUNCE_MS = 500;
  * is evaluated in the browser, so what the editor shows is what a partner receives.
  */
 export function useMappingPreview(partnerId: number | null) {
+  const { previewMappingRules } = useMapperEditorServices();
   const { rules, sourceSample } = useRules();
   const dispatch = useRulesDispatch();
   const [isPreviewing, setPreviewing] = useState(false);
@@ -118,7 +120,7 @@ export function useMappingPreview(partnerId: number | null) {
       const run = ++runId.current;
       setPreviewing(true);
       try {
-        const result = await api.previewMappingRules({
+        const result = await previewMappingRules({
           mappingRules: JSON.stringify(toWire(rules)),
           sourceDocument: sourceSample,
           partnerId,
@@ -149,7 +151,7 @@ export function useMappingPreview(partnerId: number | null) {
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [rules, sourceSample, partnerId, dispatch]);
+  }, [rules, sourceSample, partnerId, dispatch, previewMappingRules]);
 
   return { isPreviewing };
 }

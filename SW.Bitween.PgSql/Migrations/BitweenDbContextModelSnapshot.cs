@@ -2367,6 +2367,56 @@ namespace SW.Bitween.PgSql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerMapping", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_on");
+
+                    b.Property<string>("MapperProperties")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("mapper_properties");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("modified_by");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_on");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("partner_id");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("subscription_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_partner_mapping");
+
+                    b.HasIndex("PartnerId")
+                        .HasDatabaseName("ix_partner_mapping_partner_id");
+
+                    b.HasIndex("SubscriptionId", "PartnerId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_partner_mapping_subscription_id_partner_id");
+
+                    b.ToTable("partner_mapping", "infolink");
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.ReceiveAttempt", b =>
                 {
                     b.Property<int>("Id")
@@ -4074,6 +4124,23 @@ namespace SW.Bitween.PgSql.Migrations
                         });
 
                     b.Navigation("ApiCredentials");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerMapping", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_partner_mapping_partner_partner_id");
+
+                    b.HasOne("SW.Bitween.Domain.Subscription", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_partner_mapping_subscription_subscription_id");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Subscription", b =>

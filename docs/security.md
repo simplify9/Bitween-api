@@ -102,6 +102,7 @@ A permission is written `area.action`. Every account, person or service account,
 | Partner portal | `portal-exchanges` | view |
 | Partner portal | `portal-exchange-files` | view |
 | Partner portal | `portal-exchange-errors` | view |
+| Partner portal | `portal-mappings` | view, edit |
 
 - `exchanges.operate` covers retrying and resubmitting exchanges, including running a scheduled retry now.
 - `subscriptions.operate` covers pause, resume, receive now, roll up now and resetting a retry budget.
@@ -119,8 +120,9 @@ A permission is written `area.action`. Every account, person or service account,
 | Member | Every action in the Operate, Subscriptions and Configuration groups |
 | Viewer | Only the view actions in those groups |
 | Partner viewer | For a partner's people: every view action in the Partner portal group, including new ones as they are added |
+| Partner editor | For a partner's people: every action in the Partner portal group, including changing their own mappings |
 
-Built-in roles cannot be edited or deleted. Custom roles can hold any combination, and cannot be deleted while members hold them. Partner viewer is made on startup where it is missing, so its id differs between installations; if a custom role already uses the name, it is called "Partner viewer (built-in)".
+Built-in roles cannot be edited or deleted. Custom roles can hold any combination, and cannot be deleted while members hold them. Partner viewer and Partner editor are made on startup where they are missing, so their ids differ between installations; if a custom role already uses the name, it gets " (built-in)" after it.
 
 Bitween refuses to remove, disable or demote the last enabled Administrator. Members cannot disable or remove themselves.
 
@@ -139,7 +141,7 @@ A partner's own people can sign in and see their partner's data, and nothing els
 - **Which exchanges.** An exchange belongs to a partner when it carries that partner's id. Exchanges from before that column existed carry none and don't show in the portal.
 - A partner with portal users can't be deleted until they are removed.
 
-The portal is view-only for now.
+- **Their own mappings.** The **Mappings** card lists every place the partner is connected: subscriptions that belong to them, API gateways they are attached to, and bus gateway routes that name them. With `portal-mappings.edit` they can make their own version of a place's mapping in the mapping editor, starting from yours, and preview it against one of their recent exchanges. Their version is used for their exchanges only, from the next one on, including retries; everyone else on the same gateway keeps your mapping, and **Go back to ours** deletes theirs. It works for subscriptions that map with the native mapper or don't map at all. Their rules can read the document and their own partner properties, but no global value that your mapping doesn't already send them, by rule or by `{{globals.…}}` placeholder; saving and previewing refuse it. Every change is in the audit trail as **Partner mapping**, in full.
 
 ## Partners and API keys
 

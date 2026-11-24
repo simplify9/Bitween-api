@@ -70,6 +70,8 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
             // gateway call and every exchange with a partner read these from the database.
             var cachedPartners = await repo.Set<Partner>().AsNoTracking().ToArrayAsync();
             var cachedApiGateways = await repo.Set<ApiGateway>().Include(g => g.Partners).AsNoTracking().ToArrayAsync();
+            var cachedPartnerMappings = (await repo.Set<PartnerMapping>().AsNoTracking().ToArrayAsync())
+                .ToDictionary(m => (m.SubscriptionId, m.PartnerId));
             var partnersById = cachedPartners.ToDictionary(p => p.Id);
             foreach (var attachment in cachedApiGateways.SelectMany(g => g.Partners ?? []))
                 attachment.Partner = partnersById.GetValueOrDefault(attachment.PartnerId);
@@ -91,6 +93,7 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
             _cache.Set(nameof(BusGateway), cachedBusGateways, span);
             _cache.Set(nameof(Partner), partnersById, span);
             _cache.Set(nameof(ApiGateway), cachedApiGateways, span);
+            _cache.Set(nameof(PartnerMapping), cachedPartnerMappings, span);
             return;
         }
     }
@@ -115,6 +118,10 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
     }
 
     public async Task<Document[]> ListDocumentsAsync() => await Cached<Document[]>(nameof(Document));
+
+    public async Task<PartnerMapping> PartnerMappingAsync(int subscriptionId, int partnerId) =>
+        (await Cached<Dictionary<(int, int), PartnerMapping>>(nameof(PartnerMapping)))
+        .GetValueOrDefault((subscriptionId, partnerId));
 
     public async Task<Partner> PartnerByIdAsync(int partnerId) =>
         (await Cached<Dictionary<int, Partner>>(nameof(Partner)))
@@ -296,6 +303,7 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
         _cache.Remove(nameof(BusGateway));
         _cache.Remove(nameof(Partner));
         _cache.Remove(nameof(ApiGateway));
+        _cache.Remove(nameof(PartnerMapping));
         // Load() caches this one too. Leaving it out here meant no write of any kind could
         // clear a global value: it sat for its full ten minutes regardless.
         _cache.Remove(nameof(GlobalAdapterValuesSet));

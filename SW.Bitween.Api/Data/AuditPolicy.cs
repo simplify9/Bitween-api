@@ -48,6 +48,8 @@ public static class AuditPolicy
         typeof(Document),
         typeof(ApiGateway),
         typeof(ApiGatewayPartner),
+        // Kept in full: rules are no secret, and the trail is how a partner's change is seen and undone.
+        typeof(PartnerMapping),
         typeof(BusGateway),
         typeof(BusGatewayRoute),
         typeof(WorkGroup),

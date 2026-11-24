@@ -1949,6 +1949,45 @@ namespace SW.Bitween.MsSql.Migrations
                         });
                 });
 
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerMapping", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MapperProperties")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("SubscriptionId", "PartnerId")
+                        .IsUnique();
+
+                    b.ToTable("PartnerMappings", (string)null);
+                });
+
             modelBuilder.Entity("SW.Bitween.Domain.ReceiveAttempt", b =>
                 {
                     b.Property<int>("Id")
@@ -3439,6 +3478,21 @@ namespace SW.Bitween.MsSql.Migrations
                         });
 
                     b.Navigation("ApiCredentials");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerMapping", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SW.Bitween.Domain.Subscription", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Subscription", b =>

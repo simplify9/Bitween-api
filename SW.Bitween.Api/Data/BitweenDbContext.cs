@@ -807,6 +807,18 @@ namespace SW.Bitween
                 b.HasIndex(p => p.Hash).IsUnique();
             });
 
+            // A partner's own mapping of a subscription; goes with either of them.
+            modelBuilder.Entity<PartnerMapping>(b =>
+            {
+                b.ToTable("PartnerMappings");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasIndex(p => new { p.SubscriptionId, p.PartnerId }).IsUnique();
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Partner>().WithMany().HasForeignKey(p => p.PartnerId).OnDelete(DeleteBehavior.Cascade);
+                b.Property(p => p.MapperProperties).StoreAsJson().Encrypted();
+            });
+
             modelBuilder.Entity<Role>(b =>
             {
                 b.ToTable("Roles");

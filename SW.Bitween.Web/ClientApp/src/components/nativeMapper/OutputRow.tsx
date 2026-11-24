@@ -9,6 +9,7 @@ import { RuleDetail } from "./RuleDetail";
 import { RowInput } from "./rowControls";
 import { ValueCell, type SourcePaths } from "./ValueCell";
 import { useSourceValues } from "./sourceValuesContext";
+import { useMapperEditorServices } from "./editorServices";
 
 /**
  * One rule, on one line.
@@ -44,6 +45,7 @@ export function OutputRow({
   const dispatch = useRulesDispatch();
   const { selectedId, ruleErrors, hoveredPath, ai } = useRules();
   const original = useSourceValues() !== null;
+  const { globals } = useMapperEditorServices();
   const [open, setOpen] = useState(false);
 
   const isItem = node.kind === "item";
@@ -164,7 +166,7 @@ export function OutputRow({
         <SegmentedControl
           size="sm"
           label="Where the value comes from"
-          options={sourceKindsFor(inList, original)}
+          options={sourceKindsFor(inList, original).filter((k) => globals || k.value !== "global" || rule.from.kind === "global")}
           value={rule.from.kind === "rootPath" ? "path" : rule.from.kind}
           // A row showing "Source" may be reading the entry or the document; both are
           // that one choice, and the dropdown beside it says which.

@@ -1,11 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
-import { api } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { useRules } from "../../lib/nativeMapper/rulesEditorHooks";
 import type { ValueSource, ValueTypeName } from "../../lib/nativeMapper/types";
 import { lackingPath, lackingPathWarning } from "../config/sourceValues";
 import { RowInput, RowSelect, RowSuggestInput } from "./rowControls";
 import { useSourceValues } from "./sourceValuesContext";
+import { useMapperEditorServices } from "./editorServices";
 
 /**
  * The source paths a rule may read, by where they are read from.
@@ -55,19 +55,20 @@ export function ValueCell({
 }) {
   const { testPartnerId } = useRules();
   const original = useSourceValues();
+  const services = useMapperEditorServices();
 
   const { data: globalSets } = useQuery({
     queryKey: keys.valueSets.list,
-    queryFn: () => api.listValueSets(),
+    queryFn: () => services.listValueSets(),
     enabled: source.kind === "global",
   });
 
   // The keys of whichever partner the preview is running as. Without one there is
   // nothing to suggest, and the box is then simply a box - a partner the mapping
   // will run against later may have keys this one does not.
-  const { data: partnerProps } = useQuery({
-    queryKey: keys.partners.adapterProperties(testPartnerId),
-    queryFn: () => api.getPartnerAdapterProperties(testPartnerId!),
+  const { data: partnerKeys } = useQuery({
+    queryKey: [...keys.partners.adapterProperties(testPartnerId), "keys"],
+    queryFn: () => services.partnerPropertyKeys(testPartnerId!),
     enabled: source.kind === "partner" && testPartnerId !== null,
   });
 
@@ -187,7 +188,7 @@ export function ValueCell({
       );
 
     case "partner": {
-      const known = Object.keys(partnerProps ?? {});
+      const known = partnerKeys ?? [];
       // Flagged the same way a source path is: the partner being previewed not
       // having this key does not make the key wrong, since the mapping runs against
       // whichever partner the exchange belongs to.

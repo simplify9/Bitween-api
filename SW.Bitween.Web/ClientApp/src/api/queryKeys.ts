@@ -169,6 +169,9 @@ export const keys = {
     summary: ["portal", "summary"] as const,
     subscriptions: ["portal", "subscriptions"] as const,
     exchanges: (query: Record<string, unknown>) => ["portal", "exchanges", query] as const,
+    mappings: ["portal", "mappings"] as const,
+    mapping: (subscriptionId: number) => ["portal", "mapping", subscriptionId] as const,
+    samples: (subscriptionId: number) => ["portal", "samples", subscriptionId] as const,
   },
 
   users: {
