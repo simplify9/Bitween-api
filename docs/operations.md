@@ -46,7 +46,9 @@ Each exchange carries its status (processing, bad response or failed; success is
 2. **Index.** It builds the index the pages read without blocking writes: on PostgreSQL a partial index of the exchanges that aren't a success, on MySQL and on SQL Server Enterprise or Azure a normal one, online. SQL Server Standard and Express can't build it online, so there it builds it at 00:00 UTC, and saving exchanges pauses while it does, a few minutes on a big table.
 3. **Re-check.** It checks once more the exchanges that started since the fill began, any still marked processing, and every exchange retried since, in case a server of the earlier version handled them meanwhile. So that those servers have stopped first, it starts no sooner than 30 minutes after the fill began; a new install, with no exchanges from before, doesn't wait.
 
-Until it's done the pages keep counting the old way, which can be slow on a big database, and nothing is wrong meanwhile. **Queue health** shows how far it has got under **Bitween's own work**. On 3 million exchanges the fill took about 3 minutes of work and the index 13 seconds, so an upgrade is usually done 30 minutes after it starts; a new install is done within a minute.
+Until it's done the pages keep counting the old way, which can be slow on a big database, and nothing is wrong meanwhile. **Queue health** shows how far it has got under **Bitween's own work**. On 11.7 million exchanges (PostgreSQL) the fill took about 85 minutes and the index 70 seconds; a smaller database is done 30 minutes after the upgrade, and a new install within a minute.
+
+During the deploy, a server still on the earlier version can remove the job's schedule, not knowing the job. Each server puts it back within 5 minutes while the fill isn't done, and only one server builds the index at a time.
 
 A retried exchange stays marked retried even when retention later removes its retry.
 
