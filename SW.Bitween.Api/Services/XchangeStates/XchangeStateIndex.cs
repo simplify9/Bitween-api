@@ -41,9 +41,13 @@ public static class XchangeStateIndex
     /// <summary>A build reads the whole table. Far longer than any query may take.</summary>
     private static readonly TimeSpan BuildTimeout = TimeSpan.FromHours(1);
 
+    /// <summary>The Postgres advisory lock one build holds, so no other node's run touches it.</summary>
+    internal const long BuildLock = 7_311_240_001;
+
     /// <summary>
     /// Builds the index unless it is there already. True once it is there and usable; false while
-    /// it waits for the quiet hour, or when Postgres reports it unusable and it must be built again.
+    /// it waits for the quiet hour, while another node is building it, or when Postgres reports it
+    /// unusable and it must be built again.
     /// </summary>
     public static async Task<bool> EnsureAsync(BitweenDbContext db, BitweenOptions options,
         CancellationToken cancellation = default)
@@ -63,39 +67,31 @@ public static class XchangeStateIndex
             {
                 case "pgsql":
                 {
-                    var schema = table.Schema;
-                    var leftover = Name + "_invalid";
-                    await db.Database.ExecuteSqlRawAsync(
-                        $@"DO $$
-                           BEGIN
-                               IF EXISTS (
-                                   SELECT 1
-                                   FROM pg_index i
-                                   JOIN pg_class c ON c.oid = i.indexrelid
-                                   JOIN pg_namespace n ON n.oid = c.relnamespace
-                                   WHERE n.nspname = '{schema}' AND c.relname = '{Name}' AND NOT i.indisvalid
-                               ) THEN
-                                   ALTER INDEX {sql.DelimitIdentifier(Name, schema)} RENAME TO {leftover};
-                               END IF;
-                           END $$;", cancellation);
-                    await db.Database.ExecuteSqlRawAsync(
-                        $"DROP INDEX CONCURRENTLY IF EXISTS {sql.DelimitIdentifier(leftover, schema)};", cancellation);
-                    await db.Database.ExecuteSqlRawAsync(
-                        $"CREATE INDEX CONCURRENTLY IF NOT EXISTS {Name} ON {tableSql} ({columns}) " +
-                        $"WHERE {Column(nameof(Xchange.Status))} IS NOT NULL;", cancellation);
-                    var valid = await db.Database.SqlQueryRaw<bool>(
-                        $@"SELECT i.indisvalid AS ""Value""
-                           FROM pg_index i
-                           JOIN pg_class c ON c.oid = i.indexrelid
-                           JOIN pg_namespace n ON n.oid = c.relnamespace
-                           WHERE n.nspname = '{schema}' AND c.relname = '{Name}'").SingleAsync(cancellation);
-
-                    // Postgres knows nothing yet of how the new columns are spread - the fill changes too
-                    // few rows to set off its own re-count - and guessing, it walked millions of
-                    // exchanges for the rarest statuses. A sample, so seconds on any size.
-                    if (valid)
-                        await db.Database.ExecuteSqlRawAsync($"ANALYZE {tableSql};", cancellation);
-                    return valid;
+                    // Two nodes can get here at once: a node starting up registers its jobs again,
+                    // which lets the next run start while this one is still building. A build under
+                    // way is not valid yet, the same as one cut short, so the second run took it for
+                    // a leftover and dropped it. Held for the connection, so a node that dies
+                    // mid-build lets go of it.
+                    await db.Database.OpenConnectionAsync(cancellation);
+                    try
+                    {
+                        if (!await db.Database.SqlQueryRaw<bool>(
+                                $@"SELECT pg_try_advisory_lock({BuildLock}) AS ""Value""").SingleAsync(cancellation))
+                            return false;
+                        try
+                        {
+                            return await BuildPostgresAsync(db, sql, table, tableSql, columns,
+                                Column(nameof(Xchange.Status)), cancellation);
+                        }
+                        finally
+                        {
+                            await db.Database.ExecuteSqlRawAsync($"SELECT pg_advisory_unlock({BuildLock});");
+                        }
+                    }
+                    finally
+                    {
+                        await db.Database.CloseConnectionAsync();
+                    }
                 }
 
                 case "mysql":
@@ -137,6 +133,44 @@ public static class XchangeStateIndex
         {
             db.Database.SetCommandTimeout(previousTimeout);
         }
+    }
+
+    private static async Task<bool> BuildPostgresAsync(BitweenDbContext db, ISqlGenerationHelper sql,
+        StoreObjectIdentifier table, string tableSql, string columns, string statusColumn, CancellationToken cancellation)
+    {
+        var schema = table.Schema;
+        var leftover = Name + "_invalid";
+        await db.Database.ExecuteSqlRawAsync(
+            $@"DO $$
+               BEGIN
+                   IF EXISTS (
+                       SELECT 1
+                       FROM pg_index i
+                       JOIN pg_class c ON c.oid = i.indexrelid
+                       JOIN pg_namespace n ON n.oid = c.relnamespace
+                       WHERE n.nspname = '{schema}' AND c.relname = '{Name}' AND NOT i.indisvalid
+                   ) THEN
+                       ALTER INDEX {sql.DelimitIdentifier(Name, schema)} RENAME TO {leftover};
+                   END IF;
+               END $$;", cancellation);
+        await db.Database.ExecuteSqlRawAsync(
+            $"DROP INDEX CONCURRENTLY IF EXISTS {sql.DelimitIdentifier(leftover, schema)};", cancellation);
+        await db.Database.ExecuteSqlRawAsync(
+            $"CREATE INDEX CONCURRENTLY IF NOT EXISTS {Name} ON {tableSql} ({columns}) " +
+            $"WHERE {statusColumn} IS NOT NULL;", cancellation);
+        var valid = await db.Database.SqlQueryRaw<bool>(
+            $@"SELECT i.indisvalid AS ""Value""
+               FROM pg_index i
+               JOIN pg_class c ON c.oid = i.indexrelid
+               JOIN pg_namespace n ON n.oid = c.relnamespace
+               WHERE n.nspname = '{schema}' AND c.relname = '{Name}'").SingleAsync(cancellation);
+
+        // Postgres knows nothing yet of how the new columns are spread - the fill changes too
+        // few rows to set off its own re-count - and guessing, it walked millions of
+        // exchanges for the rarest statuses. A sample, so seconds on any size.
+        if (valid)
+            await db.Database.ExecuteSqlRawAsync($"ANALYZE {tableSql};", cancellation);
+        return valid;
     }
 
     /// <summary>
