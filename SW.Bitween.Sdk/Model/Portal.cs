@@ -143,3 +143,23 @@ public class PortalMappingSample
     public DateTime StartedOn { get; set; }
     public string? InputName { get; set; }
 }
+
+/// <summary>A partner using their own mapping of a subscription, as the subscription's page lists them.</summary>
+public class SubscriptionPartnerMapping
+{
+    public int PartnerId { get; set; }
+    public string PartnerName { get; set; } = null!;
+
+    /// <summary>Their rules, as the mapping editor writes them.</summary>
+    public string MappingRules { get; set; } = "";
+
+    public DateTime ChangedOn { get; set; }
+
+    /// <summary>Who last changed it, by name; null when that account is gone.</summary>
+    public string? ChangedBy { get; set; }
+}
+
+public class RemovePartnerMappingModel
+{
+    public int PartnerId { get; set; }
+}

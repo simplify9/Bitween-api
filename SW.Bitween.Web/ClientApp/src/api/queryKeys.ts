@@ -170,6 +170,8 @@ export const keys = {
     subscriptions: ["portal", "subscriptions"] as const,
     exchanges: (query: Record<string, unknown>) => ["portal", "exchanges", query] as const,
     mappings: ["portal", "mappings"] as const,
+    /** Our team's view: who maps a subscription their own way. */
+    ofSubscription: (subscriptionId: string) => ["portal", "ofSubscription", subscriptionId] as const,
     mapping: (subscriptionId: number) => ["portal", "mapping", subscriptionId] as const,
     samples: (subscriptionId: number) => ["portal", "samples", subscriptionId] as const,
   },

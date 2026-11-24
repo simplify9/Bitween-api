@@ -6,6 +6,7 @@ import type {
   PortalMappingPlace,
   PortalMappingSample,
   PortalSummary,
+  SubscriptionPartnerMapping,
 } from "../types";
 import { get, post } from "./request";
 
@@ -23,6 +24,8 @@ export const portalMethods: Pick<
   | "listPortalMappingSamples"
   | "getPortalMappingSample"
   | "listPortalPropertyKeys"
+  | "listSubscriptionPartnerMappings"
+  | "removeSubscriptionPartnerMapping"
 > = {
   getPortalSummary: () => get<PortalSummary>("/portal/summary"),
 
@@ -65,4 +68,11 @@ export const portalMethods: Pick<
   getPortalMappingSample: async (xchangeId) =>
     (await get<{ data: string }>(`/portal/mappingsample?xchangeId=${encodeURIComponent(xchangeId)}`)).data,
   listPortalPropertyKeys: () => get<string[]>("/portal/propertykeys"),
+
+  // The other side of the same mappings, for our team on the subscription's page.
+  listSubscriptionPartnerMappings: (subscriptionId) =>
+    get<SubscriptionPartnerMapping[]>(`/subscriptions/${subscriptionId}/partnermappings`),
+  removeSubscriptionPartnerMapping: async (subscriptionId, partnerId) => {
+    await post(`/subscriptions/${subscriptionId}/removepartnermapping`, { partnerId });
+  },
 };

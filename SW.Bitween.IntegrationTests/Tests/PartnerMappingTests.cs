@@ -174,4 +174,40 @@ public class PartnerMappingTests(BitweenFixture fixture)
         await db.SaveChangesAsync();
         await Assert.ThrowsAsync<SWUnauthorizedException>(() => SaveAs(viewer.Id, world.Subscription.Id, Rules(("id", "orderId"))));
     }
+
+    [Fact]
+    public async Task Our_team_sees_who_maps_it_their_own_way_and_can_put_them_back_on_ours()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ours = Rules(("id", "orderId"));
+        var world = await SetUpAsync(db, ours);
+        var theirs = Rules(("reference", "orderId"));
+        await SaveAs(world.Person, world.Subscription.Id, theirs);
+
+        await using (var read = fixture.CreateScope())
+        {
+            read.Superuser();
+            var rows = (List<SubscriptionPartnerMapping>)await ActivatorUtilities
+                .CreateInstance<Resources.Subscriptions.PartnerMappings>(read.ServiceProvider).Handle(world.Subscription.Id);
+            var row = Assert.Single(rows);
+            Assert.Equal(world.Mine.Name, row.PartnerName);
+            Assert.Equal(theirs, row.MappingRules);
+            Assert.Equal("Mapper", row.ChangedBy);
+        }
+
+        // Only someone who can edit the subscription removes it.
+        var viewer = await scope.AsNewViewer($"pm-viewer-{Guid.NewGuid():N}");
+        await Assert.ThrowsAsync<SWUnauthorizedException>(() => ActivatorUtilities
+            .CreateInstance<Resources.Subscriptions.RemovePartnerMapping>(scope.ServiceProvider)
+            .Handle(world.Subscription.Id, new RemovePartnerMappingModel { PartnerId = world.Mine.Id }));
+
+        await using (var remove = fixture.CreateScope())
+        {
+            remove.Superuser();
+            await ActivatorUtilities.CreateInstance<Resources.Subscriptions.RemovePartnerMapping>(remove.ServiceProvider)
+                .Handle(world.Subscription.Id, new RemovePartnerMappingModel { PartnerId = world.Mine.Id });
+        }
+        Assert.Equal(ours, await RulesOfNewExchange(world.Subscription, world.Mine));
+    }
 }

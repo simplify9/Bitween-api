@@ -1,5 +1,6 @@
 import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
+  SubscriptionPartnerMapping,
   PortalExchangePage,
   PortalMapping,
   PortalMappingPlace,
@@ -949,4 +950,8 @@ export interface ApiClient {
   getPortalMappingSample(xchangeId: string): Promise<string>;
   /** The names of their own partner properties, never the values. */
   listPortalPropertyKeys(): Promise<string[]>;
+  /** The partners using their own mapping of this subscription. */
+  listSubscriptionPartnerMappings(subscriptionId: string): Promise<SubscriptionPartnerMapping[]>;
+  /** Removes a partner's own mapping, so they get the subscription's again. */
+  removeSubscriptionPartnerMapping(subscriptionId: string, partnerId: number): Promise<void>;
 }

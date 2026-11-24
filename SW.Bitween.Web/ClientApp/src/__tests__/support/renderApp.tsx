@@ -97,6 +97,8 @@ export function renderApp(path: string, { as = {}, config = {}, handlers = [] }:
     http.get(apiPath("/mirror/listed"), () => HttpResponse.json({ items: [], testing: null, waiting: [], error: null })),
     // Reads carried on in the background, which the header asks for as the app loads: none, unless a test says.
     http.get(apiPath("/background"), () => HttpResponse.json([])),
+    // The subscription page's list of partners with their own mapping; empty unless a test says.
+    http.get(apiPath("/subscriptions/:id/partnermappings"), () => HttpResponse.json([])),
   );
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

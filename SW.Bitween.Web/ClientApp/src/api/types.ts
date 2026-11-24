@@ -2799,3 +2799,13 @@ export interface PortalMappingSample {
   startedOn: string;
   inputName: string | null;
 }
+
+/** A partner using their own mapping of a subscription, made in the partner portal. */
+export interface SubscriptionPartnerMapping {
+  partnerId: number;
+  partnerName: string;
+  mappingRules: string;
+  changedOn: string;
+  /** Who last changed it; null when that account is gone. */
+  changedBy: string | null;
+}
