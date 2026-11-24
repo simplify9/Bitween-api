@@ -14,7 +14,7 @@
       the async in this adapter is not decorative - a resident adapter serves every subscription
       bound to the connection, so a driver that blocks a thread per call caps the whole data source.
     -->
-    <PackageReference Include="MySqlConnector" Version="2.3.7" />
+    <PackageReference Include="MySqlConnector" Version="2.6.1" />
   </ItemGroup>
 
   <ItemGroup>

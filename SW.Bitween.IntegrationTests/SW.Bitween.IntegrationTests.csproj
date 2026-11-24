@@ -39,7 +39,7 @@
     <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.9.1" />
     <!-- Seeding only: the adapters carry their own copies, and these are how a test sets a schema
          up and reads results back without going through the adapter it is testing. -->
-    <PackageReference Include="MySqlConnector" Version="2.3.7" />
+    <PackageReference Include="MySqlConnector" Version="2.6.1" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.2" />
     <!-- So an Oracle that is not available here SKIPS rather than fails: the image is nearly five
          gigabytes, and a developer without it should still get every other result in this suite. -->
