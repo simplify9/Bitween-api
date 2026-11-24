@@ -100,7 +100,8 @@ public class XchangeStateFiller(BitweenDbContext db, BitweenOptions options, ILo
                     }
                     else
                     {
-                        // Waiting for the quiet hour, or about to build again: a later run tries.
+                        // Waiting for the quiet hour or for another node's build, or about to build
+                        // again: a later run tries.
                         waiting = true;
                     }
                     break;

@@ -10,6 +10,8 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Npgsql;
 using Quartz;
+using SW.Bitween.Domain;
+using SW.Bitween.Services.XchangeStates;
 using SW.PrimitiveTypes;
 using SW.Scheduler;
 using SW.Scheduler.EfCore;
@@ -125,12 +127,61 @@ public sealed class QuartzClusteringTests(ITestOutputHelper output) : IAsyncLife
         Assert.All(_runs.All, r => Assert.Equal("only", r.Node));
     }
 
+    /// <summary>
+    /// During a deploy, a node on the version before the fill can claim the fill's run and, not
+    /// knowing the job, delete its schedule. The watch puts it back until the fill is done.
+    /// </summary>
+    [Fact]
+    public async Task A_fill_schedule_deleted_by_an_older_node_is_put_back()
+    {
+        // The fill job alone of Bitween's: the scheduler builds every job it knows to describe it.
+        using var node = await StartNodeAsync("new", services =>
+        {
+            services.AddScoped<BitweenDbContext>(sp => sp.GetRequiredService<PgSql.BitweenDbContext>());
+            services.AddSingleton(new BitweenOptions());
+            services.AddScoped<XchangeStateFiller>();
+            services.AddScoped<IScheduledJob, XchangeStateFillJob>();
+        });
+        await using var scope = node.Services.CreateAsyncScope();
+        var repo = scope.ServiceProvider.GetRequiredService<IScheduleRepository>();
+        var factory = scope.ServiceProvider.GetRequiredService<ISchedulerFactory>();
+        var db = scope.ServiceProvider.GetRequiredService<PgSql.BitweenDbContext>();
+        const string yearly = "0 0 0 1 1 ?";
+        async Task<int> Schedules()
+        {
+            var scheduler = await factory.GetScheduler();
+            var group = repo.GetJobDefinitions().Single(d => d.JobType == typeof(XchangeStateFillJob)).Group;
+            var count = 0;
+            foreach (var job in await scheduler.GetJobKeys(Quartz.Impl.Matchers.GroupMatcher<JobKey>.GroupEquals(group)))
+                count += (await scheduler.GetTriggersOfJob(job)).Count;
+            return count;
+        }
+
+        await RetryingLockAsync(() => repo.Schedule<XchangeStateFillJob>(yearly));
+        await RetryingLockAsync(() => repo.UnscheduleJob<XchangeStateFillJob>());
+        Assert.Equal(0, await Schedules());
+
+        Assert.False(await RetryingLockAsync(() =>
+            XchangeStateFillWatch.CheckAsync(db, repo, factory, yearly, Logging.CreateLogger("watch"))));
+        Assert.Equal(1, await Schedules());
+
+        // Once the fill is done, a missing schedule is left missing.
+        db.Add(new XchangeStateFill(DateTime.UtcNow));
+        await db.SaveChangesAsync();
+        await db.Set<XchangeStateFill>().ExecuteUpdateAsync(s => s.SetProperty(f => f.Phase, XchangeStateFillPhase.Ready));
+        await RetryingLockAsync(() => repo.UnscheduleJob<XchangeStateFillJob>());
+        Assert.True(await XchangeStateFillWatch.CheckAsync(db, repo, factory, yearly, Logging.CreateLogger("watch")));
+        Assert.Equal(0, await Schedules());
+
+        await node.StopAsync();
+    }
+
     // ---------------------------------------------------------------- helpers
 
     private string Describe() =>
         string.Join("; ", _runs.RunTwice());
 
-    private async Task<IHost> StartNodeAsync(string name)
+    private async Task<IHost> StartNodeAsync(string name, Action<IServiceCollection>? more = null)
     {
         var host = Host.CreateDefaultBuilder()
             .ConfigureServices(services =>
@@ -148,6 +199,7 @@ public sealed class QuartzClusteringTests(ITestOutputHelper output) : IAsyncLife
                     },
                     assemblies: new[] { typeof(ClusterProbeJob).Assembly });
                 services.AddSchedulerMonitoring<PgSql.BitweenDbContext>();
+                more?.Invoke(services);
             })
             .Build();
 
@@ -156,6 +208,21 @@ public sealed class QuartzClusteringTests(ITestOutputHelper output) : IAsyncLife
         scheduler.ListenerManager.AddJobListener(new ProbeListener(name, _runs));
         return host;
     }
+
+    /// <summary>
+    /// Quartz writes back to back can fail on a pooled connection still aborted from the one before,
+    /// the race SchedulerSeedService retries as well.
+    /// </summary>
+    private static async Task<T> RetryingLockAsync<T>(Func<Task<T>> write)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            try { return await write(); }
+            catch (Quartz.Impl.AdoJobStore.LockException) when (attempt < 3) { await Task.Delay(200 * attempt); }
+        }
+    }
+
+    private static Task RetryingLockAsync(Func<Task> write) => RetryingLockAsync(async () => { await write(); return 0; });
 
     /// <summary>Retried because the job is registered by a hosted service that may not have run yet.</summary>
     private static async Task ScheduleEverySecondAsync(IHost node)

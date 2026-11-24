@@ -212,6 +212,36 @@ public class XchangeStateFillTests(BitweenFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task A_run_leaves_alone_the_index_another_node_is_building()
+    {
+        var x = await ArrangeAsync("Fill Index Elsewhere");
+        Assert.Equal(XchangeStateFillPhase.Ready, await RunToTheEndAsync());
+
+        // Mid-build on another node, as seen from here: not valid yet, and that node holding the lock.
+        await x.InDb(db => db.Database.ExecuteSqlRawAsync(
+            $"UPDATE pg_index SET indisvalid = false WHERE indexrelid = 'infolink.{XchangeStateIndex.Name}'::regclass"));
+        await x.InDb(db => db.Set<XchangeStateFill>()
+            .ExecuteUpdateAsync(s => s.SetProperty(f => f.Phase, XchangeStateFillPhase.Index)));
+
+        var building = await IndexOidAsync(x);
+
+        await using (var scope = fixture.CreateScope())
+        {
+            var other = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            await other.Database.OpenConnectionAsync();
+            await other.Database.ExecuteSqlRawAsync($"SELECT pg_advisory_lock({XchangeStateIndex.BuildLock});");
+
+            Assert.Equal(XchangeStateFillPhase.Index, await RunOnceAsync(TimeSpan.FromSeconds(30)));
+            Assert.Equal(building, await IndexOidAsync(x));
+
+            await other.Database.ExecuteSqlRawAsync($"SELECT pg_advisory_unlock({XchangeStateIndex.BuildLock});");
+        }
+
+        Assert.Equal(XchangeStateFillPhase.Ready, await RunToTheEndAsync());
+        Assert.True(await IndexIsValidAsync(x));
+    }
+
+    [Fact]
     public async Task Progress_says_which_step_the_fill_is_on_and_how_far_it_has_got()
     {
         var x = await ArrangeAsync("Fill Progress");
@@ -243,6 +273,11 @@ public class XchangeStateFillTests(BitweenFixture fixture) : IAsyncLifetime
 
     private static Task<bool> IndexIsValidAsync(Arrangement x) => x.InDb(db => db.Database.SqlQueryRaw<bool>(
         $"SELECT indisvalid AS \"Value\" FROM pg_index WHERE indexrelid = 'infolink.{XchangeStateIndex.Name}'::regclass")
+        .SingleAsync());
+
+    /// <summary>Which index goes by the name: a new one after a rebuild.</summary>
+    private static Task<long> IndexOidAsync(Arrangement x) => x.InDb(db => db.Database.SqlQueryRaw<long>(
+        $"SELECT 'infolink.{XchangeStateIndex.Name}'::regclass::oid::bigint AS \"Value\"")
         .SingleAsync());
 
     private async Task<Arrangement> ArrangeAsync(string name)
