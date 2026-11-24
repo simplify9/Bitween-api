@@ -74,7 +74,7 @@ the role, no request can restore it and the database has to be repaired directly
 
 ## Roles and permissions
 
-A permission is written `area.action`. A member holds the union of their roles' permissions.
+A permission is written `area.action`. Every account, person or service account, holds exactly one role. To give someone a little more than a built-in role allows, duplicate it under **Roles** and add what they need: a custom role is a whole set, not an add-on. Accounts given several roles before this rule keep them, and those still add up, until someone changes their role; their page then asks for one.
 
 | Group | Area | Actions |
 |---|---|---|
@@ -133,7 +133,7 @@ A signed-in request without the needed permission gets HTTP 403. A request that 
 A partner's own people can sign in and see their partner's data, and nothing else.
 
 - **Partner accounts.** On the Members page, choose **A partner's person** when adding someone, and pick the partner. The partner is fixed once the account exists. The list shows who belongs to which partner under **Belongs to**.
-- **Partner roles.** The built-in **Partner viewer** is ticked for a new partner's person, ready to use. For anything else, create a role and choose **A partner's people** under **Who it's for**. A partner role holds only the Partner portal permissions, and any other role holds none of them. Partner accounts hold only partner roles. Roles are shared across partners: the role says what someone may do, and the account's partner says whose data. Only someone who holds the Partner portal permissions, which today means an Administrator, can create partner roles or give them out.
+- **Partner roles.** The built-in **Partner viewer** is picked for a new partner's person, ready to use. For anything else, create a role and choose **A partner's people** under **Who it's for**. A partner role holds only the Partner portal permissions, and any other role holds none of them. Partner accounts hold only partner roles. Roles are shared across partners: the role says what someone may do, and the account's partner says whose data. Only someone who holds the Partner portal permissions, which today means an Administrator, can create partner roles or give them out.
 - **What they see.** After signing in, a partner account goes to `/portal`: the last 24 hours of its exchanges, its exchanges newest first, and its subscriptions. Each permission opens one part. `portal-exchange-files` adds the exchange files and `portal-exchange-errors` adds why an exchange failed. Errors can name addresses and systems on your side, so give that permission with care.
 - **What they can't reach.** Partner accounts get 403 from every endpoint outside `/api/portal`, apart from signing in and out, their profile, changing their password and opening file links. This is enforced in one place for every kind of token, including `/mcp`. Administrators get 403 from `/api/portal`, because they have no partner.
 - **Which exchanges.** An exchange belongs to a partner when it carries that partner's id. Exchanges from before that column existed carry none and don't show in the portal.

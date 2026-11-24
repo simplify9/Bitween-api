@@ -8,9 +8,13 @@ import { Checkbox, Field, PasswordInput, TextInput } from "../../components/ui/f
 import { Dialog } from "../../components/ui/overlays";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { PartnerPicker } from "../../components/config/pickers";
+import { RolePicker } from "./RolePicker";
 import { formatDateTime } from "../../lib/dates";
 import { PASSWORD_HINT, validatePassword } from "../../lib/passwordPolicy";
 import { keys } from "../../api/queryKeys";
+
+/** The built-in Viewer, seeded with this id on every installation (BitweenDbContext.SystemRoleSeed). */
+const VIEWER_ROLE_ID = "3";
 
 type Mode = "invite" | "password";
 
@@ -55,14 +59,18 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
   const [mode, setMode] = useState<Mode>("invite");
   const [password, setPassword] = useState("");
   const [emailThem, setEmailThem] = useState(true);
-  const [roleIds, setRoleIds] = useState<string[]>([]);
+  const [roleId, setRoleId] = useState<string | null>(null);
   // Whose person they are: ours, or a partner's, who sees only the partner portal. Each side has
   // its own roles, so switching clears the ones ticked.
   const [side, setSide] = useState<"team" | "partner">("team");
   const [partnerId, setPartnerId] = useState<number | null>(null);
   const forPartner = side === "partner";
-  const rolesFor = (partner: boolean) => (roles.data ?? []).filter((role) => role.forPartners === partner);
-  const rolesForSide = rolesFor(forPartner);
+  const rolesForSide = (roles.data ?? []).filter((role) => role.forPartners === forPartner);
+  // Least access by default: Viewer for one of us, the built-in partner role for a partner's person.
+  const defaultRole = forPartner
+    ? rolesForSide.find((r) => r.isSystem)
+    : rolesForSide.find((r) => r.id === VIEWER_ROLE_ID);
+  const chosenRole = roleId ?? defaultRole?.id ?? null;
   const [passwordError, setPasswordError] = useState("");
   // An invite that wasn't emailed, for whoever added the member to pass on.
   const [handOver, setHandOver] = useState<{ name: string; result: InviteResult } | null>(null);
@@ -73,7 +81,7 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
       const user = await api.createUser({
         displayName,
         email,
-        roleIds,
+        roleIds: chosenRole ? [chosenRole] : [],
         ...(inviting ? { invite: true } : passwordsOff ? {} : { password }),
         partnerId: forPartner && partnerId != null ? String(partnerId) : null,
       });
@@ -94,11 +102,13 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
     },
   });
 
-  const toggleRole = (id: string) =>
-    setRoleIds((prev) => (prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]));
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (!chosenRole) {
+      setPasswordError("Choose a role.");
+      return;
+    }
     if (forPartner && partnerId == null) {
       setPasswordError("Choose the partner they belong to.");
       return;
@@ -182,8 +192,8 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
             value={side}
             onChange={(v) => {
               setSide(v);
-              // A partner's person starts with the built-in partner role ticked, ready to use.
-              setRoleIds(v === "partner" ? rolesFor(true).filter((r) => r.isSystem).slice(0, 1).map((r) => r.id) : []);
+              // Each side has its own roles; back to that side's default.
+              setRoleId(null);
             }}
             options={[
               { value: "team", label: "Our team", title: "One of us: signs in to Bitween itself, with what their roles allow." },
@@ -237,20 +247,7 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
           </Field>
         )}
 
-        <fieldset>
-          <legend className="mb-2 block text-[13px] font-medium text-ink-700">{forPartner ? "Partner roles" : "Roles"}</legend>
-          <div className="max-h-56 space-y-2.5 overflow-y-auto rounded-lg border border-ink-200 p-3">
-            {rolesForSide.map((role) => (
-              <Checkbox
-                key={role.id}
-                label={role.name}
-                description={role.description}
-                checked={roleIds.includes(role.id)}
-                onChange={() => toggleRole(role.id)}
-              />
-            ))}
-          </div>
-        </fieldset>
+        <RolePicker roles={rolesForSide} value={chosenRole ? [chosenRole] : []} onChange={setRoleId} />
         {forPartner && roles.data && rolesForSide.length === 0 && (
           <p className="text-[13px] text-ink-500">
             No partner roles yet.{" "}

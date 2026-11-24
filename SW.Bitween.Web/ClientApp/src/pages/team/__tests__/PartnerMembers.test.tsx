@@ -68,16 +68,15 @@ describe("a partner's people on the Team page", () => {
 
     await user.type(dialog.getByLabelText("Name"), "Sam at Acme");
     await user.type(dialog.getByLabelText("Email"), "sam@acme.test");
-    expect(dialog.getByRole("checkbox", { name: /^Viewer/ })).not.toBeChecked();
+    expect(dialog.getByRole("radio", { name: /^Viewer/ })).toBeChecked();
 
     await user.click(dialog.getByRole("radio", { name: "A partner's person" }));
-    expect(dialog.queryByRole("checkbox", { name: /^Viewer/ })).not.toBeInTheDocument();
+    expect(dialog.queryByRole("radio", { name: /^Viewer/ })).not.toBeInTheDocument();
     // The built-in partner role is ready to use, picked for them.
-    expect(dialog.getByRole("checkbox", { name: /^Partner viewer/ })).toBeChecked();
-    await user.click(dialog.getByRole("checkbox", { name: /^Partner viewer/ }));
+    expect(dialog.getByRole("radio", { name: /^Partner viewer/ })).toBeChecked();
     await user.click(dialog.getByRole("combobox", { name: "Partner" }));
     await user.click(await screen.findByRole("option", { name: /Acme Freight/ }));
-    await user.click(dialog.getByRole("checkbox", { name: /Acme viewers/ }));
+    await user.click(dialog.getByRole("radio", { name: /Acme viewers/ }));
     await user.click(dialog.getByRole("button", { name: /Add and/ }));
 
     await waitFor(() => expect(created).toHaveLength(1));
@@ -88,7 +87,19 @@ describe("a partner's people on the Team page", () => {
     const { user } = renderApp("/team/members", { handlers: team().handlers });
     await user.click(await screen.findByRole("row", { name: /Dana at Acme/ }));
     const drawer = within(screen.getByRole("dialog", { name: "Member details" }));
-    expect(await drawer.findByRole("checkbox", { name: /Acme viewers/ })).toBeChecked();
-    expect(drawer.queryByRole("checkbox", { name: /Administrator/ })).not.toBeInTheDocument();
+    expect(await drawer.findByRole("radio", { name: /Acme viewers/ })).toBeChecked();
+    expect(drawer.queryByRole("radio", { name: /Administrator/ })).not.toBeInTheDocument();
+  });
+
+  it("asks someone holding several roles from before to choose one", async () => {
+    const { handlers } = team();
+    const both = account(52, "Two Roles", null, [1, 3]);
+    const { user } = renderApp("/team/members", {
+      handlers: [http.get(apiPath("/accounts"), () => HttpResponse.json({ result: [both], totalCount: 1 })), ...handlers],
+    });
+    await user.click(await screen.findByRole("row", { name: /Two Roles/ }));
+    const drawer = within(screen.getByRole("dialog", { name: "Member details" }));
+    expect(await drawer.findByText(/Holds Administrator and Viewer from before/)).toBeVisible();
+    expect(drawer.getByRole("radio", { name: /^Viewer/ })).not.toBeChecked();
   });
 });

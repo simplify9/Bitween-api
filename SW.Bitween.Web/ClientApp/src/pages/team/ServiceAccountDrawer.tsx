@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { RolePicker } from "./RolePicker";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bot, Check, KeyRound, Power, PowerOff, Trash2, X } from "lucide-react";
@@ -8,7 +9,7 @@ import { useSession } from "../../auth/useSession";
 import { HistoryList } from "../../components/config/HistoryCard";
 import { CopyField } from "../../components/ui/CopyField";
 import { Badge, Button, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
-import { Checkbox, Field, Select, TextInput } from "../../components/ui/forms";
+import { Field, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { useModalFocus } from "../../components/ui/useModalFocus";
 import { formatDate, timeAgo, timeUntil } from "../../lib/dates";
@@ -223,21 +224,12 @@ export function ServiceAccountDrawer({ accountId, onClose }: { accountId: number
         <Section title="Roles">
           {editable ? (
             <div className="space-y-2.5">
-              {(roles.data ?? []).map((role) => (
-                <Checkbox
-                  key={role.id}
-                  label={role.name}
-                  description={role.description}
-                  checked={currentRoles.includes(role.id)}
-                  onChange={() =>
-                    setDraftRoleIds(
-                      currentRoles.includes(role.id)
-                        ? currentRoles.filter((r) => r !== role.id)
-                        : [...currentRoles, role.id],
-                    )
-                  }
-                />
-              ))}
+              <RolePicker
+                legend="Its role"
+                roles={(roles.data ?? []).filter((role) => !role.forPartners)}
+                value={currentRoles}
+                onChange={(roleId) => setDraftRoleIds([roleId])}
+              />
               <FormError>{saveRoles.error?.message}</FormError>
               {rolesDirty && (
                 <div className="flex gap-2 pt-1">

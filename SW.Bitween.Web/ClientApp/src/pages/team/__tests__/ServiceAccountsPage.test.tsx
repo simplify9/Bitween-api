@@ -83,7 +83,7 @@ describe("service accounts", () => {
 
     await user.click((await screen.findAllByRole("button", { name: /New service account/ }))[0]);
     await user.type(screen.getByLabelText("Name"), "ci-publish");
-    await user.click(screen.getByRole("checkbox", { name: /^Member/ }));
+    await user.click(screen.getByRole("radio", { name: /^Member/ }));
     await user.click(screen.getByRole("button", { name: "Create" }));
 
     expect(sent.create).toEqual([{ name: "ci-publish", roleIds: [2] }]);

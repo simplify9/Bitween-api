@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { RolePicker } from "./RolePicker";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, KeyRound, LockOpen, Send, Trash2, UserRoundCheck, UserRoundX, X } from "lucide-react";
@@ -10,7 +11,7 @@ import { Avatar } from "../../components/ui/Avatar";
 import { CopyField } from "../../components/ui/CopyField";
 import { Badge, Button, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { isNotFound } from "../../components/ui/isNotFound";
-import { Checkbox, PasswordInput } from "../../components/ui/forms";
+import { PasswordInput } from "../../components/ui/forms";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { useModalFocus } from "../../components/ui/useModalFocus";
 import { formatDate, formatDateTime, timeAgo, timeUntil } from "../../lib/dates";
@@ -178,21 +179,12 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
           {editable ? (
             <div className="space-y-2.5">
               {/* Each side holds its own roles only, so only those are offered. */}
-              {(roles.data ?? []).filter((role) => role.forPartners === Boolean(u.partner)).map((role) => (
-                <Checkbox
-                  key={role.id}
-                  label={role.name}
-                  description={role.description}
-                  checked={currentRoles.includes(role.id)}
-                  onChange={() =>
-                    setDraftRoleIds(
-                      currentRoles.includes(role.id)
-                        ? currentRoles.filter((r) => r !== role.id)
-                        : [...currentRoles, role.id],
-                    )
-                  }
-                />
-              ))}
+              <RolePicker
+                legend="Their role"
+                roles={(roles.data ?? []).filter((role) => role.forPartners === Boolean(u.partner))}
+                value={currentRoles}
+                onChange={(roleId) => setDraftRoleIds([roleId])}
+              />
               <FormError>{saveRoles.error?.message}</FormError>
               {rolesDirty && (
                 <div className="flex gap-2 pt-1">

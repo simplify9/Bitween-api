@@ -7,7 +7,10 @@ import { ADMIN, apiPath, renderApp } from "../../../__tests__/support/renderApp"
  * Adding a member with an invite, and following one up. Whether the invite is emailed or handed
  * over depends on the instance having a mail server, which the config endpoint says.
  */
-const ROLES = [{ id: 2, name: "Member", description: "Runs and configures integrations.", isSystem: true, permissions: [], memberCount: 0, createdOn: "2026-01-01T00:00:00Z" }];
+const ROLES = [
+  { id: 2, name: "Member", description: "Runs and configures integrations.", isSystem: true, permissions: [], memberCount: 0, createdOn: "2026-01-01T00:00:00Z" },
+  { id: 3, name: "Viewer", description: "Read-only access.", isSystem: true, permissions: [], memberCount: 0, createdOn: "2026-01-01T00:00:00Z" },
+];
 
 type Invite = { expiresOn: string; emailedOn: string | null; emailError: string | null } | null;
 
@@ -72,7 +75,8 @@ describe("inviting a member", () => {
     await user.click(dialog.getByRole("button", { name: "Add and email invite" }));
 
     await expect.poll(() => screen.queryByRole("dialog", { name: "Add a member" })).toBeNull();
-    expect(sent.created[0]).toMatchObject({ name: "Jane Cooper", email: "jane@acme.test", invite: true });
+    // Nobody picked a role, so they get the least: Viewer.
+    expect(sent.created[0]).toMatchObject({ name: "Jane Cooper", email: "jane@acme.test", invite: true, roleIds: [3] });
     expect(sent.created[0]).not.toHaveProperty("password");
     expect(sent.invited).toEqual(["77"]);
     expect(await screen.findByRole("row", { name: /jane@acme.test/ })).toHaveTextContent("Invited");

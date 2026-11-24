@@ -41,6 +41,7 @@ namespace SW.Bitween.Resources.Accounts
                     ? []
                     : [BuiltInRoleFor((AccountRole)request.Role)];
 
+            AccountRoles.EnsureOne(roleIds);
             await GrantLimits.EnsureCallerHoldsRoles(dbContext, requestContext, roleIds);
 
             // Checked before the account exists, so a refusal leaves nothing half made.

@@ -112,7 +112,7 @@ test.describe("audit trail", () => {
         { area: "Settings", action: "View" },
       ],
     });
-    const email = await addMember(page, { name: "Playwright NoAudit", roles: [role] });
+    const email = await addMember(page, { name: "Playwright NoAudit", role: role });
     await signOut(page);
     await signIn(page, email, FIRST_PASSWORD);
 

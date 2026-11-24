@@ -282,4 +282,35 @@ public class PartnerPortalTests(BitweenFixture fixture)
         await Assert.ThrowsAsync<SWValidationException>(() => update.Handle(viewer.Id,
             new RoleUpdate { Name = viewer.Name, Permissions = [Permissions.Portal.ExchangesView] }));
     }
+
+    [Fact]
+    public async Task Every_account_holds_one_role()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        scope.Superuser();
+        var staff = await AccountAsync(db, null, Role.ViewerId);
+
+        var setRoles = ActivatorUtilities.CreateInstance<Resources.Accounts.SetRoles>(scope.ServiceProvider);
+        var two = await Assert.ThrowsAsync<SWValidationException>(() =>
+            setRoles.Handle(staff, new SetAccountRolesModel { RoleIds = [Role.ViewerId, Role.MemberId] }));
+        Assert.Contains("ONE_ROLE", two.Message);
+        await Assert.ThrowsAsync<SWValidationException>(() =>
+            setRoles.Handle(staff, new SetAccountRolesModel { RoleIds = [] }));
+
+        var createAccount = ActivatorUtilities.CreateInstance<Resources.Accounts.Create>(scope.ServiceProvider);
+        var email = $"{Guid.NewGuid():N}@test.local";
+        await Assert.ThrowsAsync<SWValidationException>(() => createAccount.Handle(new CreateAccountModel
+        {
+            Name = "Two", Email = email, Invite = true, RoleIds = [Role.ViewerId, Role.MemberId]
+        }));
+        // Refused before anything was made.
+        Assert.False(await db.Set<Account>().AnyAsync(a => a.Email == email));
+
+        var createService = ActivatorUtilities.CreateInstance<Resources.ServiceAccounts.Create>(scope.ServiceProvider);
+        await Assert.ThrowsAsync<SWValidationException>(() => createService.Handle(new CreateServiceAccountModel
+        {
+            Name = Unique("svc"), RoleIds = [Role.ViewerId, Role.MemberId]
+        }));
+    }
 }

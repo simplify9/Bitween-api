@@ -15,7 +15,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 test("add a member, they can sign in, then remove them", async ({ page }) => {
-  const email = await addMember(page, { name: "New Joiner", roles: ["Viewer"] });
+  const email = await addMember(page, { name: "New Joiner", role: "Viewer" });
 
   const row = page.getByRole("row", { name: new RegExp(email) });
   await expect(row).toBeVisible();
@@ -34,7 +34,7 @@ test("add a member, they can sign in, then remove them", async ({ page }) => {
 });
 
 test("an administrator resets a member's password", async ({ page }) => {
-  const email = await addMember(page, { name: "Forgot Pass", roles: ["Viewer"] });
+  const email = await addMember(page, { name: "Forgot Pass", role: "Viewer" });
 
   await openMember(page, email);
   const drawer = page.getByRole("dialog", { name: "Member details" });
@@ -54,7 +54,7 @@ test("an administrator resets a member's password", async ({ page }) => {
 });
 
 test("the old password stops working after a reset", async ({ page }) => {
-  const email = await addMember(page, { name: "Stale Pass", roles: ["Viewer"] });
+  const email = await addMember(page, { name: "Stale Pass", role: "Viewer" });
 
   await openMember(page, email);
   const drawer = page.getByRole("dialog", { name: "Member details" });
