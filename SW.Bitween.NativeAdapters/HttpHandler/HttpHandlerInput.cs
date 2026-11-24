@@ -26,6 +26,14 @@ public class HttpHandlerInput
     public string? LoginBody { get; set; }
     [Description("Optional path to the token in the login response (e.g. token, data.access_token). Empty reads the 'jwt' field.")]
     public string? LoginTokenPath { get; set; }
+    [Description("How the login request is sent (Login auth type): application/json (the default) or application/x-www-form-urlencoded, for token endpoints that take form fields. Either way LoginBody is written as a flat JSON object.")]
+    public string? LoginContentType { get; set; }
+    [Description("Where the login reply says how long the token lasts (Login auth type): seconds, or the date and time it expires (e.g. expires_in, data.expiresAt). Empty reads expires_in.")]
+    public string? LoginExpiresInPath { get; set; }
+    [Description("How long to reuse the token when the login reply doesn't say and the token isn't a JWT (Login auth type). Default 300. 0 signs in for every message, never reusing a token.")]
+    public int? LoginTokenLifetimeSeconds { get; set; }
+    [Description("Where the token goes on each request (Login auth type): 'Name: value' with {{token}} in the value, e.g. 'X-Auth-Token: {{token}}' or 'Authorization: Token {{token}}'. Empty sends 'Authorization: Bearer {{token}}'.")]
+    public string? LoginTokenHeader { get; set; }
 
     [Required]
     [Description("The target HTTP endpoint URL.")]

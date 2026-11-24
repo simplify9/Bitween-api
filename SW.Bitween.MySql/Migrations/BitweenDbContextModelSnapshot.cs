@@ -2411,6 +2411,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<int?>("ResponseSubscriptionId")
                         .HasColumnType("int");
 
+                    b.Property<bool?>("Retried")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("RetryFor")
                         .HasMaxLength(50)
                         .IsUnicode(false)
@@ -2426,6 +2429,9 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.Property<DateTime>("StartedOn")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<byte?>("Status")
+                        .HasColumnType("tinyint unsigned");
 
                     b.Property<int?>("SubscriptionId")
                         .HasColumnType("int");
@@ -2661,6 +2667,33 @@ namespace SW.Bitween.MySql.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("XchangeRetryClaims", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.XchangeStateFill", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("FillBegan")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("Phase")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PositionId")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("PositionStartedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<DateTime>("UpdatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("XchangeStateFill", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.RunFlagUpdater+RunningResult", b =>

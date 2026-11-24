@@ -468,6 +468,20 @@ namespace SW.Bitween
         public string QueueSnapshotCron { get; set; } = "0 0/5 * * * ?";
 
         /// <summary>
+        /// How often the job that fills in each exchange's status and retried flag runs. Every minute;
+        /// once it has finished, a run only reads one row.
+        /// </summary>
+        public string XchangeStateFillCron { get; set; } = "0 * * * * ?";
+
+        /// <summary>
+        /// The hour, in UTC (0-23), when Bitween may do upkeep that pauses saving exchanges. Only a
+        /// database that can't do it online waits for it: today, building the exchange status index
+        /// on SQL Server Standard or Express. 0 by default, 03:00 in Amman and Riyadh. Configuration
+        /// only: it is too rare a case for the Settings page.
+        /// </summary>
+        public int MaintenanceQuietHourUtc { get; set; }
+
+        /// <summary>
         /// How often to look for subscriptions that expect traffic and have gone quiet. Every five
         /// minutes, which is also the shortest gap a subscription can expect.
         /// </summary>

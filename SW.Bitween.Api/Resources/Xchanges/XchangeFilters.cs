@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore.Query;
 using SW.EfCoreExtensions;
 using SW.Bitween.Domain;
 using SW.Bitween.Model;
+using SW.Bitween.Services.XchangeStates;
 using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Resources.Xchanges;
@@ -46,16 +47,21 @@ internal static class XchangeFilters
     /// The special filters are removed from <paramref name="searchyRequest"/> as they are applied,
     /// as they are for the search; what is left in it afterwards is only what Searchy handled.
     /// </para>
+    /// <para>
+    /// <paramref name="status"/>, when given, narrows to one status as <see cref="WhereStatus"/> does,
+    /// on top of whatever the request asks: what the summary counts each tab with.
+    /// </para>
     /// </remarks>
     internal static async Task<IQueryable<XchangeRow>> FilteredRowsAsync(BitweenDbContext dbContext,
-        SearchyRequest searchyRequest)
+        SearchyRequest searchyRequest, string status = null)
     {
         searchyRequest.DatesToUtc();
         // Async, and inside here rather than in the callers, so a "select all matching" over a run
         // selects exactly the rows the list showed for it.
         await ResolveReceiveAttemptFilterAsync(searchyRequest, dbContext);
+        var stateReady = await XchangeStateReadiness.IsReadyAsync(dbContext);
 
-        var query = from xchange in dbContext.Set<Xchange>()
+        var query = from xchange in dbContext.Set<Xchange>().WhereState(searchyRequest, stateReady, status)
                     join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id into xr
                     from result in xr.DefaultIfEmpty()
                     join agg in dbContext.Set<XchangeAggregation>() on xchange.Id equals agg.Id into xa
@@ -85,8 +91,63 @@ internal static class XchangeFilters
                     };
 
         query = query.ApplySpecialFilters(searchyRequest, dbContext);
+        if (status != null && !stateReady)
+            query = query.WhereStatus(status, dbContext);
         return query.AsNoTracking().Search(searchyRequest.Conditions);
     }
+
+    /// <summary>
+    /// The status and latest-only filters, read from the exchange's own <see cref="Xchange.Status"/>
+    /// and <see cref="Xchange.Retried"/> once <paramref name="stateReady"/>, and taken out of the
+    /// request so <see cref="ApplySpecialFilters"/> doesn't apply them again. Until then nothing is
+    /// done here, and they are worked out from the result and retry tables as before.
+    /// </summary>
+    /// <remarks>
+    /// On the exchange table, before it is joined to anything, so the index over the two columns
+    /// answers them: the rare statuses are a short read of it rather than a walk through every
+    /// exchange. The two give the same answers as <see cref="WhereStatus"/> and the latest-only
+    /// filter, which the fill and every write keep true.
+    /// </remarks>
+    internal static IQueryable<Xchange> WhereState(this IQueryable<Xchange> exchanges, SearchyRequest searchyRequest,
+        bool stateReady, string status = null)
+    {
+        if (!stateReady) return exchanges;
+
+        if (status != null)
+            exchanges = exchanges.WhereStatus(status);
+
+        var condition = searchyRequest.Conditions.FirstOrDefault();
+        if (condition == null) return exchanges;
+
+        foreach (var statusFilter in condition.Filters.Where(f => f.Field == "StatusFilter").ToList())
+        {
+            exchanges = exchanges.WhereStatus(statusFilter.Value);
+            condition.Filters.Remove(statusFilter);
+        }
+
+        foreach (var latestFilter in condition.Filters.Where(f => f.Field == "LatestOnly").ToList())
+        {
+            if (IsOn(latestFilter))
+                exchanges = exchanges.Where(x => x.Retried == null);
+            condition.Filters.Remove(latestFilter);
+        }
+
+        return exchanges;
+    }
+
+    /// <summary>
+    /// <see cref="WhereStatus(IQueryable{XchangeRow}, object, BitweenDbContext)"/> on the exchange's
+    /// own column, by the same numbers. Success is the blank one.
+    /// </summary>
+    private static IQueryable<Xchange> WhereStatus(this IQueryable<Xchange> exchanges, object status) =>
+        status switch
+        {
+            "0" => exchanges.Where(x => x.Status == XchangeStatus.Processing),
+            "1" => exchanges.Where(x => x.Status == null),
+            "2" => exchanges.Where(x => x.Status == XchangeStatus.BadResponse),
+            "3" => exchanges.Where(x => x.Status == XchangeStatus.Failed),
+            _ => throw new SWValidationException("NOT_SUPPORTED", $"'{status}' is not an exchange status."),
+        };
 
     /// <summary>
     /// Turns a <c>ReceiveAttemptId</c> filter into the <c>Id</c> filter the rest of the pipeline

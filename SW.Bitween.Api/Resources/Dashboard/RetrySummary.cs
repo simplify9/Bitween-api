@@ -73,14 +73,17 @@ public class RetrySummary : IQueryHandler<object>
         // failed from the failures' and whether it was retried from RetryFor's. With no time bound
         // it walked back through every retry ever made until it found five hundred failures - on a
         // database where every failure gets retried, millions of exchanges, past the 30s limit.
-        var candidates = await (
-            from xchange in _dbContext.Set<Xchange>()
-            where xchange.RetryFor != null
-                  && xchange.StartedOn >= since
-                  && _dbContext.Set<XchangeResult>().Any(result => result.Id == xchange.Id && !result.Success)
-                  && !_dbContext.Set<Xchange>().Any(child => child.RetryFor == xchange.Id)
-            orderby xchange.StartedOn descending
-            select new { xchange.Id, xchange.RetryFor, xchange.StartedOn })
+        //
+        // Once exchanges carry their status, "failed and not retried" is read off them instead.
+        var unretriedFailures = _dbContext.Set<Xchange>().Where(xchange => xchange.RetryFor != null && xchange.StartedOn >= since);
+        unretriedFailures = await Services.XchangeStates.XchangeStateReadiness.IsReadyAsync(_dbContext)
+            ? unretriedFailures.Where(xchange => xchange.Status == XchangeStatus.Failed && xchange.Retried == null)
+            : unretriedFailures.Where(xchange =>
+                _dbContext.Set<XchangeResult>().Any(result => result.Id == xchange.Id && !result.Success)
+                && !_dbContext.Set<Xchange>().Any(child => child.RetryFor == xchange.Id));
+        var candidates = await unretriedFailures
+            .OrderByDescending(xchange => xchange.StartedOn)
+            .Select(xchange => new { xchange.Id, xchange.RetryFor, xchange.StartedOn })
             .AsNoTracking().Take(Candidates).ToListAsync();
 
         var attempts = await CountAttempts(candidates.ToDictionary(c => c.Id, c => c.RetryFor));

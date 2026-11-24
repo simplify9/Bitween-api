@@ -60,6 +60,9 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits?
         // the next subscription's call too - with its credentials, or with none of its own.
         string? apiKey = null;
         AuthenticationHeaderValue? authorization = null;
+        string? loginToken = null;
+        var loginTokenWasCached = false;
+        (string Name, string Value)? loginHeader = null;
         if (_options.AuthType == "ApiKey")
             apiKey = _options.ApiKey;
         else if (_options.AuthType == "Bearer")
@@ -73,14 +76,8 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits?
         }
         else if (_options.AuthType == "Login")
         {
-            string token = await HttpLogin.GetToken(client, _options.LoginUrl!, _options.LoginBody,
-                _options.LoginTokenPath, _options.LoginUsername, _options.LoginPassword,
-                new UserLoginModel()
-                {
-                    Email = _options.LoginUsername,
-                    Password = _options.LoginPassword
-                });
-            authorization = new AuthenticationHeaderValue("Bearer", token);
+            (loginToken, loginTokenWasCached) = await SignIn(client);
+            loginHeader = HttpLogin.Header(_options.LoginTokenHeader, loginToken);
         }
         else if (_options.AuthType == "OAuth2")
         {
@@ -91,66 +88,85 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits?
         string requestBody = xchangeFile.Data;
         if (string.IsNullOrEmpty(requestBody))
             requestBody = _options.DefaultRequest ?? string.Empty;
-        string str = _options.ContentType.ToLower();
-        HttpContent content;
-        MultipartFormDataContent multipartTmp;
-        byte[] fileContent;
-        switch (str)
+        var httpMethod = HttpMethodFromString(_options.Verb);
+
+        // Built afresh for each send: a request, and its content, can only be sent once, and a
+        // refused cached sign-in sends the message a second time.
+        HttpContent Content()
         {
-            case "application/x-www-form-urlencoded":
-                content = new FormUrlEncodedContent(
-                    JsonConvert.DeserializeObject<Dictionary<string, string>>(requestBody)
-                    ?? new Dictionary<string, string>());
-                break;
-            case "multipart/form-data":
-                multipartTmp = new MultipartFormDataContent();
-                fileContent = Encoding.UTF8.GetBytes(requestBody);
-                multipartTmp.Add(new ByteArrayContent(fileContent), "file", xchangeFile.Filename ?? "file");
-                content = multipartTmp;
-                break;
-            case "application/json":
-                content = new StringContent(requestBody, Encoding.UTF8, "application/json");
-                break;
-            default:
-                content = new StringContent(requestBody, Encoding.UTF8, _options.ContentType);
-                break;
+            switch (_options.ContentType.ToLower())
+            {
+                case "application/x-www-form-urlencoded":
+                    return new FormUrlEncodedContent(
+                        JsonConvert.DeserializeObject<Dictionary<string, string>>(requestBody)
+                        ?? new Dictionary<string, string>());
+                case "multipart/form-data":
+                    var multipart = new MultipartFormDataContent();
+                    multipart.Add(new ByteArrayContent(Encoding.UTF8.GetBytes(requestBody)), "file", xchangeFile.Filename ?? "file");
+                    return multipart;
+                case "application/json":
+                    return new StringContent(requestBody, Encoding.UTF8, "application/json");
+                default:
+                    return new StringContent(requestBody, Encoding.UTF8, _options.ContentType);
+            }
         }
 
-        var httpMethod = HttpMethodFromString(_options.Verb);
-        HttpRequestMessage request = new HttpRequestMessage()
+        HttpRequestMessage Request((string Name, string Value)? login)
         {
-            RequestUri = uri,
-            Method = httpMethod,
-            Content = httpMethod == HttpMethod.Get ? null : content
-        };
-        foreach (var (name, value) in HeaderList.Parse(_options.Headers))
-            request.Headers.Add(name, value);
+            var request = new HttpRequestMessage()
+            {
+                RequestUri = uri,
+                Method = httpMethod,
+                Content = httpMethod == HttpMethod.Get ? null : Content()
+            };
+            foreach (var (name, value) in HeaderList.Parse(_options.Headers))
+                request.Headers.Add(name, value);
 
-        if (authorization is not null)
-            request.Headers.Authorization = authorization;
-        if (apiKey is not null)
-            request.Headers.Add("ApiKey", apiKey);
+            if (authorization is not null)
+                request.Headers.Authorization = authorization;
+            if (login is { } header)
+                HttpLogin.Apply(request, header);
+            if (apiKey is not null)
+                request.Headers.Add("ApiKey", apiKey);
 
-        if (!string.IsNullOrEmpty(_options.CorrelationId))
-            request.Headers.Add("request-context-correlation-id", _options.CorrelationId);
+            if (!string.IsNullOrEmpty(_options.CorrelationId))
+                request.Headers.Add("request-context-correlation-id", _options.CorrelationId);
+            return request;
+        }
+
         // The client is shared, so the timeout is this request's own rather than the client's.
         using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Max(1, _options.TimeoutSeconds)));
-        HttpResponseMessage response;
-        string resp;
-        try
+
+        async Task<(HttpResponseMessage Response, string Body)> Send((string Name, string Value)? login)
         {
-            response = await client.SendAsync(request, timeout.Token);
-            resp = await response.Content.ReadAsStringAsync();
+            try
+            {
+                var sent = await client.SendAsync(Request(login), timeout.Token);
+                return (sent, await sent.Content.ReadAsStringAsync());
+            }
+            catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+            {
+                pass.Failed();
+                throw new TimeoutException($"{uri.GetLeftPart(UriPartial.Authority)} did not answer within {_options.TimeoutSeconds} seconds.");
+            }
+            catch (Exception e)
+            {
+                pass.Failed(e);
+                throw;
+            }
         }
-        catch (OperationCanceledException) when (timeout.IsCancellationRequested)
+
+        var (response, resp) = await Send(loginHeader);
+
+        // A reused sign-in the partner no longer accepts - revoked, or expired before the reply said
+        // it would: forget it, sign in again and send once more. A fresh token refused is the
+        // partner's answer, and is reported as it always was.
+        if (response.StatusCode == HttpStatusCode.Unauthorized && loginToken is not null && loginTokenWasCached)
         {
-            pass.Failed();
-            throw new TimeoutException($"{uri.GetLeftPart(UriPartial.Authority)} did not answer within {_options.TimeoutSeconds} seconds.");
-        }
-        catch (Exception e)
-        {
-            pass.Failed(e);
-            throw;
+            HttpLogin.Forget(loginToken);
+            response.Dispose();
+            var (fresh, _) = await SignIn(client);
+            (response, resp) = await Send(HttpLogin.Header(_options.LoginTokenHeader, fresh));
         }
 
         if (DestinationCircuits.IsUnwell(response.StatusCode))
@@ -181,6 +197,23 @@ public class NativeHttpHandler(IDynamicHttpProxy httpProxy, DestinationCircuits?
         return xchangeFile1;
     }
 
+
+    private Task<(string Token, bool FromCache)> SignIn(HttpClient client) =>
+        HttpLogin.GetTokenReused(client, new LoginOptions(_options.LoginUrl!,
+            new UserLoginModel()
+            {
+                Email = _options.LoginUsername,
+                Password = _options.LoginPassword
+            })
+        {
+            Body = _options.LoginBody,
+            ContentType = _options.LoginContentType,
+            TokenPath = _options.LoginTokenPath,
+            ExpiresInPath = _options.LoginExpiresInPath,
+            LifetimeSeconds = _options.LoginTokenLifetimeSeconds,
+            Username = _options.LoginUsername,
+            Password = _options.LoginPassword
+        });
 
     /// <summary>
     /// Refuses a rendered URL that went somewhere the template does not allow. The values come

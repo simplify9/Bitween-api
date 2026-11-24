@@ -179,6 +179,7 @@ namespace SW.Bitween.Web
             services.AddSingleton<StorageAccess>();
             services.AddScoped<ExchangeArchive>();
             services.AddScoped<RetentionPlanner>();
+            services.AddScoped<Services.XchangeStates.XchangeStateFiller>();
             services.AddScoped<GatewayCallers>();
             services.AddSingleton<IGatewayIssuers, OpenIdGatewayIssuers>();
             services.AddScoped<Resources.Ops.LaneResolver>();
@@ -189,6 +190,7 @@ namespace SW.Bitween.Web
 
             services.AddScoped<SubscriptionSchedulerService>();
             services.AddHostedService<SchedulerSeedService>();
+            services.AddHostedService<Services.XchangeStates.XchangeStateFillWatch>();
             // Publishes what didn't go out straight after its commit; see OutboxMessage.
             services.AddHostedService<OutboxDispatcher>();
             // Deletes published outbox rows in batches, off the exchange's path; see OutboxAcknowledger.

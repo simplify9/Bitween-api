@@ -18,7 +18,7 @@ namespace SW.Bitween.Resources.Ops;
 /// </summary>
 [HandlerName("background")]
 public class Background(BitweenDbContext dbContext, RequestContext requestContext,
-    IScheduleRepository scheduleRepo, ISchedulerFactory schedulerFactory) : IQueryHandler<object>
+    IScheduleRepository scheduleRepo, ISchedulerFactory schedulerFactory, BitweenOptions options) : IQueryHandler<object>
 {
     static readonly (Type Type, string Name, string Does)[] SystemJobs =
     [
@@ -29,6 +29,8 @@ public class Background(BitweenDbContext dbContext, RequestContext requestContex
         (typeof(Services.Metrics.QueueSnapshotJob), "Queue snapshots", "Records the broker's queue totals every few minutes, for the backlog trend."),
         (typeof(Services.Metrics.MetricsPruneJob), "Metrics clean-up", "Deletes hourly metrics and queue snapshots past their keeping."),
         (typeof(QuietSubscriptionsJob), "Quiet subscriptions", "Tells the notifiers when a subscription that expects traffic gets none, and when it comes back."),
+        (typeof(Services.XchangeStates.XchangeStateFillJob), "Exchange status fill",
+            "Once, after an upgrade: fills in each older exchange's status, so the Exchanges page finds failures and ones still running without reading every exchange."),
     ];
 
     public async Task<object> Handle()
@@ -67,6 +69,9 @@ public class Background(BitweenDbContext dbContext, RequestContext requestContex
                 LastRanOn = previous,
                 NextRunOn = next,
                 RunningNow = running.Contains(type),
+                Progress = type == typeof(Services.XchangeStates.XchangeStateFillJob)
+                    ? await Services.XchangeStates.XchangeStateProgress.ReadAsync(dbContext, options)
+                    : null,
             });
         }
 

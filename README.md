@@ -122,6 +122,7 @@ The database schema is created on first start. A new database refuses to start w
 | [Security](docs/security.md) | Sign-in, tokens, roles and permissions, partner keys, hardening, audit |
 | [Configuration](docs/configuration.md) | Every configuration key, runtime setting and Helm value |
 | [Deployment](docs/deployment.md) | Docker image, Helm chart, databases, storage and CI/CD |
+| [Storage](docs/storage.md) | What Bitween stores where, the storage calls behind each feature, and what it relies on from each storage provider |
 | [Operations](docs/operations.md) | Monitoring, troubleshooting, logs and data retention |
 | [Prod mirror](docs/prod-mirror.md) | Copying a prod's setup onto a staging, every value faked, to try an upgrade there first |
 | [Admin UI](docs/admin-ui.md) | A tour of the web interface |

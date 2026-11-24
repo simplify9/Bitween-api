@@ -134,6 +134,13 @@ Bitween checks its configuration and its database before it serves anything. Whe
 - Values already in the `Settings` table are not replaced by new configuration. Change them on the Settings page. A startup warning names each one configuration sets differently.
 - Upgrading from a version without work groups needs nothing set: at each start Bitween reads the queues that version left behind until they are empty, then removes them.
 
+### Upgrading to exchange status columns
+
+The migration only adds two empty columns to the exchanges table and a small progress table, so it is instant on every database. The [exchange status fill](operations.md#exchange-status-fill) then runs in the background; follow it on **Queue health**. Nothing waits for it, and the pages answer as before until it's done.
+
+- **SQL Server Standard or Express:** the index is built at 00:00 UTC, and saving exchanges pauses for the few minutes it takes. For another hour, set `Bitween__MaintenanceQuietHourUtc` (0 to 23) before deploying.
+- **Rolling back past this version** is safe: the earlier version ignores the new columns.
+
 ### Upgrading to parallel exchanges
 
 Before this version every lane ran one exchange at a time per node, whatever its prefetch. Now a lane runs up to its **Parallel exchanges** at once, and a lane that leaves it empty takes its prefetch: 12 by default. That is what the documentation always described, but not what deployments saw, so on upgrade:

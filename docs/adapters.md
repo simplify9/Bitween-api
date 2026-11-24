@@ -91,6 +91,7 @@ Sends the payload to an HTTP endpoint.
 | `LoginUsername` | | Used by `Basic` and `Login`. |
 | `LoginPassword` *(secret)* | | Used by `Basic` and `Login`, and as the token for `Bearer`. |
 | `LoginUrl` | | Token endpoint for `Login` and `OAuth2`. |
+| `LoginBody`, `LoginContentType`, `LoginTokenPath`, `LoginExpiresInPath`, `LoginTokenLifetimeSeconds`, `LoginTokenHeader` | | `Login` only, see [Login settings](#login-settings). |
 | `ClientId`, `ClientSecret` *(secret)* | | Used by `OAuth2`. |
 | `ContentType` | `application/json` | `application/x-www-form-urlencoded` form-encodes a flat JSON object. `multipart/form-data` sends the payload as one part named `file`. Other types send the payload as text. |
 | `Headers` *(secret)* | | Extra headers as `Name:Value` pairs separated by commas. A value cannot contain a colon. |
@@ -102,7 +103,7 @@ Sends the payload to an HTTP endpoint.
 | `ApiKey` | Adds the header `ApiKey: {ApiKey}` |
 | `Bearer` | Adds `Authorization: Bearer {LoginPassword}` |
 | `Basic` | Basic authentication with `LoginUsername` and `LoginPassword` |
-| `Login` | POSTs `Email` and `Password` as JSON to `LoginUrl`, reads `Jwt` from the reply, and sends it as a bearer token |
+| `Login` | Signs in at `LoginUrl`, reads the token from the reply, and sends it on each request. Every part can be set (see [Login settings](#login-settings)), so it covers JSON logins and standard token endpoints alike. The token is reused until a minute before it expires, with one sign-in at a time per login. A reused token refused with 401 is dropped: the handler signs in again and sends the message once more, and the receiver's next run signs in. |
 | `OAuth2` | Requests a client credentials token from `LoginUrl`, reads `access_token`, and sends it as a bearer token |
 
 | Reply status | Result |
@@ -110,6 +111,35 @@ Sends the payload to an HTTP endpoint.
 | 2xx or 3xx | Success. The body becomes the response file. |
 | 4xx other than 408 and 429 | Bad response. The body is kept and flagged, and retry policies see it as a `BadResult`. |
 | 5xx, 408, 429, or below 200 | The exchange fails with the status and body, so retry policies see it as an `Error`. A `Retry-After` the partner sent is in the error text, and Bitween's next retry waits at least that long ([details](retries-and-alerts.md#when-an-adapter-says-when-to-try-again)). |
+
+#### Login settings
+
+`AuthType` `Login` signs in with a request of your own and reuses the token it gets. The same settings
+work on the HTTP receiver.
+
+| Setting | Empty means | Set it to |
+|---|---|---|
+| `LoginUrl` | (required) | The sign-in or token endpoint. |
+| `LoginUsername`, `LoginPassword` *(secret)* | | The credentials, or client id and secret. |
+| `LoginBody` | `{"Email":…,"Password":…}` (receiver: `UserName`) | The request, written as JSON with `{{username}}` and `{{password}}` where the credentials go. It is not hidden, so never type a secret into it. |
+| `LoginContentType` | `application/json` | `application/x-www-form-urlencoded` to send `LoginBody`'s fields as a form. `LoginBody` must then be a flat object. |
+| `LoginTokenPath` | `Jwt` | Where the token is in the reply, e.g. `access_token`, `data.token`. |
+| `LoginExpiresInPath` | `expires_in` | Where the reply says how long the token lasts: seconds (number or string), or the date and time it expires, e.g. `data.expiresAt`. |
+| `LoginTokenLifetimeSeconds` | 300 | How long to reuse the token when the reply doesn't say and the token isn't a JWT (its `exp` is read). `0` signs in for every message. |
+| `LoginTokenHeader` | `Authorization: Bearer {{token}}` | `Name: value` with `{{token}}` in the value, e.g. `X-Auth-Token: {{token}}`, `Authorization: Token {{token}}`. |
+
+Examples:
+
+| Endpoint | Settings |
+|---|---|
+| OAuth2 client credentials, JSON body | `LoginBody` `{"grant_type":"client_credentials","client_id":"{{username}}","client_secret":"{{password}}"}`, `LoginTokenPath` `access_token` |
+| OAuth2 client credentials with a scope or audience | The same body plus `"scope":"…"`, `LoginContentType` `application/x-www-form-urlencoded`. (`AuthType` `OAuth2` covers the plain form case.) |
+| OAuth2 password grant | `LoginBody` `{"grant_type":"password","username":"{{username}}","password":"{{password}}"}`, form-encoded, `LoginTokenPath` `access_token` |
+| A session login | `LoginBody` `{"user":"{{username}}","pass":"{{password}}"}`, `LoginTokenPath` `data.session`, `LoginTokenHeader` `X-Session-Id: {{token}}`, `LoginTokenLifetimeSeconds` `1200` |
+
+Tokens are kept in memory by each Bitween process, keyed on a hash of the login URL, body and token path,
+so subscriptions with different credentials never share one. A refresh token is not used: a new sign-in is
+made when the token runs out.
 
 #### When a destination keeps failing
 
