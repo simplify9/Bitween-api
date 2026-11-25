@@ -83,6 +83,15 @@ describe("the partner portal, in the app's own frame", () => {
     }
   });
 
+  it("sends a partner's person whose role has no Exchanges to the first page it does open", async () => {
+    const { router } = renderApp("/", {
+      as: { partner: ACME, permissions: ["portal-mappings.view"] },
+      handlers: [http.get(apiPath("/portal/mappings"), () => HttpResponse.json([]))],
+    });
+    await waitFor(() => expect(router.state.location.pathname).toBe("/portal/mappings"));
+    expect(screen.queryByText(/don't have access/i)).not.toBeInTheDocument();
+  });
+
   it("keeps our own people out of the portal, and its pages out of their sidebar", async () => {
     const { router } = renderApp("/portal", { handlers: portal().handlers, as: { permissions: ALL_PERMISSIONS } });
     const nav = await screen.findByRole("navigation", { name: "Main" });

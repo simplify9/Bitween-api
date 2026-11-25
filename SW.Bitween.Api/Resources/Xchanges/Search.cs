@@ -145,7 +145,7 @@ namespace SW.Bitween.Resources.Xchanges
                             Warning = result.Warning
                         };
 
-            return query.ApplySpecialFilters(searchyRequest, dbContext);
+            return query.ApplySpecialFilters(searchyRequest, dbContext, rollUps: partnerId == null);
         }
 
         private async Task<SearchyResponse<XchangeRow>> FinishAsync(SearchyRequest searchyRequest,

@@ -5,6 +5,7 @@ import type { PermissionKey } from "../api";
 import { labelIn, usePermissionCatalog } from "../api/permissions";
 import { Button } from "../components/ui/basics";
 import { useSession } from "./useSession";
+import { homePath } from "../nav";
 
 /** Redirects to /login when signed out; shows a splash while checking. */
 export function RequireAuth() {
@@ -45,9 +46,9 @@ export function RequireAuth() {
     return <Navigate to="/change-password" state={{ from: location.pathname + location.search }} replace />;
   }
   // A partner's person has the portal and their password, and nothing else; every other screen
-  // would only be refused.
+  // would only be refused. Their first page is the one their role opens, which isn't always Exchanges.
   if (session.partner && !inPortal(location.pathname) && location.pathname !== "/change-password") {
-    return <Navigate to={PORTAL_PATH} replace />;
+    return <Navigate to={homePath(session)} replace />;
   }
   return <Outlet />;
 }
@@ -55,7 +56,7 @@ export function RequireAuth() {
 export const PORTAL_PATH = "/portal";
 
 /** The portal and the pages under it; "/portal-old" is neither. */
-const inPortal = (path: string) => path === PORTAL_PATH || path.startsWith(PORTAL_PATH + "/");
+export const inPortal = (path: string) => path === PORTAL_PATH || path.startsWith(PORTAL_PATH + "/");
 
 /** The partner portal is for a partner's people; our own are sent back to the app. */
 /** A partner's people's page: anyone else goes back to the app. */

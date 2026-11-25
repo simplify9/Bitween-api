@@ -111,6 +111,32 @@ public class PortalExchangeViewsTests(BitweenFixture fixture)
     }
 
     [Fact]
+    public async Task An_id_does_not_find_theirs_rolled_up_into_it()
+    {
+        var w = await SetUpAsync();
+        // Theirs rolled up into another exchange: our wiring, which they aren't shown.
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            db.Add(new XchangeAggregation(w.MyFailed, w.TheirFailed));
+            await db.SaveChangesAsync();
+        }
+
+        var byRollUp = Filter($"Id:1:{w.TheirFailed}");
+        var found = await As<Resources.Portal.SearchExchanges, SearchyResponse<XchangeRow>>(w.SeesNothingMore,
+            h => h.Handle(byRollUp));
+        Assert.Empty(found.Result);
+        var summary = await As<Resources.Portal.CountExchanges, XchangeSummary>(w.SeesNothingMore,
+            h => h.Handle(Filter($"Id:1:{w.TheirFailed}")));
+        Assert.Equal(0, summary.Counts.Failed);
+
+        // Their own id still finds it.
+        var own = await As<Resources.Portal.SearchExchanges, SearchyResponse<XchangeRow>>(w.SeesNothingMore,
+            h => h.Handle(Filter($"Id:1:{w.MyFailed}")));
+        Assert.Equal([w.MyFailed], own.Result.Select(r => r.Id).ToList());
+    }
+
+    [Fact]
     public async Task Counts_only_theirs()
     {
         var w = await SetUpAsync();

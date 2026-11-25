@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { ALL_PERMISSIONS, apiPath, renderApp } from "../../../__tests__/support/renderApp";
 import { empty, page } from "../../../__tests__/support/listPage";
 
@@ -65,5 +65,37 @@ describe("the command palette", () => {
     const palette = within(screen.getByRole("dialog", { name: "Search Bitween" }));
     await user.type(palette.getByRole("combobox"), "acme partner");
     expect(await palette.findByText(/Nothing matches/)).toBeVisible();
+  });
+  describe("recent visits, from whoever used this browser before", () => {
+    const visits = [
+      { path: "/subscriptions/9", title: "Acme orders", kind: "Subscription" },
+      { path: "/portal/mappings/4", title: "Their webhook mapping", kind: "Mapping" },
+    ];
+    afterEach(() => localStorage.removeItem("bitween-recent"));
+
+    it("offers our own people only our pages", async () => {
+      localStorage.setItem("bitween-recent", JSON.stringify(visits));
+      const { user } = renderApp("/global-values", { handlers });
+      await screen.findByRole("heading", { name: /Global values/ });
+
+      await user.keyboard("{Control>}k{/Control}");
+      const palette = within(screen.getByRole("dialog", { name: "Search Bitween" }));
+      expect(palette.getByRole("option", { name: /Acme orders/ })).toBeVisible();
+      expect(palette.queryByRole("option", { name: /Their webhook mapping/ })).not.toBeInTheDocument();
+    });
+
+    it("offers a partner's person only their portal's pages", async () => {
+      localStorage.setItem("bitween-recent", JSON.stringify(visits));
+      const { user } = renderApp("/portal/mappings", {
+        handlers: [http.get(apiPath("/portal/mappings"), () => HttpResponse.json([]))],
+        as: { partner: { id: 7, name: "Acme Freight" }, permissions: ["portal-mappings.view"] },
+      });
+      await screen.findByRole("heading", { name: /Mappings/ });
+
+      await user.keyboard("{Control>}k{/Control}");
+      const palette = within(screen.getByRole("dialog", { name: "Search Bitween" }));
+      expect(palette.getByRole("option", { name: /Their webhook mapping/ })).toBeVisible();
+      expect(palette.queryByRole("option", { name: /Acme orders/ })).not.toBeInTheDocument();
+    });
   });
 });
