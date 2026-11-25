@@ -179,8 +179,10 @@ export const keys = {
     changeCount: ["portal", "changes", "count"] as const,
     /** A partner's admin's: their company's people, and the roles they may give. */
     people: ["portal", "people"] as const,
+    properties: ["portal", "properties"] as const,
     peopleRoles: ["portal", "peopleRoles"] as const,
     change: (id: number) => ["portal", "change", id] as const,
+    propertyChange: (id: number) => ["portal", "propertyChange", id] as const,
     history: (subscriptionId: string, partnerId: number) => ["portal", "history", subscriptionId, partnerId] as const,
   },
 

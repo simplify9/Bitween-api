@@ -56,7 +56,8 @@ namespace SW.Bitween.Resources.Partners
                     AdapterProperties = partner.AdapterProperties,
                     SecretProperties = partner.SecretProperties,
                     LoginIdentity = partner.LoginIdentity,
-                    ChangesNeedApproval = partner.ChangesNeedApproval
+                    ChangesNeedApproval = partner.ChangesNeedApproval,
+                    PortalAccess = partner.PortalAccess
 
                 }).AsNoTracking().SingleOrDefaultAsync();
 

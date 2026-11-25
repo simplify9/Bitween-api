@@ -1,15 +1,24 @@
-import { type Partner } from "../../api";
+import { type Partner, type PortalAccessLevel } from "../../api";
 import { toRecord, toRows } from "../ui/keyValueRows";
 import type { PartnerDraft } from "./PartnerFields";
 
 export const partnerDraftOf = (
-  p: Pick<Partner, "name" | "adapterProperties" | "secretProperties" | "loginIdentity">,
+  p: Pick<Partner, "name" | "adapterProperties" | "secretProperties" | "loginIdentity"> & {
+    portalAccess?: Record<string, PortalAccessLevel>;
+  },
 ): PartnerDraft => ({
   name: p.name,
   properties: toRows(p.adapterProperties),
   secretProperties: [...p.secretProperties],
   loginIdentity: p.loginIdentity ?? "",
+  ...(p.portalAccess ? { portalAccess: { ...p.portalAccess } } : {}),
 });
+
+/** What they see of the properties still there, sorted, so a renamed or removed one doesn't count. */
+const accessOf = (draft: PartnerDraft) =>
+  Object.entries(draft.portalAccess ?? {})
+    .filter(([k]) => draft.properties.some((r) => r.key.trim() === k))
+    .sort(([a], [b]) => a.localeCompare(b));
 
 export const partnerDirty = (draft: PartnerDraft, saved: PartnerDraft): boolean =>
   draft.name !== saved.name ||
@@ -18,7 +27,8 @@ export const partnerDirty = (draft: PartnerDraft, saved: PartnerDraft): boolean 
   // cannot see it - without this the save bar never appears for a lock on its own.
   JSON.stringify([...draft.secretProperties].sort()) !==
     JSON.stringify([...saved.secretProperties].sort()) ||
-  draft.loginIdentity.trim() !== saved.loginIdentity.trim();
+  draft.loginIdentity.trim() !== saved.loginIdentity.trim() ||
+  JSON.stringify(accessOf(draft)) !== JSON.stringify(accessOf(saved));
 
 /** What the host sends to `updatePartner`. */
 export const partnerChanges = (draft: PartnerDraft) => ({
@@ -29,4 +39,5 @@ export const partnerChanges = (draft: PartnerDraft) => ({
     draft.properties.some((r) => r.key.trim().toLowerCase() === n.toLowerCase()),
   ),
   loginIdentity: draft.loginIdentity.trim() || null,
+  ...(draft.portalAccess ? { portalAccess: Object.fromEntries(accessOf(draft)) } : {}),
 });

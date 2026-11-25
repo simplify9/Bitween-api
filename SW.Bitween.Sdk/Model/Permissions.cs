@@ -215,6 +215,8 @@ public static class Permissions
         public const string ExchangeErrorsView = "portal-exchange-errors.view";
         public const string MappingsView = "portal-mappings.view";
         public const string MappingsEdit = "portal-mappings.edit";
+        public const string PropertiesView = "portal-properties.view";
+        public const string PropertiesEdit = "portal-properties.edit";
         public const string PeopleView = "portal-people.view";
         public const string PeopleEdit = "portal-people.edit";
     }
@@ -421,6 +423,11 @@ public static class PermissionCatalog
             "How what they receive is shaped, wherever they are connected: their own version of a subscription's mapping, used for them alone.",
             (View, "See the mapping used for them."),
             (Edit, "Make, change and remove their own version of a mapping.")),
+
+        Area("portal-properties", "Their details", "Partner portal",
+            "Their own partner properties, such as where we deliver to them: only those you show them, secrets never in clear.",
+            (View, "See the properties you show them."),
+            (Edit, "Change the properties you let them change, and replace a secret one without seeing it.")),
 
         Area("portal-people", "Their people", "Partner portal",
             "Who at their company can sign in to the portal. Only our team can make or change one of their admins.",

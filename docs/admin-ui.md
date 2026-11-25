@@ -30,8 +30,8 @@ Four things can take long, and carry on in the background once they take more th
 | **Aggregations** | Aggregation subscriptions and their sources. Create one, or roll up now. |
 | **Flow map** | A read-only map of gateways, bus message types and subscriptions, with warnings for loops, gateways without partners or routes, and messages nobody listens to. |
 | **All subscriptions** | Every subscription, filtered by type, information type, partner and status. |
-| **Partners** | Partner properties and API keys, and everything that uses each partner. Whether the partner's portal changes need approval. |
-| **Partner changes** | Changes partners make in the [partner portal](security.md#partner-portal) that wait for approval, beside what the partner gets now, with Approve and Reject; and the latest decided. The sidebar shows how many wait. |
+| **Partners** | Partner properties and API keys, and everything that uses each partner. Whether the partner's portal changes need approval, and which properties their people see or may change in the portal. |
+| **Partner changes** | Changes partners make in the [partner portal](security.md#partner-portal), to their mappings or their details, that wait for approval, beside what the partner has now, with Approve and Reject; and the latest decided. The sidebar shows how many wait. |
 | **Adapters** | Built-in and custom adapters with their settings, versions and the subscriptions that use them. With `adapter-source.view`, read the source a version was published with and compare two versions. With `adapter-source.edit`, write Python, JavaScript and TypeScript adapters in the editor; with `adapter-source.operate`, publish them and make a version current. The **Marketplace** tab lists the connectors of the registry set under Settings, marks those already installed or with an update, and installs one ([Installing from the marketplace](adapters.md#installing-from-the-marketplace)). |
 
 ### Subscription studio

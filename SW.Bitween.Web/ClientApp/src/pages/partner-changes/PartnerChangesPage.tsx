@@ -7,6 +7,7 @@ import { EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics"
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { Table } from "../../components/ui/Table";
 import { PartnerChangeBadge, PartnerChangeDialog } from "../../components/partnerChanges/PartnerChangeDialog";
+import { PartnerPropertyChangeDialog } from "../../components/partnerChanges/PartnerPropertyChangeDialog";
 import { formatDateTime, timeAgo } from "../../lib/dates";
 
 type Showing = "waiting" | "decided";
@@ -17,17 +18,18 @@ type Showing = "waiting" | "decided";
  */
 export function PartnerChangesPage() {
   const [showing, setShowing] = useState<Showing>("waiting");
-  const [opened, setOpened] = useState<number | null>(null);
+  const [opened, setOpened] = useState<PartnerChange | null>(null);
   const waiting = showing === "waiting";
   const changes = useQuery({ queryKey: keys.portal.changes(waiting), queryFn: () => api.listPartnerChanges(waiting) });
 
-  const what = (c: PartnerChange) => (c.backToOurs ? "Back to the subscription's mapping" : "Their own mapping");
+  const what = (c: PartnerChange) =>
+    c.kind === "properties" ? "Their details" : c.backToOurs ? "Back to the subscription's mapping" : "Their own mapping";
 
   return (
     <div>
       <PageHeader
         title="Partner changes"
-        description="Changes partners make in the portal, waiting for your approval before they're used."
+        description="Changes partners make in the portal, to their mappings or their details, waiting for your approval before they're used."
         help={{
           title: "How approval works",
           body: (
@@ -69,14 +71,14 @@ export function PartnerChangesPage() {
       ) : (
         <Table
           rows={changes.data}
-          rowKey={(c) => c.id}
-          onRowClick={(c) => setOpened(c.id)}
+          rowKey={(c) => `${c.kind}-${c.id}`}
+          onRowClick={(c) => setOpened(c)}
           columns={[
             { header: "Partner", wrap: true, cell: (c) => <span className="font-medium text-ink-900">{c.partnerName}</span> },
-            { header: "Subscription", wrap: true, cell: (c) => c.subscriptionName },
+            { header: "Subscription", wrap: true, cell: (c) => c.subscriptionName ?? "-" },
             {
               header: "Change",
-              headerTitle: "Their own version of the mapping, or going back to the subscription's own",
+              headerTitle: "Their own version of a mapping, going back to the subscription's own, or their details",
               cell: (c) => what(c),
             },
             {
@@ -112,13 +114,14 @@ export function PartnerChangesPage() {
           card={(c) => ({
             title: c.partnerName,
             status: <PartnerChangeBadge status={c.status} />,
-            subtitle: `${c.subscriptionName} · ${what(c)}`,
+            subtitle: c.subscriptionName ? `${c.subscriptionName} · ${what(c)}` : what(c),
             facts: [{ label: "Asked", value: timeAgo(c.requestedOn) }],
           })}
         />
       )}
 
-      {opened !== null && <PartnerChangeDialog changeId={opened} onClose={() => setOpened(null)} />}
+      {opened?.kind === "properties" && <PartnerPropertyChangeDialog changeId={opened.id} onClose={() => setOpened(null)} />}
+      {opened?.kind === "mapping" && <PartnerChangeDialog changeId={opened.id} onClose={() => setOpened(null)} />}
     </div>
   );
 }

@@ -8,6 +8,7 @@ const OURS = '{"version":1,"fields":[{"target":["id"],"from":{"kind":"path","pat
 
 const CHANGE = {
   id: 41,
+  kind: "mapping",
   subscriptionId: 10,
   subscriptionName: "Orders webhook",
   partnerId: 7,
@@ -96,5 +97,36 @@ describe("partner changes waiting for approval", () => {
     const dialog = await screen.findByRole("dialog");
     await within(dialog).findByTestId("rules-compare");
     expect(within(dialog).queryByRole("button", { name: "Approve" })).not.toBeInTheDocument();
+  });
+
+  it("include changes to a partner's details, a secret one never shown", async () => {
+    const approved: number[] = [];
+    const DETAILS = { ...CHANGE, id: 7, kind: "properties", subscriptionId: null, subscriptionName: null };
+    const { user } = renderApp("/partner-changes", {
+      handlers: [
+        http.get(apiPath("/partnerchanges"), () => HttpResponse.json(approved.length ? [] : [DETAILS])),
+        http.get(apiPath("/partnerpropertychanges/7"), () =>
+          HttpResponse.json({
+            ...DETAILS,
+            problem: null,
+            items: [
+              { key: "webhookUrl", current: "https://acme/in", proposed: "https://acme/v2", secret: false },
+              { key: "apiKey", current: null, proposed: null, secret: true },
+            ],
+          }),
+        ),
+        http.post(apiPath("/partnerpropertychanges/7/approve"), () => {
+          approved.push(7);
+          return new HttpResponse(null, { status: 204 });
+        }),
+      ],
+    });
+
+    await user.click(await screen.findByText("Their details"));
+    const dialog = await screen.findByRole("dialog", { name: "Acme Freight: their details" });
+    expect(within(dialog).getByText("https://acme/v2")).toBeVisible();
+    expect(within(dialog).getByText("Secret, replaced")).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: "Approve" }));
+    await waitFor(() => expect(approved).toEqual([7]));
   });
 });

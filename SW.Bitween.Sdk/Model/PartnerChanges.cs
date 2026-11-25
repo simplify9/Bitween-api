@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace SW.Bitween.Model;
 
@@ -6,8 +7,14 @@ namespace SW.Bitween.Model;
 public class PartnerChangeRow
 {
     public int Id { get; set; }
-    public int SubscriptionId { get; set; }
-    public string SubscriptionName { get; set; } = null!;
+
+    /// <summary>mapping, a change to their own mapping of a subscription; or properties, to their own properties.</summary>
+    public string Kind { get; set; } = "mapping";
+
+    /// <summary>The subscription a mapping change is for; null for a change to their properties.</summary>
+    public int? SubscriptionId { get; set; }
+
+    public string? SubscriptionName { get; set; }
     public int PartnerId { get; set; }
     public string PartnerName { get; set; } = null!;
 
@@ -52,6 +59,26 @@ public class PartnerChangeVersion : PartnerChangeRow
 
     /// <summary>It was used for them once, and has rules to put back.</summary>
     public bool CanPutBack { get; set; }
+}
+
+/// <summary>A change to a partner's properties, beside what they are now.</summary>
+public class PartnerPropertyChangeDetail : PartnerChangeRow
+{
+    public List<PartnerPropertyChangeItem> Items { get; set; } = [];
+
+    /// <summary>Why it can't be approved as it stands, or null when it can.</summary>
+    public string? Problem { get; set; }
+}
+
+public class PartnerPropertyChangeItem
+{
+    public string Key { get; set; } = null!;
+
+    /// <summary>Its value now and what the change makes it; null for a secret one, never shown.</summary>
+    public string? Current { get; set; }
+    public string? Proposed { get; set; }
+
+    public bool Secret { get; set; }
 }
 
 public class PartnerChangeSearch

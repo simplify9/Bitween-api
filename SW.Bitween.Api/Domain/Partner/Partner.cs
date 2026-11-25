@@ -52,6 +52,13 @@ namespace SW.Bitween.Domain
         /// </summary>
         public bool ChangesNeedApproval { get; set; }
 
+        /// <summary>
+        /// What this partner's people see of each of <see cref="AdapterProperties"/> in the portal,
+        /// by name: <see cref="PartnerPortalAccess.Visible"/> or <see cref="PartnerPortalAccess.Editable"/>.
+        /// A property not named here is hidden from them, which every property is until someone chooses.
+        /// </summary>
+        public Dictionary<string, string> PortalAccess { get; set; } = new();
+
         readonly HashSet<Subscription> _Subscriptions;
         public IReadOnlyCollection<Subscription> Subscriptions => _Subscriptions;
 

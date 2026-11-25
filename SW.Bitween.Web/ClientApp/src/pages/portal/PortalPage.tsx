@@ -15,6 +15,7 @@ import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { duration, formatDateTime, timeAgo } from "../../lib/dates";
 import { bytes, whole } from "../../lib/numbers";
 import { XchangeId } from "../exchanges/shared";
+import { YourDetails } from "./YourDetails";
 
 const PAGE_SIZE = 25;
 
@@ -40,6 +41,7 @@ export function PortalPage() {
   const canSubscriptions = useSessionCan("portal-subscriptions.view");
   const canMappings = useSessionCan("portal-mappings.view");
   const canManagePeople = useSessionCan("portal-people.edit");
+  const canDetails = useSessionCan("portal-properties.view");
   const canPeople = useSessionCan("portal-people.view") || canManagePeople;
 
   return (
@@ -67,7 +69,7 @@ export function PortalPage() {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-4 px-4 py-4 sm:px-6">
-        {!canExchanges && !canSubscriptions && !canMappings ? (
+        {!canExchanges && !canSubscriptions && !canMappings && !canDetails ? (
           <EmptyState icon={<Inbox />} title="Nothing to show yet">
             Your role doesn't include anything to see here. Ask whoever set up your account to give you a role.
           </EmptyState>
@@ -77,6 +79,7 @@ export function PortalPage() {
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
               {canExchanges ? <Exchanges /> : <div />}
               <div className="space-y-4">
+                {canDetails && <YourDetails />}
                 {canMappings && <Mappings />}
                 {canSubscriptions && <Subscriptions />}
               </div>

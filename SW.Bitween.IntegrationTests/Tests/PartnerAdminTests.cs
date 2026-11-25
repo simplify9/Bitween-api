@@ -154,7 +154,8 @@ public class PartnerAdminTests(BitweenFixture fixture)
             // Manages people without the view key, and can't change mappings.
             var role = new Role($"Narrow admin {Guid.NewGuid():N}", null,
                 [Permissions.Portal.PeopleEdit, Permissions.Portal.SubscriptionsView, Permissions.Portal.ExchangesView,
-                 Permissions.Portal.ExchangeFilesView, Permissions.Portal.ExchangeErrorsView, Permissions.Portal.MappingsView],
+                 Permissions.Portal.ExchangeFilesView, Permissions.Portal.ExchangeErrorsView, Permissions.Portal.MappingsView,
+                 Permissions.Portal.PropertiesView],
                 forPartners: true);
             db.Add(role);
             await db.SaveChangesAsync();

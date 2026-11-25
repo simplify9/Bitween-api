@@ -47,6 +47,13 @@ namespace SW.Bitween.Model
     public class PartnerUpdate : PartnerCreate
     {
         public ICollection<KeyAndValue> ApiCredentials { get; set; } = [];
+
+        /// <summary>
+        /// What the partner's people see of each property in the portal, by name: <c>visible</c> or
+        /// <c>editable</c>; one not named is hidden. Null keeps what is stored, so a client that
+        /// doesn't know about it never changes it.
+        /// </summary>
+        public Dictionary<string, string>? PortalAccess { get; set; }
         public ICollection<SubscriptionSearch> Subscriptions { get; set; } = [];
     }
 }

@@ -29,9 +29,10 @@ public class Mappings(BitweenDbContext dbContext, RequestContext requestContext)
         var theirs = await dbContext.Set<PartnerMapping>().AsNoTracking()
             .Where(m => m.PartnerId == caller.PartnerId && ids.Contains(m.SubscriptionId))
             .ToDictionaryAsync(m => m.SubscriptionId);
+        var visible = await PartnerPortalAccess.VisibleKeysAsync(dbContext, caller.PartnerId);
         var waiting = await dbContext.Set<PartnerMappingChange>().AsNoTracking()
             .Where(c => c.PartnerId == caller.PartnerId && ids.Contains(c.SubscriptionId) &&
-                        c.Status == PartnerMappingChangeStatus.Waiting)
+                        c.Status == PartnerChangeStatus.Waiting)
             .Select(c => c.SubscriptionId)
             .ToListAsync();
 
@@ -46,7 +47,7 @@ public class Mappings(BitweenDbContext dbContext, RequestContext requestContext)
                     Via = p.Via,
                     DocumentName = s.DocumentName,
                     Customized = theirs.ContainsKey(s.Id),
-                    SetAside = theirs.TryGetValue(s.Id, out var mine) && !PartnerMappingRules.Fits(mine, s.MapperProperties),
+                    SetAside = theirs.TryGetValue(s.Id, out var mine) && !PartnerMappingRules.Fits(mine, s.MapperProperties, visible),
                     Customizable = s.MapperId is null || s.MapperId == PartnerMappingRules.MapperId,
                     Waiting = waiting.Contains(s.Id),
                     ModifiedOn = mine is null ? null : mine.ModifiedOn ?? mine.CreatedOn
@@ -89,7 +90,8 @@ public class Mapping(BitweenDbContext dbContext, RequestContext requestContext) 
                 }
                 : null,
             Theirs = theirs?.MapperProperties.ToDictionary(),
-            SetAside = theirs is not null && !PartnerMappingRules.Fits(theirs, subscription.MapperProperties),
+            SetAside = theirs is not null && !PartnerMappingRules.Fits(theirs, subscription.MapperProperties,
+                await PartnerPortalAccess.VisibleKeysAsync(dbContext, caller.PartnerId)),
             NeedsApproval = needsApproval,
             Waiting = waiting is null
                 ? null
@@ -98,7 +100,7 @@ public class Mapping(BitweenDbContext dbContext, RequestContext requestContext) 
                     Theirs = waiting.BackToOurs ? null : waiting.MapperProperties.ToDictionary(),
                     RequestedOn = waiting.RequestedOn
                 },
-            Rejected = latest is { Status: PartnerMappingChangeStatus.Rejected }
+            Rejected = latest is { Status: PartnerChangeStatus.Rejected }
                 ? new PortalMappingRejected { Note = latest.Note, DecidedOn = latest.DecidedOn ?? latest.RequestedOn }
                 : null
         };
@@ -107,7 +109,7 @@ public class Mapping(BitweenDbContext dbContext, RequestContext requestContext) 
 
 /// <summary>Saves their own version of a place's mapping, used for them from their next exchange.</summary>
 [HandlerName("savemapping")]
-public class SaveMapping(BitweenDbContext dbContext, RequestContext requestContext)
+public class SaveMapping(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
     : ICommandHandler<PortalSaveMapping, object>
 {
     public async Task<object> Handle(PortalSaveMapping request)
@@ -119,8 +121,9 @@ public class SaveMapping(BitweenDbContext dbContext, RequestContext requestConte
             throw new SWValidationException("NOT_CUSTOMIZABLE",
                 "This mapping uses a mapper that can't be changed here. Ask us to change it.");
 
-        var properties = PartnerMappingRules.Validate(request.MapperProperties, subscription.MapperProperties);
-        var waits = await PartnerMappingChanges.RequestAsync(dbContext, request.SubscriptionId, caller.PartnerId,
+        var properties = PartnerMappingRules.Validate(request.MapperProperties, subscription.MapperProperties,
+            await PartnerPortalAccess.VisibleKeysAsync(dbContext, caller.PartnerId));
+        var waits = await PartnerMappingChanges.RequestAsync(dbContext, cache, request.SubscriptionId, caller.PartnerId,
             properties, requestContext.GetNameIdentifier());
         return new PortalMappingSaved { Waiting = waits };
     }
@@ -128,7 +131,7 @@ public class SaveMapping(BitweenDbContext dbContext, RequestContext requestConte
 
 /// <summary>Removes their own version, so they get the subscription's mapping again.</summary>
 [HandlerName("resetmapping")]
-public class ResetMapping(BitweenDbContext dbContext, RequestContext requestContext)
+public class ResetMapping(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
     : ICommandHandler<PortalMappingRequest, object>
 {
     public async Task<object> Handle(PortalMappingRequest request)
@@ -139,7 +142,7 @@ public class ResetMapping(BitweenDbContext dbContext, RequestContext requestCont
         if (!hasTheirs) return new PortalMappingSaved();
 
         // Like any change of theirs: it waits for approval when their changes need it.
-        var waits = await PartnerMappingChanges.RequestAsync(dbContext, request.SubscriptionId, caller.PartnerId,
+        var waits = await PartnerMappingChanges.RequestAsync(dbContext, cache, request.SubscriptionId, caller.PartnerId,
             null, requestContext.GetNameIdentifier());
         return new PortalMappingSaved { Waiting = waits };
     }
@@ -155,7 +158,7 @@ public class WithdrawMapping(BitweenDbContext dbContext, RequestContext requestC
         var caller = await PortalCaller.EnsureAsync(dbContext, requestContext, Model.Permissions.Portal.MappingsEdit);
         var waiting = await PartnerMappingChanges.WaitingAsync(dbContext, request.SubscriptionId, caller.PartnerId);
         if (waiting is not null)
-            await PartnerMappingChanges.DecideAsync(dbContext, waiting.Id, PartnerMappingChangeStatus.Withdrawn,
+            await PartnerMappingChanges.DecideAsync(dbContext, waiting.Id, PartnerChangeStatus.Withdrawn,
                 requestContext.GetNameIdentifier());
         return null;
     }
@@ -178,7 +181,8 @@ public class PreviewMapping(BitweenDbContext dbContext, RequestContext requestCo
         {
             PartnerMappingRules.Validate(
                 new Dictionary<string, string> { [PartnerMappingRules.RulesKey] = request.MappingRules ?? "" },
-                subscription.MapperProperties);
+                subscription.MapperProperties,
+                await PartnerPortalAccess.VisibleKeysAsync(dbContext, caller.PartnerId));
         }
         catch (SWValidationException ex)
         {
@@ -235,15 +239,14 @@ public class MappingSample(BitweenDbContext dbContext, RequestContext requestCon
     }
 }
 
-/// <summary>The names of their own partner properties, for a mapping rule to read; never the values.</summary>
+/// <summary>The names of the partner properties they may see, for a mapping rule to read; never the values.</summary>
 [HandlerName("propertykeys")]
 public class PropertyKeys(BitweenDbContext dbContext, RequestContext requestContext) : IQueryHandler<object>
 {
     public async Task<object> Handle()
     {
         var caller = await PortalCaller.EnsureAsync(dbContext, requestContext, Model.Permissions.Portal.MappingsEdit);
-        var properties = await dbContext.Set<Partner>().AsNoTracking()
-            .Where(p => p.Id == caller.PartnerId).Select(p => p.AdapterProperties).SingleOrDefaultAsync();
-        return (properties ?? new Dictionary<string, string>()).Keys.OrderBy(k => k).ToList();
+        // Only those they may see: a hidden one is ours to know about.
+        return (await PartnerPortalAccess.VisibleKeysAsync(dbContext, caller.PartnerId)).OrderBy(k => k).ToList();
     }
 }

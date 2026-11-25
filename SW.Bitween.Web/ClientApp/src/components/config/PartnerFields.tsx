@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
-import { api, referencesPartnerProp, type ApiCredentialRef } from "../../api";
+import { api, referencesPartnerProp, type ApiCredentialRef, type PortalAccessLevel } from "../../api";
 import { Can } from "../../auth/guards";
 import { Button, FormError } from "../ui/basics";
 import { CopyField } from "../ui/CopyField";
@@ -35,6 +35,8 @@ export interface PartnerDraft {
   /** Property names whose values the API hides; their values ride along as the sentinel. */
   secretProperties: string[];
   loginIdentity: string;
+  /** What their people see of each property in the portal; only the partner's own page edits it. */
+  portalAccess?: Record<string, PortalAccessLevel>;
 }
 
 export function PartnerFields({
