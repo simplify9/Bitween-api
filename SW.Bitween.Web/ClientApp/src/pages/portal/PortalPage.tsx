@@ -90,7 +90,7 @@ function Summary() {
       {tiles.map((t) => (
         <div key={t.label} className="rounded-xl border border-ink-200 bg-white px-4 py-3" title={t.title}>
           <div className="text-xs text-ink-500">{t.label} · 24 h</div>
-          <div className="mt-0.5 text-xl font-semibold tabular-nums text-ink-900">{t.value == null ? "–" : whole(t.value)}</div>
+          <div className="mt-0.5 text-xl font-semibold tabular-nums text-ink-900">{t.value == null ? "-" : whole(t.value)}</div>
         </div>
       ))}
     </section>
@@ -226,10 +226,10 @@ function Exchanges() {
                       {STATUS[x.status].label}
                     </Badge>
                   </td>
-                  <td className="max-w-56 truncate px-2 py-1.5 text-ink-900">{x.subscriptionName ?? "–"}</td>
+                  <td className="max-w-56 truncate px-2 py-1.5 text-ink-900">{x.subscriptionName ?? "-"}</td>
                   <td className="hidden max-w-48 truncate px-2 py-1.5 text-ink-600 sm:table-cell">{x.documentName}</td>
                   <td className="hidden px-4 py-1.5 text-right whitespace-nowrap text-ink-600 tabular-nums sm:table-cell">
-                    {x.finishedOn ? duration(x.startedOn, x.finishedOn) : "–"}
+                    {x.finishedOn ? duration(x.startedOn, x.finishedOn) : "-"}
                   </td>
                 </tr>
               ))}
@@ -268,7 +268,7 @@ function ExchangeDialog({ x, onClose }: { x: PortalExchange; onClose: () => void
           </Badge>
         </dd>
         <dt className="text-ink-500">Subscription</dt>
-        <dd className="text-ink-900">{x.subscriptionName ?? "–"}</dd>
+        <dd className="text-ink-900">{x.subscriptionName ?? "-"}</dd>
         <dt className="text-ink-500">Information type</dt>
         <dd className="text-ink-900">{x.documentName}</dd>
         <dt className="text-ink-500">Started</dt>
