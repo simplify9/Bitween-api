@@ -1,4 +1,4 @@
-import { createBrowserRouter, type RouteObject } from "react-router";
+import { Navigate, createBrowserRouter, type RouteObject } from "react-router";
 import { PORTAL_PATH, RequireAuth, RequirePartner, RequirePermission } from "./auth/guards";
 import { PAGES, type PageId } from "./pages";
 import { AppShell } from "./components/layout/AppShell";
@@ -224,6 +224,8 @@ export const routes: RouteObject[] = [
               </Suspense>
             ),
           },
+          // Anything else under /portal is not a page: back to the portal, never the app's frame.
+          { path: "*", element: <Navigate to={PORTAL_PATH} replace /> },
         ],
       },
       {

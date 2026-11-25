@@ -87,33 +87,31 @@ public record RuntimeIndex(string Name, long BuildLock, string[] Columns, string
 
                 case "mysql":
                 {
-                    var exists = await db.Database.SqlQueryRaw<int>(
-                        $@"SELECT COUNT(*) AS Value FROM information_schema.statistics
-                           WHERE table_schema = DATABASE() AND table_name = '{table.Name}' AND index_name = '{Name}'")
-                        .SingleAsync(cancellation);
+                    async Task<bool> Exists() => await db.Database.SqlQueryRaw<int>(
+                            $@"SELECT COUNT(*) AS Value FROM information_schema.statistics
+                               WHERE table_schema = DATABASE() AND table_name = '{table.Name}' AND index_name = '{Name}'")
+                        .SingleAsync(cancellation) > 0;
                     // A MySQL 8 build is all or nothing, so there is never a half-built one to clear.
-                    if (exists == 0)
-                        await db.Database.ExecuteSqlRawAsync(
-                            $"ALTER TABLE {tableSql} ADD INDEX {Name} ({columns}), ALGORITHM=INPLACE, LOCK=NONE;",
-                            cancellation);
-                    return true;
+                    if (await Exists()) return true;
+                    return await CreateUnlessBuiltMeanwhile(Exists, () => db.Database.ExecuteSqlRawAsync(
+                        $"ALTER TABLE {tableSql} ADD INDEX {Name} ({columns}), ALGORITHM=INPLACE, LOCK=NONE;",
+                        cancellation));
                 }
 
                 case "mssql":
                 {
-                    var exists = await db.Database.SqlQueryRaw<int>(
-                        $"SELECT COUNT(*) AS Value FROM sys.indexes WHERE name = '{Name}' AND object_id = OBJECT_ID('{tableSql}')")
-                        .SingleAsync(cancellation);
-                    if (exists > 0) return true;
+                    async Task<bool> Exists() => await db.Database.SqlQueryRaw<int>(
+                            $"SELECT COUNT(*) AS Value FROM sys.indexes WHERE name = '{Name}' AND object_id = OBJECT_ID('{tableSql}')")
+                        .SingleAsync(cancellation) > 0;
+                    if (await Exists()) return true;
 
                     var online = !await NeedsQuietHourAsync(db, options, cancellation);
                     if (!online && DateTime.UtcNow.Hour != options.MaintenanceQuietHourUtc) return false;
 
                     // Transactional, so a build cut short leaves nothing behind.
-                    await db.Database.ExecuteSqlRawAsync(
+                    return await CreateUnlessBuiltMeanwhile(Exists, () => db.Database.ExecuteSqlRawAsync(
                         $"CREATE INDEX {sql.DelimitIdentifier(Name)} ON {tableSql} ({columns}) " +
-                        $"WITH (ONLINE = {(online ? "ON" : "OFF")});", cancellation);
-                    return true;
+                        $"WITH (ONLINE = {(online ? "ON" : "OFF")});", cancellation));
                 }
 
                 default:
@@ -123,6 +121,25 @@ public record RuntimeIndex(string Name, long BuildLock, string[] Columns, string
         finally
         {
             db.Database.SetCommandTimeout(previousTimeout);
+        }
+    }
+
+    /// <summary>
+    /// Creates it, and when that fails, asks whether it is there after all. MySQL and SQL Server have
+    /// no lock held across the check and the build the way Postgres's advisory one is, so another
+    /// node's run can build it in between; its "already exists" is then this run's success too.
+    /// </summary>
+    private static async Task<bool> CreateUnlessBuiltMeanwhile(Func<Task<bool>> exists, Func<Task<int>> create)
+    {
+        try
+        {
+            await create();
+            return true;
+        }
+        catch (System.Data.Common.DbException)
+        {
+            if (await exists()) return true;
+            throw;
         }
     }
 

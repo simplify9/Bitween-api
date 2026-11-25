@@ -255,6 +255,8 @@ public class PartnerPortalTests(BitweenFixture fixture)
         Assert.Equal(passes, await Passes(partnerPerson));
         // Our own people are never stopped here.
         Assert.True(await Passes(staff));
+        // A token whose account is gone gets no further than a partner's.
+        Assert.Equal(passes, await Passes(int.MaxValue - Random.Shared.Next(1000)));
     }
 
     [Fact]

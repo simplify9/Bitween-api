@@ -1,4 +1,4 @@
-import { screen, within } from "@testing-library/react";
+import { cleanup, screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { apiPath, renderApp } from "../../../__tests__/support/renderApp";
@@ -52,6 +52,16 @@ describe("the partner portal", () => {
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
   });
 
+  it("takes a partner's person from a look-alike address to the portal, never the app's frame", async () => {
+    for (const path of ["/portal-old", "/portal/nothing-here"]) {
+      const { router } = renderApp(path, { as: { partner: ACME, permissions: EVERYTHING }, handlers: portal().handlers });
+      expect(await screen.findByRole("heading", { name: ACME.name })).toBeVisible();
+      expect(router.state.location.pathname).toBe("/portal");
+      expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
+      cleanup();
+    }
+  });
+
   it("sends our own people back to the app", async () => {
     const { router } = renderApp("/portal", { handlers: portal().handlers });
     await screen.findByRole("navigation");
@@ -65,17 +75,17 @@ describe("the partner portal", () => {
     const subscriptions = within((await screen.findByRole("heading", { name: "Subscriptions" })).closest("section")!);
     expect(await subscriptions.findByText("Acme pickups")).toBeVisible();
     expect(subscriptions.getByText("Paused")).toBeVisible();
-    expect(screen.getByText("40")).toBeVisible();
+    expect(await screen.findByText("40")).toBeVisible();
 
-    await user.click(await screen.findByRole("row", { name: /Acme webhook/ }));
+    await user.click(await screen.findByRole("button", { name: /Open the exchange of/ }));
     const dialog = within(screen.getByRole("dialog", { name: "Exchange" }));
     expect(dialog.getByText(/The remote server returned 500/)).toBeVisible();
     expect(dialog.getByRole("link", { name: "Download Received" })).toHaveAttribute("href", failed.files[0].url);
     await user.click(dialog.getByRole("button", { name: /close/i }));
 
     await user.click(screen.getByRole("radio", { name: "Failed" }));
-    await screen.findByRole("row", { name: /Acme webhook/ });
-    expect(searches.at(-1)).toContain("status=failed");
+    // The rows on screen are the last search's until the filtered one answers.
+    await waitFor(() => expect(searches.at(-1)).toContain("status=failed"));
   });
 
   it("shows only what the role allows", async () => {

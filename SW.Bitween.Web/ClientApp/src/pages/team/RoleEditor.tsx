@@ -140,7 +140,10 @@ export function RoleEditor() {
 
   const save = useMutation({
     mutationFn: () => {
-      const input = { name, description, permissions: [...granted!] };
+      // Only what the form shows: a duplicate of Administrator carries the partner portal keys too,
+      // which a team role can't hold and this form doesn't offer.
+      const shown = new Set(allKeysIn(areas));
+      const input = { name, description, permissions: [...granted!].filter((p) => shown.has(p)) };
       return isNew ? api.createRole({ ...input, forPartners }) : api.updateRole(id!, input);
     },
     onSuccess: () => {
@@ -283,6 +286,7 @@ export function RoleEditor() {
                     value={forPartners ? "partners" : "team"}
                     disabled={!editable}
                     onChange={(v) => {
+                      if ((v === "partners") === forPartners) return;
                       setForPartners(v === "partners");
                       // Neither side's permissions fit the other's roles.
                       setGranted(new Set());

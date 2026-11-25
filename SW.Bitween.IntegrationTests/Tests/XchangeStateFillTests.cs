@@ -197,6 +197,8 @@ public class XchangeStateFillTests(BitweenFixture fixture) : IAsyncLifetime
             $"SELECT indexdef AS \"Value\" FROM pg_indexes WHERE schemaname = 'infolink' AND indexname = '{XchangePartnerIndex.Name}'")
             .SingleOrDefault();
 
+        // Another test's run may have built it already; this one has to build it itself.
+        await x.InDb(db => db.Database.ExecuteSqlRawAsync($"DROP INDEX IF EXISTS infolink.{XchangePartnerIndex.Name};"));
         XchangePartnerIndex.Forget();
         Assert.Equal(XchangeStateFillPhase.Ready, await RunToTheEndAsync());
         var definition = await x.InDb(db => Task.FromResult(Definition(db)));
@@ -205,7 +207,7 @@ public class XchangeStateFillTests(BitweenFixture fixture) : IAsyncLifetime
 
         // An installation whose fill finished long ago, before this index existed: the next run,
         // with nothing left to fill, builds it all the same.
-        await x.InDb(db => db.Database.ExecuteSqlRawAsync($"DROP INDEX infolink.{XchangePartnerIndex.Name};"));
+        await x.InDb(db => db.Database.ExecuteSqlRawAsync($"DROP INDEX IF EXISTS infolink.{XchangePartnerIndex.Name};"));
         XchangePartnerIndex.Forget();
         Assert.Equal(XchangeStateFillPhase.Ready, await RunOnceAsync(TimeSpan.FromSeconds(30)));
         Assert.NotNull(await x.InDb(db => Task.FromResult(Definition(db))));

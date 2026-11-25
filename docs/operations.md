@@ -52,7 +52,7 @@ During the deploy, a server still on the earlier version can remove the job's sc
 
 A retried exchange stays marked retried even when retention later removes its retry.
 
-Once the fill is done, the same job also builds the index the [partner portal](security.md#partner-portal) lists a partner's exchanges through: partner, then start time. It is built the same way, without blocking writes, one server at a time, and at 00:00 UTC on SQL Server Standard and Express. That includes installations whose fill finished before this index existed. Until it's built, a partner with few exchanges waits longer for their list. On 2 million exchanges it took that list from 0.27 s to 3 ms.
+Once the fill is done, the same job also builds the index the [partner portal](security.md#partner-portal) lists a partner's exchanges through: partner, then start time. It is built the same way, one server at a time and without blocking writes, except on SQL Server Standard and Express: there it waits for the quiet hour (`MaintenanceQuietHourUtc`, 00:00 UTC unless configured), and saving exchanges pauses while it builds. That includes installations whose fill finished before this index existed. Until it's built, a partner with few exchanges waits longer for their list. On 2 million exchanges it took that list from 0.27 s to 3 ms.
 
 ## Queue health
 

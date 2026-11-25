@@ -46,13 +46,16 @@ export function RequireAuth() {
   }
   // A partner's person has the portal and their password, and nothing else; every other screen
   // would only be refused.
-  if (session.partner && !location.pathname.startsWith(PORTAL_PATH) && location.pathname !== "/change-password") {
+  if (session.partner && !inPortal(location.pathname) && location.pathname !== "/change-password") {
     return <Navigate to={PORTAL_PATH} replace />;
   }
   return <Outlet />;
 }
 
 export const PORTAL_PATH = "/portal";
+
+/** The portal and the pages under it; "/portal-old" is neither. */
+const inPortal = (path: string) => path === PORTAL_PATH || path.startsWith(PORTAL_PATH + "/");
 
 /** The partner portal is for a partner's people; our own are sent back to the app. */
 export function RequirePartner() {
