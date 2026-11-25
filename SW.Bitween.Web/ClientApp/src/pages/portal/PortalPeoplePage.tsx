@@ -86,7 +86,13 @@ export function PortalPeoplePage() {
           description="Only your company's. Only we can make or change one of your admins."
           action={
             canEdit && (
-              <Button variant="primary" size="sm" onClick={() => setAdding(true)} title="Add someone and email them an invite">
+              <Button
+                variant="primary"
+                size="sm"
+                disabled={!roles.data}
+                onClick={() => setAdding(true)}
+                title="Add someone and email them an invite"
+              >
                 <UserPlus className="size-4" /> Invite someone
               </Button>
             )
@@ -98,6 +104,10 @@ export function PortalPeoplePage() {
             <LoadError error={people.error} what="your company's people" onRetry={() => void people.refetch()} />
           ) : (
             <>
+              {/* No phone cards: a card has no room for the role picker and the actions, so the table scrolls instead. */}
+              {roles.isError && (
+                <LoadError error={roles.error} what="the roles you can give" onRetry={() => void roles.refetch()} />
+              )}
               <Table
                 rows={people.data}
                 rowKey={(p) => p.id}
@@ -174,11 +184,6 @@ export function PortalPeoplePage() {
                       ),
                   },
                 ]}
-                card={(p) => ({
-                  title: p.name,
-                  status: status(p),
-                  subtitle: `${p.email} · ${p.role?.name ?? "Several roles"}`,
-                })}
               />
               <FormError>{(setRole.error ?? setDisabled.error ?? resend.error)?.message}</FormError>
             </>

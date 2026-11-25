@@ -14,15 +14,15 @@ internal record PortalCaller(int PartnerId, HashSet<string> Granted)
     public bool Can(string permission) => Granted.Contains(permission);
 
     /// <summary>
-    /// Refuses unless the caller is a partner's person holding <paramref name="permission"/>. Our
+    /// Refuses unless the caller is a partner's person holding one of <paramref name="anyOf"/>. Our
     /// own administrators hold every key, portal ones too, but have no partner, so they are refused
     /// here as well: the portal only ever shows one partner's data, and that is the caller's own.
     /// </summary>
     public static async Task<PortalCaller> EnsureAsync(BitweenDbContext dbContext, RequestContext requestContext,
-        string permission)
+        params string[] anyOf)
     {
         var granted = await requestContext.GetPermissions(dbContext);
-        if (!granted.Contains(permission))
+        if (!anyOf.Any(granted.Contains))
             throw new SWUnauthorizedException("INSUFFICIENT_PERMISSIONS");
 
         var accountId = Convert.ToInt32(requestContext.GetNameIdentifier());

@@ -39,7 +39,8 @@ export function PortalPage() {
   const canExchanges = useSessionCan("portal-exchanges.view");
   const canSubscriptions = useSessionCan("portal-subscriptions.view");
   const canMappings = useSessionCan("portal-mappings.view");
-  const canPeople = useSessionCan("portal-people.view");
+  const canManagePeople = useSessionCan("portal-people.edit");
+  const canPeople = useSessionCan("portal-people.view") || canManagePeople;
 
   return (
     <div className="min-h-screen bg-canvas">

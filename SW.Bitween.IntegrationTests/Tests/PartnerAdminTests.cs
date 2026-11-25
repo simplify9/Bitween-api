@@ -142,4 +142,32 @@ public class PartnerAdminTests(BitweenFixture fixture)
         await Assert.ThrowsAsync<SWUnauthorizedException>(() => Run<Resources.Portal.AddPerson>(editor, h =>
             h.Handle(new PortalAddPerson { Name = "x", Email = $"{Guid.NewGuid():N}@acme.test", RoleId = world.ViewerRole })));
     }
+
+    [Fact]
+    public async Task A_narrower_admin_sees_the_list_and_only_people_within_their_reach_as_changeable()
+    {
+        var world = await SetUpAsync();
+        int narrow, editor, viewer;
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            // Manages people without the view key, and can't change mappings.
+            var role = new Role($"Narrow admin {Guid.NewGuid():N}", null,
+                [Permissions.Portal.PeopleEdit, Permissions.Portal.SubscriptionsView, Permissions.Portal.ExchangesView,
+                 Permissions.Portal.ExchangeFilesView, Permissions.Portal.ExchangeErrorsView, Permissions.Portal.MappingsView],
+                forPartners: true);
+            db.Add(role);
+            await db.SaveChangesAsync();
+            narrow = await PersonAsync(db, world.Mine, role.Id);
+            editor = await PersonAsync(db, world.Mine, world.EditorRole);
+            viewer = await PersonAsync(db, world.Mine, world.ViewerRole);
+        }
+
+        var people = (List<PortalPerson>)await Run<Resources.Portal.People>(narrow, h => h.Handle());
+        // The editor can change mappings, which this admin can't, so they're out of reach.
+        Assert.False(people.Single(p => p.Id == editor).CanChange);
+        Assert.True(people.Single(p => p.Id == viewer).CanChange);
+        await Assert.ThrowsAsync<SWValidationException>(() => Run<Resources.Portal.SetPersonDisabled>(narrow, h =>
+            h.Handle(new PortalPersonDisabled { AccountId = editor, Disabled = true })));
+    }
 }

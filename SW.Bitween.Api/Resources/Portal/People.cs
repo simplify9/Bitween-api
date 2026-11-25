@@ -78,7 +78,9 @@ public class People(BitweenDbContext dbContext, RequestContext requestContext) :
 {
     public async Task<object> Handle()
     {
-        var caller = await PortalCaller.EnsureAsync(dbContext, requestContext, Model.Permissions.Portal.PeopleView);
+        // Managing people needs the list too, so a role that may change them may see them.
+        var caller = await PortalCaller.EnsureAsync(dbContext, requestContext,
+            Model.Permissions.Portal.PeopleView, Model.Permissions.Portal.PeopleEdit);
         var me = Convert.ToInt32(requestContext.GetNameIdentifier());
         var accounts = await dbContext.Set<Account>().AsNoTracking()
             .Where(a => a.PartnerId == caller.PartnerId && a.Kind == AccountKind.Person)
@@ -97,10 +99,14 @@ public class People(BitweenDbContext dbContext, RequestContext requestContext) :
             .GroupBy(l => l.AccountId)
             .Select(g => new { AccountId = g.Key, ExpiresOn = g.Max(l => l.ExpiresOn) })
             .ToDictionaryAsync(i => i.AccountId, i => i.ExpiresOn);
-        var admins = new HashSet<int>();
+        // Changeable as ChangeableAsync decides: not another admin, and nothing they hold beyond the caller.
+        var changeable = new HashSet<int>();
         foreach (var id in ids)
-            if ((await RequestContextExtensions.GetPermissionsOf(dbContext, id)).Contains(Model.Permissions.Portal.PeopleEdit))
-                admins.Add(id);
+        {
+            var theirs = await RequestContextExtensions.GetPermissionsOf(dbContext, id);
+            if (!theirs.Contains(Model.Permissions.Portal.PeopleEdit) && theirs.IsSubsetOf(caller.Granted))
+                changeable.Add(id);
+        }
 
         var canEdit = caller.Can(Model.Permissions.Portal.PeopleEdit);
         return accounts.Select(a =>
@@ -117,7 +123,7 @@ public class People(BitweenDbContext dbContext, RequestContext requestContext) :
                 InviteExpiresOn = !a.HasPassword && invites.TryGetValue(a.Id, out var on) ? on : null,
                 LastSignInOn = a.LastSignInOn,
                 IsYou = a.Id == me,
-                CanChange = canEdit && a.Id != me && !admins.Contains(a.Id)
+                CanChange = canEdit && a.Id != me && changeable.Contains(a.Id)
             };
         }).ToList();
     }
