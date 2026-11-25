@@ -1,11 +1,10 @@
 import type { ApiClient } from "../client";
 import type {
+  InformationType,
   PartnerChange,
   PartnerChangeDetail,
   PartnerChangeVersion,
   PartnerPropertyChangeDetail,
-  PortalExchangePage,
-  PortalExchangeQuery,
   PortalMapping,
   PortalMappingPlace,
   PortalMappingSample,
@@ -14,7 +13,6 @@ import type {
   PortalPerson,
   PortalProperties,
   PortalRoleChoice,
-  PortalSummary,
   SubscriptionPartnerMapping,
 } from "../types";
 import { get, post } from "./request";
@@ -22,9 +20,9 @@ import { get, post } from "./request";
 /** The partner portal: always the signed-in partner's own data, scoped by the server. */
 export const portalMethods: Pick<
   ApiClient,
-  | "getPortalSummary"
   | "listPortalSubscriptions"
-  | "searchPortalExchanges"
+  | "retryPortalExchange"
+  | "listPortalInformationTypes"
   | "listPortalMappings"
   | "getPortalMapping"
   | "savePortalMapping"
@@ -58,20 +56,23 @@ export const portalMethods: Pick<
   | "setPortalPersonDisabled"
   | "removePortalPerson"
 > = {
-  getPortalSummary: () => get<PortalSummary>("/portal/summary"),
-
   listPortalSubscriptions: () =>
     get<{ id: number; name: string; type: string; documentName: string; paused: boolean }[]>("/portal/subscriptions").then(
       (rows) => rows.map((r) => ({ ...r, id: String(r.id) })),
     ),
 
-  searchPortalExchanges: (query: PortalExchangeQuery) => {
-    const params = new URLSearchParams({ page: String(query.page), size: String(query.size) });
-    if (query.status) params.set("status", query.status);
-    if (query.subscriptionId) params.set("subscriptionId", query.subscriptionId);
-    return get<PortalExchangePage>(`/portal/xchanges?${params}`);
-  },
-
+  listPortalInformationTypes: async () =>
+    (await get<{ id: number; name: string; code: string | null; promotedPropertyKeys: string[] }[]>("/portal/informationtypes")).map(
+      // Only what the filters read: the names it promotes, never where they're read from.
+      (t) =>
+        ({
+          id: t.id,
+          name: t.name,
+          code: t.code ?? undefined,
+          promotedProperties: t.promotedPropertyKeys.map((key) => ({ key, path: "" })),
+        }) as unknown as InformationType,
+    ),
+  retryPortalExchange: async (xchangeId) => (await post<{ xchangeId: string }>("/portal/retry", { xchangeId })).xchangeId,
   listPortalMappings: () => get<PortalMappingPlace[]>("/portal/mappings"),
   getPortalMapping: (subscriptionId) => get<PortalMapping>(`/portal/mapping?subscriptionId=${subscriptionId}`),
   savePortalMapping: async (subscriptionId, mapperProperties) =>

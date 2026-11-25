@@ -85,12 +85,13 @@ describe("a partner's admin's people page", () => {
     await waitFor(() => expect(disabled).toEqual([{ accountId: 3, disabled: true }]));
   });
 
-  it("is reached from the portal only by someone who may see their people", async () => {
-    renderApp("/portal", {
+  it("is in the sidebar only for someone who may see their people", async () => {
+    renderApp("/portal/mappings", {
       as: { partner: ACME, permissions: ["portal-mappings.view"] },
       handlers: [http.get(apiPath("/portal/mappings"), () => HttpResponse.json([]))],
     });
-    await screen.findByText("Partner portal");
-    expect(screen.queryByRole("link", { name: "People" })).not.toBeInTheDocument();
+    const nav = await screen.findByRole("navigation", { name: "Main" });
+    expect(within(nav).getByRole("link", { name: "Mappings" })).toBeVisible();
+    expect(within(nav).queryByRole("link", { name: "People" })).not.toBeInTheDocument();
   });
 });

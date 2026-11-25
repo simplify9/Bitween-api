@@ -58,10 +58,11 @@ export const PORTAL_PATH = "/portal";
 const inPortal = (path: string) => path === PORTAL_PATH || path.startsWith(PORTAL_PATH + "/");
 
 /** The partner portal is for a partner's people; our own are sent back to the app. */
-export function RequirePartner() {
+/** A partner's people's page: anyone else goes back to the app. */
+export function RequirePartner({ children }: { children?: ReactNode }) {
   const { session } = useSession();
   if (!session?.partner) return <Navigate to="/" replace />;
-  return <Outlet />;
+  return children ?? <Outlet />;
 }
 
 /** Full-page stop for routes the session's roles don't unlock. */

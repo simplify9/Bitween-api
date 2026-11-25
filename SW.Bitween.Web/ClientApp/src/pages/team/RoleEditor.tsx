@@ -29,8 +29,17 @@ import { usePageTitle } from "../../lib/pageTitle";
 import { usePhone } from "../../lib/useMediaQuery";
 
 /** Live answer to "what would someone with this role actually see?" */
-function AccessPreview({ permissions, total }: { permissions: Set<PermissionKey>; total: number }) {
-  const groups = visibleGroups([...permissions]);
+function AccessPreview({
+  permissions,
+  total,
+  partner = false,
+}: {
+  permissions: Set<PermissionKey>;
+  total: number;
+  /** A partner role: their portal's sidebar, not ours. */
+  partner?: boolean;
+}) {
+  const groups = visibleGroups([...permissions], partner);
   return (
     <div className="rounded-xl border border-ink-200 bg-white p-4">
       <h3 className="text-xs font-semibold tracking-wide text-ink-500 uppercase">
@@ -442,7 +451,7 @@ export function RoleEditor() {
               whatever is ticked here. Nothing else in Bitween opens for them.
             </div>
           ) : (
-            <AccessPreview permissions={granted} total={allKeysIn(areas).length} />
+            <AccessPreview permissions={granted} total={allKeysIn(areas).length} partner={forPartners} />
           )}
 
           {/* A role that doesn't exist yet has no history, and a system role's grants are

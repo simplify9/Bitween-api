@@ -160,6 +160,7 @@ export function RetryDialog({
   error = null,
   onConfirm,
   onResetChange,
+  chooseReset = true,
   onClose,
 }: {
   count: number;
@@ -177,6 +178,8 @@ export function RetryDialog({
    * for an exchange whose subscription is gone - so the caller has to be able to ask again.
    */
   onResetChange?: (reset: boolean) => void;
+  /** Whether the current settings may be chosen instead of the captured ones; a partner's always uses them. */
+  chooseReset?: boolean;
   onClose: () => void;
 }) {
   const [reset, setReset] = useState(false);
@@ -291,7 +294,7 @@ export function RetryDialog({
             )}
 
             {/* Not once it's under way: it keeps the choice it started with. */}
-            {!progress && (
+            {!progress && chooseReset && (
               <Checkbox
                 label="Re-resolve adapter properties"
                 description="Use the subscription's current configuration instead of the values captured when the exchange first ran."

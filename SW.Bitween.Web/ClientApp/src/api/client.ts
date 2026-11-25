@@ -1,7 +1,6 @@
 import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
   SubscriptionPartnerMapping,
-  PortalExchangePage,
   PortalMapping,
   PortalMappingPlace,
   PortalMappingSample,
@@ -15,9 +14,7 @@ import type {
   PartnerChangeDetail,
   PartnerChangeVersion,
   PartnerPropertyChangeDetail,
-  PortalExchangeQuery,
   PortalSubscription,
-  PortalSummary,
   MirrorBring,
   MirrorBringSection,
   MirrorListed,
@@ -787,8 +784,11 @@ export interface ApiClient {
   ): Promise<Paged<NotificationChannelSend>>;
 
   // - exchanges -
-  searchExchanges(query: ExchangeQuery, opts?: { count?: boolean }): Promise<Paged<ExchangeRow>>;
-  getExchangeBreakdown(query: ExchangeQuery): Promise<ExchangeBreakdown>;
+  /** With `portal`, the signed-in partner's own, through the partner portal's API. */
+  searchExchanges(query: ExchangeQuery, opts?: { count?: boolean; portal?: boolean }): Promise<Paged<ExchangeRow>>;
+  getExchangeBreakdown(query: ExchangeQuery, opts?: { portal?: boolean }): Promise<ExchangeBreakdown>;
+  /** A file of a partner's exchange, by its signed link. */
+  readExchangeFileLink(url: string): Promise<string>;
 
   // - audit trail -
   /** Who changed what, and when. Filters narrow it; with none set it is the whole trail. */
@@ -823,7 +823,7 @@ export interface ApiClient {
   linkToBackgroundFile(id: string): Promise<{ url: string }>;
   /** How many of the selection's exchanges the export would come without files for. Changes nothing. */
   checkExchangeFilesExport(selection: BulkRetrySelection): Promise<ExportFilesCheck>;
-  getRetryTree(id: string): Promise<RetryTree>;
+  getRetryTree(id: string, opts?: { portal?: boolean }): Promise<RetryTree>;
   /**
    * Turns a plain-English question into the Exchanges page's filter, through the AI provider under
    * Settings, AI. Only the question, the time and names (partners, subscriptions, information
@@ -939,13 +939,13 @@ export interface ApiClient {
 
   // --- Partner portal: the signed-in partner's own data only ---
 
-  /** Their name and the last 24 hours of their exchanges by outcome. */
-  getPortalSummary(): Promise<PortalSummary>;
   /** The subscriptions that run for them, read-only. */
   listPortalSubscriptions(): Promise<PortalSubscription[]>;
-  /** Their exchanges newest first, a page at a time; errors and files only with those permissions. */
-  searchPortalExchanges(query: PortalExchangeQuery): Promise<PortalExchangePage>;
   /** Every place they're connected, and whether they use their own mapping there. */
+  /** The information types of what runs for them, shaped for the Exchanges page's filters. */
+  listPortalInformationTypes(): Promise<InformationType[]>;
+  /** Retries one of their failed exchanges with the current settings; the new attempt's id. */
+  retryPortalExchange(xchangeId: string): Promise<string>;
   listPortalMappings(): Promise<PortalMappingPlace[]>;
   getPortalMapping(subscriptionId: number): Promise<PortalMapping>;
   /** Saves their own mapping of a place: used from their next exchange, or waiting for approval. */

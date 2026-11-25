@@ -15,7 +15,12 @@ export const AdapterEditorPage = lazy(() => import("./pages/adapters/AdapterEdit
 export const AdaptersPage = lazy(() => import("./pages/adapters/AdaptersPage").then((m) => ({ default: m.AdaptersPage })));
 export const PortalMappingPage = lazy(() => import("./pages/portal/PortalMappingPage").then((m) => ({ default: m.PortalMappingPage })));
 export const PortalPeoplePage = lazy(() => import("./pages/portal/PortalPeoplePage").then((m) => ({ default: m.PortalPeoplePage })));
-export const PortalPage = lazy(() => import("./pages/portal/PortalPage").then((m) => ({ default: m.PortalPage })));
+export const PortalExchangesPage = lazy(() => import("./pages/portal/PortalExchangesPage").then((m) => ({ default: m.PortalExchangesPage })));
+export const PortalMappingsPage = lazy(() => import("./pages/portal/PortalMappingsPage").then((m) => ({ default: m.PortalMappingsPage })));
+export const PortalSubscriptionsPage = lazy(() =>
+  import("./pages/portal/PortalSubscriptionsPage").then((m) => ({ default: m.PortalSubscriptionsPage })),
+);
+export const PortalDetailsPage = lazy(() => import("./pages/portal/PortalDetailsPage").then((m) => ({ default: m.PortalDetailsPage })));
 export const ProfilePage = lazy(() => import("./pages/ProfilePage").then((m) => ({ default: m.ProfilePage })));
 export const AuditPage = lazy(() => import("./pages/audit/AuditPage").then((m) => ({ default: m.AuditPage })));
 export const NodesPage = lazy(() => import("./pages/nodes/NodesPage").then((m) => ({ default: m.NodesPage })));

@@ -10,6 +10,7 @@ import {
   type ExportFilesCheck,
 } from "../../api";
 import { Can } from "../../auth/guards";
+import { useSessionCan } from "../../auth/useSessionCan";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { useBackgroundProgress } from "../../lib/useBackground";
 import { followDownload } from "../../lib/saveFile";
@@ -21,6 +22,7 @@ import { timeAgo } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
 import { NONE } from "../../lib/none";
 import { RetryDialog } from "./shared";
+import { useExchangeSource } from "./exchangeSource";
 import { ExchangeList } from "./ExchangeList";
 import { ExchangeDetailPanel } from "./ExchangeDetailPanel";
 import { AskedLine, type AskedQuestion } from "./AskExchanges";
@@ -82,6 +84,8 @@ const shortcutsBlocked = (e: KeyboardEvent) => {
 };
 
 export function ExchangesPage() {
+  const source = useExchangeSource();
+  const { partner } = source;
   const [searchParams, setSearchParams] = useSearchParams();
   const query = useMemo(() => readQuery(searchParams), [searchParams]);
   const [refreshMs, setRefreshMs] = useState(15_000);
@@ -113,7 +117,7 @@ export function ExchangesPage() {
   // counts below, which can take far longer to work out on a busy instance.
   const { data, isLoading, isFetching, isPlaceholderData, isError, error, dataUpdatedAt, refetch } = useQuery({
     queryKey: keys.exchanges.search(viewSearch(searchParams) + `&offset=${query.offset}`),
-    queryFn: () => api.searchExchanges(readQuery(searchParams), { count: false }),
+    queryFn: () => source.searchExchanges(readQuery(searchParams), { count: false }),
     // A list that failed with nothing to show waits for Try again: asked every 15s, a timeout kept
     // the database busy with the same query for as long as the page stayed open.
     refetchInterval: (q) => (q.state.status === "error" && q.state.data === undefined ? false : refreshMs || false),
@@ -140,23 +144,24 @@ export function ExchangesPage() {
     keepCounted(previous as ExchangeBreakdown | undefined, next as ExchangeBreakdown);
   const breakdown = useQuery({
     queryKey: keys.exchanges.breakdown(breakdownKey),
-    queryFn: () => api.getExchangeBreakdown(readQuery(searchParams)),
+    queryFn: () => source.getExchangeBreakdown(readQuery(searchParams)),
     refetchInterval: askAgain,
     placeholderData: keepPreviousData,
     structuralSharing: keepNumbers,
     retry: false,
   });
-  const chartParams = timed ? null : withParams(searchParams, { range: "24h", status: null });
+  // No chart for a partner's people, yet: the list and its counts are what they came for.
+  const chartParams = timed || partner ? null : withParams(searchParams, { range: "24h", status: null });
   const chartBreakdown = useQuery({
     queryKey: keys.exchanges.breakdown(chartParams ? viewSearch(chartParams) : ""),
-    queryFn: () => api.getExchangeBreakdown(readQuery(chartParams!)),
+    queryFn: () => source.getExchangeBreakdown(readQuery(chartParams!)),
     enabled: !!chartParams,
     refetchInterval: askAgain,
     placeholderData: keepPreviousData,
     structuralSharing: keepNumbers,
     retry: false,
   });
-  const volume = timed ? breakdown.data : chartBreakdown.data;
+  const volume = partner ? undefined : timed ? breakdown.data : chartBreakdown.data;
 
   // Now, rather than at the next tick - or at all, paused. The counts and the chart come along so
   // they never disagree with the rows. The chart's query is off when the list is timed, and a
@@ -169,10 +174,31 @@ export function ExchangesPage() {
   };
   const rangeEndsNow = !searchParams.get("to") && searchParams.get("range") !== "yesterday";
 
-  const subscriptions = useSubscriptionsCache().data ?? [];
-  const partners = useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners() }).data ?? [];
-  const infoTypes =
-    useQuery({ queryKey: keys.informationTypes.list, queryFn: () => api.listInformationTypes() }).data ?? NONE;
+  // What the filters pick from. A partner's people may list neither our subscriptions nor our
+  // information types, so theirs come from the portal: only what runs for them.
+  const canPortalSubscriptions = useSessionCan("portal-subscriptions.view");
+  const staffSubscriptions = useSubscriptionsCache(!partner).data;
+  const portalSubscriptions = useQuery({
+    queryKey: keys.portal.subscriptions,
+    queryFn: () => api.listPortalSubscriptions(),
+    enabled: partner && canPortalSubscriptions,
+  }).data;
+  const subscriptions = partner
+    ? (portalSubscriptions ?? []).map((s) => ({ id: Number(s.id), name: s.name }))
+    : (staffSubscriptions ?? []);
+  const partners =
+    useQuery({ queryKey: keys.partners.list, queryFn: () => api.listPartners(), enabled: !partner }).data ?? [];
+  const staffInfoTypes = useQuery({
+    queryKey: keys.informationTypes.list,
+    queryFn: () => api.listInformationTypes(),
+    enabled: !partner,
+  }).data;
+  const portalInfoTypes = useQuery({
+    queryKey: keys.portal.informationTypes,
+    queryFn: () => api.listPortalInformationTypes(),
+    enabled: partner,
+  }).data;
+  const infoTypes = (partner ? portalInfoTypes : staffInfoTypes) ?? NONE;
 
   /**
    * Every promoted key any information type declares, with the types that declare it.
@@ -247,7 +273,7 @@ export function ExchangesPage() {
   // Opened from a link, or kept open while the page moved on: fetched on its own.
   const openElsewhere = useQuery({
     queryKey: keys.exchanges.search(`open=${openId}`),
-    queryFn: () => api.searchExchanges({ ids: openId!, offset: 0, limit: 10 }),
+    queryFn: () => source.searchExchanges({ ids: openId!, offset: 0, limit: 10 }),
     enabled: !!openId && !openOnPage && !isLoading,
   });
   const openRow = openOnPage ?? openElsewhere.data?.result.find((r) => r.id === openId) ?? null;
@@ -305,7 +331,7 @@ export function ExchangesPage() {
         const next = rows[Math.max(0, Math.min(rows.length - 1, at))];
         setOpen(next.id);
         document.querySelector(`[data-row-id="${next.id}"]`)?.scrollIntoView?.({ block: "nearest" });
-      } else if (e.key === "x" && openId) {
+      } else if (e.key === "x" && openId && !partner) {
         e.preventDefault();
         toggleSelected(openId);
       }
@@ -322,7 +348,7 @@ export function ExchangesPage() {
     queryFn: () => {
       const after = new Date(new Date(newest!).getTime() + 1);
       const from = query.from && new Date(query.from) > after ? query.from : after.toISOString();
-      return api.searchExchanges({ ...readQuery(searchParams), from, offset: 0, limit: 1 });
+      return source.searchExchanges({ ...readQuery(searchParams), from, offset: 0, limit: 1 });
     },
     enabled: watchNew,
     refetchInterval: watchNew ? 15_000 : false,
@@ -403,8 +429,12 @@ export function ExchangesPage() {
     <div>
       <PageHeader
         title="Exchanges"
-        description="Every message that flows through Bitween. Open one to follow its journey and read its documents."
-        help={{
+        description={
+          partner
+            ? "Every message that ran for your company. Open one to follow its journey and read its documents."
+            : "Every message that flows through Bitween. Open one to follow its journey and read its documents."
+        }
+        help={partner ? PARTNER_HELP : {
           title: "What's on this page?",
           body: (
             <>
@@ -756,6 +786,23 @@ export function ExchangesPage() {
     </div>
   );
 }
+
+const PARTNER_HELP = {
+  title: "What's on this page?",
+  body: (
+    <>
+      <p>
+        Each row is one <strong>exchange</strong>: a message that ran for your company. Retrying one creates a new
+        exchange in the same <strong>chain</strong>, so one piece of work can show up as several rows.{" "}
+        <strong>Latest attempt only</strong> hides the attempts that have since been retried.
+      </p>
+      <p>
+        The status buttons count your exchanges under every other filter. Search by a value your documents carry, such
+        as an order number, to find one.
+      </p>
+    </>
+  ),
+};
 
 function Kbd({ children }: { children: string }) {
   return <kbd className="rounded border border-ink-200 bg-ink-50 px-1 font-mono text-[11px] text-ink-600">{children}</kbd>;

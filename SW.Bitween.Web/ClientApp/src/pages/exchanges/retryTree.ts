@@ -1,4 +1,4 @@
-import { api, type RetryTree, type RetryTreeNode } from "../../api";
+import { type RetryTree, type RetryTreeNode } from "../../api";
 import { keys } from "../../api/queryKeys";
 
 /**
@@ -9,9 +9,10 @@ import { keys } from "../../api/queryKeys";
 export const hasRetryChain = (x: { retryFor: string | null; hasRetry: boolean }) =>
   x.retryFor !== null || x.hasRetry;
 
-export const retryTreeQuery = (id: string) => ({
-  queryKey: keys.exchanges.retryTree(id),
-  queryFn: () => api.getRetryTree(id),
+/** From where the page reads (`ExchangeSource`): our team's chain, or a partner's own attempts. */
+export const retryTreeQuery = (id: string, source: { partner: boolean; getRetryTree: (id: string) => Promise<RetryTree> }) => ({
+  queryKey: [...keys.exchanges.retryTree(id), source.partner ? "partner" : "staff"],
+  queryFn: () => source.getRetryTree(id),
   /**
    * A chain is settled history above the exchange asked about and only ever grows below it, so
    * a held copy cannot be wrong about what it shows - at worst it is missing an attempt someone

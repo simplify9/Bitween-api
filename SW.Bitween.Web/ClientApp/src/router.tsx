@@ -54,7 +54,10 @@ import {
   PartnerChangesPage,
   PortalMappingPage,
   PortalPeoplePage,
-  PortalPage,
+  PortalExchangesPage,
+  PortalMappingsPage,
+  PortalSubscriptionsPage,
+  PortalDetailsPage,
   ProfilePage,
   QueueHealthPage,
   ResponseSubscriptionsPage,
@@ -115,6 +118,12 @@ const PAGE_ELEMENTS: Record<PageId, ReactNode> = {
   partners: <PartnersPage />,
   partner: <PartnerPage />,
   partnerChanges: <PartnerChangesPage />,
+  portalExchanges: <PortalExchangesPage />,
+  portalMappings: <PortalMappingsPage />,
+  portalMapping: <PortalMappingPage />,
+  portalSubscriptions: <PortalSubscriptionsPage />,
+  portalDetails: <PortalDetailsPage />,
+  portalPeople: <PortalPeoplePage />,
   dataSources: <DataSourcesPage />,
   dataSourceNew: <DataSourceNewPage />,
   dataSource: <DataSourcePage />,
@@ -161,16 +170,18 @@ export interface PageHandle {
 const pageRoutes: RouteObject[] = (Object.keys(PAGES) as PageId[]).map((id) => {
   const { path, permission, alsoFor } = PAGES[id];
   const element = PAGE_ELEMENTS[id];
+  const guarded = permission ? (
+    <RequirePermission permission={permission} alsoFor={alsoFor}>
+      {element}
+    </RequirePermission>
+  ) : (
+    element
+  );
   return {
     path,
     handle: { page: id } satisfies PageHandle,
-    element: permission ? (
-      <RequirePermission permission={permission} alsoFor={alsoFor}>
-        {element}
-      </RequirePermission>
-    ) : (
-      element
-    ),
+    // A partner's people's pages are theirs alone, whatever else a session holds.
+    element: PAGES[id].audience === "partner" ? <RequirePartner>{guarded}</RequirePartner> : guarded,
   };
 });
 
@@ -205,40 +216,6 @@ export const routes: RouteObject[] = [
           </RequirePermission>
         ),
       },
-      // A partner's person sees this and nothing else; it has its own frame, without the app's
-      // sidebar, none of whose pages they may open.
-      {
-        path: PORTAL_PATH.slice(1),
-        element: <RequirePartner />,
-        children: [
-          {
-            index: true,
-            element: (
-              <Suspense fallback={<LoadingBlock />}>
-                <PortalPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "mappings/:subscriptionId",
-            element: (
-              <Suspense fallback={<LoadingBlock />}>
-                <PortalMappingPage />
-              </Suspense>
-            ),
-          },
-          {
-            path: "people",
-            element: (
-              <Suspense fallback={<LoadingBlock />}>
-                <PortalPeoplePage />
-              </Suspense>
-            ),
-          },
-          // Anything else under /portal is not a page: back to the portal, never the app's frame.
-          { path: "*", element: <Navigate to={PORTAL_PATH} replace /> },
-        ],
-      },
       {
         element: <AppShell />,
         children: [
@@ -247,6 +224,8 @@ export const routes: RouteObject[] = [
           // itself is no longer a page - only a bookmark people may still hold.
           { path: "team", element: <TeamRedirect /> },
           ...pageRoutes,
+          // Anything else under /portal is not a page: back to the portal's first page.
+          { path: "portal/*", element: <Navigate to={PORTAL_PATH} replace /> },
           { path: "*", element: <NotFoundPage /> },
         ],
       },

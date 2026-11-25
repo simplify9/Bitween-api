@@ -53,7 +53,7 @@ internal static class XchangeFilters
     /// </para>
     /// </remarks>
     internal static async Task<IQueryable<XchangeRow>> FilteredRowsAsync(BitweenDbContext dbContext,
-        SearchyRequest searchyRequest, string status = null)
+        SearchyRequest searchyRequest, string status = null, int? partnerId = null)
     {
         searchyRequest.DatesToUtc();
         // Async, and inside here rather than in the callers, so a "select all matching" over a run
@@ -61,7 +61,11 @@ internal static class XchangeFilters
         await ResolveReceiveAttemptFilterAsync(searchyRequest, dbContext);
         var stateReady = await XchangeStateReadiness.IsReadyAsync(dbContext);
 
-        var query = from xchange in dbContext.Set<Xchange>().WhereState(searchyRequest, stateReady, status)
+        // A partner's own only, on the exchange's own column so its index answers: the portal's counts.
+        var exchanges = partnerId is { } partner
+            ? dbContext.Set<Xchange>().Where(x => x.PartnerId == partner)
+            : dbContext.Set<Xchange>();
+        var query = from xchange in exchanges.WhereState(searchyRequest, stateReady, status)
                     join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id into xr
                     from result in xr.DefaultIfEmpty()
                     join agg in dbContext.Set<XchangeAggregation>() on xchange.Id equals agg.Id into xa

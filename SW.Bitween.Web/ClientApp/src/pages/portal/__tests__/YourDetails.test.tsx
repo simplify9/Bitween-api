@@ -35,7 +35,7 @@ function backend(needsApproval = false) {
 describe("a partner's own details in the portal", () => {
   it("shows what we show them, a secret without its value, and changes only what they may", async () => {
     const { handlers, saved } = backend();
-    const { user } = renderApp("/portal", {
+    const { user } = renderApp("/portal/details", {
       as: { partner: ACME, permissions: ["portal-properties.view", "portal-properties.edit"] },
       handlers,
     });
@@ -56,7 +56,7 @@ describe("a partner's own details in the portal", () => {
 
   it("says a change waits for approval when their changes need it", async () => {
     const { handlers } = backend(true);
-    const { user } = renderApp("/portal", {
+    const { user } = renderApp("/portal/details", {
       as: { partner: ACME, permissions: ["portal-properties.view", "portal-properties.edit"] },
       handlers,
     });
@@ -67,7 +67,7 @@ describe("a partner's own details in the portal", () => {
   });
 
   it("can't be changed by a role that may only look", async () => {
-    renderApp("/portal", { as: { partner: ACME, permissions: ["portal-properties.view"] }, handlers: backend().handlers });
+    renderApp("/portal/details", { as: { partner: ACME, permissions: ["portal-properties.view"] }, handlers: backend().handlers });
     await screen.findByText("https://acme/in");
     expect(screen.queryByRole("button", { name: "Change" })).not.toBeInTheDocument();
   });

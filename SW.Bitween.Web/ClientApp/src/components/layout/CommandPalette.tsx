@@ -55,7 +55,8 @@ function matches(items: Item[], query: string): Item[] {
  */
 export function CommandPalette({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
-  const { can } = useSession();
+  const { can, session } = useSession();
+  const partner = !!session?.partner;
   const [query, setQuery] = useState("");
   const panel = useRef<HTMLDivElement>(null);
   useModalFocus(panel);
@@ -91,7 +92,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     return (Object.keys(PAGES) as PageId[])
       .filter((id) => !PAGES[id].path.includes(":"))
       .filter((id) => {
-        const { permission, alsoFor = [] } = PAGES[id];
+        const { permission, alsoFor = [], audience } = PAGES[id];
+        // A partner's people find their portal's pages, and everyone else none of them.
+        if ((audience === "partner") !== partner) return false;
         return !permission || can(permission) || alsoFor.some(can);
       })
       .map((id) => {
@@ -107,7 +110,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           words: (page.keywords ?? []).join(" "),
         };
       });
-  }, [can]);
+  }, [can, partner]);
 
   const things = useMemo<Item[]>(() => {
     const of = <T,>(

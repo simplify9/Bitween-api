@@ -180,6 +180,7 @@ export const keys = {
     /** A partner's admin's: their company's people, and the roles they may give. */
     people: ["portal", "people"] as const,
     properties: ["portal", "properties"] as const,
+    informationTypes: ["portal", "informationTypes"] as const,
     peopleRoles: ["portal", "peopleRoles"] as const,
     change: (id: number) => ["portal", "change", id] as const,
     propertyChange: (id: number) => ["portal", "propertyChange", id] as const,
