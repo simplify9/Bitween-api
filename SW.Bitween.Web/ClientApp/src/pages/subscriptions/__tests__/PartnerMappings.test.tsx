@@ -52,4 +52,14 @@ describe("partners with their own mapping, on the subscription's page", () => {
     expect(await screen.findByRole("button", { name: "See rules" }, { timeout: 10000 })).toBeVisible();
     expect(screen.queryByRole("button", { name: "Remove" })).not.toBeInTheDocument();
   });
+
+  it("says when they couldn't be read, with a way to try again", async () => {
+    renderApp("/subscriptions/10?stage=transformation", {
+      handlers: [
+        http.get(apiPath("/subscriptions/10/partnermappings"), () => new HttpResponse(null, { status: 500 })),
+        ...backend().handlers,
+      ],
+    });
+    expect(await screen.findByRole("button", { name: /try again/i }, { timeout: 10000 })).toBeVisible();
+  });
 });

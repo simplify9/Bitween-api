@@ -86,7 +86,11 @@ export function PortalMappingPage() {
         <section className="space-y-3 rounded-xl border border-ink-200 bg-white p-5">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-[15px] font-semibold text-ink-900">What you receive</h2>
-            {theirs ? (
+            {m.setAside ? (
+              <Badge tone="warn" title="Yours reads an internal value our mapping no longer sends, so ours is used until you change yours.">
+                Yours is set aside
+              </Badge>
+            ) : theirs ? (
               <Badge tone="ok" title="Your own mapping is used for your exchanges. Nobody else's change.">
                 Your own mapping
               </Badge>
@@ -103,6 +107,12 @@ export function PortalMappingPage() {
             <p className="text-sm text-ink-600">Your role can see this but not change it.</p>
           ) : (
             <>
+              {m.setAside && (
+                <p className="rounded-lg bg-warn-100 px-3 py-2 text-sm text-ink-700">
+                  Your mapping reads an internal value our mapping no longer sends, so you get ours for now. Edit yours
+                  to remove that field, and it's used again.
+                </p>
+              )}
               <p className="text-sm text-ink-600">
                 {theirs
                   ? "You shape what you receive here. Changes are used from your next exchange, for you only."
@@ -144,7 +154,8 @@ export function PortalMappingPage() {
                   </Button>
                 )}
               </div>
-              <FormError>{(save.error ?? reset.error ?? loadSample.error)?.message}</FormError>
+              {/* A save's failure shows in the editor, where the save was made. */}
+              <FormError>{(reset.error ?? loadSample.error)?.message}</FormError>
               {save.isSuccess && !save.isPending && <p className="text-[13px] text-ok-700">Saved. Used from your next exchange.</p>}
             </>
           )}
@@ -160,7 +171,7 @@ export function PortalMappingPage() {
               mapperId: NATIVE_MAPPER_ID,
               mapperProperties: properties,
               partnerId: session?.partner ? Number(session.partner.id) : null,
-              onSave: (mapperProperties) => save.mutate(mapperProperties),
+              onSave: (mapperProperties) => save.mutateAsync(mapperProperties),
             }}
             onClose={() => setEditing(false)}
           />

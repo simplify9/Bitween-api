@@ -124,7 +124,11 @@ function Mappings() {
                     {m.via}
                   </div>
                 </div>
-                {m.customized ? (
+                {m.setAside ? (
+                  <Badge tone="warn" title="Yours reads an internal value our mapping no longer sends, so ours is used for now.">
+                    Set aside
+                  </Badge>
+                ) : m.customized ? (
                   <Badge tone="ok" title="Your own mapping is used for your exchanges.">
                     Yours
                   </Badge>

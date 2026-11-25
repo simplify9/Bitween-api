@@ -24,11 +24,11 @@ public class Mappings(BitweenDbContext dbContext, RequestContext requestContext)
         var subscriptions = await (from s in dbContext.Set<Subscription>().AsNoTracking()
                 join d in dbContext.Set<Document>() on s.DocumentId equals d.Id
                 where ids.Contains(s.Id)
-                select new { s.Id, s.Name, s.MapperId, DocumentName = d.Name })
+                select new { s.Id, s.Name, s.MapperId, s.MapperProperties, DocumentName = d.Name })
             .ToDictionaryAsync(s => s.Id);
         var theirs = await dbContext.Set<PartnerMapping>().AsNoTracking()
             .Where(m => m.PartnerId == caller.PartnerId && ids.Contains(m.SubscriptionId))
-            .ToDictionaryAsync(m => m.SubscriptionId, m => m.ModifiedOn ?? m.CreatedOn);
+            .ToDictionaryAsync(m => m.SubscriptionId);
 
         return places.Where(p => subscriptions.ContainsKey(p.SubscriptionId))
             .Select(p =>
@@ -41,8 +41,9 @@ public class Mappings(BitweenDbContext dbContext, RequestContext requestContext)
                     Via = p.Via,
                     DocumentName = s.DocumentName,
                     Customized = theirs.ContainsKey(s.Id),
+                    SetAside = theirs.TryGetValue(s.Id, out var mine) && !PartnerMappingRules.Fits(mine, s.MapperProperties),
                     Customizable = s.MapperId is null || s.MapperId == PartnerMappingRules.MapperId,
-                    ModifiedOn = theirs.TryGetValue(s.Id, out var on) ? on : null
+                    ModifiedOn = mine is null ? null : mine.ModifiedOn ?? mine.CreatedOn
                 };
             })
             .OrderBy(p => p.SubscriptionName)
@@ -71,17 +72,18 @@ public class Mapping(BitweenDbContext dbContext, RequestContext requestContext) 
             Default = customizable && subscription.MapperId is not null
                 ? new Dictionary<string, string>
                 {
-                    [PartnerMappingRules.Keys[0]] = subscription.MapperProperties?.GetValueOrDefault(PartnerMappingRules.Keys[0]) ?? ""
+                    [PartnerMappingRules.RulesKey] = subscription.MapperProperties?.GetValueOrDefault(PartnerMappingRules.RulesKey) ?? ""
                 }
                 : null,
-            Theirs = theirs?.MapperProperties.ToDictionary()
+            Theirs = theirs?.MapperProperties.ToDictionary(),
+            SetAside = theirs is not null && !PartnerMappingRules.Fits(theirs, subscription.MapperProperties)
         };
     }
 }
 
 /// <summary>Saves their own version of a place's mapping, used for them from their next exchange.</summary>
 [HandlerName("savemapping")]
-public class SaveMapping(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
+public class SaveMapping(BitweenDbContext dbContext, RequestContext requestContext)
     : ICommandHandler<PortalSaveMapping, object>
 {
     public async Task<object> Handle(PortalSaveMapping request)
@@ -101,15 +103,15 @@ public class SaveMapping(BitweenDbContext dbContext, RequestContext requestConte
         else
             theirs.SetMapperProperties(properties);
 
+        // Saving a partner mapping clears the cache, this node's and the others', like a partner's.
         await dbContext.SaveChangesAsync();
-        await cache.BroadcastRevoke();
         return null;
     }
 }
 
 /// <summary>Removes their own version, so they get the subscription's mapping again.</summary>
 [HandlerName("resetmapping")]
-public class ResetMapping(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
+public class ResetMapping(BitweenDbContext dbContext, RequestContext requestContext)
     : ICommandHandler<PortalMappingRequest, object>
 {
     public async Task<object> Handle(PortalMappingRequest request)
@@ -121,7 +123,6 @@ public class ResetMapping(BitweenDbContext dbContext, RequestContext requestCont
         {
             dbContext.Remove(theirs);
             await dbContext.SaveChangesAsync();
-            await cache.BroadcastRevoke();
         }
         return null;
     }
@@ -143,7 +144,7 @@ public class PreviewMapping(BitweenDbContext dbContext, RequestContext requestCo
         try
         {
             PartnerMappingRules.Validate(
-                new Dictionary<string, string> { [PartnerMappingRules.Keys[0]] = request.MappingRules ?? "" },
+                new Dictionary<string, string> { [PartnerMappingRules.RulesKey] = request.MappingRules ?? "" },
                 subscription.MapperProperties);
         }
         catch (SWValidationException ex)

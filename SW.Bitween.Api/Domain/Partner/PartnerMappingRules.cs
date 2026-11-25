@@ -22,52 +22,74 @@ public static class PartnerMappingRules
     /// <summary>The adapter id of the native mapper, the only one a partner's mapping runs on.</summary>
     public const string MapperId = nameof(NativeMapper);
 
-    public static readonly string[] Keys =
-        [nameof(NativeMapperInput.MappingRules), nameof(NativeMapperInput.SourceSample), nameof(NativeMapperInput.TargetSample)];
+    /// <summary>The one setting a partner's mapping keeps: the rules.</summary>
+    public const string RulesKey = nameof(NativeMapperInput.MappingRules);
 
-    /// <summary>Only the native mapper's settings, the rules readable and within reach.</summary>
+    /// <summary>
+    /// Only the rules, readable and within reach. The editor's samples are dropped: one can be a real
+    /// document from the partner's traffic, and nothing that runs reads them.
+    /// </summary>
     public static Dictionary<string, string> Validate(IDictionary<string, string> properties,
         IReadOnlyDictionary<string, string> subscriptionMapperProperties)
     {
-        var kept = Keys.ToDictionary(k => k, k => properties != null && properties.TryGetValue(k, out var v) ? v ?? "" : "");
-        if (string.IsNullOrWhiteSpace(kept[nameof(NativeMapperInput.MappingRules)]))
+        var rules = properties != null && properties.TryGetValue(RulesKey, out var r) ? r ?? "" : "";
+        if (string.IsNullOrWhiteSpace(rules))
             throw new SWValidationException("NO_RULES", "The mapping has no rules.");
 
-        var allowed = GlobalsIn(subscriptionMapperProperties);
-        var used = GlobalsIn(kept);
-        var beyond = used.Except(allowed).OrderBy(g => g).ToList();
+        var beyond = GlobalsBeyond(rules, subscriptionMapperProperties).OrderBy(g => g).ToList();
         if (beyond.Count > 0)
             throw new SWValidationException("GLOBAL_VALUES_NOT_ALLOWED",
                 "Your mapping can't read these internal values: " + string.Join(", ", beyond) + ".");
-        return kept;
+        return new Dictionary<string, string> { [RulesKey] = rules };
     }
 
-    /// <summary>Every global value the settings read, as <c>set.key</c>: by rule, and by placeholder.</summary>
-    public static HashSet<string> GlobalsIn(IReadOnlyDictionary<string, string> properties)
+    /// <summary>
+    /// Whether a stored partner mapping still reads only what the subscription's mapping sends. One
+    /// that doesn't, because ours stopped reading a value since it was saved, is set aside: the
+    /// partner gets ours until they change theirs.
+    /// </summary>
+    public static bool Fits(PartnerMapping mapping, IReadOnlyDictionary<string, string> subscriptionMapperProperties)
+    {
+        try
+        {
+            return !GlobalsBeyond(RulesOf(mapping.MapperProperties), subscriptionMapperProperties).Any();
+        }
+        catch (SWValidationException)
+        {
+            return false;
+        }
+    }
+
+    private static IEnumerable<string> GlobalsBeyond(string rules, IReadOnlyDictionary<string, string> subscriptionMapperProperties) =>
+        GlobalsIn(rules).Except(GlobalsIn(RulesOf(subscriptionMapperProperties)), System.StringComparer.OrdinalIgnoreCase);
+
+    private static string RulesOf(IReadOnlyDictionary<string, string> properties) =>
+        properties != null && properties.TryGetValue(RulesKey, out var rules) ? rules ?? "" : "";
+
+    /// <summary>Every global value the rules read, as <c>set.key</c>: by rule, and by placeholder.</summary>
+    public static HashSet<string> GlobalsIn(string rulesJson)
     {
         var found = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
-        if (properties is null) return found;
+        if (string.IsNullOrWhiteSpace(rulesJson)) return found;
 
-        foreach (var reference in StartupValuesFiller.ReferencesIn(properties.Values).Globals)
+        // A placeholder is filled in before the mapper runs, wherever it is written in the rules.
+        foreach (var reference in StartupValuesFiller.ReferencesIn([rulesJson]).Globals)
             foreach (var key in reference.Keys)
                 found.Add($"{reference.SetId}.{key}");
 
-        if (properties.TryGetValue(nameof(NativeMapperInput.MappingRules), out var json) && !string.IsNullOrWhiteSpace(json))
+        MappingRules rules;
+        try
         {
-            MappingRules rules;
-            try
-            {
-                rules = JsonConvert.DeserializeObject<MappingRules>(json) ?? new MappingRules();
-            }
-            catch (JsonException)
-            {
-                throw new SWValidationException("UNREADABLE_RULES", "The mapping rules couldn't be read.");
-            }
-
-            foreach (var field in AllFields(rules))
-                if (field.From?.Kind == ValueSourceKind.Global)
-                    found.Add($"{field.From.SetId}.{field.From.Key}");
+            rules = JsonConvert.DeserializeObject<MappingRules>(rulesJson) ?? new MappingRules();
         }
+        catch (JsonException)
+        {
+            throw new SWValidationException("UNREADABLE_RULES", "The mapping rules couldn't be read.");
+        }
+
+        foreach (var field in AllFields(rules))
+            if (field.From?.Kind == ValueSourceKind.Global)
+                found.Add($"{field.From.SetId}.{field.From.Key}");
         return found;
     }
 

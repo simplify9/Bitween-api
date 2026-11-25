@@ -68,8 +68,9 @@ export function ValueCell({
   // will run against later may have keys this one does not.
   const { data: partnerKeys } = useQuery({
     queryKey: [...keys.partners.adapterProperties(testPartnerId), "keys"],
-    queryFn: () => services.partnerPropertyKeys(testPartnerId!),
-    enabled: source.kind === "partner" && testPartnerId !== null,
+    queryFn: () => services.partnerPropertyKeys(testPartnerId ?? 0),
+    // Where the partner is fixed, as in the partner portal, the keys are always theirs.
+    enabled: source.kind === "partner" && (testPartnerId !== null || !services.choosePartner),
   });
 
   switch (source.kind) {

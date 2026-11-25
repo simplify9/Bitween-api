@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, type SubscriptionPartnerMapping } from "../../../api";
 import { keys } from "../../../api/queryKeys";
 import { Can } from "../../../auth/guards";
-import { Button } from "../../../components/ui/basics";
+import { Badge, Button, LoadError } from "../../../components/ui/basics";
 import { HighlightedDocument } from "../../../components/ui/HighlightedDocument";
 import { ConfirmDialog, Dialog } from "../../../components/ui/overlays";
 import { formatDateTime, timeAgo } from "../../../lib/dates";
@@ -30,6 +30,13 @@ export function PartnerMappings({ subscriptionId }: { subscriptionId: string }) 
   const [seeing, setSeeing] = useState<SubscriptionPartnerMapping | null>(null);
   const [removing, setRemoving] = useState<SubscriptionPartnerMapping | null>(null);
 
+  // A failed read says so, rather than looking like nobody has their own.
+  if (mappings.isError)
+    return (
+      <div className="mt-4 border-t border-ink-100 pt-3">
+        <LoadError error={mappings.error} what="partners' own mappings" onRetry={() => void mappings.refetch()} />
+      </div>
+    );
   if (!mappings.data?.length) return null;
 
   return (
@@ -47,7 +54,17 @@ export function PartnerMappings({ subscriptionId }: { subscriptionId: string }) 
         {mappings.data.map((m) => (
           <li key={m.partnerId} className="flex items-center gap-2 px-3 py-2 text-sm">
             <div className="min-w-0 flex-1">
-              <div className="truncate font-medium text-ink-900">{m.partnerName}</div>
+              <div className="flex items-center gap-1.5">
+                <span className="truncate font-medium text-ink-900">{m.partnerName}</span>
+                {m.setAside && (
+                  <Badge
+                    tone="warn"
+                    title="It reads a global value the mapping above no longer sends, so they get the one above until they change theirs."
+                  >
+                    Not in use
+                  </Badge>
+                )}
+              </div>
               <div className="truncate text-xs text-ink-500" title={formatDateTime(m.changedOn)}>
                 Changed {timeAgo(m.changedOn)}
                 {m.changedBy ? ` by ${m.changedBy}` : ""}

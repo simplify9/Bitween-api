@@ -210,4 +210,76 @@ public class PartnerMappingTests(BitweenFixture fixture)
         }
         Assert.Equal(ours, await RulesOfNewExchange(world.Subscription, world.Mine));
     }
+
+    [Fact]
+    public async Task Only_the_rules_are_kept_never_the_samples()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var world = await SetUpAsync(db, Rules(("id", "orderId")));
+
+        await using (var save = fixture.CreateScope())
+        {
+            save.As(world.Person);
+            await ActivatorUtilities.CreateInstance<Resources.Portal.SaveMapping>(save.ServiceProvider).Handle(new PortalSaveMapping
+            {
+                SubscriptionId = world.Subscription.Id,
+                MapperProperties = new()
+                {
+                    ["MappingRules"] = Rules(("reference", "orderId")),
+                    ["SourceSample"] = "{\"customer\":\"a real one\"}",
+                    ["TargetSample"] = "{}"
+                }
+            });
+        }
+
+        var stored = await db.Set<PartnerMapping>().AsNoTracking()
+            .SingleAsync(m => m.SubscriptionId == world.Subscription.Id && m.PartnerId == world.Mine.Id);
+        Assert.Equal(["MappingRules"], stored.MapperProperties.Keys.ToList());
+    }
+
+    [Fact]
+    public async Task A_placeholder_in_our_sample_grants_nothing()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var world = await SetUpAsync(db, Rules(("id", "orderId")));
+        var subscription = await db.Set<Subscription>().SingleAsync(s => s.Id == world.Subscription.Id);
+        subscription.SetDictionaries(new Dictionary<string, string>(), new Dictionary<string, string>
+        {
+            ["MappingRules"] = Rules(("id", "orderId")),
+            ["SourceSample"] = "{{globals.company.apiKey}}"
+        }, new Dictionary<string, string>(), null, new Dictionary<string, string>());
+        await db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<SWValidationException>(() =>
+            SaveAs(world.Person, world.Subscription.Id, Rules(("key", "global:company:apiKey"))));
+    }
+
+    [Fact]
+    public async Task Theirs_is_set_aside_once_ours_stops_sending_a_global_value_it_reads()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var withRegion = Rules(("id", "orderId"), ("region", "global:company:region"));
+        var world = await SetUpAsync(db, withRegion);
+        var theirs = Rules(("where", "global:company:region"));
+        await SaveAs(world.Person, world.Subscription.Id, theirs);
+        Assert.Equal(theirs, await RulesOfNewExchange(world.Subscription, world.Mine));
+
+        // Ours stops reading it.
+        var ours = Rules(("id", "orderId"));
+        var subscription = await db.Set<Subscription>().SingleAsync(s => s.Id == world.Subscription.Id);
+        subscription.SetDictionaries(new Dictionary<string, string>(), Props(ours),
+            new Dictionary<string, string>(), null, new Dictionary<string, string>());
+        await db.SaveChangesAsync();
+
+        Assert.Equal(ours, await RulesOfNewExchange(subscription, world.Mine));
+
+        await using var read = fixture.CreateScope();
+        read.As(world.Person);
+        var places = (IEnumerable<PortalMappingPlace>)await ActivatorUtilities
+            .CreateInstance<Resources.Portal.Mappings>(read.ServiceProvider).Handle();
+        Assert.True(places.Single(p => p.SubscriptionId == world.Subscription.Id).SetAside);
+    }
 }

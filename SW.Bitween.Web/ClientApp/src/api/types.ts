@@ -2780,6 +2780,8 @@ export interface PortalMappingPlace {
   via: string;
   documentName: string;
   customized: boolean;
+  /** Theirs reads an internal value ours no longer sends, so ours is used until they change it. */
+  setAside: boolean;
   /** It maps with a mapper they can make their own version of. */
   customizable: boolean;
   modifiedOn: string | null;
@@ -2792,6 +2794,7 @@ export interface PortalMapping {
   customizable: boolean;
   default: Record<string, string> | null;
   theirs: Record<string, string> | null;
+  setAside: boolean;
 }
 
 export interface PortalMappingSample {
@@ -2808,4 +2811,6 @@ export interface SubscriptionPartnerMapping {
   changedOn: string;
   /** Who last changed it; null when that account is gone. */
   changedBy: string | null;
+  /** It reads a global value the subscription's mapping no longer sends, so theirs isn't used for now. */
+  setAside: boolean;
 }

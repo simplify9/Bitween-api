@@ -939,7 +939,7 @@ namespace SW.Bitween
 
             var revokesCache = cache != null && ChangeTracker.Entries().Any(e =>
                 e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted &&
-                e.Entity is Partner or ApiCredential or ApiGateway or ApiGatewayPartner or RetryPolicy);
+                e.Entity is Partner or ApiCredential or ApiGateway or ApiGatewayPartner or RetryPolicy or PartnerMapping);
 
             // Plus any a caller queued itself, such as a delivery's response.
             var outgoing = ChangeTracker.Entries<OutboxMessage>()

@@ -21,6 +21,8 @@ public class PartnerMappings(BitweenDbContext dbContext, RequestContext requestC
     public async Task<object> Handle(int key)
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Subscriptions.View);
+        var ours = await dbContext.Set<Subscription>().AsNoTracking()
+            .Where(s => s.Id == key).Select(s => s.MapperProperties).SingleOrDefaultAsync();
 
         var rows = await (from m in dbContext.Set<PartnerMapping>().AsNoTracking()
                 join p in dbContext.Set<Partner>() on m.PartnerId equals p.Id
@@ -40,9 +42,10 @@ public class PartnerMappings(BitweenDbContext dbContext, RequestContext requestC
         {
             PartnerId = r.m.PartnerId,
             PartnerName = r.PartnerName,
-            MappingRules = r.m.MapperProperties.GetValueOrDefault(PartnerMappingRules.Keys[0]) ?? "",
+            MappingRules = r.m.MapperProperties.GetValueOrDefault(PartnerMappingRules.RulesKey) ?? "",
             ChangedOn = r.m.ModifiedOn ?? r.m.CreatedOn,
-            ChangedBy = names.GetValueOrDefault(r.m.ModifiedBy ?? r.m.CreatedBy ?? "")
+            ChangedBy = names.GetValueOrDefault(r.m.ModifiedBy ?? r.m.CreatedBy ?? ""),
+            SetAside = !PartnerMappingRules.Fits(r.m, ours)
         }).ToList();
     }
 }
@@ -52,7 +55,7 @@ public class PartnerMappings(BitweenDbContext dbContext, RequestContext requestC
 /// For when theirs breaks something and they can't fix it themselves.
 /// </summary>
 [HandlerName("removepartnermapping")]
-public class RemovePartnerMapping(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
+public class RemovePartnerMapping(BitweenDbContext dbContext, RequestContext requestContext)
     : ICommandHandler<int, RemovePartnerMappingModel, object>
 {
     public async Task<object> Handle(int key, RemovePartnerMappingModel request)
@@ -62,8 +65,8 @@ public class RemovePartnerMapping(BitweenDbContext dbContext, RequestContext req
                           .SingleOrDefaultAsync(m => m.SubscriptionId == key && m.PartnerId == request.PartnerId)
                       ?? throw new SWNotFoundException($"{key}/{request.PartnerId}");
         dbContext.Remove(mapping);
+        // Clears the cache, this node's and the others', like a partner's change.
         await dbContext.SaveChangesAsync();
-        await cache.BroadcastRevoke();
         return null;
     }
 

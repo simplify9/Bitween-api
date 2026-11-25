@@ -9,9 +9,11 @@ const EDITOR = ["portal-mappings.view", "portal-mappings.edit", "portal-exchange
 const OURS = JSON.stringify({ version: 1, sourceFormat: "json", targetFormat: "json", fields: [], lists: [] });
 
 /** The portal's mapping endpoints, recording what was saved and previewed. */
-function portal(theirs: Record<string, string> | null = null) {
+function portal(initially: Record<string, string> | null = null, saveFails = false) {
   const saved: unknown[] = [];
   const previews: unknown[] = [];
+  const resets: unknown[] = [];
+  let theirs = initially;
   const handlers = [
     http.get(apiPath("/portal/mapping"), () =>
       HttpResponse.json({
@@ -20,6 +22,7 @@ function portal(theirs: Record<string, string> | null = null) {
         customizable: true,
         default: { MappingRules: OURS },
         theirs,
+        setAside: false,
       }),
     ),
     http.get(apiPath("/portal/mappingsamples"), () =>
@@ -33,11 +36,17 @@ function portal(theirs: Record<string, string> | null = null) {
     }),
     http.post(apiPath("/portal/savemapping"), async ({ request }) => {
       saved.push(await request.json());
+      return saveFails
+        ? HttpResponse.json({ GLOBAL_VALUES_NOT_ALLOWED: ["Your mapping can't read these internal values: company.apiKey."] }, { status: 400 })
+        : new HttpResponse(null, { status: 204 });
+    }),
+    http.post(apiPath("/portal/resetmapping"), async ({ request }) => {
+      resets.push(await request.json());
+      theirs = null;
       return new HttpResponse(null, { status: 204 });
     }),
-    http.post(apiPath("/portal/resetmapping"), () => new HttpResponse(null, { status: 204 })),
   ];
-  return { handlers, saved, previews };
+  return { handlers, saved, previews, resets };
 }
 
 describe("a partner's own mapping", () => {
@@ -64,11 +73,40 @@ describe("a partner's own mapping", () => {
   });
 
   it("goes back to ours", async () => {
-    const { handlers } = portal({ MappingRules: OURS });
+    const { handlers, resets } = portal({ MappingRules: OURS });
     const { user } = renderApp("/portal/mappings/3", { as: { partner: ACME, permissions: EDITOR }, handlers });
 
     expect(await screen.findByText("Your own mapping")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "Go back to ours" }));
+    expect(await screen.findByText("Our mapping")).toBeVisible();
+    expect(resets).toEqual([{ subscriptionId: 3 }]);
+  });
+
+  it("says so in the editor when a save is refused, and keeps the changes unsaved", async () => {
+    const { handlers } = portal(null, true);
+    const { user } = renderApp("/portal/mappings/3", { as: { partner: ACME, permissions: EDITOR }, handlers });
+
+    await user.click(await screen.findByRole("button", { name: "Make your own version" }));
+    await screen.findByRole("button", { name: "Save" }, { timeout: 5000 });
+    await addFixedRule(user, "source", "acme");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+
+    expect(await screen.findByText(/can't read these internal values/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "Save" })).toBeEnabled();
+  });
+
+  it("suggests their own partner property names", async () => {
+    const { handlers } = portal();
+    const { user } = renderApp("/portal/mappings/3", { as: { partner: ACME, permissions: EDITOR }, handlers });
+
+    await user.click(await screen.findByRole("button", { name: "Make your own version" }));
+    await screen.findByRole("button", { name: "Save" }, { timeout: 5000 });
+    await addFixedRule(user, "account", "x");
+    await user.click(screen.getAllByRole("radio", { name: "Partner" }).at(-1)!);
+    const key = screen.getAllByLabelText("Partner property key").at(-1)!;
+    // The box lists its suggestions while it has focus.
+    await user.click(key);
+    await waitFor(() => expect(document.querySelector(`[id="${key.getAttribute("list")}"] option[value="accountNo"]`)).not.toBeNull());
   });
 
   it("is only seen by a role that can't change it", async () => {

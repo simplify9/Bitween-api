@@ -93,6 +93,11 @@ public class PortalMappingPlace
     /// <summary>They have their own version of the mapping.</summary>
     public bool Customized { get; set; }
 
+    /// <summary>
+    /// Theirs reads an internal value ours no longer sends, so ours is used until they change theirs.
+    /// </summary>
+    public bool SetAside { get; set; }
+
     /// <summary>It maps with a mapper they can make their own version of.</summary>
     public bool Customizable { get; set; }
 
@@ -119,6 +124,9 @@ public class PortalMapping
 
     /// <summary>Their own version, or null when they use ours.</summary>
     public Dictionary<string, string>? Theirs { get; set; }
+
+    /// <summary>See <see cref="PortalMappingPlace.SetAside"/>.</summary>
+    public bool SetAside { get; set; }
 }
 
 public class PortalSaveMapping
@@ -157,6 +165,12 @@ public class SubscriptionPartnerMapping
 
     /// <summary>Who last changed it, by name; null when that account is gone.</summary>
     public string? ChangedBy { get; set; }
+
+    /// <summary>
+    /// It reads a global value the subscription's mapping no longer sends, so the subscription's is
+    /// used for them until they change theirs.
+    /// </summary>
+    public bool SetAside { get; set; }
 }
 
 public class RemovePartnerMappingModel
