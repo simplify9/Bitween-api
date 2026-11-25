@@ -1,5 +1,5 @@
-import { createBrowserRouter, type RouteObject } from "react-router";
-import { RequireAuth, RequirePermission } from "./auth/guards";
+import { Navigate, createBrowserRouter, type RouteObject } from "react-router";
+import { PORTAL_PATH, RequireAuth, RequirePartner, RequirePermission } from "./auth/guards";
 import { PAGES, type PageId } from "./pages";
 import { AppShell } from "./components/layout/AppShell";
 import { LoginPage } from "./pages/auth/Login";
@@ -51,6 +51,7 @@ import {
   NotifiersPage,
   PartnerPage,
   PartnersPage,
+  PortalPage,
   ProfilePage,
   QueueHealthPage,
   ResponseSubscriptionsPage,
@@ -199,6 +200,24 @@ export const routes: RouteObject[] = [
             </Suspense>
           </RequirePermission>
         ),
+      },
+      // A partner's person sees this and nothing else; it has its own frame, without the app's
+      // sidebar, none of whose pages they may open.
+      {
+        path: PORTAL_PATH.slice(1),
+        element: <RequirePartner />,
+        children: [
+          {
+            index: true,
+            element: (
+              <Suspense fallback={<LoadingBlock />}>
+                <PortalPage />
+              </Suspense>
+            ),
+          },
+          // Anything else under /portal is not a page: back to the portal, never the app's frame.
+          { path: "*", element: <Navigate to={PORTAL_PATH} replace /> },
+        ],
       },
       {
         element: <AppShell />,

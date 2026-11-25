@@ -1,13 +1,20 @@
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiRequestError, getAppConfig, type InviteResult } from "../../api";
 import { Button, FormError } from "../../components/ui/basics";
 import { CopyField } from "../../components/ui/CopyField";
 import { Checkbox, Field, PasswordInput, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
+import { PartnerPicker } from "../../components/config/pickers";
+import { RolePicker } from "./RolePicker";
 import { formatDateTime } from "../../lib/dates";
 import { PASSWORD_HINT, validatePassword } from "../../lib/passwordPolicy";
 import { keys } from "../../api/queryKeys";
+
+/** The built-in Viewer, seeded with this id on every installation (BitweenDbContext.SystemRoleSeed). */
+const VIEWER_ROLE_ID = "3";
 
 type Mode = "invite" | "password";
 
@@ -52,7 +59,18 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
   const [mode, setMode] = useState<Mode>("invite");
   const [password, setPassword] = useState("");
   const [emailThem, setEmailThem] = useState(true);
-  const [roleIds, setRoleIds] = useState<string[]>([]);
+  const [roleId, setRoleId] = useState<string | null>(null);
+  // Whose person they are: ours, or a partner's, who sees only the partner portal. Each side has
+  // its own roles, so switching clears the ones ticked.
+  const [side, setSide] = useState<"team" | "partner">("team");
+  const [partnerId, setPartnerId] = useState<number | null>(null);
+  const forPartner = side === "partner";
+  const rolesForSide = (roles.data ?? []).filter((role) => role.forPartners === forPartner);
+  // Least access by default: Viewer for one of us, the built-in partner role for a partner's person.
+  const defaultRole = forPartner
+    ? rolesForSide.find((r) => r.isSystem)
+    : rolesForSide.find((r) => r.id === VIEWER_ROLE_ID);
+  const chosenRole = roleId ?? defaultRole?.id ?? null;
   const [passwordError, setPasswordError] = useState("");
   // An invite that wasn't emailed, for whoever added the member to pass on.
   const [handOver, setHandOver] = useState<{ name: string; result: InviteResult } | null>(null);
@@ -63,8 +81,9 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
       const user = await api.createUser({
         displayName,
         email,
-        roleIds,
+        roleIds: chosenRole ? [chosenRole] : [],
         ...(inviting ? { invite: true } : passwordsOff ? {} : { password }),
+        partnerId: forPartner && partnerId != null ? String(partnerId) : null,
       });
       if (!(inviting || (passwordsOff && mailOn && emailThem))) return { user, result: null };
       try {
@@ -83,11 +102,17 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
     },
   });
 
-  const toggleRole = (id: string) =>
-    setRoleIds((prev) => (prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]));
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (!chosenRole) {
+      setPasswordError("Choose a role.");
+      return;
+    }
+    if (forPartner && partnerId == null) {
+      setPasswordError("Choose the partner they belong to.");
+      return;
+    }
     if (!passwordsOff && mode === "password") {
       // The server rejects a weak password too; checking here saves the round trip.
       const problems = validatePassword(password);
@@ -160,6 +185,33 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
           />
         </Field>
 
+        <div className="space-y-2">
+          <div className="text-[13px] font-medium text-ink-700">Who they are</div>
+          <SegmentedControl
+            label="Who they are"
+            value={side}
+            onChange={(v) => {
+              if (v === side) return;
+              setSide(v);
+              // Each side has its own roles; back to that side's default.
+              setRoleId(null);
+            }}
+            options={[
+              { value: "team", label: "Our team", title: "One of us: signs in to Bitween itself, with what their roles allow." },
+              {
+                value: "partner",
+                label: "A partner's person",
+                title: "Someone at a partner: signs in to the partner portal and sees only that partner's data.",
+              },
+            ]}
+          />
+          {forPartner && (
+            <Field label="Partner" htmlFor="member-partner" hint="Fixed once they're added.">
+              <PartnerPicker id="member-partner" value={partnerId} onChange={(v) => setPartnerId(v === "none" ? null : v)} />
+            </Field>
+          )}
+        </div>
+
         {passwordsOff ? (
           mailOn && (
             <Checkbox
@@ -196,20 +248,16 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
           </Field>
         )}
 
-        <fieldset>
-          <legend className="mb-2 block text-[13px] font-medium text-ink-700">Roles</legend>
-          <div className="max-h-56 space-y-2.5 overflow-y-auto rounded-lg border border-ink-200 p-3">
-            {(roles.data ?? []).map((role) => (
-              <Checkbox
-                key={role.id}
-                label={role.name}
-                description={role.description}
-                checked={roleIds.includes(role.id)}
-                onChange={() => toggleRole(role.id)}
-              />
-            ))}
-          </div>
-        </fieldset>
+        <RolePicker roles={rolesForSide} value={chosenRole ? [chosenRole] : []} onChange={setRoleId} />
+        {forPartner && roles.data && rolesForSide.length === 0 && (
+          <p className="text-[13px] text-ink-500">
+            No partner roles yet.{" "}
+            <Link to="/team/roles/new?forPartners=1" className="text-ink-700 underline">
+              Create one
+            </Link>{" "}
+            to choose what partners' people may see.
+          </p>
+        )}
 
         <FormError>
           {passwordError ||

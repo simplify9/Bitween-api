@@ -33,6 +33,8 @@ export interface Signed {
   name?: string;
   permissions?: string[];
   roles?: { id: number; name: string }[];
+  /** Makes them a partner's person, who sees only the partner portal. */
+  partner?: { id: number; name: string };
 }
 
 /** The profile the app loads its session from. */
@@ -47,6 +49,8 @@ export const profile = (who: Signed = {}) =>
       createdOn: "2026-01-01T00:00:00Z",
       roles: who.roles ?? [{ id: 1, name: "Administrator" }],
       permissions: who.permissions ?? ALL_PERMISSIONS,
+      partnerId: who.partner?.id ?? null,
+      partnerName: who.partner?.name ?? null,
     }),
   );
 

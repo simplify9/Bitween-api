@@ -82,24 +82,42 @@ namespace SW.Bitween
 
             // A token outlives the account's state: disabling someone has to take effect now, not
             // when their last token expires. Same for an account that has since been removed.
-            if (!await dbContext.Set<Account>().AnyAsync(a => a.Id == accountId && !a.Disabled && !a.Deleted))
+            var account = await dbContext.Set<Account>().AsNoTracking()
+                .Where(a => a.Id == accountId && !a.Disabled && !a.Deleted)
+                .Select(a => new { a.PartnerId })
+                .SingleOrDefaultAsync();
+            if (account is null)
                 return [];
 
-            return await GetPermissionsOf(dbContext, accountId);
+            return await PermissionsOf(dbContext, accountId, account.PartnerId is not null);
         }
 
         public static async Task<HashSet<string>> GetPermissionsOf(BitweenDbContext dbContext, int accountId)
         {
+            var isPartner = await dbContext.Set<Account>().AsNoTracking()
+                .AnyAsync(a => a.Id == accountId && a.PartnerId != null);
+            return await PermissionsOf(dbContext, accountId, isPartner);
+        }
+
+        private static async Task<HashSet<string>> PermissionsOf(BitweenDbContext dbContext, int accountId, bool isPartner)
+        {
+            // Only the roles that suit the account's side count. Assigning checks the same, so this
+            // only matters if a row got past it - and then it fails closed rather than open.
             var roles = await (from link in dbContext.Set<AccountRoleLink>()
                     join role in dbContext.Set<Role>() on link.RoleId equals role.Id
-                    where link.AccountId == accountId
-                    select new { role.Id, role.IsSystem, role.Permissions })
+                    where link.AccountId == accountId && role.ForPartners == isPartner
+                    select new { role.Id, role.IsSystem, role.PresetKey, role.Permissions })
                 .AsNoTracking()
                 .ToListAsync();
 
             var granted = new HashSet<string>();
             foreach (var role in roles)
-                granted.UnionWith(role.IsSystem ? Role.SystemPermissions(role.Id) : role.Permissions ?? []);
+                granted.UnionWith(role.IsSystem ? Role.BuiltInPermissions(role.Id, role.PresetKey) : role.Permissions ?? []);
+
+            // A partner's person holds partner portal permissions and nothing else, whatever a
+            // role was edited to say.
+            if (isPartner)
+                granted.IntersectWith(PermissionCatalog.PortalKeys);
             return granted;
         }
     }

@@ -1,5 +1,9 @@
 import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
+  PortalExchangePage,
+  PortalExchangeQuery,
+  PortalSubscription,
+  PortalSummary,
   MirrorBring,
   MirrorBringSection,
   MirrorListed,
@@ -196,6 +200,8 @@ export interface ApiClient {
     password?: string;
     invite?: boolean;
     roleIds: string[];
+    /** Makes them a partner's person, for the partner portal; their roles must then be partner roles. */
+    partnerId?: string | null;
   }): Promise<User>;
   /** Invites a member with no password yet: emailed, or a link handed back to pass on. Replaces any earlier one. */
   inviteUser(id: string): Promise<InviteResult>;
@@ -212,7 +218,7 @@ export interface ApiClient {
   getPermissionCatalog(): Promise<PermissionArea[]>;
   listRoles(): Promise<Role[]>;
   getRole(id: string): Promise<Role>;
-  createRole(input: { name: string; description: string; permissions: PermissionKey[] }): Promise<Role>;
+  createRole(input: { name: string; description: string; permissions: PermissionKey[]; forPartners?: boolean }): Promise<Role>;
   updateRole(
     id: string,
     input: { name: string; description: string; permissions: PermissionKey[] },
@@ -914,4 +920,13 @@ export interface ApiClient {
     matchesTarget: boolean;
     model: string | null;
   }>;
+
+  // --- Partner portal: the signed-in partner's own data only ---
+
+  /** Their name and the last 24 hours of their exchanges by outcome. */
+  getPortalSummary(): Promise<PortalSummary>;
+  /** The subscriptions that run for them, read-only. */
+  listPortalSubscriptions(): Promise<PortalSubscription[]>;
+  /** Their exchanges newest first, a page at a time; errors and files only with those permissions. */
+  searchPortalExchanges(query: PortalExchangeQuery): Promise<PortalExchangePage>;
 }

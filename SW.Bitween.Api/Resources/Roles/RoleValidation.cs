@@ -26,6 +26,23 @@ internal static class RoleValidation
                 $"These permissions don't exist: {string.Join(", ", unknown)}.");
     }
 
+    /// <summary>
+    /// A partner role holds partner portal permissions only, and any other role holds none, so a
+    /// partner's people and our own can never be granted from the same role.
+    /// </summary>
+    public static void EnsureFitsAudience(bool forPartners, List<string> permissions)
+    {
+        var misfits = (permissions ?? [])
+            .Where(k => PermissionCatalog.PortalKeys.Contains(k) != forPartners)
+            .Distinct()
+            .ToList();
+
+        if (misfits.Count > 0)
+            throw new SWValidationException("PERMISSIONS_DONT_FIT_ROLE", forPartners
+                ? $"A partner role can hold only partner portal permissions. Not allowed: {string.Join(", ", misfits)}."
+                : $"Partner portal permissions belong in a partner role. Not allowed: {string.Join(", ", misfits)}.");
+    }
+
     public static async Task EnsureNameIsFree(BitweenDbContext dbContext, string name, int? exceptId = null)
     {
         var taken = await dbContext.Set<Role>()

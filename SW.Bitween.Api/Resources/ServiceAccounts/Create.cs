@@ -18,6 +18,9 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext)
 
         var name = request.Name.Trim();
         var roleIds = (request.RoleIds ?? []).Distinct().ToList();
+        // Before the account exists, so a refusal leaves nothing half made.
+        AccountRoles.EnsureOne(roleIds);
+        await AccountRoles.EnsureRolesSuit(dbContext, roleIds, isPartner: false);
         await ServiceAccountStore.EnsureNameFree(dbContext, name);
         // Nobody makes an account that can do more than they can.
         await GrantLimits.EnsureCallerHoldsRoles(dbContext, requestContext, roleIds);

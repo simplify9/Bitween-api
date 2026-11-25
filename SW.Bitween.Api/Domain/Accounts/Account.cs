@@ -9,12 +9,13 @@ namespace SW.Bitween.Domain.Accounts
         {
         }
 
-        public Account(string displayName, string email, string password, AccountRole role)
+        public Account(string displayName, string email, string password, AccountRole role, int? partnerId = null)
         {
             Password = password;
             DisplayName = displayName;
             Email = email;
             Role = role;
+            PartnerId = partnerId;
         }
 
         /// <summary>
@@ -33,6 +34,16 @@ namespace SW.Bitween.Domain.Accounts
         public AccountKind Kind { get; private set; }
 
         public bool IsService => Kind == AccountKind.Service;
+
+        /// <summary>
+        /// The partner whose person this is, signing in to the partner portal and seeing that
+        /// partner's data only; null for our own people. Set when the account is created and never
+        /// changed, so no token can outlive a change of side. No foreign key, the way exchanges
+        /// carry theirs: an account left pointing at a deleted partner sees nothing at all.
+        /// </summary>
+        public int? PartnerId { get; private set; }
+
+        public bool IsPartner => PartnerId is not null;
 
         public string Email { get; private set; }
         public string DisplayName { get; set; }

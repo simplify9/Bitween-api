@@ -23,6 +23,12 @@ public class CreateAccountModel
     public List<int> RoleIds { get; set; } = [];
 
     /// <summary>
+    /// The partner whose person this is, for the partner portal; null for our own people. Fixed
+    /// once the account exists, and its roles must then be partner roles.
+    /// </summary>
+    public int? PartnerId { get; set; }
+
+    /// <summary>
     /// The member chooses their own password from an invite link instead, so none is sent. The
     /// invite itself is <c>POST /accounts/{id}/invite</c>.
     /// </summary>
@@ -87,6 +93,12 @@ public class AccountModel
 
     /// <summary>The member's latest invite while they are yet to choose a password; null otherwise.</summary>
     public AccountInviteModel? Invite { get; set; }
+
+    /// <summary>The partner whose person this is, signing in to the partner portal; null for our own people.</summary>
+    public int? PartnerId { get; set; }
+
+    /// <summary>That partner's name, for showing; null with <see cref="PartnerId"/>, or once the partner is deleted.</summary>
+    public string? PartnerName { get; set; }
 }
 
 /// <summary>An invite waiting to be used.</summary>

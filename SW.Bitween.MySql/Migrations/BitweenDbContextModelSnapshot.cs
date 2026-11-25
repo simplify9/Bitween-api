@@ -85,6 +85,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<string>("OidcIdentity")
                         .HasColumnType("longtext");
 
+                    b.Property<int?>("PartnerId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Password")
                         .HasMaxLength(500)
                         .IsUnicode(false)
@@ -97,6 +100,8 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("PartnerId");
 
                     b.ToTable("Accounts", (string)null);
 
@@ -230,6 +235,9 @@ namespace SW.Bitween.MySql.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
 
+                    b.Property<bool>("ForPartners")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("IsSystem")
                         .HasColumnType("tinyint(1)");
 
@@ -247,9 +255,17 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<string>("Permissions")
                         .HasColumnType("longtext");
 
+                    b.Property<string>("PresetKey")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.HasIndex("PresetKey")
                         .IsUnique();
 
                     b.ToTable("Roles", (string)null);
@@ -260,6 +276,7 @@ namespace SW.Bitween.MySql.Migrations
                             Id = 1,
                             CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Full access to everything, including members, roles and settings.",
+                            ForPartners = false,
                             IsSystem = true,
                             Name = "Administrator",
                             Permissions = "[]"
@@ -269,6 +286,7 @@ namespace SW.Bitween.MySql.Migrations
                             Id = 2,
                             CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Runs and configures integrations. Can't manage members, roles or settings.",
+                            ForPartners = false,
                             IsSystem = true,
                             Name = "Member",
                             Permissions = "[]"
@@ -278,6 +296,7 @@ namespace SW.Bitween.MySql.Migrations
                             Id = 3,
                             CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Read-only access to integrations, exchanges and configuration.",
+                            ForPartners = false,
                             IsSystem = true,
                             Name = "Viewer",
                             Permissions = "[]"

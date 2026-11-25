@@ -126,6 +126,12 @@ public class XchangeStateFiller(BitweenDbContext db, BitweenOptions options, ILo
             await db.SaveChangesAsync(cancellation);
         } while (fill.Phase != XchangeStateFillPhase.Ready && !waiting && DateTime.UtcNow < until);
 
+        // The partner portal's index, built here so it gets the same care: after the fill, which
+        // reads the whole table too, and on installations whose fill finished long ago.
+        // Not in a run the fill has just used up: the next one, a minute on, starts with it.
+        if (fill.Phase == XchangeStateFillPhase.Ready && (startedIn == XchangeStateFillPhase.Ready || DateTime.UtcNow < until))
+            await XchangePartnerIndex.EnsureAsync(db, options, logger, cancellation);
+
         if (labeled > 0 || fill.Phase != startedIn)
             logger.LogInformation("Exchange status: {Phase}, {Labeled} exchange(s) checked this run.",
                 fill.Phase, labeled);

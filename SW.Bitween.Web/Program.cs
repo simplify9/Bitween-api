@@ -52,6 +52,7 @@ namespace SW.Bitween.Web
             }
 
             host.SecureSeededAdministrator();
+            host.EnsureBuiltInPartnerRoles();
             // These read partners and alerts, whose stored credentials need the encryption key.
             if (host.CanReadStoredSecrets())
                 host.SecureSystemPartnerKey().HashStoredPartnerKeys().MoveRetryAlertsToChannels();

@@ -2,7 +2,7 @@ import { Link, useNavigate } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { ChevronRight, Plus, ShieldCheck } from "lucide-react";
 import { api } from "../../api";
-import { allKeysIn, usePermissionCatalog } from "../../api/permissions";
+import { allKeysIn, areasFor, usePermissionCatalog } from "../../api/permissions";
 import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Badge, Button, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
@@ -11,7 +11,12 @@ import { keys } from "../../api/queryKeys";
 export function RolesPage() {
   const navigate = useNavigate();
   const roles = useQuery({ queryKey: keys.roles.list, queryFn: () => api.listRoles() });
-  const totalPermissions = allKeysIn(usePermissionCatalog().data ?? []).length;
+  const catalog = usePermissionCatalog().data ?? [];
+  // Counted on each role's own side: our administrators hold the partner portal keys too, which is
+  // what lets them hand out partner roles, but they are no part of what an administrator does.
+  const sideKeys = (forPartners: boolean) => new Set(allKeysIn(areasFor(catalog, forPartners)));
+  const teamKeys = sideKeys(false);
+  const partnerKeys = sideKeys(true);
 
   const header = (
     <PageHeader
@@ -84,6 +89,11 @@ export function RolesPage() {
                         <ShieldCheck className="size-3" /> Built-in
                       </Badge>
                     )}
+                    {role.forPartners && (
+                      <Badge tone="ink" title="For a partner's people: they sign in to the partner portal and see only their own partner's data.">
+                        Partner role
+                      </Badge>
+                    )}
                   </div>
                   <p className="mt-0.5 line-clamp-2 text-sm text-ink-500">{role.description}</p>
                 </div>
@@ -92,7 +102,8 @@ export function RolesPage() {
                     {role.memberCount} member{role.memberCount === 1 ? "" : "s"}
                   </p>
                   <p className="font-mono text-xs text-ink-500">
-                    {role.permissions.length}/{totalPermissions} permissions
+                    {role.permissions.filter((p) => (role.forPartners ? partnerKeys : teamKeys).has(p)).length}/
+                    {(role.forPartners ? partnerKeys : teamKeys).size} permissions
                   </p>
                 </div>
                 <ChevronRight className="size-4 shrink-0 text-ink-300" />

@@ -22,6 +22,7 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext) : IG
                 Name = role.Name,
                 Description = role.Description,
                 IsSystem = role.IsSystem,
+                ForPartners = role.ForPartners,
                 Permissions = role.Permissions,
                 CreatedOn = role.CreatedOn,
                 MemberCount = dbContext.Set<AccountRoleLink>().Count(l => l.RoleId == role.Id)
@@ -29,7 +30,8 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext) : IG
             .SingleOrDefaultAsync();
 
         if (row is not null && row.IsSystem)
-            row.Permissions = Role.SystemPermissions(row.Id);
+            row.Permissions = Role.BuiltInPermissions(row.Id,
+                await dbContext.Set<Role>().Where(r => r.Id == row.Id).Select(r => r.PresetKey).SingleAsync());
 
         return row;
     }

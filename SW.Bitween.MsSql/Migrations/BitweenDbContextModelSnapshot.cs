@@ -87,6 +87,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<string>("OidcIdentity")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("PartnerId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Password")
                         .HasMaxLength(500)
                         .IsUnicode(false)
@@ -100,6 +103,8 @@ namespace SW.Bitween.MsSql.Migrations
                     b.HasIndex("Email")
                         .IsUnique()
                         .HasFilter("[Email] IS NOT NULL");
+
+                    b.HasIndex("PartnerId");
 
                     b.ToTable("Accounts", (string)null);
 
@@ -233,6 +238,9 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<bool>("ForPartners")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsSystem")
                         .HasColumnType("bit");
 
@@ -250,10 +258,19 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<string>("Permissions")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("PresetKey")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Name")
                         .IsUnique();
+
+                    b.HasIndex("PresetKey")
+                        .IsUnique()
+                        .HasFilter("[PresetKey] IS NOT NULL");
 
                     b.ToTable("Roles", (string)null);
 
@@ -263,6 +280,7 @@ namespace SW.Bitween.MsSql.Migrations
                             Id = 1,
                             CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Full access to everything, including members, roles and settings.",
+                            ForPartners = false,
                             IsSystem = true,
                             Name = "Administrator",
                             Permissions = "[]"
@@ -272,6 +290,7 @@ namespace SW.Bitween.MsSql.Migrations
                             Id = 2,
                             CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Runs and configures integrations. Can't manage members, roles or settings.",
+                            ForPartners = false,
                             IsSystem = true,
                             Name = "Member",
                             Permissions = "[]"
@@ -281,6 +300,7 @@ namespace SW.Bitween.MsSql.Migrations
                             Id = 3,
                             CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Read-only access to integrations, exchanges and configuration.",
+                            ForPartners = false,
                             IsSystem = true,
                             Name = "Viewer",
                             Permissions = "[]"

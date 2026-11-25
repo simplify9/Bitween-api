@@ -23,6 +23,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
                 $"'{role.Name}' is a built-in role and can't be changed. Create a role instead.");
 
         RoleValidation.EnsureKnownPermissions(model.Permissions);
+        RoleValidation.EnsureFitsAudience(role.ForPartners, model.Permissions);
 
         // Both what the role grants now and what it would grant: editing a role you couldn't have
         // created is as much a step past your own access as creating one.

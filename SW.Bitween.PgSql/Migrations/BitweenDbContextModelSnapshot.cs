@@ -107,6 +107,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("text")
                         .HasColumnName("oidc_identity");
 
+                    b.Property<int?>("PartnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("partner_id");
+
                     b.Property<string>("Password")
                         .HasMaxLength(500)
                         .IsUnicode(false)
@@ -123,6 +127,9 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasIndex("Email")
                         .IsUnique()
                         .HasDatabaseName("ix_accounts_email");
+
+                    b.HasIndex("PartnerId")
+                        .HasDatabaseName("ix_accounts_partner_id");
 
                     b.ToTable("Accounts", "infolink");
 
@@ -284,6 +291,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("description");
 
+                    b.Property<bool>("ForPartners")
+                        .HasColumnType("boolean")
+                        .HasColumnName("for_partners");
+
                     b.Property<bool>("IsSystem")
                         .HasColumnType("boolean")
                         .HasColumnName("is_system");
@@ -306,12 +317,22 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("text")
                         .HasColumnName("permissions");
 
+                    b.Property<string>("PresetKey")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("preset_key");
+
                     b.HasKey("Id")
                         .HasName("pk_roles");
 
                     b.HasIndex("Name")
                         .IsUnique()
                         .HasDatabaseName("ix_roles_name");
+
+                    b.HasIndex("PresetKey")
+                        .IsUnique()
+                        .HasDatabaseName("ix_roles_preset_key");
 
                     b.ToTable("Roles", "infolink");
 
@@ -321,6 +342,7 @@ namespace SW.Bitween.PgSql.Migrations
                             Id = 1,
                             CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Full access to everything, including members, roles and settings.",
+                            ForPartners = false,
                             IsSystem = true,
                             Name = "Administrator",
                             Permissions = "[]"
@@ -330,6 +352,7 @@ namespace SW.Bitween.PgSql.Migrations
                             Id = 2,
                             CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Runs and configures integrations. Can't manage members, roles or settings.",
+                            ForPartners = false,
                             IsSystem = true,
                             Name = "Member",
                             Permissions = "[]"
@@ -339,6 +362,7 @@ namespace SW.Bitween.PgSql.Migrations
                             Id = 3,
                             CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Read-only access to integrations, exchanges and configuration.",
+                            ForPartners = false,
                             IsSystem = true,
                             Name = "Viewer",
                             Permissions = "[]"

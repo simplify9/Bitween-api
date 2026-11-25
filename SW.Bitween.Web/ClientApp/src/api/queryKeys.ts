@@ -164,6 +164,13 @@ export const keys = {
     all: ["service-accounts"] as const,
   },
 
+  portal: {
+    all: ["portal"] as const,
+    summary: ["portal", "summary"] as const,
+    subscriptions: ["portal", "subscriptions"] as const,
+    exchanges: (query: Record<string, unknown>) => ["portal", "exchanges", query] as const,
+  },
+
   users: {
     all: ["users"] as const,
     list: ["users", "list"] as const,
