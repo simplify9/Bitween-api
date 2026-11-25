@@ -13,6 +13,12 @@ namespace SW.Bitween.Resources.Partners
     {
         /// <summary>By key name. A key missing here hasn't had a call through since this was recorded.</summary>
         public System.Collections.Generic.Dictionary<string, System.DateTime> KeysLastUsedOn { get; set; } = [];
+
+        /// <summary>
+        /// What their people change in the portal waits for our team's approval. Changed on its own
+        /// (<see cref="SetApproval"/>), so a save of the partner's details never switches it.
+        /// </summary>
+        public bool ChangesNeedApproval { get; set; }
     }
 
     public class Get(BitweenDbContext dbContext, RequestContext requestContext) : IGetHandler<int,object>
@@ -49,7 +55,8 @@ namespace SW.Bitween.Resources.Partners
 
                     AdapterProperties = partner.AdapterProperties,
                     SecretProperties = partner.SecretProperties,
-                    LoginIdentity = partner.LoginIdentity
+                    LoginIdentity = partner.LoginIdentity,
+                    ChangesNeedApproval = partner.ChangesNeedApproval
 
                 }).AsNoTracking().SingleOrDefaultAsync();
 

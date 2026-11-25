@@ -27,9 +27,15 @@ public class PartnerMappings(BitweenDbContext dbContext, RequestContext requestC
         var rows = await (from m in dbContext.Set<PartnerMapping>().AsNoTracking()
                 join p in dbContext.Set<Partner>() on m.PartnerId equals p.Id
                 where m.SubscriptionId == key
-                orderby p.Name
                 select new { m, PartnerName = p.Name })
             .ToListAsync();
+        // A partner whose change waits is listed too, with or without a mapping of their own yet.
+        var waiting = await (from c in dbContext.Set<PartnerMappingChange>().AsNoTracking()
+                join p in dbContext.Set<Partner>() on c.PartnerId equals p.Id
+                where c.SubscriptionId == key && c.Status == PartnerMappingChangeStatus.Waiting
+                select new { c.Id, c.PartnerId, PartnerName = p.Name })
+            .ToListAsync();
+        var waitingOf = waiting.GroupBy(w => w.PartnerId).ToDictionary(g => g.Key, g => g.Max(w => w.Id));
 
         // Changed by an account id; shown by name, the way the trail shows them.
         var ids = rows.Select(r => r.m.ModifiedBy ?? r.m.CreatedBy)
@@ -38,15 +44,26 @@ public class PartnerMappings(BitweenDbContext dbContext, RequestContext requestC
         var names = await dbContext.Set<Account>().AsNoTracking()
             .Where(a => ids.Contains(a.Id)).ToDictionaryAsync(a => a.Id.ToString(), a => a.DisplayName);
 
-        return rows.Select(r => new SubscriptionPartnerMapping
+        var inUse = rows.Select(r => new SubscriptionPartnerMapping
         {
             PartnerId = r.m.PartnerId,
             PartnerName = r.PartnerName,
             MappingRules = r.m.MapperProperties.GetValueOrDefault(PartnerMappingRules.RulesKey) ?? "",
             ChangedOn = r.m.ModifiedOn ?? r.m.CreatedOn,
             ChangedBy = names.GetValueOrDefault(r.m.ModifiedBy ?? r.m.CreatedBy ?? ""),
-            SetAside = !PartnerMappingRules.Fits(r.m, ours)
-        }).ToList();
+            SetAside = !PartnerMappingRules.Fits(r.m, ours),
+            InUse = true,
+            WaitingChangeId = waitingOf.TryGetValue(r.m.PartnerId, out var w) ? w : null
+        });
+        var onlyWaiting = waiting.Where(w => rows.All(r => r.m.PartnerId != w.PartnerId))
+            .GroupBy(w => w.PartnerId)
+            .Select(g => new SubscriptionPartnerMapping
+            {
+                PartnerId = g.Key,
+                PartnerName = g.First().PartnerName,
+                WaitingChangeId = g.Max(x => x.Id)
+            });
+        return inUse.Concat(onlyWaiting).OrderBy(r => r.PartnerName).ToList();
     }
 }
 
@@ -65,6 +82,9 @@ public class RemovePartnerMapping(BitweenDbContext dbContext, RequestContext req
                           .SingleOrDefaultAsync(m => m.SubscriptionId == key && m.PartnerId == request.PartnerId)
                       ?? throw new SWNotFoundException($"{key}/{request.PartnerId}");
         dbContext.Remove(mapping);
+        // In their mapping's history like any change; ours, so used at once.
+        dbContext.Add(new PartnerMappingChange(key, request.PartnerId, null, PartnerMappingChangeStatus.Live,
+            requestContext.GetNameIdentifier()));
         // Clears the cache, this node's and the others', like a partner's change.
         await dbContext.SaveChangesAsync();
         return null;

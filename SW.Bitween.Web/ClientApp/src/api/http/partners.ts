@@ -31,6 +31,7 @@ interface RawPartnerDetail {
   adapterProperties: Record<string, string> | null;
   secretProperties: string[] | null;
   loginIdentity?: string | null;
+  changesNeedApproval?: boolean;
   /** By key name: when a gateway last let a call through with it. */
   keysLastUsedOn?: Record<string, string> | null;
 }
@@ -147,6 +148,7 @@ export const partnerMethods = {
       adapterProperties: d.adapterProperties ?? {},
       secretProperties: d.secretProperties ?? [],
       loginIdentity: d.loginIdentity ?? null,
+      changesNeedApproval: d.changesNeedApproval ?? false,
       isSystem: id === SYSTEM_PARTNER_ID,
       createdOn: "",
       apiCredentials: (d.apiCredentials ?? []).map((c) => ({

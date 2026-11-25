@@ -9,11 +9,21 @@ const EDITOR = ["portal-mappings.view", "portal-mappings.edit", "portal-exchange
 const OURS = JSON.stringify({ version: 1, sourceFormat: "json", targetFormat: "json", fields: [], lists: [] });
 
 /** The portal's mapping endpoints, recording what was saved and previewed. */
-function portal(initially: Record<string, string> | null = null, saveFails = false) {
+function portal(
+  initially: Record<string, string> | null = null,
+  saveFails = false,
+  approval: {
+    needsApproval?: boolean;
+    waiting?: { theirs: Record<string, string> | null; requestedOn: string } | null;
+    rejected?: { note: string | null; decidedOn: string } | null;
+  } = {},
+) {
   const saved: unknown[] = [];
   const previews: unknown[] = [];
   const resets: unknown[] = [];
+  const withdrawn: unknown[] = [];
   let theirs = initially;
+  let waiting = approval.waiting ?? null;
   const handlers = [
     http.get(apiPath("/portal/mapping"), () =>
       HttpResponse.json({
@@ -23,6 +33,9 @@ function portal(initially: Record<string, string> | null = null, saveFails = fal
         default: { MappingRules: OURS },
         theirs,
         setAside: false,
+        needsApproval: approval.needsApproval ?? false,
+        waiting,
+        rejected: approval.rejected ?? null,
       }),
     ),
     http.get(apiPath("/portal/mappingsamples"), () =>
@@ -35,10 +48,18 @@ function portal(initially: Record<string, string> | null = null, saveFails = fal
       return HttpResponse.json({ outputDocument: "{}", contentType: "application/json", ruleErrors: [], error: null });
     }),
     http.post(apiPath("/portal/savemapping"), async ({ request }) => {
-      saved.push(await request.json());
-      return saveFails
-        ? HttpResponse.json({ GLOBAL_VALUES_NOT_ALLOWED: ["Your mapping can't read these internal values: company.apiKey."] }, { status: 400 })
-        : new HttpResponse(null, { status: 204 });
+      const body = (await request.json()) as { mapperProperties: Record<string, string> };
+      saved.push(body);
+      if (saveFails)
+        return HttpResponse.json({ GLOBAL_VALUES_NOT_ALLOWED: ["Your mapping can't read these internal values: company.apiKey."] }, { status: 400 });
+      if (approval.needsApproval) waiting = { theirs: body.mapperProperties, requestedOn: "2026-11-25T09:00:00Z" };
+      else theirs = body.mapperProperties;
+      return HttpResponse.json({ waiting: approval.needsApproval ?? false });
+    }),
+    http.post(apiPath("/portal/withdrawmapping"), async ({ request }) => {
+      withdrawn.push(await request.json());
+      waiting = null;
+      return new HttpResponse(null, { status: 204 });
     }),
     http.post(apiPath("/portal/resetmapping"), async ({ request }) => {
       resets.push(await request.json());
@@ -46,7 +67,7 @@ function portal(initially: Record<string, string> | null = null, saveFails = fal
       return new HttpResponse(null, { status: 204 });
     }),
   ];
-  return { handlers, saved, previews, resets };
+  return { handlers, saved, previews, resets, withdrawn };
 }
 
 describe("a partner's own mapping", () => {
@@ -113,5 +134,46 @@ describe("a partner's own mapping", () => {
     renderApp("/portal/mappings/3", { as: { partner: ACME, permissions: ["portal-mappings.view"] }, handlers: portal().handlers });
     expect(await screen.findByText("Your role can see this but not change it.")).toBeVisible();
     expect(screen.queryByRole("button", { name: "Make your own version" })).not.toBeInTheDocument();
+  });
+
+  it("waits for approval when their changes need it, and says so", async () => {
+    const { handlers, saved } = portal(null, false, { needsApproval: true });
+    const { user } = renderApp("/portal/mappings/3", { as: { partner: ACME, permissions: EDITOR }, handlers });
+
+    expect(await screen.findByText(/Your changes wait for our approval/)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Make your own version" }));
+    await screen.findByRole("button", { name: "Save" }, { timeout: 5000 });
+    await addFixedRule(user, "source", "acme");
+    await user.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() => expect(saved).toHaveLength(1));
+    await user.click(screen.getByRole("button", { name: "Back" }));
+
+    expect(await screen.findByText(/waits for our approval\. You keep getting ours until then\./)).toBeVisible();
+    expect(screen.getByText("Waiting for approval")).toBeVisible();
+    expect(screen.getByText("Our mapping")).toBeVisible();
+    expect(screen.getByRole("button", { name: "Edit your waiting change" })).toBeVisible();
+  });
+
+  it("takes a waiting change back", async () => {
+    const { handlers, withdrawn } = portal(null, false, {
+      needsApproval: true,
+      waiting: { theirs: { MappingRules: OURS }, requestedOn: "2026-11-25T09:00:00Z" },
+    });
+    const { user } = renderApp("/portal/mappings/3", { as: { partner: ACME, permissions: EDITOR }, handlers });
+
+    expect(await screen.findByText("Waiting for approval")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "Take it back" }));
+    await waitFor(() => expect(screen.queryByText("Waiting for approval")).not.toBeInTheDocument());
+    expect(withdrawn).toEqual([{ subscriptionId: 3 }]);
+  });
+
+  it("says why their last change wasn't approved", async () => {
+    const { handlers } = portal(null, false, {
+      needsApproval: true,
+      rejected: { note: "Keep the id field, please.", decidedOn: "2026-11-25T09:00:00Z" },
+    });
+    renderApp("/portal/mappings/3", { as: { partner: ACME, permissions: EDITOR }, handlers });
+
+    expect(await screen.findByText(/We didn't approve your last change/)).toHaveTextContent("Keep the id field, please.");
   });
 });

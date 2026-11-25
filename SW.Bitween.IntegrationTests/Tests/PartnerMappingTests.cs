@@ -79,11 +79,11 @@ public class PartnerMappingTests(BitweenFixture fixture)
         return xchange.MapperProperties["MappingRules"];
     }
 
-    private async Task SaveAs(int person, int subscriptionId, string rules)
+    private async Task<PortalMappingSaved> SaveAs(int person, int subscriptionId, string rules)
     {
         await using var scope = fixture.CreateScope();
         scope.As(person);
-        await ActivatorUtilities.CreateInstance<Resources.Portal.SaveMapping>(scope.ServiceProvider)
+        return (PortalMappingSaved)await ActivatorUtilities.CreateInstance<Resources.Portal.SaveMapping>(scope.ServiceProvider)
             .Handle(new PortalSaveMapping { SubscriptionId = subscriptionId, MapperProperties = Props(rules) });
     }
 
@@ -281,5 +281,183 @@ public class PartnerMappingTests(BitweenFixture fixture)
         var places = (IEnumerable<PortalMappingPlace>)await ActivatorUtilities
             .CreateInstance<Resources.Portal.Mappings>(read.ServiceProvider).Handle();
         Assert.True(places.Single(p => p.SubscriptionId == world.Subscription.Id).SetAside);
+    }
+
+    private async Task NeedApproval(Partner partner, bool needed = true)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        await ActivatorUtilities.CreateInstance<Resources.Partners.SetApproval>(scope.ServiceProvider)
+            .Handle(partner.Id, new PartnerApprovalUpdate { ChangesNeedApproval = needed });
+    }
+
+    private async Task<PartnerMappingChange> WaitingOf(World world)
+    {
+        await using var scope = fixture.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<PartnerMappingChange>()
+            .AsNoTracking()
+            .SingleOrDefaultAsync(c => c.SubscriptionId == world.Subscription.Id && c.PartnerId == world.Mine.Id &&
+                                       c.Status == PartnerMappingChangeStatus.Waiting);
+    }
+
+    private async Task Decide<THandler>(int changeId, string note = null) where THandler : class
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        var handler = ActivatorUtilities.CreateInstance<THandler>(scope.ServiceProvider);
+        await ((dynamic)handler).Handle(changeId, new PartnerChangeDecision { Note = note });
+    }
+
+    private async Task<PortalMapping> ReadAs(World world)
+    {
+        await using var scope = fixture.CreateScope();
+        scope.As(world.Person);
+        return (PortalMapping)await ActivatorUtilities.CreateInstance<Resources.Portal.Mapping>(scope.ServiceProvider)
+            .Handle(new PortalMappingRequest { SubscriptionId = world.Subscription.Id });
+    }
+
+    [Fact]
+    public async Task With_approval_on_their_change_waits_until_approved()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ours = Rules(("id", "orderId"));
+        var world = await SetUpAsync(db, ours);
+        await NeedApproval(world.Mine);
+        var first = Rules(("reference", "orderId"));
+        var second = Rules(("reference", "orderId"), ("customer", "buyer.name"));
+
+        await SaveAs(world.Person, world.Subscription.Id, first);
+        await SaveAs(world.Person, world.Subscription.Id, second);
+
+        // One change to decide on, the newest ask, and nothing used from it yet.
+        var waiting = await WaitingOf(world);
+        Assert.Equal(second, waiting.MapperProperties["MappingRules"]);
+        Assert.Equal(ours, await RulesOfNewExchange(world.Subscription, world.Mine));
+        Assert.NotNull((await ReadAs(world)).Waiting);
+
+        // Someone who may only look can't approve.
+        await using (var viewer = fixture.CreateScope())
+        {
+            await viewer.AsNewViewer($"pc-viewer-{Guid.NewGuid():N}");
+            await Assert.ThrowsAsync<SWUnauthorizedException>(() => ActivatorUtilities
+                .CreateInstance<Resources.PartnerChanges.Approve>(viewer.ServiceProvider)
+                .Handle(waiting.Id, new PartnerChangeDecision()));
+        }
+
+        await Decide<Resources.PartnerChanges.Approve>(waiting.Id);
+        Assert.Equal(second, await RulesOfNewExchange(world.Subscription, world.Mine));
+        Assert.Equal(ours, await RulesOfNewExchange(world.Subscription, world.Other));
+        Assert.Null((await ReadAs(world)).Waiting);
+    }
+
+    [Fact]
+    public async Task A_rejected_change_leaves_what_they_have_and_says_why()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ours = Rules(("id", "orderId"));
+        var world = await SetUpAsync(db, ours);
+        await NeedApproval(world.Mine);
+
+        await SaveAs(world.Person, world.Subscription.Id, Rules(("reference", "orderId")));
+        await Decide<Resources.PartnerChanges.Reject>((await WaitingOf(world)).Id, "Keep the id field, please.");
+
+        Assert.Equal(ours, await RulesOfNewExchange(world.Subscription, world.Mine));
+        var mapping = await ReadAs(world);
+        Assert.Null(mapping.Waiting);
+        Assert.Equal("Keep the id field, please.", mapping.Rejected?.Note);
+    }
+
+    [Fact]
+    public async Task Going_back_to_ours_waits_for_approval_too()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ours = Rules(("id", "orderId"));
+        var world = await SetUpAsync(db, ours);
+        var theirs = Rules(("reference", "orderId"));
+        await SaveAs(world.Person, world.Subscription.Id, theirs);
+        await NeedApproval(world.Mine);
+
+        await using (var reset = fixture.CreateScope())
+        {
+            reset.As(world.Person);
+            await ActivatorUtilities.CreateInstance<Resources.Portal.ResetMapping>(reset.ServiceProvider)
+                .Handle(new PortalMappingRequest { SubscriptionId = world.Subscription.Id });
+        }
+        Assert.Equal(theirs, await RulesOfNewExchange(world.Subscription, world.Mine));
+        var waiting = await WaitingOf(world);
+        Assert.True(waiting.BackToOurs);
+
+        await Decide<Resources.PartnerChanges.Approve>(waiting.Id);
+        Assert.Equal(ours, await RulesOfNewExchange(world.Subscription, world.Mine));
+    }
+
+    [Fact]
+    public async Task Approving_checks_again_against_ours_as_it_is_now()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var world = await SetUpAsync(db, Rules(("id", "orderId"), ("region", "global:company:region")));
+        await NeedApproval(world.Mine);
+        await SaveAs(world.Person, world.Subscription.Id, Rules(("where", "global:company:region")));
+
+        // Ours stops sending the value while their change waits.
+        var subscription = await db.Set<Subscription>().SingleAsync(s => s.Id == world.Subscription.Id);
+        subscription.SetDictionaries(new Dictionary<string, string>(), Props(Rules(("id", "orderId"))),
+            new Dictionary<string, string>(), null, new Dictionary<string, string>());
+        await db.SaveChangesAsync();
+
+        var waiting = await WaitingOf(world);
+        await Assert.ThrowsAsync<SWValidationException>(() => Decide<Resources.PartnerChanges.Approve>(waiting.Id));
+        Assert.NotNull(await WaitingOf(world));
+    }
+
+    [Fact]
+    public async Task Our_team_can_put_an_earlier_version_back()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var world = await SetUpAsync(db, Rules(("id", "orderId")));
+        var first = Rules(("reference", "orderId"));
+        var second = Rules(("ref", "orderId"));
+        await SaveAs(world.Person, world.Subscription.Id, first);
+        await SaveAs(world.Person, world.Subscription.Id, second);
+        Assert.Equal(second, await RulesOfNewExchange(world.Subscription, world.Mine));
+
+        List<PartnerChangeVersion> history;
+        await using (var read = fixture.CreateScope())
+        {
+            read.Superuser();
+            history = (List<PartnerChangeVersion>)await ActivatorUtilities
+                .CreateInstance<Resources.PartnerChanges.History>(read.ServiceProvider)
+                .Handle(new PartnerChangeHistoryRequest { SubscriptionId = world.Subscription.Id, PartnerId = world.Mine.Id });
+        }
+        Assert.Equal([second, first], history.Select(v => v.MappingRules).ToList());
+        Assert.All(history, v => Assert.Equal("live", v.Status));
+
+        await Decide<Resources.PartnerChanges.PutBack>(history.Single(v => v.MappingRules == first).Id);
+        Assert.Equal(first, await RulesOfNewExchange(world.Subscription, world.Mine));
+    }
+
+    [Fact]
+    public async Task With_approval_off_a_save_is_used_at_once_and_ends_one_still_waiting()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var world = await SetUpAsync(db, Rules(("id", "orderId")));
+        await NeedApproval(world.Mine);
+        await SaveAs(world.Person, world.Subscription.Id, Rules(("reference", "orderId")));
+        var waitingId = (await WaitingOf(world)).Id;
+
+        await NeedApproval(world.Mine, false);
+
+        var now = Rules(("ref", "orderId"));
+        var saved = await SaveAs(world.Person, world.Subscription.Id, now);
+        Assert.False(saved.Waiting);
+        Assert.Equal(now, await RulesOfNewExchange(world.Subscription, world.Mine));
+        Assert.Equal(PartnerMappingChangeStatus.Withdrawn, (await db.Set<PartnerMappingChange>().AsNoTracking()
+            .SingleAsync(c => c.Id == waitingId)).Status);
     }
 }

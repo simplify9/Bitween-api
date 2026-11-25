@@ -330,6 +330,8 @@ export interface PartnerRow extends Partner {
   propertyKeys: string[];
 }
 export interface PartnerDetail extends Partner {
+  /** What their people change in the portal waits for our team's approval. Set on its own, not by a save. */
+  changesNeedApproval: boolean;
   apiCredentials: ApiCredentialRef[];
   apiGateways: ApiGatewayAttachmentRef[];
   busGatewayRoutes: BusGatewayRouteRef[];
@@ -2784,6 +2786,8 @@ export interface PortalMappingPlace {
   setAside: boolean;
   /** It maps with a mapper they can make their own version of. */
   customizable: boolean;
+  /** A change of theirs waits for our team to approve it. */
+  waiting: boolean;
   modifiedOn: string | null;
 }
 
@@ -2795,6 +2799,17 @@ export interface PortalMapping {
   default: Record<string, string> | null;
   theirs: Record<string, string> | null;
   setAside: boolean;
+  /** Their changes wait for our team's approval before they're used. */
+  needsApproval: boolean;
+  /** Their change waiting for approval; `theirs` is null when it goes back to ours. */
+  waiting: { theirs: Record<string, string> | null; requestedOn: string } | null;
+  /** Their latest change, when it was rejected and nothing came after it. */
+  rejected: { note: string | null; decidedOn: string } | null;
+}
+
+/** What became of a partner's change: used from their next exchange, or waiting for approval. */
+export interface PortalMappingSaved {
+  waiting: boolean;
 }
 
 export interface PortalMappingSample {
@@ -2813,4 +2828,46 @@ export interface SubscriptionPartnerMapping {
   changedBy: string | null;
   /** It reads a global value the subscription's mapping no longer sends, so theirs isn't used for now. */
   setAside: boolean;
+  /** They use their own mapping now; false when listed only for a change waiting for approval. */
+  inUse: boolean;
+  /** Their change waiting for approval, or null. */
+  waitingChangeId: number | null;
+}
+
+export type PartnerChangeStatus = "waiting" | "live" | "approved" | "rejected" | "withdrawn";
+
+/** A change to a partner's own mapping of a subscription: theirs, from the portal, or our team's. */
+export interface PartnerChange {
+  id: number;
+  subscriptionId: number;
+  subscriptionName: string;
+  partnerId: number;
+  partnerName: string;
+  status: PartnerChangeStatus;
+  /** It drops their own mapping, so they get the subscription's again. */
+  backToOurs: boolean;
+  requestedOn: string;
+  /** By name; null when that account is gone. */
+  requestedBy: string | null;
+  decidedOn: string | null;
+  decidedBy: string | null;
+  /** Why it was rejected, or which version it put back. */
+  note: string | null;
+}
+
+/** One change, with the rules it asks for beside what is used for that partner now. */
+export interface PartnerChangeDetail extends PartnerChange {
+  mappingRules: string;
+  currentRules: string;
+  /** What is used for them now is the subscription's own mapping. */
+  currentIsOurs: boolean;
+  /** Why it can't be approved as it stands; null when it can. */
+  problem: string | null;
+}
+
+/** A change in a partner's mapping history. */
+export interface PartnerChangeVersion extends PartnerChange {
+  mappingRules: string;
+  /** It was used for them once and has rules to put back. */
+  canPutBack: boolean;
 }

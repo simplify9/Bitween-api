@@ -101,6 +101,9 @@ public class PortalMappingPlace
     /// <summary>It maps with a mapper they can make their own version of.</summary>
     public bool Customizable { get; set; }
 
+    /// <summary>A change of theirs waits for our team to approve it.</summary>
+    public bool Waiting { get; set; }
+
     public DateTime? ModifiedOn { get; set; }
 }
 
@@ -127,6 +130,37 @@ public class PortalMapping
 
     /// <summary>See <see cref="PortalMappingPlace.SetAside"/>.</summary>
     public bool SetAside { get; set; }
+
+    /// <summary>Their changes wait for our team to approve them before they are used.</summary>
+    public bool NeedsApproval { get; set; }
+
+    /// <summary>Their change waiting for approval, or null.</summary>
+    public PortalMappingWaiting? Waiting { get; set; }
+
+    /// <summary>Their latest change, when it was rejected and nothing came after it; otherwise null.</summary>
+    public PortalMappingRejected? Rejected { get; set; }
+}
+
+public class PortalMappingWaiting
+{
+    /// <summary>What theirs becomes once approved; null when the change is going back to ours.</summary>
+    public Dictionary<string, string>? Theirs { get; set; }
+
+    public DateTime RequestedOn { get; set; }
+}
+
+public class PortalMappingRejected
+{
+    /// <summary>Why, in our team's words; may be empty.</summary>
+    public string? Note { get; set; }
+
+    public DateTime DecidedOn { get; set; }
+}
+
+/// <summary>What became of a change: used from their next exchange, or waiting for approval.</summary>
+public class PortalMappingSaved
+{
+    public bool Waiting { get; set; }
 }
 
 public class PortalSaveMapping
@@ -171,6 +205,15 @@ public class SubscriptionPartnerMapping
     /// used for them until they change theirs.
     /// </summary>
     public bool SetAside { get; set; }
+
+    /// <summary>
+    /// They use their own mapping now. False for a partner listed only because a change of theirs
+    /// waits for approval.
+    /// </summary>
+    public bool InUse { get; set; }
+
+    /// <summary>Their change waiting for approval, or null.</summary>
+    public int? WaitingChangeId { get; set; }
 }
 
 public class RemovePartnerMappingModel

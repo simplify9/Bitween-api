@@ -50,6 +50,9 @@ export const NotifierPage = lazy(() => import("./pages/notifiers/NotifierPage").
 export const NotifiersPage = lazy(() => import("./pages/notifiers/NotifiersPage").then((m) => ({ default: m.NotifiersPage })));
 export const PartnerPage = lazy(() => import("./pages/partners/PartnerPage").then((m) => ({ default: m.PartnerPage })));
 export const PartnersPage = lazy(() => import("./pages/partners/PartnersPage").then((m) => ({ default: m.PartnersPage })));
+export const PartnerChangesPage = lazy(() =>
+  import("./pages/partner-changes/PartnerChangesPage").then((m) => ({ default: m.PartnerChangesPage })),
+);
 export const NewScheduledJobPage = lazy(() => import("./pages/scheduled-jobs/NewScheduledJobPage").then((m) => ({ default: m.NewScheduledJobPage })));
 export const ScheduledJobsPage = lazy(() => import("./pages/scheduled-jobs/ScheduledJobsPage").then((m) => ({ default: m.ScheduledJobsPage })));
 export const AggregationsPage = lazy(() => import("./pages/aggregations/AggregationsPage").then((m) => ({ default: m.AggregationsPage })));

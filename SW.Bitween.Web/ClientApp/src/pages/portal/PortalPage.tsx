@@ -124,6 +124,11 @@ function Mappings() {
                     {m.via}
                   </div>
                 </div>
+                {m.waiting && (
+                  <Badge tone="warn" title="A change of yours waits for our approval.">
+                    Waiting
+                  </Badge>
+                )}
                 {m.setAside ? (
                   <Badge tone="warn" title="Yours reads an internal value our mapping no longer sends, so ours is used for now.">
                     Set aside

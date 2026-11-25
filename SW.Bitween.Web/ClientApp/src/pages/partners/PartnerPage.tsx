@@ -6,7 +6,8 @@ import { api } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, EmptyState, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Checkbox } from "../../components/ui/forms";
 import { isNotFound } from "../../components/ui/isNotFound";
 import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
 import { MoreActionsMenu } from "../../components/layout/HeaderActions";
@@ -63,6 +64,12 @@ export function PartnerPage() {
       await queryClient.invalidateQueries({ queryKey: keys.partners.all });
       setLoaded(false);
     },
+  });
+
+  // Saved the moment it's ticked, apart from the rest of the page: it isn't one of the partner's details.
+  const approval = useMutation({
+    mutationFn: (needed: boolean) => api.setPartnerApproval(partnerId, needed),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.partners.detail(partnerId) }),
   });
 
   const { leave, dialog: leaveDialog } = useLeaveGuard(dirty);
@@ -190,6 +197,24 @@ export function PartnerPage() {
               )}
             </div>
           </Panel>
+
+          {!p.isSystem && (
+            <Panel title="Partner portal" description="What their people may change when they sign in to Bitween.">
+              <Checkbox
+                label="Their changes need our approval"
+                description={
+                  p.changesNeedApproval
+                    ? "What they change in the portal waits on the Partner changes page until someone approves it."
+                    : "What they change in the portal is used from their next exchange, and kept in its history."
+                }
+                checked={approval.isPending ? approval.variables : p.changesNeedApproval}
+                disabled={!canEdit || approval.isPending}
+                onChange={(e) => approval.mutate(e.target.checked)}
+                title="Changes already waiting keep waiting either way"
+              />
+              <FormError>{approval.error?.message}</FormError>
+            </Panel>
+          )}
 
           <Can permission="exchanges.view">
             <Panel title="Recent exchanges" description="Latest traffic involving this partner.">

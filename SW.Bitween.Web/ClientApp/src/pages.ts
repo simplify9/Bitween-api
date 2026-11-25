@@ -10,6 +10,7 @@ import {
   KeyRound,
   LayoutDashboard,
   Handshake,
+  ClipboardCheck,
   Layers,
   Network,
   Bot,
@@ -260,6 +261,14 @@ export const PAGES = definePages({
     keywords: ["customers", "suppliers", "api keys"],
   },
   partner: { path: "partners/:id", title: "Partner", permission: "partners.view", parent: "partners" },
+  // Beside partners: what their people change in the portal, waiting for approval.
+  partnerChanges: {
+    path: "partner-changes",
+    title: "Partner changes",
+    permission: "partner-changes.view",
+    nav: { group: "subscriptions", icon: ClipboardCheck },
+    keywords: ["approval", "approve", "portal", "partner mapping"],
+  },
 
   // ── Configuration ──
   // First in Configuration: a data source is a connection to something outside Bitween - a broker

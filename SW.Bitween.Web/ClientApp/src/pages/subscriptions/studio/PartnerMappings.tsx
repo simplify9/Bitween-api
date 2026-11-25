@@ -7,6 +7,8 @@ import { Badge, Button, LoadError } from "../../../components/ui/basics";
 import { HighlightedDocument } from "../../../components/ui/HighlightedDocument";
 import { ConfirmDialog, Dialog } from "../../../components/ui/overlays";
 import { formatDateTime, timeAgo } from "../../../lib/dates";
+import { PartnerChangeDialog } from "../../../components/partnerChanges/PartnerChangeDialog";
+import { PartnerMappingHistoryDialog } from "../../../components/partnerChanges/PartnerMappingHistoryDialog";
 
 const pretty = (rules: string) => {
   try {
@@ -29,6 +31,8 @@ export function PartnerMappings({ subscriptionId }: { subscriptionId: string }) 
   });
   const [seeing, setSeeing] = useState<SubscriptionPartnerMapping | null>(null);
   const [removing, setRemoving] = useState<SubscriptionPartnerMapping | null>(null);
+  const [reviewing, setReviewing] = useState<number | null>(null);
+  const [history, setHistory] = useState<SubscriptionPartnerMapping | null>(null);
 
   // A failed read says so, rather than looking like nobody has their own.
   if (mappings.isError)
@@ -56,6 +60,11 @@ export function PartnerMappings({ subscriptionId }: { subscriptionId: string }) 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <span className="truncate font-medium text-ink-900">{m.partnerName}</span>
+                {m.waitingChangeId !== null && (
+                  <Badge tone="warn" title="A change of theirs waits for approval. Nothing of it is used yet.">
+                    Waiting
+                  </Badge>
+                )}
                 {m.setAside && (
                   <Badge
                     tone="warn"
@@ -65,23 +74,43 @@ export function PartnerMappings({ subscriptionId }: { subscriptionId: string }) 
                   </Badge>
                 )}
               </div>
-              <div className="truncate text-xs text-ink-500" title={formatDateTime(m.changedOn)}>
-                Changed {timeAgo(m.changedOn)}
-                {m.changedBy ? ` by ${m.changedBy}` : ""}
-              </div>
+              {m.inUse ? (
+                <div className="truncate text-xs text-ink-500" title={formatDateTime(m.changedOn)}>
+                  Changed {timeAgo(m.changedOn)}
+                  {m.changedBy ? ` by ${m.changedBy}` : ""}
+                </div>
+              ) : (
+                <div className="truncate text-xs text-ink-500">Gets the mapping above until their change is approved</div>
+              )}
             </div>
-            <Button size="sm" onClick={() => setSeeing(m)} title="The rules this partner's exchanges are mapped with">
-              See rules
-            </Button>
-            <Can permission="subscriptions.edit">
-              <Button
-                size="sm"
-                onClick={() => setRemoving(m)}
-                title="Delete their version, so they get the mapping above from their next exchange"
-              >
-                Remove
+            {m.waitingChangeId !== null && (
+              <Can permission="partner-changes.view">
+                <Button size="sm" onClick={() => setReviewing(m.waitingChangeId)} title="Their waiting change beside what they get now">
+                  Review
+                </Button>
+              </Can>
+            )}
+            {m.inUse && (
+              <Button size="sm" onClick={() => setSeeing(m)} title="The rules this partner's exchanges are mapped with">
+                See rules
+              </Button>
+            )}
+            <Can permission="partner-changes.view">
+              <Button size="sm" onClick={() => setHistory(m)} title="Every change to their mapping, and an earlier version to put back">
+                History
               </Button>
             </Can>
+            {m.inUse && (
+              <Can permission="subscriptions.edit">
+                <Button
+                  size="sm"
+                  onClick={() => setRemoving(m)}
+                  title="Delete their version, so they get the mapping above from their next exchange"
+                >
+                  Remove
+                </Button>
+              </Can>
+            )}
           </li>
         ))}
       </ul>
@@ -93,6 +122,15 @@ export function PartnerMappings({ subscriptionId }: { subscriptionId: string }) 
           </div>
         </Dialog>
       )}
+      {reviewing !== null && <PartnerChangeDialog changeId={reviewing} onClose={() => setReviewing(null)} />}
+      {history && (
+        <PartnerMappingHistoryDialog
+          subscriptionId={subscriptionId}
+          partnerId={history.partnerId}
+          partnerName={history.partnerName}
+          onClose={() => setHistory(null)}
+        />
+      )}
       {removing && (
         <ConfirmDialog
           title={`Remove ${removing.partnerName}'s own mapping?`}
@@ -100,7 +138,7 @@ export function PartnerMappings({ subscriptionId }: { subscriptionId: string }) 
           confirmLabel="Remove their mapping"
           onConfirm={async () => {
             await api.removeSubscriptionPartnerMapping(subscriptionId, removing.partnerId);
-            void queryClient.invalidateQueries({ queryKey: keys.portal.ofSubscription(subscriptionId) });
+            void queryClient.invalidateQueries({ queryKey: keys.portal.all });
           }}
           onClose={() => setRemoving(null)}
         />

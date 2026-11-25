@@ -99,6 +99,8 @@ export function renderApp(path: string, { as = {}, config = {}, handlers = [] }:
     http.get(apiPath("/background"), () => HttpResponse.json([])),
     // The subscription page's list of partners with their own mapping; empty unless a test says.
     http.get(apiPath("/subscriptions/:id/partnermappings"), () => HttpResponse.json([])),
+    // The count of partner changes waiting for approval, beside the sidebar entry; none unless a test says.
+    http.get(apiPath("/partnerchanges/count"), () => HttpResponse.json(0)),
   );
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

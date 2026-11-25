@@ -29,6 +29,11 @@ public class Mappings(BitweenDbContext dbContext, RequestContext requestContext)
         var theirs = await dbContext.Set<PartnerMapping>().AsNoTracking()
             .Where(m => m.PartnerId == caller.PartnerId && ids.Contains(m.SubscriptionId))
             .ToDictionaryAsync(m => m.SubscriptionId);
+        var waiting = await dbContext.Set<PartnerMappingChange>().AsNoTracking()
+            .Where(c => c.PartnerId == caller.PartnerId && ids.Contains(c.SubscriptionId) &&
+                        c.Status == PartnerMappingChangeStatus.Waiting)
+            .Select(c => c.SubscriptionId)
+            .ToListAsync();
 
         return places.Where(p => subscriptions.ContainsKey(p.SubscriptionId))
             .Select(p =>
@@ -43,6 +48,7 @@ public class Mappings(BitweenDbContext dbContext, RequestContext requestContext)
                     Customized = theirs.ContainsKey(s.Id),
                     SetAside = theirs.TryGetValue(s.Id, out var mine) && !PartnerMappingRules.Fits(mine, s.MapperProperties),
                     Customizable = s.MapperId is null || s.MapperId == PartnerMappingRules.MapperId,
+                    Waiting = waiting.Contains(s.Id),
                     ModifiedOn = mine is null ? null : mine.ModifiedOn ?? mine.CreatedOn
                 };
             })
@@ -63,6 +69,13 @@ public class Mapping(BitweenDbContext dbContext, RequestContext requestContext) 
         var theirs = await dbContext.Set<PartnerMapping>().AsNoTracking()
             .SingleOrDefaultAsync(m => m.SubscriptionId == request.SubscriptionId && m.PartnerId == caller.PartnerId);
         var customizable = PortalPlaces.Customizable(subscription);
+        var needsApproval = await dbContext.Set<Partner>().Where(p => p.Id == caller.PartnerId)
+            .Select(p => p.ChangesNeedApproval).SingleAsync();
+        var latest = await dbContext.Set<PartnerMappingChange>().AsNoTracking()
+            .Where(c => c.SubscriptionId == request.SubscriptionId && c.PartnerId == caller.PartnerId)
+            .OrderByDescending(c => c.Id)
+            .FirstOrDefaultAsync();
+        var waiting = await PartnerMappingChanges.WaitingAsync(dbContext, request.SubscriptionId, caller.PartnerId);
 
         return new PortalMapping
         {
@@ -76,7 +89,18 @@ public class Mapping(BitweenDbContext dbContext, RequestContext requestContext) 
                 }
                 : null,
             Theirs = theirs?.MapperProperties.ToDictionary(),
-            SetAside = theirs is not null && !PartnerMappingRules.Fits(theirs, subscription.MapperProperties)
+            SetAside = theirs is not null && !PartnerMappingRules.Fits(theirs, subscription.MapperProperties),
+            NeedsApproval = needsApproval,
+            Waiting = waiting is null
+                ? null
+                : new PortalMappingWaiting
+                {
+                    Theirs = waiting.BackToOurs ? null : waiting.MapperProperties.ToDictionary(),
+                    RequestedOn = waiting.RequestedOn
+                },
+            Rejected = latest is { Status: PartnerMappingChangeStatus.Rejected }
+                ? new PortalMappingRejected { Note = latest.Note, DecidedOn = latest.DecidedOn ?? latest.RequestedOn }
+                : null
         };
     }
 }
@@ -96,16 +120,12 @@ public class SaveMapping(BitweenDbContext dbContext, RequestContext requestConte
                 "This mapping uses a mapper that can't be changed here. Ask us to change it.");
 
         var properties = PartnerMappingRules.Validate(request.MapperProperties, subscription.MapperProperties);
-        var theirs = await dbContext.Set<PartnerMapping>()
-            .SingleOrDefaultAsync(m => m.SubscriptionId == request.SubscriptionId && m.PartnerId == caller.PartnerId);
-        if (theirs is null)
-            dbContext.Add(new PartnerMapping(request.SubscriptionId, caller.PartnerId, properties));
-        else
-            theirs.SetMapperProperties(properties);
+        var waits = await PartnerMappingChanges.RequestAsync(dbContext, request.SubscriptionId, caller.PartnerId,
+            properties, requestContext.GetNameIdentifier());
 
         // Saving a partner mapping clears the cache, this node's and the others', like a partner's.
         await dbContext.SaveChangesAsync();
-        return null;
+        return new PortalMappingSaved { Waiting = waits };
     }
 }
 
@@ -117,13 +137,30 @@ public class ResetMapping(BitweenDbContext dbContext, RequestContext requestCont
     public async Task<object> Handle(PortalMappingRequest request)
     {
         var caller = await PortalCaller.EnsureAsync(dbContext, requestContext, Model.Permissions.Portal.MappingsEdit);
-        var theirs = await dbContext.Set<PartnerMapping>()
-            .SingleOrDefaultAsync(m => m.SubscriptionId == request.SubscriptionId && m.PartnerId == caller.PartnerId);
-        if (theirs is not null)
-        {
-            dbContext.Remove(theirs);
-            await dbContext.SaveChangesAsync();
-        }
+        var hasTheirs = await dbContext.Set<PartnerMapping>()
+            .AnyAsync(m => m.SubscriptionId == request.SubscriptionId && m.PartnerId == caller.PartnerId);
+        if (!hasTheirs) return new PortalMappingSaved();
+
+        // Like any change of theirs: it waits for approval when their changes need it.
+        var waits = await PartnerMappingChanges.RequestAsync(dbContext, request.SubscriptionId, caller.PartnerId,
+            null, requestContext.GetNameIdentifier());
+        await dbContext.SaveChangesAsync();
+        return new PortalMappingSaved { Waiting = waits };
+    }
+}
+
+/// <summary>Takes back their change waiting for approval, before our team decides on it.</summary>
+[HandlerName("withdrawmapping")]
+public class WithdrawMapping(BitweenDbContext dbContext, RequestContext requestContext)
+    : ICommandHandler<PortalMappingRequest, object>
+{
+    public async Task<object> Handle(PortalMappingRequest request)
+    {
+        var caller = await PortalCaller.EnsureAsync(dbContext, requestContext, Model.Permissions.Portal.MappingsEdit);
+        var waiting = await PartnerMappingChanges.WaitingAsync(dbContext, request.SubscriptionId, caller.PartnerId);
+        if (waiting is null) return null;
+        waiting.Withdraw(requestContext.GetNameIdentifier());
+        await dbContext.SaveChangesAsync();
         return null;
     }
 }

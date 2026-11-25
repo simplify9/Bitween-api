@@ -1,10 +1,14 @@
 import type { ApiClient } from "../client";
 import type {
+  PartnerChange,
+  PartnerChangeDetail,
+  PartnerChangeVersion,
   PortalExchangePage,
   PortalExchangeQuery,
   PortalMapping,
   PortalMappingPlace,
   PortalMappingSample,
+  PortalMappingSaved,
   PortalSummary,
   SubscriptionPartnerMapping,
 } from "../types";
@@ -20,12 +24,21 @@ export const portalMethods: Pick<
   | "getPortalMapping"
   | "savePortalMapping"
   | "resetPortalMapping"
+  | "withdrawPortalMapping"
   | "previewPortalMapping"
   | "listPortalMappingSamples"
   | "getPortalMappingSample"
   | "listPortalPropertyKeys"
   | "listSubscriptionPartnerMappings"
   | "removeSubscriptionPartnerMapping"
+  | "setPartnerApproval"
+  | "listPartnerChanges"
+  | "countWaitingPartnerChanges"
+  | "getPartnerChange"
+  | "approvePartnerChange"
+  | "rejectPartnerChange"
+  | "listPartnerMappingHistory"
+  | "putBackPartnerMapping"
 > = {
   getPortalSummary: () => get<PortalSummary>("/portal/summary"),
 
@@ -43,11 +56,12 @@ export const portalMethods: Pick<
 
   listPortalMappings: () => get<PortalMappingPlace[]>("/portal/mappings"),
   getPortalMapping: (subscriptionId) => get<PortalMapping>(`/portal/mapping?subscriptionId=${subscriptionId}`),
-  savePortalMapping: async (subscriptionId, mapperProperties) => {
-    await post("/portal/savemapping", { subscriptionId, mapperProperties });
-  },
-  resetPortalMapping: async (subscriptionId) => {
-    await post("/portal/resetmapping", { subscriptionId });
+  savePortalMapping: async (subscriptionId, mapperProperties) =>
+    savedOf(await post<PortalMappingSaved | null>("/portal/savemapping", { subscriptionId, mapperProperties })),
+  resetPortalMapping: async (subscriptionId) =>
+    savedOf(await post<PortalMappingSaved | null>("/portal/resetmapping", { subscriptionId })),
+  withdrawPortalMapping: async (subscriptionId) => {
+    await post("/portal/withdrawmapping", { subscriptionId });
   },
   previewPortalMapping: async (input) => {
     const r = await post<{
@@ -75,4 +89,24 @@ export const portalMethods: Pick<
   removeSubscriptionPartnerMapping: async (subscriptionId, partnerId) => {
     await post(`/subscriptions/${subscriptionId}/removepartnermapping`, { partnerId });
   },
+
+  setPartnerApproval: async (partnerId, changesNeedApproval) => {
+    await post(`/partners/${partnerId}/approval`, { changesNeedApproval });
+  },
+  listPartnerChanges: (waiting) => get<PartnerChange[]>(`/partnerchanges?waiting=${waiting}`),
+  countWaitingPartnerChanges: () => get<number>("/partnerchanges/count"),
+  getPartnerChange: (id) => get<PartnerChangeDetail>(`/partnerchanges/${id}`),
+  approvePartnerChange: async (id) => {
+    await post(`/partnerchanges/${id}/approve`, {});
+  },
+  rejectPartnerChange: async (id, note) => {
+    await post(`/partnerchanges/${id}/reject`, { note });
+  },
+  listPartnerMappingHistory: (subscriptionId, partnerId) =>
+    get<PartnerChangeVersion[]>(`/partnerchanges/history?subscriptionId=${subscriptionId}&partnerId=${partnerId}`),
+  putBackPartnerMapping: async (changeId) => {
+    await post(`/partnerchanges/${changeId}/putback`, {});
+  },
 };
+
+const savedOf = (r: PortalMappingSaved | null): PortalMappingSaved => ({ waiting: r?.waiting ?? false });

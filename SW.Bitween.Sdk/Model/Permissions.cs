@@ -50,6 +50,12 @@ public static class Permissions
         public const string Delete = "partners.delete";
     }
 
+    public static class PartnerChanges
+    {
+        public const string View = "partner-changes.view";
+        public const string Operate = "partner-changes.operate";
+    }
+
     public static class Documents
     {
         public const string View = "documents.view";
@@ -277,6 +283,11 @@ public static class PermissionCatalog
             (Create, "Create partners."),
             (Edit, "Change partner details, properties and API keys."),
             (Delete, "Delete partners.")),
+
+        Area("partner-changes", "Partner changes", "Subscriptions",
+            "What partners change in the portal: waiting for approval when their changes need it, and the history.",
+            (View, "See the changes waiting for approval, and the history of a partner's mapping."),
+            (Operate, "Approve or reject a change, or put an older version of a partner's mapping back.")),
 
         Area("documents", "Information types", "Subscriptions",
             "The kinds of business documents that flow between partners.",

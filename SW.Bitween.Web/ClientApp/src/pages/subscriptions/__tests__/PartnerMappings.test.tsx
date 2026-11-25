@@ -10,6 +10,9 @@ const ACME_MAPPING = {
   mappingRules: '{"version":1,"fields":[{"target":["reference"],"from":{"kind":"path","path":"orderId"}}]}',
   changedOn: "2026-11-24T10:00:00Z",
   changedBy: "Pat at Acme",
+  setAside: false,
+  inUse: true,
+  waitingChangeId: null,
 };
 
 /** The subscription page, with Acme mapping it their own way. */
@@ -61,5 +64,45 @@ describe("partners with their own mapping, on the subscription's page", () => {
       ],
     });
     expect(await screen.findByRole("button", { name: /try again/i }, { timeout: 10000 })).toBeVisible();
+  });
+
+  it("show a change waiting for approval, and the history with an earlier version to put back", async () => {
+    const putBack: number[] = [];
+    const version = (id: number, status: string, requestedOn: string) => ({
+      ...ACME_MAPPING, id, subscriptionId: 10, subscriptionName: "Orders", status, backToOurs: false,
+      requestedOn, requestedBy: "Pat at Acme", decidedOn: null, decidedBy: null, note: null,
+      canPutBack: status !== "waiting",
+    });
+    const { user } = renderApp("/subscriptions/10?stage=transformation", {
+      handlers: [
+        http.get(apiPath("/subscriptions/10/partnermappings"), () =>
+          HttpResponse.json([{ ...ACME_MAPPING, waitingChangeId: 43 }]),
+        ),
+        http.get(apiPath("/partnerchanges/history"), () =>
+          HttpResponse.json([
+            version(43, "waiting", "2026-11-25T09:00:00Z"),
+            version(42, "live", "2026-11-24T10:00:00Z"),
+            version(41, "live", "2026-11-23T10:00:00Z"),
+          ]),
+        ),
+        http.post(apiPath("/partnerchanges/:id/putback"), ({ params }) => {
+          putBack.push(Number(params.id));
+          return new HttpResponse(null, { status: 204 });
+        }),
+        ...backend().handlers,
+      ],
+    });
+
+    expect(await screen.findByText("Waiting", {}, { timeout: 10000 })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Review" })).toBeVisible();
+
+    await user.click(screen.getByRole("button", { name: "History" }));
+    const history = await screen.findByRole("dialog", { name: "Acme Freight's mapping history" });
+    // The version in use now has nothing to put back; only the older one does.
+    const putBackButtons = await within(history).findAllByRole("button", { name: "Use this version again" });
+    expect(putBackButtons).toHaveLength(1);
+    await user.click(putBackButtons[0]);
+    await user.click(screen.getByRole("button", { name: "Use this version" }));
+    await waitFor(() => expect(putBack).toEqual([41]));
   });
 });
