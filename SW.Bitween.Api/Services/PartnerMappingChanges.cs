@@ -23,22 +23,23 @@ public static class PartnerMappingChanges
     /// A partner's change: their rules, or none to go back to ours. Saved here. True when it waits
     /// for approval. Any change of theirs waiting before it is taken back by it.
     /// </summary>
-    public static async Task<bool> RequestAsync(BitweenDbContext db, int subscriptionId, int partnerId,
+    public static async Task<bool> RequestAsync(BitweenDbContext db, IInfolinkCache cache, int subscriptionId, int partnerId,
         IDictionary<string, string> mapperProperties, string by)
     {
         var needsApproval = await db.Set<Partner>().Where(p => p.Id == partnerId)
             .Select(p => p.ChangesNeedApproval).SingleAsync();
 
-        var change = new PartnerMappingChange(subscriptionId, partnerId, mapperProperties,
-            needsApproval ? PartnerChangeStatus.Waiting : PartnerChangeStatus.Live, by);
-        db.Add(change);
-        if (!needsApproval) await ApplyAsync(db, subscriptionId, partnerId, mapperProperties?.ToDictionary());
-        // Changing a partner mapping clears the cache, this node's and the others'.
-        await db.SaveChangesAsync();
-
-        // After the insert, so two saves at once still leave only the newer one waiting.
-        await WithdrawWaitingBeforeAsync(db, subscriptionId, partnerId, change.Id, by);
-        return needsApproval;
+        return await PartnerChangeTransaction.RunAsync(db, cache, async () =>
+        {
+            var change = new PartnerMappingChange(subscriptionId, partnerId, mapperProperties,
+                needsApproval ? PartnerChangeStatus.Waiting : PartnerChangeStatus.Live, by);
+            db.Add(change);
+            if (!needsApproval) await ApplyAsync(db, subscriptionId, partnerId, mapperProperties?.ToDictionary());
+            await db.SaveChangesAsync();
+            // After the insert, so two saves at once still leave only the newer one waiting.
+            await WithdrawWaitingBeforeAsync(db, subscriptionId, partnerId, change.Id, by);
+            return needsApproval;
+        });
     }
 
     /// <summary>The change waiting for approval, if there is one; the newest, should two be.</summary>
@@ -65,15 +66,6 @@ public static class PartnerMappingChanges
                 .SetProperty(c => c.DecidedOn, now)
                 .SetProperty(c => c.Note, note)) == 1;
     }
-
-    /// <summary>An approval that couldn't be applied goes back to waiting, so it can be decided again.</summary>
-    public static Task UndecideAsync(BitweenDbContext db, int changeId) =>
-        db.Set<PartnerMappingChange>()
-            .Where(c => c.Id == changeId && c.Status == PartnerChangeStatus.Approved)
-            .ExecuteUpdateAsync(set => set
-                .SetProperty(c => c.Status, PartnerChangeStatus.Waiting)
-                .SetProperty(c => c.DecidedBy, (string)null)
-                .SetProperty(c => c.DecidedOn, (DateTime?)null));
 
     /// <summary>Takes back the changes still waiting from before this one, which replaces them.</summary>
     public static Task WithdrawWaitingBeforeAsync(BitweenDbContext db, int subscriptionId, int partnerId, int changeId,

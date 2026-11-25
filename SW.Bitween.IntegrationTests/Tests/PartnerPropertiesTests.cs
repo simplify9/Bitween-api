@@ -193,4 +193,63 @@ public class PartnerPropertiesTests(BitweenFixture fixture)
         Assert.Equal("editable", after.PortalAccess["webhookUrl"]);
         Assert.Equal("visible", after.PortalAccess["accountNo"]);
     }
+
+    [Fact]
+    public async Task A_guess_at_a_hidden_or_secret_value_is_answered_the_same_right_or_wrong()
+    {
+        var w = await SetUpAsync(needsApproval: true);
+        // Hidden: refused whether the guess matches or not.
+        await Assert.ThrowsAsync<SWValidationException>(() => Save(w, new() { ["internalCode"] = "X9" }));
+        await Assert.ThrowsAsync<SWValidationException>(() => Save(w, new() { ["internalCode"] = "nope" }));
+
+        // Secret: a change waiting for approval whether it matches or not.
+        Assert.True(((PortalMappingSaved)await Save(w, new() { ["apiKey"] = "s3cret" })).Waiting);
+        Assert.True(((PortalMappingSaved)await Save(w, new() { ["apiKey"] = "wrong" })).Waiting);
+    }
+
+    [Fact]
+    public async Task Saving_another_detail_keeps_a_waiting_secret_replacement()
+    {
+        var w = await SetUpAsync(needsApproval: true);
+        await Save(w, new() { ["apiKey"] = "n3w" });
+        await Save(w, new() { ["apiKey"] = "", ["webhookUrl"] = "https://acme/v2" });
+
+        await using var scope = fixture.CreateScope();
+        var waiting = await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<PartnerPropertyChange>()
+            .AsNoTracking().SingleAsync(c => c.PartnerId == w.Partner && c.Status == PartnerChangeStatus.Waiting);
+        Assert.Equal("n3w", waiting.Values["apiKey"]);
+        Assert.Equal("https://acme/v2", waiting.Values["webhookUrl"]);
+    }
+
+    [Fact]
+    public async Task A_property_hidden_after_they_asked_leaves_their_waiting_change_view()
+    {
+        var w = await SetUpAsync(needsApproval: true);
+        await Save(w, new() { ["webhookUrl"] = "https://acme/v2" });
+        await using (var scope = fixture.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+            var partner = await db.Set<Partner>().SingleAsync(p => p.Id == w.Partner);
+            partner.PortalAccess = new() { ["accountNo"] = "visible" };
+            await db.SaveChangesAsync();
+        }
+
+        var read = (PortalProperties)await As<Resources.Portal.Properties>(w.Person, h => h.Handle());
+        Assert.NotNull(read.Waiting);
+        Assert.Empty(read.Waiting!.Values);
+    }
+
+    [Fact]
+    public async Task Property_names_differing_only_in_case_are_refused()
+    {
+        await using var scope = fixture.CreateScope();
+        scope.Superuser();
+        await Assert.ThrowsAsync<SWValidationException>(() => ActivatorUtilities
+            .CreateInstance<Resources.Partners.Create>(scope.ServiceProvider)
+            .Handle(new PartnerCreate
+            {
+                Name = $"Twins {Guid.NewGuid():N}",
+                AdapterProperties = new() { ["webhookUrl"] = "a", ["WEBHOOKURL"] = "b" }
+            }));
+    }
 }

@@ -49,7 +49,9 @@ public class Properties(BitweenDbContext dbContext, RequestContext requestContex
                 ? null
                 : new PortalPropertiesWaiting
                 {
-                    Values = waiting.Values.ToDictionary(v => v.Key, v => secret.Contains(v.Key) ? null : v.Value),
+                    // Only what they may still see, a secret without its value.
+                    Values = waiting.Values.Where(v => visible.Contains(v.Key))
+                        .ToDictionary(v => v.Key, v => secret.Contains(v.Key) ? null : v.Value),
                     RequestedOn = waiting.RequestedOn
                 },
             Rejected = latest is { Status: PartnerChangeStatus.Rejected }
@@ -64,7 +66,7 @@ public class Properties(BitweenDbContext dbContext, RequestContext requestContex
 /// changes need it. Only what really changes is kept; a secret left empty keeps its value.
 /// </summary>
 [HandlerName("saveproperties")]
-public class SaveProperties(BitweenDbContext dbContext, RequestContext requestContext)
+public class SaveProperties(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
     : ICommandHandler<PortalSaveProperties, object>
 {
     /// <summary>Longer than any address, key or name a partner property holds.</summary>
@@ -78,19 +80,35 @@ public class SaveProperties(BitweenDbContext dbContext, RequestContext requestCo
         var stored = new Dictionary<string, string>(partner.AdapterProperties ?? new Dictionary<string, string>(),
             StringComparer.OrdinalIgnoreCase);
 
-        var changed = new Dictionary<string, string>();
+        var submitted = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         foreach (var (key, value) in request.Values ?? new Dictionary<string, string>())
         {
             if (secret.Contains(key) && (string.IsNullOrEmpty(value) || value == AdapterSecretProperties.Sentinel)) continue;
             if ((value ?? "").Length > MaxValueLength)
                 throw new SWValidationException("VALUE_TOO_LONG", $"{key} is longer than {MaxValueLength} characters.");
-            if (stored.TryGetValue(key, out var now) && now == value) continue;
-            changed[key] = value ?? "";
+            submitted[key] = value ?? "";
         }
-        Services.PartnerPropertyChanges.EnsureEditable(partner, changed);
+        // Before anything is compared with what is stored, so a refusal or a success never says
+        // whether a guess at a hidden or secret value was right.
+        Services.PartnerPropertyChanges.EnsureEditable(partner, submitted);
+
+        // A secret counts as changed whatever it is, for the same reason; the rest only when different.
+        var changed = submitted.Where(v => secret.Contains(v.Key) || !stored.TryGetValue(v.Key, out var now) || now != v.Value)
+            .ToDictionary(v => v.Key, v => v.Value);
+
+        // A secret replacement still waiting, left empty here because it can't be shown, is carried
+        // into this change rather than taken back by it.
+        var waiting = await Services.PartnerPropertyChanges.WaitingAsync(dbContext, caller.PartnerId);
+        if (waiting is not null && changed.Count > 0)
+        {
+            var editable = PartnerPortalAccess.EditableKeys(partner);
+            foreach (var (key, value) in waiting.Values)
+                if (secret.Contains(key) && editable.Contains(key) && !submitted.ContainsKey(key))
+                    changed[key] = value;
+        }
         if (changed.Count == 0) return new PortalMappingSaved();
 
-        var waits = await Services.PartnerPropertyChanges.RequestAsync(dbContext, partner, changed, requestContext.GetNameIdentifier());
+        var waits = await Services.PartnerPropertyChanges.RequestAsync(dbContext, cache, partner, changed, requestContext.GetNameIdentifier());
         return new PortalMappingSaved { Waiting = waits };
     }
 }

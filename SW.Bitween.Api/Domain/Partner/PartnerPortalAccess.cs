@@ -26,13 +26,33 @@ public static class PartnerPortalAccess
     public static HashSet<string> EditableKeys(Partner partner) =>
         Keys(partner, Editable);
 
+    /// <summary>
+    /// The properties named at these levels, matched exactly: a name differing only in case is
+    /// another property, which saving no longer allows (<see cref="EnsureNoCaseTwins"/>).
+    /// </summary>
     private static HashSet<string> Keys(Partner partner, params string[] levels)
     {
         var present = partner?.AdapterProperties ?? new Dictionary<string, string>();
         return (partner?.PortalAccess ?? new Dictionary<string, string>())
-            .Where(a => levels.Contains(a.Value) && present.ContainsKey(a.Key))
+            .Where(a => levels.Contains(a.Value) && present.Keys.Any(k => string.Equals(k, a.Key, StringComparison.Ordinal)))
             .Select(a => a.Key)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Refuses properties whose names differ only in case: adapters read them ignoring case, so one
+    /// of the two would never be used, and which the partner sees in the portal would be unclear.
+    /// </summary>
+    public static void EnsureNoCaseTwins(IDictionary<string, string> adapterProperties)
+    {
+        var twins = (adapterProperties ?? new Dictionary<string, string>()).Keys
+            .GroupBy(k => k, StringComparer.OrdinalIgnoreCase)
+            .Where(g => g.Count() > 1)
+            .Select(g => string.Join(" and ", g))
+            .ToList();
+        if (twins.Count > 0)
+            throw new SWValidationException("DUPLICATE_PROPERTY",
+                "Property names must differ by more than case: " + string.Join("; ", twins) + ".");
     }
 
     /// <summary>

@@ -55,7 +55,7 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext) : IG
 
 /// <summary>Approves a waiting change to a partner's properties: their values are changed now.</summary>
 [HandlerName("approve")]
-public class Approve(BitweenDbContext dbContext, RequestContext requestContext)
+public class Approve(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
     : ICommandHandler<int, PartnerChangeDecision, object>
 {
     public async Task<object> Handle(int key, PartnerChangeDecision request)
@@ -69,20 +69,16 @@ public class Approve(BitweenDbContext dbContext, RequestContext requestContext)
         // Checked again now: what they may change may have changed since they asked.
         Services.PartnerPropertyChanges.EnsureEditable(partner, change.Values);
 
+        // Decided and applied together, or not at all: a decision made meanwhile wins, and this one stops.
         var by = requestContext.GetNameIdentifier();
-        if (!await Services.PartnerPropertyChanges.DecideAsync(dbContext, key, PartnerChangeStatus.Approved, by))
-            throw Read.AlreadyDecided();
-        try
+        await PartnerChangeTransaction.RunAsync(dbContext, cache, async () =>
         {
+            if (!await Services.PartnerPropertyChanges.DecideAsync(dbContext, key, PartnerChangeStatus.Approved, by))
+                throw Read.AlreadyDecided();
             Services.PartnerPropertyChanges.Apply(partner, change.Values);
-            // Changing a partner clears the cache, this node's and the others', after the commit.
             await dbContext.SaveChangesAsync();
-        }
-        catch
-        {
-            await Services.PartnerPropertyChanges.UndecideAsync(dbContext, key);
-            throw;
-        }
+            return true;
+        });
         return null;
     }
 }

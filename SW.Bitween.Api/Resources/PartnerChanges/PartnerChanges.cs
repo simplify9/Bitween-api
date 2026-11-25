@@ -189,7 +189,7 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext) : IG
 
 /// <summary>Approves a waiting change: it is used for the partner from their next exchange.</summary>
 [HandlerName("approve")]
-public class Approve(BitweenDbContext dbContext, RequestContext requestContext)
+public class Approve(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
     : ICommandHandler<int, PartnerChangeDecision, object>
 {
     public async Task<object> Handle(int key, PartnerChangeDecision request)
@@ -204,20 +204,16 @@ public class Approve(BitweenDbContext dbContext, RequestContext requestContext)
 
         // Claimed first, so a decision made meanwhile wins and this one stops here. The change is
         // the one the reviewer opened: a newer ask is a row of its own, and replacing this one took it back.
+        // Decided and applied together, or not at all: a decision made meanwhile wins, and this one stops.
         var by = requestContext.GetNameIdentifier();
-        if (!await PartnerMappingChanges.DecideAsync(dbContext, key, PartnerChangeStatus.Approved, by))
-            throw Read.AlreadyDecided();
-        try
+        await PartnerChangeTransaction.RunAsync(dbContext, cache, async () =>
         {
+            if (!await PartnerMappingChanges.DecideAsync(dbContext, key, PartnerChangeStatus.Approved, by))
+                throw Read.AlreadyDecided();
             await PartnerMappingChanges.ApplyAsync(dbContext, change.SubscriptionId, change.PartnerId, change.MapperProperties);
-            // Changing a partner mapping clears the cache, this node's and the others', after the commit.
             await dbContext.SaveChangesAsync();
-        }
-        catch
-        {
-            await PartnerMappingChanges.UndecideAsync(dbContext, key);
-            throw;
-        }
+            return true;
+        });
         return null;
     }
 }

@@ -109,7 +109,7 @@ public class Mapping(BitweenDbContext dbContext, RequestContext requestContext) 
 
 /// <summary>Saves their own version of a place's mapping, used for them from their next exchange.</summary>
 [HandlerName("savemapping")]
-public class SaveMapping(BitweenDbContext dbContext, RequestContext requestContext)
+public class SaveMapping(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
     : ICommandHandler<PortalSaveMapping, object>
 {
     public async Task<object> Handle(PortalSaveMapping request)
@@ -123,7 +123,7 @@ public class SaveMapping(BitweenDbContext dbContext, RequestContext requestConte
 
         var properties = PartnerMappingRules.Validate(request.MapperProperties, subscription.MapperProperties,
             await PartnerPortalAccess.VisibleKeysAsync(dbContext, caller.PartnerId));
-        var waits = await PartnerMappingChanges.RequestAsync(dbContext, request.SubscriptionId, caller.PartnerId,
+        var waits = await PartnerMappingChanges.RequestAsync(dbContext, cache, request.SubscriptionId, caller.PartnerId,
             properties, requestContext.GetNameIdentifier());
         return new PortalMappingSaved { Waiting = waits };
     }
@@ -131,7 +131,7 @@ public class SaveMapping(BitweenDbContext dbContext, RequestContext requestConte
 
 /// <summary>Removes their own version, so they get the subscription's mapping again.</summary>
 [HandlerName("resetmapping")]
-public class ResetMapping(BitweenDbContext dbContext, RequestContext requestContext)
+public class ResetMapping(BitweenDbContext dbContext, RequestContext requestContext, IInfolinkCache cache)
     : ICommandHandler<PortalMappingRequest, object>
 {
     public async Task<object> Handle(PortalMappingRequest request)
@@ -142,7 +142,7 @@ public class ResetMapping(BitweenDbContext dbContext, RequestContext requestCont
         if (!hasTheirs) return new PortalMappingSaved();
 
         // Like any change of theirs: it waits for approval when their changes need it.
-        var waits = await PartnerMappingChanges.RequestAsync(dbContext, request.SubscriptionId, caller.PartnerId,
+        var waits = await PartnerMappingChanges.RequestAsync(dbContext, cache, request.SubscriptionId, caller.PartnerId,
             null, requestContext.GetNameIdentifier());
         return new PortalMappingSaved { Waiting = waits };
     }

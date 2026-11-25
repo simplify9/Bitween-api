@@ -18,18 +18,19 @@ public static class PartnerPropertyChanges
     /// A partner's change, only properties they may edit. Saved here. True when it waits for approval.
     /// Any change of theirs waiting before it is taken back by it.
     /// </summary>
-    public static async Task<bool> RequestAsync(BitweenDbContext db, Partner partner, IDictionary<string, string> values,
-        string by)
-    {
-        var change = new PartnerPropertyChange(partner.Id, values,
-            partner.ChangesNeedApproval ? PartnerChangeStatus.Waiting : PartnerChangeStatus.Live, by);
-        db.Add(change);
-        if (!partner.ChangesNeedApproval) Apply(partner, change.Values);
-        // Changing a partner clears the cache, this node's and the others'.
-        await db.SaveChangesAsync();
-        await WithdrawWaitingBeforeAsync(db, partner.Id, change.Id, by);
-        return partner.ChangesNeedApproval;
-    }
+    public static Task<bool> RequestAsync(BitweenDbContext db, IInfolinkCache cache, Partner partner,
+        IDictionary<string, string> values, string by) =>
+        PartnerChangeTransaction.RunAsync(db, cache, async () =>
+        {
+            var change = new PartnerPropertyChange(partner.Id, values,
+                partner.ChangesNeedApproval ? PartnerChangeStatus.Waiting : PartnerChangeStatus.Live, by);
+            db.Add(change);
+            if (!partner.ChangesNeedApproval) Apply(partner, change.Values);
+            await db.SaveChangesAsync();
+            // After the insert, so two saves at once still leave only the newer one waiting.
+            await WithdrawWaitingBeforeAsync(db, partner.Id, change.Id, by);
+            return partner.ChangesNeedApproval;
+        });
 
     public static Task<PartnerPropertyChange> WaitingAsync(BitweenDbContext db, int partnerId) =>
         db.Set<PartnerPropertyChange>().AsNoTracking()
@@ -76,14 +77,6 @@ public static class PartnerPropertyChanges
                 .SetProperty(c => c.DecidedOn, now)
                 .SetProperty(c => c.Note, note)) == 1;
     }
-
-    public static Task UndecideAsync(BitweenDbContext db, int changeId) =>
-        db.Set<PartnerPropertyChange>()
-            .Where(c => c.Id == changeId && c.Status == PartnerChangeStatus.Approved)
-            .ExecuteUpdateAsync(set => set
-                .SetProperty(c => c.Status, PartnerChangeStatus.Waiting)
-                .SetProperty(c => c.DecidedBy, (string)null)
-                .SetProperty(c => c.DecidedOn, (DateTime?)null));
 
     private static Task WithdrawWaitingBeforeAsync(BitweenDbContext db, int partnerId, int changeId, string by)
     {

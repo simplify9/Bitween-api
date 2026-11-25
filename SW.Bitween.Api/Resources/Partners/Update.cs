@@ -23,6 +23,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
 
             // Read while they are still there: SetProperties copies the model's own
             // AdapterProperties over the entity's, so the stored values are gone after it runs.
+            PartnerPortalAccess.EnsureNoCaseTwins(model.AdapterProperties);
             var storedProperties = entity.AdapterProperties;
             var storedAccess = entity.PortalAccess;
             dbContext.Entry(entity).SetProperties(model);
