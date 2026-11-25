@@ -283,7 +283,8 @@ namespace SW.Bitween
                     new
                     {
                         Id = Partner.SystemId,
-                        Name = "SYSTEM"
+                        Name = "SYSTEM",
+                        ChangesNeedApproval = false
                     });
             });
 
@@ -817,6 +818,25 @@ namespace SW.Bitween
                 b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
                 b.HasOne<Partner>().WithMany().HasForeignKey(p => p.PartnerId).OnDelete(DeleteBehavior.Cascade);
                 b.Property(p => p.MapperProperties).StoreAsJson().Encrypted();
+            });
+
+            // Every change to a partner's own mapping, and the ones waiting for approval.
+            modelBuilder.Entity<PartnerMappingChange>(b =>
+            {
+                b.ToTable("PartnerMappingChanges");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Ignore(p => p.BackToOurs);
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Partner>().WithMany().HasForeignKey(p => p.PartnerId).OnDelete(DeleteBehavior.Cascade);
+                b.Property(p => p.MapperProperties).StoreAsJson().Encrypted();
+                b.Property(p => p.Status).HasConversion<byte>();
+                b.Property(p => p.RequestedBy).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.DecidedBy).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.Note).HasMaxLength(1000);
+                // One subscription and partner's history, and the waiting ones our team decides on.
+                b.HasIndex(p => new { p.SubscriptionId, p.PartnerId });
+                b.HasIndex(p => p.Status);
             });
 
             modelBuilder.Entity<Role>(b =>

@@ -174,6 +174,11 @@ export const keys = {
     ofSubscription: (subscriptionId: string) => ["portal", "ofSubscription", subscriptionId] as const,
     mapping: (subscriptionId: number) => ["portal", "mapping", subscriptionId] as const,
     samples: (subscriptionId: number) => ["portal", "samples", subscriptionId] as const,
+    /** Our team's: changes partners made, waiting for approval or decided. */
+    changes: (waiting: boolean) => ["portal", "changes", waiting] as const,
+    changeCount: ["portal", "changes", "count"] as const,
+    change: (id: number) => ["portal", "change", id] as const,
+    history: (subscriptionId: string, partnerId: number) => ["portal", "history", subscriptionId, partnerId] as const,
   },
 
   users: {

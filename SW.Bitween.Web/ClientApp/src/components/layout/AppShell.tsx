@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   ChevronDown,
@@ -13,7 +13,7 @@ import {
   X,
   Search as SearchIcon,
 } from "lucide-react";
-import type { SettingRow } from "../../api";
+import { api, type SettingRow } from "../../api";
 import { useSession } from "../../auth/useSession";
 import { type Branding, useApplyBranding } from "../../lib/branding";
 import { settingsDraft, useSettingsDraft } from "../../lib/settingsDraft";
@@ -106,6 +106,29 @@ function AppFooter({ branding }: { branding: Branding }) {
         )}
       </div>
     </footer>
+  );
+}
+
+/**
+ * How many partner changes wait for approval, beside the page's name, so nobody has to open it to
+ * find out. Only drawn for someone who sees the entry, which is who may read the count.
+ */
+function WaitingCount({ railed }: { railed: boolean }) {
+  const count = useQuery({
+    queryKey: keys.portal.changeCount,
+    queryFn: () => api.countWaitingPartnerChanges(),
+    refetchInterval: 60_000,
+  });
+  if (!count.data) return null;
+  return railed ? (
+    <span className="absolute top-0.5 right-1 size-2 rounded-full bg-crimson-500" aria-label={`${count.data} waiting`} />
+  ) : (
+    <span
+      className="ml-auto rounded-full bg-crimson-600 px-1.5 text-[11px] leading-4 font-semibold text-white"
+      title={`${count.data} waiting for approval`}
+    >
+      {count.data}
+    </span>
   );
 }
 
@@ -312,6 +335,7 @@ function SidebarContent({
                               )}
                               <item.icon className="size-4 shrink-0" aria-hidden />
                               {!railed && <span className="truncate">{item.label}</span>}
+                              {item.id === "partnerChanges" && <WaitingCount railed={railed} />}
                             </>
                           )}
                         </NavLink>

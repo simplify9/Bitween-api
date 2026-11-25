@@ -1920,6 +1920,9 @@ namespace SW.Bitween.MsSql.Migrations
                     b.Property<string>("AdapterProperties")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("ChangesNeedApproval")
+                        .HasColumnType("bit");
+
                     b.Property<string>("LoginIdentity")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -1945,6 +1948,7 @@ namespace SW.Bitween.MsSql.Migrations
                         new
                         {
                             Id = 1,
+                            ChangesNeedApproval = false,
                             Name = "SYSTEM"
                         });
                 });
@@ -1986,6 +1990,57 @@ namespace SW.Bitween.MsSql.Migrations
                         .IsUnique();
 
                     b.ToTable("PartnerMappings", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerMappingChange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DecidedBy")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("DecidedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MapperProperties")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RequestedBy")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime>("RequestedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("SubscriptionId", "PartnerId");
+
+                    b.ToTable("PartnerMappingChanges", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.ReceiveAttempt", b =>
@@ -3481,6 +3536,21 @@ namespace SW.Bitween.MsSql.Migrations
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.PartnerMapping", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SW.Bitween.Domain.Subscription", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerMappingChange", b =>
                 {
                     b.HasOne("SW.Bitween.Domain.Partner", null)
                         .WithMany()

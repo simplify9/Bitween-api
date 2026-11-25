@@ -46,6 +46,12 @@ namespace SW.Bitween.Domain
         /// </summary>
         public string LoginIdentity { get; set; }
 
+        /// <summary>
+        /// Whether the changes this partner's people make in the portal wait for our team to approve
+        /// them. Off: a change is used from their next exchange, and kept in its history.
+        /// </summary>
+        public bool ChangesNeedApproval { get; set; }
+
         readonly HashSet<Subscription> _Subscriptions;
         public IReadOnlyCollection<Subscription> Subscriptions => _Subscriptions;
 

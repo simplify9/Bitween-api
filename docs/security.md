@@ -83,6 +83,7 @@ A permission is written `area.action`. Every account, person or service account,
 | Operate | `dashboard` | view |
 | Subscriptions | `subscriptions` | view, create, edit, delete, operate |
 | Subscriptions | `partners` | view, create, edit, delete |
+| Subscriptions | `partner-changes` | view, operate |
 | Subscriptions | `documents` | view, create, edit, delete |
 | Subscriptions | `global-values` | view, create, edit, delete |
 | Subscriptions | `notifiers` | view, create, edit, delete. Covers notification channels and legacy notifiers. |
@@ -108,6 +109,7 @@ A permission is written `area.action`. Every account, person or service account,
 - `subscriptions.operate` covers pause, resume, receive now, roll up now and resetting a retry budget.
 - `data-sources.operate` covers testing a connection. `data-source-statements` lets people write SQL for a database without the right to change its credentials.
 - `documents` is the information types area.
+- `partner-changes` is labelled "Partner changes". `view` covers the changes partners make in the portal, waiting or decided, and a partner's mapping history; `operate` covers approving, rejecting and putting an earlier version back. See [Partner portal](#partner-portal).
 - The audit trail has only `view`, because nothing can change it.
 - `mirror` is labelled "Prod mirror". `view` covers comparing a staging with the prod it mirrors; `operate` covers bringing prod's items onto it and testing them with prod's traffic. See [Prod mirror](prod-mirror.md).
 - `adapter-source` is labelled "Adapter code". `view` covers reading the source a published adapter version carries and comparing versions. `edit` covers the adapter editor's drafts: starting, editing, deleting, building, checking and trying them, which runs their code on the Bitween server. `operate` covers publishing a version, from the editor or as a package through the API, making a version current and withdrawing one. Listing an adapter's versions needs only `subscriptions.view`.
@@ -142,6 +144,8 @@ A partner's own people can sign in and see their partner's data, and nothing els
 - A partner with portal users can't be deleted until they are removed.
 
 - **Their own mappings.** The **Mappings** card lists every place the partner is connected: subscriptions that belong to them, API gateways they are attached to, and bus gateway routes that name them. With `portal-mappings.edit` they can make their own version of a place's mapping in the mapping editor, starting from yours, and preview it against one of their recent exchanges. Their version is used for their exchanges only, from the next one on, including retries; everyone else on the same gateway keeps your mapping, and **Go back to ours** deletes theirs. It works for subscriptions that map with the native mapper or don't map at all. Their rules can read the document and their own partner properties, but no global value that your mapping doesn't already send them, by rule or by `{{globals.…}}` placeholder; saving and previewing refuse it. If your mapping later stops reading a global value theirs reads, theirs is set aside and they get yours until they change it; the portal and the subscription page both say so. Only their rules are kept, never the editor's sample documents. Every change is in the audit trail as **Partner mapping**, in full. The subscription's **Transformation** panel lists the partners with their own mapping, who changed it last and when, with **See rules**, and **Remove** for someone with `subscriptions.edit`, which puts that partner back on your mapping.
+- **Approval.** On a partner's page, **Their changes need our approval** (off by default, needs `partners.edit`) decides what happens when their people save a mapping or choose **Go back to ours**. Off, the change is used from their next exchange. On, it waits and they keep what they have; a newer change replaces the one waiting, and they can take it back. Waiting changes are listed on **Partner changes** in the sidebar, with a count beside it, and on the subscription's Transformation panel. Someone with `partner-changes.operate` opens one beside what the partner gets now and approves it, which uses it from their next exchange, or rejects it with a reason the partner sees. Approving checks the rules again against your mapping as it is then. Turning the switch off doesn't approve what is already waiting.
+- **History.** Every change to a partner's mapping is kept, whether it was used at once, approved, rejected or taken back, including removals and versions your team put back. Changes made before this version of Bitween aren't in it. **History** on the subscription's Transformation panel lists them, and **Use this version again** puts an earlier version back at once, for someone with `partner-changes.operate`.
 
 ## Partners and API keys
 

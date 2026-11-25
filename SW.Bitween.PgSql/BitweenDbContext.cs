@@ -108,7 +108,8 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                     new
                     {
                         Id = Partner.SystemId,
-                        Name = "SYSTEM"
+                        Name = "SYSTEM",
+                        ChangesNeedApproval = false
                     });
             });
 
@@ -659,6 +660,23 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
                 b.HasOne<Partner>().WithMany().HasForeignKey(p => p.PartnerId).OnDelete(DeleteBehavior.Cascade);
                 b.Property(p => p.MapperProperties).EncryptedJsonb();
+            });
+
+            modelBuilder.Entity<PartnerMappingChange>(b =>
+            {
+                b.ToTable("partner_mapping_change");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Ignore(p => p.BackToOurs);
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Partner>().WithMany().HasForeignKey(p => p.PartnerId).OnDelete(DeleteBehavior.Cascade);
+                b.Property(p => p.MapperProperties).EncryptedJsonb();
+                b.Property(p => p.Status).HasConversion<byte>();
+                b.Property(p => p.RequestedBy).HasMaxLength(50);
+                b.Property(p => p.DecidedBy).HasMaxLength(50);
+                b.Property(p => p.Note).HasMaxLength(1000);
+                b.HasIndex(p => new { p.SubscriptionId, p.PartnerId });
+                b.HasIndex(p => p.Status);
             });
 
             modelBuilder.Entity<Role>(b =>

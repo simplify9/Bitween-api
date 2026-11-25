@@ -5,6 +5,10 @@ import type {
   PortalMapping,
   PortalMappingPlace,
   PortalMappingSample,
+  PortalMappingSaved,
+  PartnerChange,
+  PartnerChangeDetail,
+  PartnerChangeVersion,
   PortalExchangeQuery,
   PortalSubscription,
   PortalSummary,
@@ -936,10 +940,12 @@ export interface ApiClient {
   /** Every place they're connected, and whether they use their own mapping there. */
   listPortalMappings(): Promise<PortalMappingPlace[]>;
   getPortalMapping(subscriptionId: number): Promise<PortalMapping>;
-  /** Saves their own mapping of a place, used for their exchanges from the next one on. */
-  savePortalMapping(subscriptionId: number, mapperProperties: Record<string, string>): Promise<void>;
-  /** Removes their own mapping, so they get ours again. */
-  resetPortalMapping(subscriptionId: number): Promise<void>;
+  /** Saves their own mapping of a place: used from their next exchange, or waiting for approval. */
+  savePortalMapping(subscriptionId: number, mapperProperties: Record<string, string>): Promise<PortalMappingSaved>;
+  /** Removes their own mapping, so they get ours again; waits for approval like any change. */
+  resetPortalMapping(subscriptionId: number): Promise<PortalMappingSaved>;
+  /** Takes back their change waiting for approval. */
+  withdrawPortalMapping(subscriptionId: number): Promise<void>;
   previewPortalMapping(input: { subscriptionId: number; mappingRules: string; sourceDocument: string }): Promise<{
     outputDocument: string | null;
     contentType: string | null;
@@ -954,4 +960,16 @@ export interface ApiClient {
   listSubscriptionPartnerMappings(subscriptionId: string): Promise<SubscriptionPartnerMapping[]>;
   /** Removes a partner's own mapping, so they get the subscription's again. */
   removeSubscriptionPartnerMapping(subscriptionId: string, partnerId: number): Promise<void>;
+  /** Whether a partner's portal changes wait for our team's approval. */
+  setPartnerApproval(partnerId: number, changesNeedApproval: boolean): Promise<void>;
+  /** Changes waiting for approval, oldest first; or the latest decided, newest first. */
+  listPartnerChanges(waiting: boolean): Promise<PartnerChange[]>;
+  countWaitingPartnerChanges(): Promise<number>;
+  getPartnerChange(id: number): Promise<PartnerChangeDetail>;
+  approvePartnerChange(id: number): Promise<void>;
+  rejectPartnerChange(id: number, note: string): Promise<void>;
+  /** A partner's mapping of one subscription over time, newest first. */
+  listPartnerMappingHistory(subscriptionId: string, partnerId: number): Promise<PartnerChangeVersion[]>;
+  /** Puts an earlier version of a partner's mapping back, used at once. */
+  putBackPartnerMapping(changeId: number): Promise<void>;
 }

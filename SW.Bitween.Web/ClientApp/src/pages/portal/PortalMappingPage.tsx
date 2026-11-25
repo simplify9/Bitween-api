@@ -43,6 +43,7 @@ export function PortalMappingPage() {
     onSuccess: refresh,
   });
   const reset = useMutation({ mutationFn: () => api.resetPortalMapping(id), onSuccess: refresh });
+  const withdraw = useMutation({ mutationFn: () => api.withdrawPortalMapping(id), onSuccess: refresh });
   const loadSample = useMutation({
     mutationFn: (xchangeId: string) => api.getPortalMappingSample(xchangeId),
     onSuccess: setSample,
@@ -66,8 +67,17 @@ export function PortalMappingPage() {
 
   const m = mapping.data;
   const theirs = m.theirs !== null;
-  // Theirs when they have one, ours otherwise, with any sample they just picked.
-  const properties = { ...(m.theirs ?? m.default ?? {}), ...(sample !== null ? { SourceSample: sample } : {}) };
+  const waiting = m.waiting;
+  // Their waiting change when there is one, then theirs, then ours, with any sample they just picked.
+  const properties = {
+    ...(waiting?.theirs ?? m.theirs ?? m.default ?? {}),
+    ...(sample !== null ? { SourceSample: sample } : {}),
+  };
+  const current = theirs && !m.setAside ? "yours" : "ours";
+  // The latest of a save or a reset, whichever happened last.
+  const outcome = [save, reset]
+    .filter((x) => x.isSuccess && !x.isPending)
+    .sort((a, b) => b.submittedAt - a.submittedAt)[0]?.data;
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -97,6 +107,11 @@ export function PortalMappingPage() {
             ) : (
               <Badge title="You get the same mapping as everyone on this subscription.">Our mapping</Badge>
             )}
+            {waiting && (
+              <Badge tone="warn" title="Your latest change isn't used until we approve it.">
+                Waiting for approval
+              </Badge>
+            )}
           </div>
 
           {!m.customizable ? (
@@ -113,10 +128,38 @@ export function PortalMappingPage() {
                   to remove that field, and it's used again.
                 </p>
               )}
+              {waiting ? (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg bg-warn-100 px-3 py-2 text-sm text-ink-700">
+                  <span className="min-w-0 flex-1">
+                    {waiting.theirs === null
+                      ? "You asked to go back to ours"
+                      : "Your change"}{" "}
+                    from {formatDateTime(waiting.requestedOn)} waits for our approval. You keep getting {current} until
+                    then.
+                  </span>
+                  <Button
+                    busy={withdraw.isPending}
+                    onClick={() => withdraw.mutate()}
+                    title="Take your change back before we decide on it. Nothing else changes."
+                  >
+                    Take it back
+                  </Button>
+                </div>
+              ) : (
+                m.rejected && (
+                  <p className="rounded-lg bg-ink-100 px-3 py-2 text-sm text-ink-700">
+                    We didn't approve your last change ({formatDateTime(m.rejected.decidedOn)})
+                    {m.rejected.note ? `: ${m.rejected.note}` : "."} You keep getting {current}.
+                  </p>
+                )
+              )}
               <p className="text-sm text-ink-600">
                 {theirs
-                  ? "You shape what you receive here. Changes are used from your next exchange, for you only."
-                  : "Make your own version to shape what you receive. It starts as a copy of ours and is used for you only."}
+                  ? "You shape what you receive here, for you only."
+                  : "Make your own version to shape what you receive. It starts as a copy of ours and is used for you only."}{" "}
+                {m.needsApproval
+                  ? "Your changes wait for our approval before they're used."
+                  : "Changes are used from your next exchange."}
               </p>
 
               {canSamples && (samples.data?.length ?? 0) > 0 && (
@@ -142,21 +185,28 @@ export function PortalMappingPage() {
 
               <div className="flex flex-wrap gap-2">
                 <Button variant="primary" onClick={() => setEditing(true)}>
-                  {theirs ? "Edit your mapping" : "Make your own version"}
+                  {waiting?.theirs ? "Edit your waiting change" : theirs ? "Edit your mapping" : "Make your own version"}
                 </Button>
-                {theirs && (
+                {theirs && waiting?.theirs !== null && (
                   <Button
                     busy={reset.isPending}
                     onClick={() => reset.mutate()}
-                    title="Delete your own mapping and get ours again, from your next exchange"
+                    title={
+                      m.needsApproval
+                        ? "Ask to drop your own mapping and get ours again, once we approve it"
+                        : "Delete your own mapping and get ours again, from your next exchange"
+                    }
                   >
                     Go back to ours
                   </Button>
                 )}
               </div>
               {/* A save's failure shows in the editor, where the save was made. */}
-              <FormError>{(reset.error ?? loadSample.error)?.message}</FormError>
-              {save.isSuccess && !save.isPending && <p className="text-[13px] text-ok-700">Saved. Used from your next exchange.</p>}
+              <FormError>{(reset.error ?? withdraw.error ?? loadSample.error)?.message}</FormError>
+              {/* A change sent for approval says so in the notice above. */}
+              {outcome && !outcome.waiting && (
+                <p className="text-[13px] text-ok-700">Saved. Used from your next exchange.</p>
+              )}
             </>
           )}
         </section>
@@ -171,7 +221,9 @@ export function PortalMappingPage() {
               mapperId: NATIVE_MAPPER_ID,
               mapperProperties: properties,
               partnerId: session?.partner ? Number(session.partner.id) : null,
-              onSave: (mapperProperties) => save.mutateAsync(mapperProperties),
+              onSave: async (mapperProperties) => {
+                await save.mutateAsync(mapperProperties);
+              },
             }}
             onClose={() => setEditing(false)}
           />
