@@ -332,6 +332,8 @@ export interface PartnerRow extends Partner {
 export interface PartnerDetail extends Partner {
   /** What their people change in the portal waits for our team's approval. Set on its own, not by a save. */
   changesNeedApproval: boolean;
+  /** What their people see of each property in the portal; one not named is hidden from them. */
+  portalAccess: Record<string, PortalAccessLevel>;
   apiCredentials: ApiCredentialRef[];
   apiGateways: ApiGatewayAttachmentRef[];
   busGatewayRoutes: BusGatewayRouteRef[];
@@ -2834,6 +2836,24 @@ export interface SubscriptionPartnerMapping {
   waitingChangeId: number | null;
 }
 
+/** One of their partner properties a partner's person may see. */
+export interface PortalProperty {
+  key: string;
+  /** Null for a secret one, which they may replace but never read. */
+  value: string | null;
+  secret: boolean;
+  editable: boolean;
+}
+
+/** Their partner properties, and a change of theirs waiting or rejected. */
+export interface PortalProperties {
+  properties: PortalProperty[];
+  needsApproval: boolean;
+  /** The new values by name, a secret one as null. */
+  waiting: { values: Record<string, string | null>; requestedOn: string } | null;
+  rejected: { note: string | null; decidedOn: string } | null;
+}
+
 /** One of a partner's people, as their admin sees them in the portal. */
 export interface PortalPerson {
   id: number;
@@ -2867,13 +2887,19 @@ export interface PortalInvite {
   link: string | null;
 }
 
+/** How much of one partner property their people see in the portal; absent from the map means hidden. */
+export type PortalAccessLevel = "visible" | "editable";
+
 export type PartnerChangeStatus = "waiting" | "live" | "approved" | "rejected" | "withdrawn";
 
 /** A change to a partner's own mapping of a subscription: theirs, from the portal, or our team's. */
 export interface PartnerChange {
   id: number;
-  subscriptionId: number;
-  subscriptionName: string;
+  /** A change to their own mapping of a subscription, or to their own properties. */
+  kind: "mapping" | "properties";
+  /** The subscription a mapping change is for; null for a change to their properties. */
+  subscriptionId: number | null;
+  subscriptionName: string | null;
   partnerId: number;
   partnerName: string;
   status: PartnerChangeStatus;
@@ -2895,6 +2921,12 @@ export interface PartnerChangeDetail extends PartnerChange {
   /** What is used for them now is the subscription's own mapping. */
   currentIsOurs: boolean;
   /** Why it can't be approved as it stands; null when it can. */
+  problem: string | null;
+}
+
+/** A change to a partner's properties, each value now beside what it would become; a secret one never shown. */
+export interface PartnerPropertyChangeDetail extends PartnerChange {
+  items: { key: string; current: string | null; proposed: string | null; secret: boolean }[];
   problem: string | null;
 }
 

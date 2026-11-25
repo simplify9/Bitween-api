@@ -60,6 +60,22 @@ internal static class Read
     public static SWValidationException AlreadyDecided() =>
         new("ALREADY_DECIDED", "This change was already approved, rejected or taken back. It may have been replaced by a newer one.");
 
+    public static T Fill<T>(T row, PartnerPropertyChange c, string partnerName, IReadOnlyDictionary<string, string> names)
+        where T : PartnerChangeRow
+    {
+        row.Id = c.Id;
+        row.Kind = "properties";
+        row.PartnerId = c.PartnerId;
+        row.PartnerName = partnerName;
+        row.Status = c.Status.ToString().ToLowerInvariant();
+        row.RequestedOn = c.RequestedOn;
+        row.RequestedBy = names.GetValueOrDefault(c.RequestedBy ?? "");
+        row.DecidedOn = c.DecidedOn;
+        row.DecidedBy = names.GetValueOrDefault(c.DecidedBy ?? "");
+        row.Note = c.Note;
+        return row;
+    }
+
     public static string RulesOf(IReadOnlyDictionary<string, string> properties) =>
         properties?.GetValueOrDefault(PartnerMappingRules.RulesKey) ?? "";
 
@@ -74,7 +90,8 @@ internal static class Read
         if (!Portal.PortalPlaces.Customizable(subscription))
             throw new SWValidationException("NOT_CUSTOMIZABLE",
                 "This subscription no longer maps with the native mapper, so a partner's own mapping can't be used.");
-        PartnerMappingRules.Validate(change.MapperProperties.ToDictionary(), subscription.MapperProperties);
+        PartnerMappingRules.Validate(change.MapperProperties.ToDictionary(), subscription.MapperProperties,
+            await PartnerPortalAccess.VisibleKeysAsync(db, change.PartnerId));
     }
 }
 
@@ -89,15 +106,33 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext) :
         await requestContext.EnsurePermission(dbContext, Model.Permissions.PartnerChanges.View);
         var rows = Read.Rows(dbContext);
         var found = request.Waiting
-            ? await rows.Where(r => r.Change.Status == PartnerMappingChangeStatus.Waiting)
+            ? await rows.Where(r => r.Change.Status == PartnerChangeStatus.Waiting)
                 .OrderBy(r => r.Change.RequestedOn).Take(Max).ToListAsync()
-            : await rows.Where(r => r.Change.Status == PartnerMappingChangeStatus.Approved ||
-                                    r.Change.Status == PartnerMappingChangeStatus.Rejected)
+            : await rows.Where(r => r.Change.Status == PartnerChangeStatus.Approved ||
+                                    r.Change.Status == PartnerChangeStatus.Rejected)
+                .OrderByDescending(r => r.Change.DecidedOn).Take(Max).ToListAsync();
+
+        // And changes to partners' own properties, the same way.
+        var properties = from c in dbContext.Set<PartnerPropertyChange>().AsNoTracking()
+            join p in dbContext.Set<Partner>() on c.PartnerId equals p.Id
+            select new { Change = c, PartnerName = p.Name };
+        var foundProperties = request.Waiting
+            ? await properties.Where(r => r.Change.Status == PartnerChangeStatus.Waiting)
+                .OrderBy(r => r.Change.RequestedOn).Take(Max).ToListAsync()
+            : await properties.Where(r => r.Change.Status == PartnerChangeStatus.Approved ||
+                                          r.Change.Status == PartnerChangeStatus.Rejected)
                 .OrderByDescending(r => r.Change.DecidedOn).Take(Max).ToListAsync();
 
         var names = await Read.AccountNames(dbContext,
-            found.SelectMany(r => new[] { r.Change.RequestedBy, r.Change.DecidedBy }));
-        return found.Select(r => Read.Fill(new PartnerChangeRow(), r.Change, r.SubscriptionName, r.PartnerName, names)).ToList();
+            found.SelectMany(r => new[] { r.Change.RequestedBy, r.Change.DecidedBy })
+                .Concat(foundProperties.SelectMany(r => new[] { r.Change.RequestedBy, r.Change.DecidedBy })));
+        var all = found.Select(r => Read.Fill(new PartnerChangeRow(), r.Change, r.SubscriptionName, r.PartnerName, names))
+            .Concat(foundProperties.Select(r => Read.Fill(new PartnerChangeRow(), r.Change, r.PartnerName, names)));
+        return (request.Waiting
+                ? all.OrderBy(r => r.RequestedOn)
+                : all.OrderByDescending(r => r.DecidedOn))
+            .Take(Max)
+            .ToList();
     }
 }
 
@@ -108,8 +143,8 @@ public class Count(BitweenDbContext dbContext, RequestContext requestContext) : 
     public async Task<object> Handle()
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.PartnerChanges.View);
-        return await dbContext.Set<PartnerMappingChange>()
-            .CountAsync(c => c.Status == PartnerMappingChangeStatus.Waiting);
+        return await dbContext.Set<PartnerMappingChange>().CountAsync(c => c.Status == PartnerChangeStatus.Waiting) +
+               await dbContext.Set<PartnerPropertyChange>().CountAsync(c => c.Status == PartnerChangeStatus.Waiting);
     }
 }
 
@@ -129,7 +164,7 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext) : IG
             .Where(s => s.Id == change.SubscriptionId).Select(s => s.MapperProperties).SingleAsync();
 
         string problem = null;
-        if (change.Status == PartnerMappingChangeStatus.Waiting)
+        if (change.Status == PartnerChangeStatus.Waiting)
             try
             {
                 await Read.EnsureUsable(dbContext, change);
@@ -143,7 +178,8 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext) : IG
         var detail = Read.Fill(new PartnerChangeDetail(), change, row.SubscriptionName, row.PartnerName, names);
         detail.MappingRules = Read.RulesOf(change.MapperProperties);
         // What their exchanges really get: theirs only while it still fits ours, as the cache decides.
-        var theirsUsed = theirs is not null && PartnerMappingRules.Fits(theirs, ours);
+        var theirsUsed = theirs is not null &&
+                         PartnerMappingRules.Fits(theirs, ours, await PartnerPortalAccess.VisibleKeysAsync(dbContext, change.PartnerId));
         detail.CurrentRules = Read.RulesOf(theirsUsed ? theirs.MapperProperties : ours);
         detail.CurrentIsOurs = !theirsUsed;
         detail.Problem = problem;
@@ -161,7 +197,7 @@ public class Approve(BitweenDbContext dbContext, RequestContext requestContext)
         await requestContext.EnsurePermission(dbContext, Model.Permissions.PartnerChanges.Operate);
         var change = await dbContext.Set<PartnerMappingChange>().AsNoTracking().SingleOrDefaultAsync(c => c.Id == key)
                      ?? throw new SWNotFoundException(key.ToString());
-        if (change.Status != PartnerMappingChangeStatus.Waiting) throw Read.AlreadyDecided();
+        if (change.Status != PartnerChangeStatus.Waiting) throw Read.AlreadyDecided();
 
         // Checked again now: ours may have changed since the partner asked.
         await Read.EnsureUsable(dbContext, change);
@@ -169,7 +205,7 @@ public class Approve(BitweenDbContext dbContext, RequestContext requestContext)
         // Claimed first, so a decision made meanwhile wins and this one stops here. The change is
         // the one the reviewer opened: a newer ask is a row of its own, and replacing this one took it back.
         var by = requestContext.GetNameIdentifier();
-        if (!await PartnerMappingChanges.DecideAsync(dbContext, key, PartnerMappingChangeStatus.Approved, by))
+        if (!await PartnerMappingChanges.DecideAsync(dbContext, key, PartnerChangeStatus.Approved, by))
             throw Read.AlreadyDecided();
         try
         {
@@ -196,7 +232,7 @@ public class Reject(BitweenDbContext dbContext, RequestContext requestContext)
         await requestContext.EnsurePermission(dbContext, Model.Permissions.PartnerChanges.Operate);
         if (!await dbContext.Set<PartnerMappingChange>().AnyAsync(c => c.Id == key))
             throw new SWNotFoundException(key.ToString());
-        if (!await PartnerMappingChanges.DecideAsync(dbContext, key, PartnerMappingChangeStatus.Rejected,
+        if (!await PartnerMappingChanges.DecideAsync(dbContext, key, PartnerChangeStatus.Rejected,
                 requestContext.GetNameIdentifier(), string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim()))
             throw Read.AlreadyDecided();
         return null;
@@ -228,7 +264,7 @@ public class History(BitweenDbContext dbContext, RequestContext requestContext)
             var version = Read.Fill(new PartnerChangeVersion(), r.Change, r.SubscriptionName, r.PartnerName, names);
             version.MappingRules = Read.RulesOf(r.Change.MapperProperties);
             version.CanPutBack = !r.Change.BackToOurs &&
-                                 r.Change.Status is PartnerMappingChangeStatus.Live or PartnerMappingChangeStatus.Approved;
+                                 r.Change.Status is PartnerChangeStatus.Live or PartnerChangeStatus.Approved;
             return version;
         }).ToList();
     }
@@ -247,13 +283,13 @@ public class PutBack(BitweenDbContext dbContext, RequestContext requestContext)
         await requestContext.EnsurePermission(dbContext, Model.Permissions.PartnerChanges.Operate);
         var version = await dbContext.Set<PartnerMappingChange>().AsNoTracking().SingleOrDefaultAsync(c => c.Id == key)
                       ?? throw new SWNotFoundException(key.ToString());
-        if (version.BackToOurs || version.Status is not (PartnerMappingChangeStatus.Live or PartnerMappingChangeStatus.Approved))
+        if (version.BackToOurs || version.Status is not (PartnerChangeStatus.Live or PartnerChangeStatus.Approved))
             throw new SWValidationException("NOT_A_VERSION", "Only a version that was used for the partner can be put back.");
 
         await Read.EnsureUsable(dbContext, version);
         await PartnerMappingChanges.ApplyAsync(dbContext, version.SubscriptionId, version.PartnerId, version.MapperProperties);
         dbContext.Add(new PartnerMappingChange(version.SubscriptionId, version.PartnerId, version.MapperProperties.ToDictionary(),
-            PartnerMappingChangeStatus.Live, requestContext.GetNameIdentifier(),
+            PartnerChangeStatus.Live, requestContext.GetNameIdentifier(),
             $"Put back the version of {version.RequestedOn:yyyy-MM-dd HH:mm} UTC."));
         await dbContext.SaveChangesAsync();
         return null;

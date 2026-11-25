@@ -3,6 +3,7 @@ import type {
   PartnerChange,
   PartnerChangeDetail,
   PartnerChangeVersion,
+  PartnerPropertyChangeDetail,
   PortalExchangePage,
   PortalExchangeQuery,
   PortalMapping,
@@ -11,6 +12,7 @@ import type {
   PortalMappingSaved,
   PortalInvite,
   PortalPerson,
+  PortalProperties,
   PortalRoleChoice,
   PortalSummary,
   SubscriptionPartnerMapping,
@@ -41,7 +43,13 @@ export const portalMethods: Pick<
   | "approvePartnerChange"
   | "rejectPartnerChange"
   | "listPartnerMappingHistory"
+  | "getPartnerPropertyChange"
+  | "approvePartnerPropertyChange"
+  | "rejectPartnerPropertyChange"
   | "putBackPartnerMapping"
+  | "getPortalProperties"
+  | "savePortalProperties"
+  | "withdrawPortalProperties"
   | "listPortalPeople"
   | "listPortalPeopleRoles"
   | "addPortalPerson"
@@ -112,12 +120,24 @@ export const portalMethods: Pick<
   rejectPartnerChange: async (id, note) => {
     await post(`/partnerchanges/${id}/reject`, { note });
   },
+  getPartnerPropertyChange: (id) => get<PartnerPropertyChangeDetail>(`/partnerpropertychanges/${id}`),
+  approvePartnerPropertyChange: async (id) => {
+    await post(`/partnerpropertychanges/${id}/approve`, {});
+  },
+  rejectPartnerPropertyChange: async (id, note) => {
+    await post(`/partnerpropertychanges/${id}/reject`, { note });
+  },
   listPartnerMappingHistory: (subscriptionId, partnerId) =>
     get<PartnerChangeVersion[]>(`/partnerchanges/history?subscriptionId=${subscriptionId}&partnerId=${partnerId}`),
   putBackPartnerMapping: async (changeId) => {
     await post(`/partnerchanges/${changeId}/putback`, {});
   },
 
+  getPortalProperties: () => get<PortalProperties>("/portal/properties"),
+  savePortalProperties: async (values) => savedOf(await post<PortalMappingSaved | null>("/portal/saveproperties", { values })),
+  withdrawPortalProperties: async () => {
+    await post("/portal/withdrawproperties", {});
+  },
   listPortalPeople: () => get<PortalPerson[]>("/portal/people"),
   listPortalPeopleRoles: () => get<PortalRoleChoice[]>("/portal/peopleroles"),
   addPortalPerson: (input) => post<PortalInvite & { id: number }>("/portal/addperson", input),

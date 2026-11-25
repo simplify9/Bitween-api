@@ -30,7 +30,7 @@ public static class PartnerMappingChanges
             .Select(p => p.ChangesNeedApproval).SingleAsync();
 
         var change = new PartnerMappingChange(subscriptionId, partnerId, mapperProperties,
-            needsApproval ? PartnerMappingChangeStatus.Waiting : PartnerMappingChangeStatus.Live, by);
+            needsApproval ? PartnerChangeStatus.Waiting : PartnerChangeStatus.Live, by);
         db.Add(change);
         if (!needsApproval) await ApplyAsync(db, subscriptionId, partnerId, mapperProperties?.ToDictionary());
         // Changing a partner mapping clears the cache, this node's and the others'.
@@ -45,7 +45,7 @@ public static class PartnerMappingChanges
     public static Task<PartnerMappingChange> WaitingAsync(BitweenDbContext db, int subscriptionId, int partnerId) =>
         db.Set<PartnerMappingChange>().AsNoTracking()
             .Where(c => c.SubscriptionId == subscriptionId && c.PartnerId == partnerId &&
-                        c.Status == PartnerMappingChangeStatus.Waiting)
+                        c.Status == PartnerChangeStatus.Waiting)
             .OrderByDescending(c => c.Id)
             .FirstOrDefaultAsync();
 
@@ -53,12 +53,12 @@ public static class PartnerMappingChanges
     /// Decides a change, only while it still waits. False when it doesn't: someone else decided it,
     /// the partner took it back, or a newer change of theirs replaced it.
     /// </summary>
-    public static async Task<bool> DecideAsync(BitweenDbContext db, int changeId, PartnerMappingChangeStatus status,
+    public static async Task<bool> DecideAsync(BitweenDbContext db, int changeId, PartnerChangeStatus status,
         string by, string note = null)
     {
         var now = DateTime.UtcNow;
         return await db.Set<PartnerMappingChange>()
-            .Where(c => c.Id == changeId && c.Status == PartnerMappingChangeStatus.Waiting)
+            .Where(c => c.Id == changeId && c.Status == PartnerChangeStatus.Waiting)
             .ExecuteUpdateAsync(set => set
                 .SetProperty(c => c.Status, status)
                 .SetProperty(c => c.DecidedBy, by)
@@ -69,9 +69,9 @@ public static class PartnerMappingChanges
     /// <summary>An approval that couldn't be applied goes back to waiting, so it can be decided again.</summary>
     public static Task UndecideAsync(BitweenDbContext db, int changeId) =>
         db.Set<PartnerMappingChange>()
-            .Where(c => c.Id == changeId && c.Status == PartnerMappingChangeStatus.Approved)
+            .Where(c => c.Id == changeId && c.Status == PartnerChangeStatus.Approved)
             .ExecuteUpdateAsync(set => set
-                .SetProperty(c => c.Status, PartnerMappingChangeStatus.Waiting)
+                .SetProperty(c => c.Status, PartnerChangeStatus.Waiting)
                 .SetProperty(c => c.DecidedBy, (string)null)
                 .SetProperty(c => c.DecidedOn, (DateTime?)null));
 
@@ -82,9 +82,9 @@ public static class PartnerMappingChanges
         var now = DateTime.UtcNow;
         return db.Set<PartnerMappingChange>()
             .Where(c => c.SubscriptionId == subscriptionId && c.PartnerId == partnerId &&
-                        c.Status == PartnerMappingChangeStatus.Waiting && c.Id < changeId)
+                        c.Status == PartnerChangeStatus.Waiting && c.Id < changeId)
             .ExecuteUpdateAsync(set => set
-                .SetProperty(c => c.Status, PartnerMappingChangeStatus.Withdrawn)
+                .SetProperty(c => c.Status, PartnerChangeStatus.Withdrawn)
                 .SetProperty(c => c.DecidedBy, by)
                 .SetProperty(c => c.DecidedOn, now));
     }

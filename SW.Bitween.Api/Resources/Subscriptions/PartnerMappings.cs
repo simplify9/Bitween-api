@@ -32,7 +32,7 @@ public class PartnerMappings(BitweenDbContext dbContext, RequestContext requestC
         // A partner whose change waits is listed too, with or without a mapping of their own yet.
         var waiting = await (from c in dbContext.Set<PartnerMappingChange>().AsNoTracking()
                 join p in dbContext.Set<Partner>() on c.PartnerId equals p.Id
-                where c.SubscriptionId == key && c.Status == PartnerMappingChangeStatus.Waiting
+                where c.SubscriptionId == key && c.Status == PartnerChangeStatus.Waiting
                 select new { c.Id, c.PartnerId, PartnerName = p.Name })
             .ToListAsync();
         var waitingOf = waiting.GroupBy(w => w.PartnerId).ToDictionary(g => g.Key, g => g.Max(w => w.Id));
@@ -51,6 +51,9 @@ public class PartnerMappings(BitweenDbContext dbContext, RequestContext requestC
         var names = await dbContext.Set<Account>().AsNoTracking()
             .Where(a => ids.Contains(a.Id)).ToDictionaryAsync(a => a.Id.ToString(), a => a.DisplayName);
 
+        var partnerIds = rows.Select(r => r.m.PartnerId).ToList();
+        var visible = (await dbContext.Set<Partner>().AsNoTracking().Where(p => partnerIds.Contains(p.Id)).ToListAsync())
+            .ToDictionary(p => p.Id, PartnerPortalAccess.VisibleKeys);
         var inUse = rows.Select(r => new SubscriptionPartnerMapping
         {
             PartnerId = r.m.PartnerId,
@@ -58,7 +61,7 @@ public class PartnerMappings(BitweenDbContext dbContext, RequestContext requestC
             MappingRules = r.m.MapperProperties.GetValueOrDefault(PartnerMappingRules.RulesKey) ?? "",
             ChangedOn = r.m.ModifiedOn ?? r.m.CreatedOn,
             ChangedBy = names.GetValueOrDefault(r.m.ModifiedBy ?? r.m.CreatedBy ?? ""),
-            SetAside = !PartnerMappingRules.Fits(r.m, ours),
+            SetAside = !PartnerMappingRules.Fits(r.m, ours, visible.GetValueOrDefault(r.m.PartnerId)),
             InUse = true,
             WaitingChangeId = waitingOf.TryGetValue(r.m.PartnerId, out var w) ? w : null
         });
@@ -93,7 +96,7 @@ public class RemovePartnerMapping(BitweenDbContext dbContext, RequestContext req
                       ?? throw new SWNotFoundException($"{key}/{request.PartnerId}");
         dbContext.Remove(mapping);
         // In their mapping's history like any change; ours, so used at once.
-        dbContext.Add(new PartnerMappingChange(key, request.PartnerId, null, PartnerMappingChangeStatus.Live,
+        dbContext.Add(new PartnerMappingChange(key, request.PartnerId, null, PartnerChangeStatus.Live,
             requestContext.GetNameIdentifier()));
         // Clears the cache, this node's and the others', like a partner's change.
         await dbContext.SaveChangesAsync();

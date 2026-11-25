@@ -289,3 +289,51 @@ public class PortalPersonDisabled
     public int AccountId { get; set; }
     public bool Disabled { get; set; }
 }
+
+/// <summary>One of their partner properties they may see.</summary>
+public class PortalProperty
+{
+    public string Key { get; set; } = null!;
+
+    /// <summary>Its value; null for a secret one, which they may replace but never read.</summary>
+    public string? Value { get; set; }
+
+    public bool Secret { get; set; }
+
+    /// <summary>They may change it.</summary>
+    public bool Editable { get; set; }
+}
+
+/// <summary>Their partner properties, and a change of theirs waiting or rejected.</summary>
+public class PortalProperties
+{
+    public List<PortalProperty> Properties { get; set; } = [];
+
+    /// <summary>Their changes wait for our team's approval before they're used.</summary>
+    public bool NeedsApproval { get; set; }
+
+    /// <summary>Their change waiting for approval: the names it changes, and when they asked.</summary>
+    public PortalPropertiesWaiting? Waiting { get; set; }
+
+    /// <summary>Their latest change, when it was rejected and nothing came after it.</summary>
+    public PortalMappingRejected? Rejected { get; set; }
+}
+
+public class PortalPropertiesWaiting
+{
+    /// <summary>The new values by name; a secret one as null.</summary>
+    public Dictionary<string, string?> Values { get; set; } = new();
+
+    public DateTime RequestedOn { get; set; }
+}
+
+public class PortalSaveProperties
+{
+    /// <summary>New values by name, only properties they may change. A secret one left empty is kept.</summary>
+    public Dictionary<string, string> Values { get; set; } = new();
+}
+
+/// <summary>No body: what is taken back is the caller's own waiting change.</summary>
+public class PortalWithdrawProperties
+{
+}

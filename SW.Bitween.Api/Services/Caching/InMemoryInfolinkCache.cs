@@ -78,10 +78,12 @@ public class InMemoryBitweenCache(IMemoryCache memoryCache, IServiceScopeFactory
             var oursById = await repo.Set<Subscription>().AsNoTracking()
                 .Where(s => mappedIds.Contains(s.Id))
                 .ToDictionaryAsync(s => s.Id, s => s.MapperProperties);
-            var cachedPartnerMappings = partnerMappings
-                .Where(m => PartnerMappingRules.Fits(m, oursById.GetValueOrDefault(m.SubscriptionId)))
-                .ToDictionary(m => (m.SubscriptionId, m.PartnerId));
             var partnersById = cachedPartners.ToDictionary(p => p.Id);
+            // And one reading a partner property they may no longer see, which ours doesn't read.
+            var cachedPartnerMappings = partnerMappings
+                .Where(m => PartnerMappingRules.Fits(m, oursById.GetValueOrDefault(m.SubscriptionId),
+                    PartnerPortalAccess.VisibleKeys(partnersById.GetValueOrDefault(m.PartnerId))))
+                .ToDictionary(m => (m.SubscriptionId, m.PartnerId));
             foreach (var attachment in cachedApiGateways.SelectMany(g => g.Partners ?? []))
                 attachment.Partner = partnersById.GetValueOrDefault(attachment.PartnerId);
 

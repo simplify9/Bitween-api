@@ -4,7 +4,7 @@ using System.Linq;
 
 namespace SW.Bitween.Domain;
 
-public enum PartnerMappingChangeStatus : byte
+public enum PartnerChangeStatus : byte
 {
     /// <summary>Asked for by a partner whose changes need approval; nothing is used from it yet.</summary>
     Waiting = 1,
@@ -35,7 +35,7 @@ public class PartnerMappingChange
     }
 
     public PartnerMappingChange(int subscriptionId, int partnerId, IDictionary<string, string> mapperProperties,
-        PartnerMappingChangeStatus status, string requestedBy, string note = null)
+        PartnerChangeStatus status, string requestedBy, string note = null)
     {
         SubscriptionId = subscriptionId;
         PartnerId = partnerId;
@@ -55,7 +55,7 @@ public class PartnerMappingChange
 
     public bool BackToOurs => MapperProperties.Count == 0;
 
-    public PartnerMappingChangeStatus Status { get; private set; }
+    public PartnerChangeStatus Status { get; private set; }
 
     // Decided only by PartnerMappingChanges.DecideAsync: one statement matching a change still waiting.
 

@@ -1925,6 +1925,9 @@ namespace SW.Bitween.MySql.Migrations
                         .IsUnicode(false)
                         .HasColumnType("varchar(200)");
 
+                    b.Property<string>("PortalAccess")
+                        .HasColumnType("longtext");
+
                     b.Property<string>("SecretProperties")
                         .HasColumnType("longtext");
 
@@ -2032,6 +2035,52 @@ namespace SW.Bitween.MySql.Migrations
                     b.HasIndex("SubscriptionId", "PartnerId");
 
                     b.ToTable("PartnerMappingChanges", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerPropertyChange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DecidedBy")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("DecidedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RequestedBy")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime>("RequestedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<string>("Values")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("PartnerPropertyChanges", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.ReceiveAttempt", b =>
@@ -3551,6 +3600,15 @@ namespace SW.Bitween.MySql.Migrations
                     b.HasOne("SW.Bitween.Domain.Subscription", null)
                         .WithMany()
                         .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerPropertyChange", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

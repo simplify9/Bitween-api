@@ -8,6 +8,7 @@ import { useSessionCan } from "../../auth/useSessionCan";
 import { HistoryCard } from "../../components/config/HistoryCard";
 import { Badge, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox } from "../../components/ui/forms";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { isNotFound } from "../../components/ui/isNotFound";
 import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
 import { MoreActionsMenu } from "../../components/layout/HeaderActions";
@@ -213,6 +214,51 @@ export function PartnerPage() {
                 title="Changes already waiting keep waiting either way"
               />
               <FormError>{approval.error?.message}</FormError>
+              {draft && draft.properties.some((r) => r.key.trim()) && (
+                <div className="mt-3 border-t border-ink-100 pt-3">
+                  <h3
+                    className="text-[13px] font-semibold text-ink-800"
+                    title="Hidden properties stay ours. Visible ones show under Your details in their portal, a secret one without its value."
+                  >
+                    What they see of the properties
+                  </h3>
+                  <ul className="mt-1.5 space-y-1.5">
+                    {draft.properties
+                      .filter((r) => r.key.trim())
+                      .map((r) => {
+                        const key = r.key.trim();
+                        const level = draft.portalAccess?.[key] ?? "hidden";
+                        return (
+                          <li key={key} className="flex items-center justify-between gap-2">
+                            <code className="min-w-0 truncate font-mono text-xs text-ink-700" title={key}>
+                              {key}
+                            </code>
+                            <SegmentedControl
+                              size="sm"
+                              label={`What they see of ${key}`}
+                              disabled={!canEdit}
+                              value={level}
+                              onChange={(next) =>
+                                setDraft((d) => {
+                                  if (!d) return d;
+                                  const access = { ...(d.portalAccess ?? {}) };
+                                  if (next === "hidden") delete access[key];
+                                  else access[key] = next;
+                                  return { ...d, portalAccess: access };
+                                })
+                              }
+                              options={[
+                                { value: "hidden", label: "Hidden", title: "Not shown in their portal" },
+                                { value: "visible", label: "Visible", title: "Shown in their portal; a secret one without its value" },
+                                { value: "editable", label: "Can edit", title: "They can change it; a secret one they can replace" },
+                              ]}
+                            />
+                          </li>
+                        );
+                      })}
+                  </ul>
+                </div>
+              )}
             </Panel>
           )}
 

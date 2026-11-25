@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { ALL_PERMISSIONS, apiPath, renderApp } from "../../../__tests__/support/renderApp";
@@ -11,8 +11,19 @@ const openPartner = (writes: unknown[], permissions = ALL_PERMISSIONS) => {
     as: { permissions },
     handlers: [
       http.get(apiPath("/partners/7"), () =>
-        HttpResponse.json({ name: "Acme", apiCredentials: [], adapterProperties: {}, secretProperties: [], changesNeedApproval: needed }),
+        HttpResponse.json({
+          name: "Acme",
+          apiCredentials: [],
+          adapterProperties: { webhookUrl: "https://acme/in", internalCode: "X9" },
+          secretProperties: [],
+          changesNeedApproval: needed,
+          portalAccess: { webhookUrl: "visible" },
+        }),
       ),
+      http.post(apiPath("/partners/7"), async ({ request }) => {
+        writes.push(await request.json());
+        return HttpResponse.json(null);
+      }),
       http.post(apiPath("/partners/7/approval"), async ({ request }) => {
         const body = (await request.json()) as { changesNeedApproval: boolean };
         writes.push(body);
@@ -45,5 +56,18 @@ describe("whether a partner's portal changes need approval", () => {
   it("can't be changed without the right to edit partners", async () => {
     openPartner([], ALL_PERMISSIONS.filter((p) => p !== "partners.edit"));
     expect(await screen.findByRole("checkbox", { name: /Their changes need our approval/ })).toBeDisabled();
+  });
+
+  it("sets what they see of each property, saved with the partner", async () => {
+    const writes: unknown[] = [];
+    const { user } = openPartner(writes);
+
+    const choices = await screen.findByRole("radiogroup", { name: "What they see of internalCode" });
+    expect(within(choices).getByRole("radio", { name: "Hidden" })).toBeChecked();
+    await user.click(within(choices).getByRole("radio", { name: "Can edit" }));
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(writes).toHaveLength(1));
+    expect((writes[0] as { portalAccess: unknown }).portalAccess).toEqual({ internalCode: "editable", webhookUrl: "visible" });
   });
 });

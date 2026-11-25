@@ -6,12 +6,15 @@ import type {
   PortalMappingPlace,
   PortalMappingSample,
   PortalMappingSaved,
+  PortalAccessLevel,
+  PortalProperties,
   PortalInvite,
   PortalPerson,
   PortalRoleChoice,
   PartnerChange,
   PartnerChangeDetail,
   PartnerChangeVersion,
+  PartnerPropertyChangeDetail,
   PortalExchangeQuery,
   PortalSubscription,
   PortalSummary,
@@ -256,6 +259,8 @@ export interface ApiClient {
       secretProperties?: string[];
       /** Left out, the stored identity is kept; null clears it. */
       loginIdentity?: string | null;
+      /** Left out, what their people see in the portal is kept. */
+      portalAccess?: Record<string, PortalAccessLevel>;
     },
   ): Promise<Partner>;
   deletePartner(id: number): Promise<void>;
@@ -971,10 +976,19 @@ export interface ApiClient {
   getPartnerChange(id: number): Promise<PartnerChangeDetail>;
   approvePartnerChange(id: number): Promise<void>;
   rejectPartnerChange(id: number, note: string): Promise<void>;
+  getPartnerPropertyChange(id: number): Promise<PartnerPropertyChangeDetail>;
+  approvePartnerPropertyChange(id: number): Promise<void>;
+  rejectPartnerPropertyChange(id: number, note: string): Promise<void>;
   /** A partner's mapping of one subscription over time, newest first. */
   listPartnerMappingHistory(subscriptionId: string, partnerId: number): Promise<PartnerChangeVersion[]>;
   /** Puts an earlier version of a partner's mapping back, used at once. */
   putBackPartnerMapping(changeId: number): Promise<void>;
+  /** Their own partner properties, only those we show them. */
+  getPortalProperties(): Promise<PortalProperties>;
+  /** Changes the properties they may change; used at once or waiting for approval. */
+  savePortalProperties(values: Record<string, string>): Promise<PortalMappingSaved>;
+  /** Takes back their properties change waiting for approval. */
+  withdrawPortalProperties(): Promise<void>;
   /** Their company's people, for a partner's admin. */
   listPortalPeople(): Promise<PortalPerson[]>;
   /** The roles a partner's admin may give. */

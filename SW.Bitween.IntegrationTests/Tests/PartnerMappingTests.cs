@@ -297,7 +297,7 @@ public class PartnerMappingTests(BitweenFixture fixture)
         return await scope.ServiceProvider.GetRequiredService<BitweenDbContext>().Set<PartnerMappingChange>()
             .AsNoTracking()
             .SingleOrDefaultAsync(c => c.SubscriptionId == world.Subscription.Id && c.PartnerId == world.Mine.Id &&
-                                       c.Status == PartnerMappingChangeStatus.Waiting);
+                                       c.Status == PartnerChangeStatus.Waiting);
     }
 
     private async Task Decide<THandler>(int changeId, string note = null) where THandler : class
@@ -457,7 +457,7 @@ public class PartnerMappingTests(BitweenFixture fixture)
         var saved = await SaveAs(world.Person, world.Subscription.Id, now);
         Assert.False(saved.Waiting);
         Assert.Equal(now, await RulesOfNewExchange(world.Subscription, world.Mine));
-        Assert.Equal(PartnerMappingChangeStatus.Withdrawn, (await db.Set<PartnerMappingChange>().AsNoTracking()
+        Assert.Equal(PartnerChangeStatus.Withdrawn, (await db.Set<PartnerMappingChange>().AsNoTracking()
             .SingleAsync(c => c.Id == waitingId)).Status);
     }
 
