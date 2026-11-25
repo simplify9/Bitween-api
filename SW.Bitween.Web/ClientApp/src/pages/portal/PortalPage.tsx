@@ -38,6 +38,7 @@ export function PortalPage() {
   const { session, signOut } = useSession();
   const canExchanges = useSessionCan("portal-exchanges.view");
   const canSubscriptions = useSessionCan("portal-subscriptions.view");
+  const canMappings = useSessionCan("portal-mappings.view");
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -59,7 +60,7 @@ export function PortalPage() {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-4 px-4 py-4 sm:px-6">
-        {!canExchanges && !canSubscriptions ? (
+        {!canExchanges && !canSubscriptions && !canMappings ? (
           <EmptyState icon={<Inbox />} title="Nothing to show yet">
             Your role doesn't include anything to see here. Ask whoever set up your account to give you a role.
           </EmptyState>
@@ -68,7 +69,10 @@ export function PortalPage() {
             {canExchanges && <Summary />}
             <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_20rem]">
               {canExchanges ? <Exchanges /> : <div />}
-              {canSubscriptions && <Subscriptions />}
+              <div className="space-y-4">
+                {canMappings && <Mappings />}
+                {canSubscriptions && <Subscriptions />}
+              </div>
             </div>
           </>
         )}
@@ -94,6 +98,49 @@ function Summary() {
         </div>
       ))}
     </section>
+  );
+}
+
+function Mappings() {
+  const mappings = useQuery({ queryKey: keys.portal.mappings, queryFn: () => api.listPortalMappings() });
+  return (
+    <Panel title="Mappings" description="How what you receive is shaped, wherever you're connected.">
+      {mappings.isPending ? (
+        <LoadingBlock />
+      ) : mappings.isError ? (
+        <LoadError error={mappings.error} what="your mappings" onRetry={() => void mappings.refetch()} />
+      ) : mappings.data.length === 0 ? (
+        <p className="text-sm text-ink-500">Nothing is connected to you yet.</p>
+      ) : (
+        <ul className="divide-y divide-ink-100">
+          {mappings.data.map((m) => (
+            <li key={m.subscriptionId}>
+              <Link to={`/portal/mappings/${m.subscriptionId}`} className="flex items-center gap-2 py-2 hover:bg-ink-50">
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-sm font-medium text-ink-900" title={m.subscriptionName}>
+                    {m.subscriptionName}
+                  </div>
+                  <div className="truncate text-xs text-ink-500" title="How you're connected">
+                    {m.via}
+                  </div>
+                </div>
+                {m.setAside ? (
+                  <Badge tone="warn" title="Yours reads an internal value our mapping no longer sends, so ours is used for now.">
+                    Set aside
+                  </Badge>
+                ) : m.customized ? (
+                  <Badge tone="ok" title="Your own mapping is used for your exchanges.">
+                    Yours
+                  </Badge>
+                ) : (
+                  <Badge title="You get our mapping, the same as everyone on it.">Ours</Badge>
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Panel>
   );
 }
 

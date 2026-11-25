@@ -1,6 +1,10 @@
 import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
+  SubscriptionPartnerMapping,
   PortalExchangePage,
+  PortalMapping,
+  PortalMappingPlace,
+  PortalMappingSample,
   PortalExchangeQuery,
   PortalSubscription,
   PortalSummary,
@@ -929,4 +933,25 @@ export interface ApiClient {
   listPortalSubscriptions(): Promise<PortalSubscription[]>;
   /** Their exchanges newest first, a page at a time; errors and files only with those permissions. */
   searchPortalExchanges(query: PortalExchangeQuery): Promise<PortalExchangePage>;
+  /** Every place they're connected, and whether they use their own mapping there. */
+  listPortalMappings(): Promise<PortalMappingPlace[]>;
+  getPortalMapping(subscriptionId: number): Promise<PortalMapping>;
+  /** Saves their own mapping of a place, used for their exchanges from the next one on. */
+  savePortalMapping(subscriptionId: number, mapperProperties: Record<string, string>): Promise<void>;
+  /** Removes their own mapping, so they get ours again. */
+  resetPortalMapping(subscriptionId: number): Promise<void>;
+  previewPortalMapping(input: { subscriptionId: number; mappingRules: string; sourceDocument: string }): Promise<{
+    outputDocument: string | null;
+    contentType: string | null;
+    ruleErrors: { target: string; reason: string }[];
+    error: string | null;
+  }>;
+  listPortalMappingSamples(subscriptionId: number): Promise<PortalMappingSample[]>;
+  getPortalMappingSample(xchangeId: string): Promise<string>;
+  /** The names of their own partner properties, never the values. */
+  listPortalPropertyKeys(): Promise<string[]>;
+  /** The partners using their own mapping of this subscription. */
+  listSubscriptionPartnerMappings(subscriptionId: string): Promise<SubscriptionPartnerMapping[]>;
+  /** Removes a partner's own mapping, so they get the subscription's again. */
+  removeSubscriptionPartnerMapping(subscriptionId: string, partnerId: number): Promise<void>;
 }

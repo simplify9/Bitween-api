@@ -807,6 +807,18 @@ namespace SW.Bitween
                 b.HasIndex(p => p.Hash).IsUnique();
             });
 
+            // A partner's own mapping of a subscription; goes with either of them.
+            modelBuilder.Entity<PartnerMapping>(b =>
+            {
+                b.ToTable("PartnerMappings");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasIndex(p => new { p.SubscriptionId, p.PartnerId }).IsUnique();
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Partner>().WithMany().HasForeignKey(p => p.PartnerId).OnDelete(DeleteBehavior.Cascade);
+                b.Property(p => p.MapperProperties).StoreAsJson().Encrypted();
+            });
+
             modelBuilder.Entity<Role>(b =>
             {
                 b.ToTable("Roles");
@@ -927,7 +939,7 @@ namespace SW.Bitween
 
             var revokesCache = cache != null && ChangeTracker.Entries().Any(e =>
                 e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted &&
-                e.Entity is Partner or ApiCredential or ApiGateway or ApiGatewayPartner or RetryPolicy);
+                e.Entity is Partner or ApiCredential or ApiGateway or ApiGatewayPartner or RetryPolicy or PartnerMapping);
 
             // Plus any a caller queued itself, such as a delivery's response.
             var outgoing = ChangeTracker.Entries<OutboxMessage>()

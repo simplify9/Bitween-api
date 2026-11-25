@@ -42,7 +42,8 @@ export function useSourceDocument(
   alsoFedBy: (number | null | undefined)[] = [],
 ): SourceDocument | null {
   const fed = subscription.type === "Response" || subscription.type === "BusGateway";
-  const subscriptions = useSubscriptionsCache();
+  // Only what's fed by another subscription needs the list, and it's the heaviest read there is.
+  const subscriptions = useSubscriptionsCache(fed);
   const types = useQuery({
     queryKey: keys.informationTypes.list,
     queryFn: () => api.listInformationTypes(),

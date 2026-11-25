@@ -51,6 +51,7 @@ import {
   NotifiersPage,
   PartnerPage,
   PartnersPage,
+  PortalMappingPage,
   PortalPage,
   ProfilePage,
   QueueHealthPage,
@@ -212,6 +213,14 @@ export const routes: RouteObject[] = [
             element: (
               <Suspense fallback={<LoadingBlock />}>
                 <PortalPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: "mappings/:subscriptionId",
+            element: (
+              <Suspense fallback={<LoadingBlock />}>
+                <PortalMappingPage />
               </Suspense>
             ),
           },

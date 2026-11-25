@@ -276,7 +276,13 @@ public class PartnerPortalTests(BitweenFixture fixture)
 
         var world = await SetUpAsync(db);
         var person = await AccountAsync(db, world.Mine.Id, viewer.Id);
-        Assert.Equal(PermissionCatalog.PortalKeys, await RequestContextExtensions.GetPermissionsOf(db, person));
+        Assert.Equal(PermissionCatalog.InGroups(true, PermissionCatalog.PortalGroup).ToHashSet(),
+            await RequestContextExtensions.GetPermissionsOf(db, person));
+
+        // Partner editor holds everything in the portal, edits included.
+        var editor = Assert.Single(await db.Set<Role>().AsNoTracking().Where(r => r.PresetKey == "partner-editor").ToListAsync());
+        var editing = await AccountAsync(db, world.Mine.Id, editor.Id);
+        Assert.Equal(PermissionCatalog.PortalKeys, await RequestContextExtensions.GetPermissionsOf(db, editing));
 
         // Built in, so nobody edits it.
         scope.Superuser();

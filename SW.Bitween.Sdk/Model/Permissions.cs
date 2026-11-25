@@ -207,6 +207,8 @@ public static class Permissions
         public const string ExchangesView = "portal-exchanges.view";
         public const string ExchangeFilesView = "portal-exchange-files.view";
         public const string ExchangeErrorsView = "portal-exchange-errors.view";
+        public const string MappingsView = "portal-mappings.view";
+        public const string MappingsEdit = "portal-mappings.edit";
     }
 }
 
@@ -400,7 +402,12 @@ public static class PermissionCatalog
 
         Area("portal-exchange-errors", "Exchange errors", "Partner portal",
             "Why an exchange failed. Errors can name addresses and systems on our side.",
-            (View, "Read the error of a failed exchange."))
+            (View, "Read the error of a failed exchange.")),
+
+        Area("portal-mappings", "Their mappings", "Partner portal",
+            "How what they receive is shaped, wherever they are connected: their own version of a subscription's mapping, used for them alone.",
+            (View, "See the mapping used for them."),
+            (Edit, "Make, change and remove their own version of a mapping."))
     ];
 
     /// <summary>The group partner roles draw from, and the only one.</summary>

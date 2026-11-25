@@ -83,9 +83,15 @@ public class Role : BaseEntity, IAudited
     public static readonly IReadOnlyList<PartnerPreset> PartnerPresets =
     [
         new("partner-viewer", "Partner viewer",
-            "For a partner's people: sees that partner's subscriptions and exchanges, with their files and errors.",
+            "For a partner's people: sees that partner's subscriptions, exchanges and mappings, with the exchanges' files and errors.",
             () => PermissionCatalog.InGroups(true, PermissionCatalog.PortalGroup)),
+        new("partner-editor", "Partner editor",
+            "For a partner's people: everything Partner viewer sees, and changes their own mappings.",
+            () => PermissionCatalog.InGroups(false, PermissionCatalog.PortalGroup)),
     ];
+
+    /// <summary>For a built-in role whose wording changed in a later version.</summary>
+    public void Describe(string description) => Description = description;
 
     public void Update(string name, string description, IEnumerable<string> permissions)
     {

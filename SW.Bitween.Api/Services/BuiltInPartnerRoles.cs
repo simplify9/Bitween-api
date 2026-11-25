@@ -45,8 +45,14 @@ public static class BuiltInPartnerRoles
 
     public static async Task EnsureAsync(BitweenDbContext db, ILogger logger)
     {
-        var present = await db.Set<Role>().AsNoTracking()
-            .Where(r => r.PresetKey != null).Select(r => r.PresetKey).ToListAsync();
+        var existing = await db.Set<Role>().Where(r => r.PresetKey != null).ToListAsync();
+        var present = existing.Select(r => r.PresetKey).ToList();
+
+        // A later version may word one differently; its name stays, since it may carry a suffix.
+        foreach (var role in existing)
+            if (Role.PartnerPresets.FirstOrDefault(p => p.Key == role.PresetKey) is { } preset && role.Description != preset.Description)
+                role.Describe(preset.Description);
+        await db.SaveChangesAsync();
 
         foreach (var preset in Role.PartnerPresets.Where(p => !present.Contains(p.Key)))
         {

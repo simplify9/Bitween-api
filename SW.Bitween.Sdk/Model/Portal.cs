@@ -78,3 +78,102 @@ public class PortalSummary
     public int Succeeded { get; set; }
     public int Failed { get; set; }
 }
+
+/// <summary>A place a partner is connected, and whether they map it their own way there.</summary>
+public class PortalMappingPlace
+{
+    public int SubscriptionId { get; set; }
+    public string SubscriptionName { get; set; } = null!;
+
+    /// <summary>How they are connected: their own subscription, an API gateway, a bus gateway route.</summary>
+    public string Via { get; set; } = null!;
+
+    public string DocumentName { get; set; } = null!;
+
+    /// <summary>They have their own version of the mapping.</summary>
+    public bool Customized { get; set; }
+
+    /// <summary>
+    /// Theirs reads an internal value ours no longer sends, so ours is used until they change theirs.
+    /// </summary>
+    public bool SetAside { get; set; }
+
+    /// <summary>It maps with a mapper they can make their own version of.</summary>
+    public bool Customizable { get; set; }
+
+    public DateTime? ModifiedOn { get; set; }
+}
+
+public class PortalMappingRequest
+{
+    public int SubscriptionId { get; set; }
+}
+
+/// <summary>A place's mapping: ours, and theirs when they have one.</summary>
+public class PortalMapping
+{
+    public int SubscriptionId { get; set; }
+    public string SubscriptionName { get; set; } = null!;
+    public bool Customizable { get; set; }
+
+    /// <summary>
+    /// The subscription's own mapping rules, the starting point for theirs; null when it doesn't map
+    /// or maps with another mapper. Its samples are left out: they may be another partner's data.
+    /// </summary>
+    public Dictionary<string, string>? Default { get; set; }
+
+    /// <summary>Their own version, or null when they use ours.</summary>
+    public Dictionary<string, string>? Theirs { get; set; }
+
+    /// <summary>See <see cref="PortalMappingPlace.SetAside"/>.</summary>
+    public bool SetAside { get; set; }
+}
+
+public class PortalSaveMapping
+{
+    public int SubscriptionId { get; set; }
+
+    /// <summary>The native mapper's settings: MappingRules, SourceSample, TargetSample.</summary>
+    public Dictionary<string, string> MapperProperties { get; set; } = new();
+}
+
+public class PortalPreviewMapping
+{
+    public int SubscriptionId { get; set; }
+    public string MappingRules { get; set; } = "";
+    public string SourceDocument { get; set; } = "";
+}
+
+/// <summary>One of their recent exchanges through a place, to use as the mapping's sample.</summary>
+public class PortalMappingSample
+{
+    public string XchangeId { get; set; } = null!;
+    public DateTime StartedOn { get; set; }
+    public string? InputName { get; set; }
+}
+
+/// <summary>A partner using their own mapping of a subscription, as the subscription's page lists them.</summary>
+public class SubscriptionPartnerMapping
+{
+    public int PartnerId { get; set; }
+    public string PartnerName { get; set; } = null!;
+
+    /// <summary>Their rules, as the mapping editor writes them.</summary>
+    public string MappingRules { get; set; } = "";
+
+    public DateTime ChangedOn { get; set; }
+
+    /// <summary>Who last changed it, by name; null when that account is gone.</summary>
+    public string? ChangedBy { get; set; }
+
+    /// <summary>
+    /// It reads a global value the subscription's mapping no longer sends, so the subscription's is
+    /// used for them until they change theirs.
+    /// </summary>
+    public bool SetAside { get; set; }
+}
+
+public class RemovePartnerMappingModel
+{
+    public int PartnerId { get; set; }
+}

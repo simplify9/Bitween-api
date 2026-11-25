@@ -2771,3 +2771,46 @@ export interface PortalExchangePage {
   result: PortalExchange[];
   hasMore: boolean;
 }
+
+/** A place a partner is connected, and whether they map it their own way there. */
+export interface PortalMappingPlace {
+  subscriptionId: number;
+  subscriptionName: string;
+  /** How they're connected: their own subscription, an API gateway, a bus gateway route. */
+  via: string;
+  documentName: string;
+  customized: boolean;
+  /** Theirs reads an internal value ours no longer sends, so ours is used until they change it. */
+  setAside: boolean;
+  /** It maps with a mapper they can make their own version of. */
+  customizable: boolean;
+  modifiedOn: string | null;
+}
+
+/** A place's mapping: ours as the starting point, and theirs when they have one. */
+export interface PortalMapping {
+  subscriptionId: number;
+  subscriptionName: string;
+  customizable: boolean;
+  default: Record<string, string> | null;
+  theirs: Record<string, string> | null;
+  setAside: boolean;
+}
+
+export interface PortalMappingSample {
+  xchangeId: string;
+  startedOn: string;
+  inputName: string | null;
+}
+
+/** A partner using their own mapping of a subscription, made in the partner portal. */
+export interface SubscriptionPartnerMapping {
+  partnerId: number;
+  partnerName: string;
+  mappingRules: string;
+  changedOn: string;
+  /** Who last changed it; null when that account is gone. */
+  changedBy: string | null;
+  /** It reads a global value the subscription's mapping no longer sends, so theirs isn't used for now. */
+  setAside: boolean;
+}

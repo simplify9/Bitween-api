@@ -25,10 +25,11 @@ const assignmentChip =
   "inline-flex items-center rounded-md bg-ink-50 px-1.5 py-0.5 text-[12px] text-ink-600 " +
   "hover:bg-ink-100 hover:text-crimson-700";
 
-export function useSubscriptionsCache() {
+export function useSubscriptionsCache(enabled = true) {
   return useQuery({
     queryKey: keys.subscriptions.cache,
     queryFn: () => api.listSubscriptions(),
+    enabled,
   });
 }
 
