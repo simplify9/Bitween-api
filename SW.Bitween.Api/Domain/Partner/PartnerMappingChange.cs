@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using SW.PrimitiveTypes;
 
 namespace SW.Bitween.Domain;
 
@@ -58,6 +57,8 @@ public class PartnerMappingChange
 
     public PartnerMappingChangeStatus Status { get; private set; }
 
+    // Decided only by PartnerMappingChanges.DecideAsync: one statement matching a change still waiting.
+
     /// <summary>The account that made the change, as the audit trail names accounts.</summary>
     public string RequestedBy { get; private set; }
 
@@ -67,34 +68,4 @@ public class PartnerMappingChange
 
     /// <summary>Why it was rejected, or which version it put back.</summary>
     public string Note { get; private set; }
-
-    /// <summary>A newer ask while this one waits takes its place, so there is one to decide on.</summary>
-    public void Replace(IDictionary<string, string> mapperProperties, string requestedBy)
-    {
-        EnsureWaiting();
-        MapperProperties = (mapperProperties ?? new Dictionary<string, string>()).ToDictionary();
-        RequestedBy = requestedBy;
-        RequestedOn = DateTime.UtcNow;
-    }
-
-    public void Approve(string by) => Decide(PartnerMappingChangeStatus.Approved, by, null);
-
-    public void Reject(string by, string note) => Decide(PartnerMappingChangeStatus.Rejected, by, note);
-
-    public void Withdraw(string by) => Decide(PartnerMappingChangeStatus.Withdrawn, by, null);
-
-    private void Decide(PartnerMappingChangeStatus status, string by, string note)
-    {
-        EnsureWaiting();
-        Status = status;
-        DecidedBy = by;
-        DecidedOn = DateTime.UtcNow;
-        Note = note;
-    }
-
-    private void EnsureWaiting()
-    {
-        if (Status != PartnerMappingChangeStatus.Waiting)
-            throw new SWValidationException("ALREADY_DECIDED", "This change was already approved, rejected or withdrawn.");
-    }
 }

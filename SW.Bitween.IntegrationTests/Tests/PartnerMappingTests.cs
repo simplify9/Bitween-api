@@ -460,4 +460,61 @@ public class PartnerMappingTests(BitweenFixture fixture)
         Assert.Equal(PartnerMappingChangeStatus.Withdrawn, (await db.Set<PartnerMappingChange>().AsNoTracking()
             .SingleAsync(c => c.Id == waitingId)).Status);
     }
+
+    [Fact]
+    public async Task Approving_applies_exactly_the_change_the_reviewer_opened()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ours = Rules(("id", "orderId"));
+        var world = await SetUpAsync(db, ours);
+        await NeedApproval(world.Mine);
+        await SaveAs(world.Person, world.Subscription.Id, Rules(("reference", "orderId")));
+        var opened = (await WaitingOf(world)).Id;
+
+        // The partner saves again while the reviewer looks at the first.
+        var newer = Rules(("ref", "orderId"));
+        await SaveAs(world.Person, world.Subscription.Id, newer);
+
+        await Assert.ThrowsAsync<SWValidationException>(() => Decide<Resources.PartnerChanges.Approve>(opened));
+        Assert.Equal(ours, await RulesOfNewExchange(world.Subscription, world.Mine));
+        Assert.Equal(newer, (await WaitingOf(world)).MapperProperties["MappingRules"]);
+    }
+
+    [Fact]
+    public async Task A_change_once_decided_can_not_be_decided_again()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var ours = Rules(("id", "orderId"));
+        var world = await SetUpAsync(db, ours);
+        await NeedApproval(world.Mine);
+        await SaveAs(world.Person, world.Subscription.Id, Rules(("reference", "orderId")));
+        var id = (await WaitingOf(world)).Id;
+
+        await Decide<Resources.PartnerChanges.Reject>(id, "No.");
+        await Assert.ThrowsAsync<SWValidationException>(() => Decide<Resources.PartnerChanges.Approve>(id));
+        await Assert.ThrowsAsync<SWValidationException>(() => Decide<Resources.PartnerChanges.Reject>(id));
+        Assert.Equal(ours, await RulesOfNewExchange(world.Subscription, world.Mine));
+    }
+
+    [Fact]
+    public async Task A_partner_whose_mapping_was_removed_stays_listed_for_its_history()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var world = await SetUpAsync(db, Rules(("id", "orderId")));
+        await SaveAs(world.Person, world.Subscription.Id, Rules(("reference", "orderId")));
+
+        await using var staff = fixture.CreateScope();
+        staff.Superuser();
+        await ActivatorUtilities.CreateInstance<Resources.Subscriptions.RemovePartnerMapping>(staff.ServiceProvider)
+            .Handle(world.Subscription.Id, new RemovePartnerMappingModel { PartnerId = world.Mine.Id });
+        var listed = (List<SubscriptionPartnerMapping>)await ActivatorUtilities
+            .CreateInstance<Resources.Subscriptions.PartnerMappings>(staff.ServiceProvider).Handle(world.Subscription.Id);
+
+        var mine = Assert.Single(listed, m => m.PartnerId == world.Mine.Id);
+        Assert.False(mine.InUse);
+        Assert.Null(mine.WaitingChangeId);
+    }
 }

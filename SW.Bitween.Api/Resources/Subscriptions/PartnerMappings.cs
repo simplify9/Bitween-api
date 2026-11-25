@@ -36,6 +36,13 @@ public class PartnerMappings(BitweenDbContext dbContext, RequestContext requestC
                 select new { c.Id, c.PartnerId, PartnerName = p.Name })
             .ToListAsync();
         var waitingOf = waiting.GroupBy(w => w.PartnerId).ToDictionary(g => g.Key, g => g.Max(w => w.Id));
+        // And one with only a history left, such as a mapping removed, so its history stays reachable.
+        var withHistory = await (from c in dbContext.Set<PartnerMappingChange>().AsNoTracking()
+                join p in dbContext.Set<Partner>() on c.PartnerId equals p.Id
+                where c.SubscriptionId == key
+                select new { c.PartnerId, PartnerName = p.Name })
+            .Distinct()
+            .ToListAsync();
 
         // Changed by an account id; shown by name, the way the trail shows them.
         var ids = rows.Select(r => r.m.ModifiedBy ?? r.m.CreatedBy)
@@ -63,7 +70,10 @@ public class PartnerMappings(BitweenDbContext dbContext, RequestContext requestC
                 PartnerName = g.First().PartnerName,
                 WaitingChangeId = g.Max(x => x.Id)
             });
-        return inUse.Concat(onlyWaiting).OrderBy(r => r.PartnerName).ToList();
+        var onlyHistory = withHistory
+            .Where(h => rows.All(r => r.m.PartnerId != h.PartnerId) && !waitingOf.ContainsKey(h.PartnerId))
+            .Select(h => new SubscriptionPartnerMapping { PartnerId = h.PartnerId, PartnerName = h.PartnerName });
+        return inUse.Concat(onlyWaiting).Concat(onlyHistory).OrderBy(r => r.PartnerName).ToList();
     }
 }
 

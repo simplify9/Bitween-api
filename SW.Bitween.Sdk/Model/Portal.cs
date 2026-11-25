@@ -208,7 +208,7 @@ public class SubscriptionPartnerMapping
 
     /// <summary>
     /// They use their own mapping now. False for a partner listed only because a change of theirs
-    /// waits for approval.
+    /// waits for approval, or for the history of the one they had.
     /// </summary>
     public bool InUse { get; set; }
 

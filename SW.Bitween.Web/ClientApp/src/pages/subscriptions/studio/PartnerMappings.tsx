@@ -52,7 +52,8 @@ export function PartnerMappings({ subscriptionId }: { subscriptionId: string }) 
         Partners with their own mapping
       </h3>
       <p className="mb-2 text-[13px] text-ink-500">
-        These get their own version instead of the mapping above. Everyone else gets the one above.
+        These get their own version instead of the mapping above, or have one waiting or in their history. Everyone
+        else gets the one above.
       </p>
       <ul className="divide-y divide-ink-100 rounded-lg border border-ink-200">
         {mappings.data.map((m) => (
@@ -80,7 +81,11 @@ export function PartnerMappings({ subscriptionId }: { subscriptionId: string }) 
                   {m.changedBy ? ` by ${m.changedBy}` : ""}
                 </div>
               ) : (
-                <div className="truncate text-xs text-ink-500">Gets the mapping above until their change is approved</div>
+                <div className="truncate text-xs text-ink-500">
+                  {m.waitingChangeId !== null
+                    ? "Gets the mapping above until their change is approved"
+                    : "Gets the mapping above. Their earlier versions are in the history."}
+                </div>
               )}
             </div>
             {m.waitingChangeId !== null && (

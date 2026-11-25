@@ -57,6 +57,9 @@ internal static class Read
         return row;
     }
 
+    public static SWValidationException AlreadyDecided() =>
+        new("ALREADY_DECIDED", "This change was already approved, rejected or taken back. It may have been replaced by a newer one.");
+
     public static string RulesOf(IReadOnlyDictionary<string, string> properties) =>
         properties?.GetValueOrDefault(PartnerMappingRules.RulesKey) ?? "";
 
@@ -121,8 +124,7 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext) : IG
         var change = row.Change;
 
         var theirs = await dbContext.Set<PartnerMapping>().AsNoTracking()
-            .Where(m => m.SubscriptionId == change.SubscriptionId && m.PartnerId == change.PartnerId)
-            .Select(m => m.MapperProperties).SingleOrDefaultAsync();
+            .SingleOrDefaultAsync(m => m.SubscriptionId == change.SubscriptionId && m.PartnerId == change.PartnerId);
         var ours = await dbContext.Set<Subscription>().AsNoTracking()
             .Where(s => s.Id == change.SubscriptionId).Select(s => s.MapperProperties).SingleAsync();
 
@@ -140,8 +142,10 @@ public class Get(BitweenDbContext dbContext, RequestContext requestContext) : IG
         var names = await Read.AccountNames(dbContext, [change.RequestedBy, change.DecidedBy]);
         var detail = Read.Fill(new PartnerChangeDetail(), change, row.SubscriptionName, row.PartnerName, names);
         detail.MappingRules = Read.RulesOf(change.MapperProperties);
-        detail.CurrentRules = Read.RulesOf(theirs ?? ours);
-        detail.CurrentIsOurs = theirs is null;
+        // What their exchanges really get: theirs only while it still fits ours, as the cache decides.
+        var theirsUsed = theirs is not null && PartnerMappingRules.Fits(theirs, ours);
+        detail.CurrentRules = Read.RulesOf(theirsUsed ? theirs.MapperProperties : ours);
+        detail.CurrentIsOurs = !theirsUsed;
         detail.Problem = problem;
         return detail;
     }
@@ -155,16 +159,29 @@ public class Approve(BitweenDbContext dbContext, RequestContext requestContext)
     public async Task<object> Handle(int key, PartnerChangeDecision request)
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.PartnerChanges.Operate);
-        var change = await dbContext.FindAsync<PartnerMappingChange>(key) ?? throw new SWNotFoundException(key.ToString());
-        if (change.Status != PartnerMappingChangeStatus.Waiting)
-            throw new SWValidationException("ALREADY_DECIDED", "This change was already approved, rejected or withdrawn.");
+        var change = await dbContext.Set<PartnerMappingChange>().AsNoTracking().SingleOrDefaultAsync(c => c.Id == key)
+                     ?? throw new SWNotFoundException(key.ToString());
+        if (change.Status != PartnerMappingChangeStatus.Waiting) throw Read.AlreadyDecided();
 
         // Checked again now: ours may have changed since the partner asked.
         await Read.EnsureUsable(dbContext, change);
-        await PartnerMappingChanges.ApplyAsync(dbContext, change.SubscriptionId, change.PartnerId, change.MapperProperties);
-        change.Approve(requestContext.GetNameIdentifier());
-        // Changing a partner mapping clears the cache, this node's and the others'.
-        await dbContext.SaveChangesAsync();
+
+        // Claimed first, so a decision made meanwhile wins and this one stops here. The change is
+        // the one the reviewer opened: a newer ask is a row of its own, and replacing this one took it back.
+        var by = requestContext.GetNameIdentifier();
+        if (!await PartnerMappingChanges.DecideAsync(dbContext, key, PartnerMappingChangeStatus.Approved, by))
+            throw Read.AlreadyDecided();
+        try
+        {
+            await PartnerMappingChanges.ApplyAsync(dbContext, change.SubscriptionId, change.PartnerId, change.MapperProperties);
+            // Changing a partner mapping clears the cache, this node's and the others', after the commit.
+            await dbContext.SaveChangesAsync();
+        }
+        catch
+        {
+            await PartnerMappingChanges.UndecideAsync(dbContext, key);
+            throw;
+        }
         return null;
     }
 }
@@ -177,9 +194,11 @@ public class Reject(BitweenDbContext dbContext, RequestContext requestContext)
     public async Task<object> Handle(int key, PartnerChangeDecision request)
     {
         await requestContext.EnsurePermission(dbContext, Model.Permissions.PartnerChanges.Operate);
-        var change = await dbContext.FindAsync<PartnerMappingChange>(key) ?? throw new SWNotFoundException(key.ToString());
-        change.Reject(requestContext.GetNameIdentifier(), string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim());
-        await dbContext.SaveChangesAsync();
+        if (!await dbContext.Set<PartnerMappingChange>().AnyAsync(c => c.Id == key))
+            throw new SWNotFoundException(key.ToString());
+        if (!await PartnerMappingChanges.DecideAsync(dbContext, key, PartnerMappingChangeStatus.Rejected,
+                requestContext.GetNameIdentifier(), string.IsNullOrWhiteSpace(request.Note) ? null : request.Note.Trim()))
+            throw Read.AlreadyDecided();
         return null;
     }
 

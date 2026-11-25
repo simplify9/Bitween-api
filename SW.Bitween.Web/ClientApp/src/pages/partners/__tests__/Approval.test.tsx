@@ -36,7 +36,9 @@ describe("whether a partner's portal changes need approval", () => {
     await user.click(box);
 
     await waitFor(() => expect(writes).toEqual([{ changesNeedApproval: true }]));
-    await waitFor(() => expect(box).toBeChecked());
+    // Enabled again only once the save and the refetch after it are done, so this is the saved state.
+    await waitFor(() => expect(box).toBeEnabled());
+    expect(box).toBeChecked();
     expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
   });
 

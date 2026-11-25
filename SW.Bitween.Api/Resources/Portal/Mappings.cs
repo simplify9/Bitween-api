@@ -122,9 +122,6 @@ public class SaveMapping(BitweenDbContext dbContext, RequestContext requestConte
         var properties = PartnerMappingRules.Validate(request.MapperProperties, subscription.MapperProperties);
         var waits = await PartnerMappingChanges.RequestAsync(dbContext, request.SubscriptionId, caller.PartnerId,
             properties, requestContext.GetNameIdentifier());
-
-        // Saving a partner mapping clears the cache, this node's and the others', like a partner's.
-        await dbContext.SaveChangesAsync();
         return new PortalMappingSaved { Waiting = waits };
     }
 }
@@ -144,7 +141,6 @@ public class ResetMapping(BitweenDbContext dbContext, RequestContext requestCont
         // Like any change of theirs: it waits for approval when their changes need it.
         var waits = await PartnerMappingChanges.RequestAsync(dbContext, request.SubscriptionId, caller.PartnerId,
             null, requestContext.GetNameIdentifier());
-        await dbContext.SaveChangesAsync();
         return new PortalMappingSaved { Waiting = waits };
     }
 }
@@ -158,9 +154,9 @@ public class WithdrawMapping(BitweenDbContext dbContext, RequestContext requestC
     {
         var caller = await PortalCaller.EnsureAsync(dbContext, requestContext, Model.Permissions.Portal.MappingsEdit);
         var waiting = await PartnerMappingChanges.WaitingAsync(dbContext, request.SubscriptionId, caller.PartnerId);
-        if (waiting is null) return null;
-        waiting.Withdraw(requestContext.GetNameIdentifier());
-        await dbContext.SaveChangesAsync();
+        if (waiting is not null)
+            await PartnerMappingChanges.DecideAsync(dbContext, waiting.Id, PartnerMappingChangeStatus.Withdrawn,
+                requestContext.GetNameIdentifier());
         return null;
     }
 }

@@ -70,8 +70,12 @@ export function PartnerChangeDialog({ changeId, onClose }: { changeId: number; o
 
           {c!.backToOurs ? (
             <p className="text-sm text-ink-700">
-              {c!.status === "waiting" ? "They ask to drop" : "This dropped"} their own mapping, so they get the
-              subscription's own mapping again, the same as everyone else on it.
+              {c!.status === "waiting"
+                ? "They ask to drop"
+                : c!.status === "live" || c!.status === "approved"
+                  ? "This dropped"
+                  : "They asked to drop"}{" "}
+              their own mapping, to get the subscription's own mapping again, the same as everyone else on it.
             </p>
           ) : (
             <Suspense fallback={<LoadingBlock label="Laying out the rules…" />}>
