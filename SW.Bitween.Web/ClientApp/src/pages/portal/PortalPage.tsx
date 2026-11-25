@@ -137,7 +137,9 @@ function Exchanges() {
   const [status, setStatus] = useState<PortalExchangeStatus | "all">("all");
   const [subscriptionId, setSubscriptionId] = useState("");
   const [page, setPage] = useState(0);
-  const [open, setOpen] = useState<PortalExchange | null>(null);
+  // Kept as the row opened, and followed as the list refreshes: an exchange opened while running
+  // shows its result once it has one. Off the page after a refresh, the last copy stays open.
+  const [opened, setOpen] = useState<PortalExchange | null>(null);
 
   const query = { status: status === "all" ? null : status, subscriptionId: subscriptionId || null, page, size: PAGE_SIZE };
   const exchanges = useQuery({
@@ -173,7 +175,8 @@ function Exchanges() {
               { value: "success", label: "Delivered", title: STATUS.success.title },
             ]}
           />
-          {canSubscriptions && (subscriptions.data?.length ?? 0) > 1 && (
+          {/* Still shown while a filter is on, even if the list has shrunk, so it can be cleared. */}
+          {canSubscriptions && ((subscriptions.data?.length ?? 0) > 1 || subscriptionId !== "") && (
             <div className="w-52">
               <Select
                 aria-label="Subscription"
@@ -213,13 +216,22 @@ function Exchanges() {
               {exchanges.data.result.map((x) => (
                 <tr
                   key={x.id}
-                  tabIndex={0}
                   onClick={() => setOpen(x)}
-                  onKeyDown={(e) => e.key === "Enter" && setOpen(x)}
-                  className="cursor-pointer border-b border-ink-100 hover:bg-ink-50 focus:bg-ink-50 focus:outline-none"
+                  className="cursor-pointer border-b border-ink-100 hover:bg-ink-50 focus-within:bg-ink-50"
                 >
                   <td className="px-4 py-1.5 whitespace-nowrap text-ink-700" title={formatDateTime(x.startedOn)}>
-                    {timeAgo(x.startedOn)}
+                    {/* The row is a shortcut for the mouse; this is the control, for everyone. */}
+                    <button
+                      type="button"
+                      className="text-left focus:outline-none"
+                      aria-label={`Open the exchange of ${formatDateTime(x.startedOn)}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpen(x);
+                      }}
+                    >
+                      {timeAgo(x.startedOn)}
+                    </button>
                   </td>
                   <td className="px-2 py-1.5">
                     <Badge tone={STATUS[x.status].tone} title={STATUS[x.status].title}>
@@ -239,16 +251,24 @@ function Exchanges() {
       )}
       {exchanges.data && (page > 0 || exchanges.data.hasMore) && (
         <div className="mt-3 flex items-center justify-end gap-2">
-          <Button size="sm" disabled={page === 0} onClick={() => setPage((p) => p - 1)} title="Back to newer exchanges">
+          {/* Off while the next page loads: the rows and "more" shown are still the last page's. */}
+          <Button size="sm" disabled={page === 0 || exchanges.isPlaceholderData} onClick={() => setPage((p) => p - 1)} title="Back to newer exchanges">
             Newer
           </Button>
           <span className="text-xs text-ink-500 tabular-nums">Page {page + 1}</span>
-          <Button size="sm" disabled={!exchanges.data.hasMore} onClick={() => setPage((p) => p + 1)} title="On to older exchanges">
+          <Button
+            size="sm"
+            disabled={!exchanges.data.hasMore || exchanges.isPlaceholderData}
+            onClick={() => setPage((p) => p + 1)}
+            title="On to older exchanges"
+          >
             Older
           </Button>
         </div>
       )}
-      {open && <ExchangeDialog x={open} onClose={() => setOpen(null)} />}
+      {opened && (
+        <ExchangeDialog x={exchanges.data?.result.find((x) => x.id === opened.id) ?? opened} onClose={() => setOpen(null)} />
+      )}
     </Panel>
   );
 }

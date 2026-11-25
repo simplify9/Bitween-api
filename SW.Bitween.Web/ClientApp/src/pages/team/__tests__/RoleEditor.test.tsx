@@ -66,6 +66,19 @@ function roles(...custom: ReturnType<typeof role>[]) {
 const box = (name: string) => screen.getByRole("checkbox", { name });
 
 describe("the role editor", () => {
+  it("duplicates Administrator into a team role without the partner portal keys it can't hold", async () => {
+    const { handlers, created } = roles();
+    const { user } = renderApp("/team/roles/new?from=1", { handlers });
+
+    await screen.findByDisplayValue("Copy of Administrator");
+    await user.click(screen.getByRole("button", { name: "Create role" }));
+
+    await waitFor(() => expect(created).toHaveLength(1));
+    const sent = (created[0] as { permissions: string[] }).permissions;
+    expect(sent).toContain("partners.view");
+    expect(sent.some((p) => p.startsWith("portal-"))).toBe(false);
+  });
+
   it("makes a partner role from partner portal permissions only", async () => {
     const { handlers, created } = roles();
     const { user } = renderApp("/team/roles/new", { handlers });

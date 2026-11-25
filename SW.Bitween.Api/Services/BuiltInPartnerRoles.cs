@@ -67,10 +67,12 @@ public static class BuiltInPartnerRoles
                 await db.SaveChangesAsync();
                 logger.LogInformation("Made the built-in partner role {Name}.", name);
             }
-            catch (DbUpdateException)
+            catch (DbUpdateException ex)
             {
-                // Another node made it a moment ago.
                 db.Entry(role).State = EntityState.Detached;
+                // Another node made it a moment ago, or the insert failed: only the second is news.
+                if (!await db.Set<Role>().AnyAsync(r => r.PresetKey == preset.Key))
+                    logger.LogWarning(ex, "Couldn't make the built-in partner role {Name}; it'll be tried again on the next start.", name);
             }
         }
     }

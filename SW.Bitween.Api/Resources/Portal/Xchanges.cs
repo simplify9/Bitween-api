@@ -66,6 +66,9 @@ public class Xchanges(BitweenDbContext dbContext, RequestContext requestContext,
         // One more than the page, to tell whether there is a next one without counting them all.
         var found = await query
             .OrderByDescending(q => q.x.StartedOn)
+            // Two exchanges can start at the same instant; without a tie-break, one could show on two
+            // pages and the other on none.
+            .ThenByDescending(q => q.x.Id)
             .Skip(page * size)
             .Take(size + 1)
             .Select(q => new

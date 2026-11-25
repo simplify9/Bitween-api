@@ -191,6 +191,7 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
             label="Who they are"
             value={side}
             onChange={(v) => {
+              if (v === side) return;
               setSide(v);
               // Each side has its own roles; back to that side's default.
               setRoleId(null);

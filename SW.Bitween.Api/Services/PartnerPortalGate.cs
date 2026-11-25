@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -30,7 +31,10 @@ public class PartnerPortalGate(RequestDelegate next)
 {
     public const string PortalPath = "/api/portal";
 
-    private static readonly ConcurrentDictionary<int, bool> IsPartnerByAccount = new();
+    /// <summary>Who an account is, for the gate. Never changes once known: a partner stays one, and a removed account stays removed.</summary>
+    private enum Side { Ours, Partner, Gone }
+
+    private static readonly ConcurrentDictionary<int, Side> SideByAccount = new();
 
     /// <summary>What a partner's person may call outside the portal: signing in and out, and themselves.</summary>
     private static readonly HashSet<string> SelfService = new(StringComparer.OrdinalIgnoreCase)
@@ -49,7 +53,10 @@ public class PartnerPortalGate(RequestDelegate next)
             (context.Request.Path.StartsWithSegments("/api") || context.Request.Path.StartsWithSegments(Mcp.McpTokenHandler.Path)) &&
             !Allowed(context.Request.Path) &&
             int.TryParse(context.User.FindFirstValue(ClaimTypes.NameIdentifier), out var accountId) &&
-            await IsPartnerAsync(context, accountId))
+            // A token can outlive its account - an AI app's, say, is checked by its signature alone. With
+            // no account behind it, it is refused here too, rather than reaching reads that ask for no
+            // permission.
+            await SideOfAsync(context, accountId) is Side.Partner or Side.Gone)
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
             return;
@@ -64,14 +71,17 @@ public class PartnerPortalGate(RequestDelegate next)
         path.StartsWithSegments(PortalPath) || path.StartsWithSegments("/" + FileLinks.RoutePrefix) ||
         SelfService.Contains(path.Value!.TrimEnd('/'));
 
-    private static async Task<bool> IsPartnerAsync(HttpContext context, int accountId)
+    private static async Task<Side> SideOfAsync(HttpContext context, int accountId)
     {
-        if (IsPartnerByAccount.TryGetValue(accountId, out var known)) return known;
+        if (SideByAccount.TryGetValue(accountId, out var known)) return known;
 
         var db = context.RequestServices.GetRequiredService<BitweenDbContext>();
-        var isPartner = await db.Set<Account>().AsNoTracking()
-            .AnyAsync(a => a.Id == accountId && a.PartnerId != null);
-        IsPartnerByAccount[accountId] = isPartner;
-        return isPartner;
+        var account = await db.Set<Account>().AsNoTracking()
+            .Where(a => a.Id == accountId)
+            .Select(a => new { a.PartnerId, a.Deleted })
+            .SingleOrDefaultAsync();
+        var side = account is null || account.Deleted ? Side.Gone : account.PartnerId is null ? Side.Ours : Side.Partner;
+        SideByAccount[accountId] = side;
+        return side;
     }
 }
