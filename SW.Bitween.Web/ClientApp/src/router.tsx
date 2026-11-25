@@ -53,6 +53,7 @@ import {
   PartnersPage,
   PartnerChangesPage,
   PortalMappingPage,
+  PortalPeoplePage,
   PortalPage,
   ProfilePage,
   QueueHealthPage,
@@ -223,6 +224,14 @@ export const routes: RouteObject[] = [
             element: (
               <Suspense fallback={<LoadingBlock />}>
                 <PortalMappingPage />
+              </Suspense>
+            ),
+          },
+          {
+            path: "people",
+            element: (
+              <Suspense fallback={<LoadingBlock />}>
+                <PortalPeoplePage />
               </Suspense>
             ),
           },

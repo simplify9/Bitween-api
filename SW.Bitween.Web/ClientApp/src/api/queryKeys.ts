@@ -177,6 +177,9 @@ export const keys = {
     /** Our team's: changes partners made, waiting for approval or decided. */
     changes: (waiting: boolean) => ["portal", "changes", waiting] as const,
     changeCount: ["portal", "changes", "count"] as const,
+    /** A partner's admin's: their company's people, and the roles they may give. */
+    people: ["portal", "people"] as const,
+    peopleRoles: ["portal", "peopleRoles"] as const,
     change: (id: number) => ["portal", "change", id] as const,
     history: (subscriptionId: string, partnerId: number) => ["portal", "history", subscriptionId, partnerId] as const,
   },

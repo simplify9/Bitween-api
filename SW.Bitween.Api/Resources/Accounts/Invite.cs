@@ -40,6 +40,16 @@ public class Invite(BitweenDbContext dbContext, RequestContext requestContext, B
         var callerId = Convert.ToInt32(requestContext.GetNameIdentifier());
         var inviter = await dbContext.Set<Account>().Where(a => a.Id == callerId)
             .Select(a => a.DisplayName).FirstOrDefaultAsync() ?? "An administrator";
+        return await SendAsync(dbContext, options, mail, account, inviter);
+    }
+
+    /// <summary>
+    /// Sends <paramref name="account"/> an invite, or makes the link for whoever invited to pass on.
+    /// The caller has checked they may. Also what the partner portal's admins invite with.
+    /// </summary>
+    internal static async Task<InviteResultModel> SendAsync(BitweenDbContext dbContext, BitweenOptions options,
+        AccountMail mail, Account account, string inviter)
+    {
         var linkBase = mail.SignedInBase;
 
         if (options.DisableEmailPasswordLogin)
@@ -58,7 +68,7 @@ public class Invite(BitweenDbContext dbContext, RequestContext requestContext, B
                 "or have them use Forgot password on the sign-in page.");
 
         var now = DateTime.UtcNow;
-        var (link, token) = AccountLink.Issue(key, AccountLinkPurpose.Invite, now);
+        var (link, token) = AccountLink.Issue(account.Id, AccountLinkPurpose.Invite, now);
 
         // Only the newest invite works, so a resend makes any earlier email useless. The old link goes
         // and the new one is stored as one change, committed before anything is sent: an email is
@@ -66,7 +76,7 @@ public class Invite(BitweenDbContext dbContext, RequestContext requestContext, B
         await using (var transaction = await dbContext.Database.BeginTransactionAsync())
         {
             await dbContext.Set<AccountLink>()
-                .Where(l => l.AccountId == key && l.Purpose == AccountLinkPurpose.Invite)
+                .Where(l => l.AccountId == account.Id && l.Purpose == AccountLinkPurpose.Invite)
                 .ExecuteDeleteAsync();
             dbContext.Add(link);
             await dbContext.SaveChangesAsync();

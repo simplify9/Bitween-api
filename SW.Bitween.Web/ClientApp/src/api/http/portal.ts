@@ -9,6 +9,9 @@ import type {
   PortalMappingPlace,
   PortalMappingSample,
   PortalMappingSaved,
+  PortalInvite,
+  PortalPerson,
+  PortalRoleChoice,
   PortalSummary,
   SubscriptionPartnerMapping,
 } from "../types";
@@ -39,6 +42,13 @@ export const portalMethods: Pick<
   | "rejectPartnerChange"
   | "listPartnerMappingHistory"
   | "putBackPartnerMapping"
+  | "listPortalPeople"
+  | "listPortalPeopleRoles"
+  | "addPortalPerson"
+  | "invitePortalPersonAgain"
+  | "setPortalPersonRole"
+  | "setPortalPersonDisabled"
+  | "removePortalPerson"
 > = {
   getPortalSummary: () => get<PortalSummary>("/portal/summary"),
 
@@ -106,6 +116,20 @@ export const portalMethods: Pick<
     get<PartnerChangeVersion[]>(`/partnerchanges/history?subscriptionId=${subscriptionId}&partnerId=${partnerId}`),
   putBackPartnerMapping: async (changeId) => {
     await post(`/partnerchanges/${changeId}/putback`, {});
+  },
+
+  listPortalPeople: () => get<PortalPerson[]>("/portal/people"),
+  listPortalPeopleRoles: () => get<PortalRoleChoice[]>("/portal/peopleroles"),
+  addPortalPerson: (input) => post<PortalInvite & { id: number }>("/portal/addperson", input),
+  invitePortalPersonAgain: (accountId) => post<PortalInvite>("/portal/invitepersonagain", { accountId }),
+  setPortalPersonRole: async (accountId, roleId) => {
+    await post("/portal/setpersonrole", { accountId, roleId });
+  },
+  setPortalPersonDisabled: async (accountId, disabled) => {
+    await post("/portal/setpersondisabled", { accountId, disabled });
+  },
+  removePortalPerson: async (accountId) => {
+    await post("/portal/removeperson", { accountId });
   },
 };
 

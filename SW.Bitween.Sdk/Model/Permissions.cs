@@ -215,6 +215,8 @@ public static class Permissions
         public const string ExchangeErrorsView = "portal-exchange-errors.view";
         public const string MappingsView = "portal-mappings.view";
         public const string MappingsEdit = "portal-mappings.edit";
+        public const string PeopleView = "portal-people.view";
+        public const string PeopleEdit = "portal-people.edit";
     }
 }
 
@@ -418,11 +420,19 @@ public static class PermissionCatalog
         Area("portal-mappings", "Their mappings", "Partner portal",
             "How what they receive is shaped, wherever they are connected: their own version of a subscription's mapping, used for them alone.",
             (View, "See the mapping used for them."),
-            (Edit, "Make, change and remove their own version of a mapping."))
+            (Edit, "Make, change and remove their own version of a mapping.")),
+
+        Area("portal-people", "Their people", "Partner portal",
+            "Who at their company can sign in to the portal. Only our team can make or change one of their admins.",
+            (View, "See their company's people and the role each holds."),
+            (Edit, "Invite their company's people, change their roles, disable and remove them, giving only roles that can't manage people."))
     ];
 
     /// <summary>The group partner roles draw from, and the only one.</summary>
     public const string PortalGroup = "Partner portal";
+
+    /// <summary>The area that makes a partner's person one of their admins: managing their people.</summary>
+    public const string PortalPeopleArea = "portal-people";
 
     /// <summary>Every key a partner role may hold.</summary>
     public static readonly HashSet<string> PortalKeys =

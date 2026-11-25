@@ -6,6 +6,9 @@ import type {
   PortalMappingPlace,
   PortalMappingSample,
   PortalMappingSaved,
+  PortalInvite,
+  PortalPerson,
+  PortalRoleChoice,
   PartnerChange,
   PartnerChangeDetail,
   PartnerChangeVersion,
@@ -972,4 +975,13 @@ export interface ApiClient {
   listPartnerMappingHistory(subscriptionId: string, partnerId: number): Promise<PartnerChangeVersion[]>;
   /** Puts an earlier version of a partner's mapping back, used at once. */
   putBackPartnerMapping(changeId: number): Promise<void>;
+  /** Their company's people, for a partner's admin. */
+  listPortalPeople(): Promise<PortalPerson[]>;
+  /** The roles a partner's admin may give. */
+  listPortalPeopleRoles(): Promise<PortalRoleChoice[]>;
+  addPortalPerson(input: { name: string; email: string; roleId: number }): Promise<PortalInvite & { id: number }>;
+  invitePortalPersonAgain(accountId: number): Promise<PortalInvite>;
+  setPortalPersonRole(accountId: number, roleId: number): Promise<void>;
+  setPortalPersonDisabled(accountId: number, disabled: boolean): Promise<void>;
+  removePortalPerson(accountId: number): Promise<void>;
 }

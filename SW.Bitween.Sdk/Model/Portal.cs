@@ -220,3 +220,72 @@ public class RemovePartnerMappingModel
 {
     public int PartnerId { get; set; }
 }
+
+/// <summary>One of a partner's people, as their admin sees them in the portal.</summary>
+public class PortalPerson
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = null!;
+    public string Email { get; set; } = null!;
+
+    /// <summary>Their one role; null for an account still holding several from before one role per account.</summary>
+    public AccountRoleSummary? Role { get; set; }
+
+    public bool Disabled { get; set; }
+
+    /// <summary>Invited and hasn't chosen a password yet.</summary>
+    public bool Invited { get; set; }
+
+    /// <summary>When their latest invite stops working; null when they aren't waiting on one.</summary>
+    public DateTime? InviteExpiresOn { get; set; }
+
+    public DateTime? LastSignInOn { get; set; }
+
+    /// <summary>The admin looking at the list.</summary>
+    public bool IsYou { get; set; }
+
+    /// <summary>
+    /// The admin looking may change them: not themselves, and not another of their admins, which only
+    /// our team may.
+    /// </summary>
+    public bool CanChange { get; set; }
+}
+
+/// <summary>A role a partner's admin may give: a partner role, within what they hold, that can't manage people.</summary>
+public class PortalRoleChoice
+{
+    public int Id { get; set; }
+    public string Name { get; set; } = null!;
+    public string? Description { get; set; }
+    public bool BuiltIn { get; set; }
+}
+
+public class PortalAddPerson
+{
+    public string Name { get; set; } = null!;
+    public string Email { get; set; } = null!;
+    public int RoleId { get; set; }
+}
+
+/// <summary>A person added and invited: the invite's outcome, with the link when it wasn't emailed.</summary>
+public class PortalPersonAdded : InviteResultModel
+{
+    public int Id { get; set; }
+}
+
+public class PortalPersonRequest
+{
+    public int AccountId { get; set; }
+}
+
+public class PortalPersonRole
+{
+    public int AccountId { get; set; }
+    public int RoleId { get; set; }
+}
+
+public class PortalPersonDisabled
+{
+    public int AccountId { get; set; }
+    public bool Disabled { get; set; }
+}

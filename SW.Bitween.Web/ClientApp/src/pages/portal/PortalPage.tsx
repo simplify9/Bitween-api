@@ -39,6 +39,7 @@ export function PortalPage() {
   const canExchanges = useSessionCan("portal-exchanges.view");
   const canSubscriptions = useSessionCan("portal-subscriptions.view");
   const canMappings = useSessionCan("portal-mappings.view");
+  const canPeople = useSessionCan("portal-people.view");
 
   return (
     <div className="min-h-screen bg-canvas">
@@ -50,6 +51,11 @@ export function PortalPage() {
             Partner portal
           </p>
         </div>
+        {canPeople && (
+          <Link to="/portal/people" className="text-sm text-ink-600 underline-offset-2 hover:underline" title="Who at your company can sign in here">
+            People
+          </Link>
+        )}
         <span className="hidden text-sm text-ink-600 sm:inline">{session?.user.displayName}</span>
         <Link to="/change-password" className="text-sm text-ink-600 underline-offset-2 hover:underline" title="Choose a new password">
           Password
