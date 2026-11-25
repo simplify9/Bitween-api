@@ -276,13 +276,20 @@ public class PartnerPortalTests(BitweenFixture fixture)
 
         var world = await SetUpAsync(db);
         var person = await AccountAsync(db, world.Mine.Id, viewer.Id);
-        Assert.Equal(PermissionCatalog.InGroups(true, PermissionCatalog.PortalGroup).ToHashSet(),
+        bool People(string key) => key.StartsWith(PermissionCatalog.PortalPeopleArea + ".");
+        Assert.Equal(PermissionCatalog.InGroups(true, PermissionCatalog.PortalGroup).Where(k => !People(k)).ToHashSet(),
             await RequestContextExtensions.GetPermissionsOf(db, person));
 
-        // Partner editor holds everything in the portal, edits included.
+        // Partner editor holds everything in the portal, edits included, but managing people.
         var editor = Assert.Single(await db.Set<Role>().AsNoTracking().Where(r => r.PresetKey == "partner-editor").ToListAsync());
         var editing = await AccountAsync(db, world.Mine.Id, editor.Id);
-        Assert.Equal(PermissionCatalog.PortalKeys, await RequestContextExtensions.GetPermissionsOf(db, editing));
+        Assert.Equal(PermissionCatalog.PortalKeys.Where(k => !People(k)).ToHashSet(),
+            await RequestContextExtensions.GetPermissionsOf(db, editing));
+
+        // Partner admin holds all of it.
+        var admin = Assert.Single(await db.Set<Role>().AsNoTracking().Where(r => r.PresetKey == "partner-admin").ToListAsync());
+        var managing = await AccountAsync(db, world.Mine.Id, admin.Id);
+        Assert.Equal(PermissionCatalog.PortalKeys, await RequestContextExtensions.GetPermissionsOf(db, managing));
 
         // Built in, so nobody edits it.
         scope.Superuser();

@@ -104,6 +104,7 @@ A permission is written `area.action`. Every account, person or service account,
 | Partner portal | `portal-exchange-files` | view |
 | Partner portal | `portal-exchange-errors` | view |
 | Partner portal | `portal-mappings` | view, edit |
+| Partner portal | `portal-people` | view, edit |
 
 - `exchanges.operate` covers retrying and resubmitting exchanges, including running a scheduled retry now.
 - `subscriptions.operate` covers pause, resume, receive now, roll up now and resetting a retry budget.
@@ -121,10 +122,11 @@ A permission is written `area.action`. Every account, person or service account,
 | Administrator | Every permission, including ones added in later versions |
 | Member | Every action in the Operate, Subscriptions and Configuration groups |
 | Viewer | Only the view actions in those groups |
-| Partner viewer | For a partner's people: every view action in the Partner portal group, including new ones as they are added |
-| Partner editor | For a partner's people: every action in the Partner portal group, including changing their own mappings |
+| Partner viewer | For a partner's people: every view action in the Partner portal group, including new ones as they are added, apart from their people |
+| Partner editor | For a partner's people: every action in the Partner portal group, including changing their own mappings, apart from managing their people |
+| Partner admin | For a partner's people: every action in the Partner portal group, including inviting and managing their company's people |
 
-Built-in roles cannot be edited or deleted. Custom roles can hold any combination, and cannot be deleted while members hold them. Partner viewer and Partner editor are made on startup where they are missing, so their ids differ between installations; if a custom role already uses the name, it gets " (built-in)" after it.
+Built-in roles cannot be edited or deleted. Custom roles can hold any combination, and cannot be deleted while members hold them. Partner viewer, Partner editor and Partner admin are made on startup where they are missing, so their ids differ between installations; if a custom role already uses the name, it gets " (built-in)" after it.
 
 Bitween refuses to remove, disable or demote the last enabled Administrator. Members cannot disable or remove themselves.
 
@@ -142,6 +144,7 @@ A partner's own people can sign in and see their partner's data, and nothing els
 - **What they can't reach.** Partner accounts get 403 from every endpoint outside `/api/portal`, apart from signing in and out, their profile, changing their password and opening file links. This is enforced in one place for every kind of token, including `/mcp`. Administrators get 403 from `/api/portal`, because they have no partner.
 - **Which exchanges.** An exchange belongs to a partner when it carries that partner's id. Exchanges from before that column existed carry none and don't show in the portal.
 - A partner with portal users can't be deleted until they are removed.
+- **Their own people.** Someone with `portal-people.edit`, such as the built-in **Partner admin**, gets a **People** page in the portal listing their company's people. They invite someone by email, or with a link to pass on when there is no mail server, and can change a person's role, send the invite again, disable and remove them. They can give only partner roles that don't include `portal-people.edit`, and only what they hold themselves. They can't change their own account, or another of their admins, which only your team can. Only your team makes someone a partner admin, on the Members page. An email already used anywhere in Bitween is refused without saying where.
 
 - **Their own mappings.** The **Mappings** card lists every place the partner is connected: subscriptions that belong to them, API gateways they are attached to, and bus gateway routes that name them. With `portal-mappings.edit` they can make their own version of a place's mapping in the mapping editor, starting from yours, and preview it against one of their recent exchanges. Their version is used for their exchanges only, from the next one on, including retries; everyone else on the same gateway keeps your mapping, and **Go back to ours** deletes theirs. It works for subscriptions that map with the native mapper or don't map at all. Their rules can read the document and their own partner properties, but no global value that your mapping doesn't already send them, by rule or by `{{globals.…}}` placeholder; saving and previewing refuse it. If your mapping later stops reading a global value theirs reads, theirs is set aside and they get yours until they change it; the portal and the subscription page both say so. Only their rules are kept, never the editor's sample documents. Every change is in the audit trail as **Partner mapping**, in full. The subscription's **Transformation** panel lists the partners with their own mapping, who changed it last and when, with **See rules**, and **Remove** for someone with `subscriptions.edit`, which puts that partner back on your mapping.
 - **Approval.** On a partner's page, **Their changes need our approval** (off by default, needs `partners.edit`) decides what happens when their people save a mapping or choose **Go back to ours**. Off, the change is used from their next exchange. On, it waits and they keep what they have; a newer change replaces the one waiting, and they can take it back. Waiting changes are listed on **Partner changes** in the sidebar, with a count beside it, and on the subscription's Transformation panel. Someone with `partner-changes.operate` opens one beside what the partner gets now and approves it, which uses it from their next exchange, or rejects it with a reason the partner sees. Approving checks the rules again against your mapping as it is then. Turning the switch off doesn't approve what is already waiting.

@@ -2834,6 +2834,39 @@ export interface SubscriptionPartnerMapping {
   waitingChangeId: number | null;
 }
 
+/** One of a partner's people, as their admin sees them in the portal. */
+export interface PortalPerson {
+  id: number;
+  name: string;
+  email: string;
+  /** Their one role; null for an account still holding several from before one role per account. */
+  role: { id: number; name: string } | null;
+  disabled: boolean;
+  /** Invited and hasn't chosen a password yet. */
+  invited: boolean;
+  inviteExpiresOn: string | null;
+  lastSignInOn: string | null;
+  isYou: boolean;
+  /** Not themselves and not another of their admins, which only our team changes. */
+  canChange: boolean;
+}
+
+/** A role a partner's admin may give. */
+export interface PortalRoleChoice {
+  id: number;
+  name: string;
+  description: string | null;
+  builtIn: boolean;
+}
+
+/** An invite's outcome: emailed, or the link to pass on. */
+export interface PortalInvite {
+  emailed: boolean;
+  emailError: string | null;
+  expiresOn: string | null;
+  link: string | null;
+}
+
 export type PartnerChangeStatus = "waiting" | "live" | "approved" | "rejected" | "withdrawn";
 
 /** A change to a partner's own mapping of a subscription: theirs, from the portal, or our team's. */

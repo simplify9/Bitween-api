@@ -84,11 +84,18 @@ public class Role : BaseEntity, IAudited
     [
         new("partner-viewer", "Partner viewer",
             "For a partner's people: sees that partner's subscriptions, exchanges and mappings, with the exchanges' files and errors.",
-            () => PermissionCatalog.InGroups(true, PermissionCatalog.PortalGroup)),
+            () => ButPeople(PermissionCatalog.InGroups(true, PermissionCatalog.PortalGroup))),
         new("partner-editor", "Partner editor",
             "For a partner's people: everything Partner viewer sees, and changes their own mappings.",
+            () => ButPeople(PermissionCatalog.InGroups(false, PermissionCatalog.PortalGroup))),
+        new("partner-admin", "Partner admin",
+            "For a partner's people: everything Partner editor does, and invites and manages their company's people. Only your team makes one.",
             () => PermissionCatalog.InGroups(false, PermissionCatalog.PortalGroup)),
     ];
+
+    /// <summary>Without managing people: that is what makes a partner's person one of their admins.</summary>
+    private static List<string> ButPeople(List<string> keys) =>
+        keys.Where(k => !k.StartsWith(PermissionCatalog.PortalPeopleArea + ".")).ToList();
 
     /// <summary>For a built-in role whose wording changed in a later version.</summary>
     public void Describe(string description) => Description = description;
