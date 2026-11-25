@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router";
+import { useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft } from "lucide-react";
 import { api } from "../../api";
 import { keys } from "../../api/queryKeys";
 import { useSession } from "../../auth/useSession";
+import { PageHeader } from "../../components/layout/PageHeader";
+import { usePageTitle } from "../../lib/pageTitle";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { Badge, Button, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Select } from "../../components/ui/forms";
@@ -28,6 +29,7 @@ export function PortalMappingPage() {
   const [sample, setSample] = useState<string | null>(null);
 
   const mapping = useQuery({ queryKey: keys.portal.mapping(id), queryFn: () => api.getPortalMapping(id) });
+  usePageTitle(mapping.data?.subscriptionName);
   const samples = useQuery({
     queryKey: keys.portal.samples(id),
     queryFn: () => api.listPortalMappingSamples(id),
@@ -80,19 +82,8 @@ export function PortalMappingPage() {
     .sort((a, b) => b.submittedAt - a.submittedAt)[0]?.data;
 
   return (
-    <div className="min-h-screen bg-canvas">
-      <header className="flex items-center gap-3 border-b border-ink-200 bg-white px-4 py-2.5 sm:px-6">
-        <Link to="/portal" className="text-ink-500 hover:text-ink-900" title="Back to the portal">
-          <ArrowLeft className="size-4" />
-          <span className="sr-only">Back to the portal</span>
-        </Link>
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[15px] font-semibold text-ink-900">{m.subscriptionName}</h1>
-          <p className="text-xs text-ink-500">{session?.partner?.name} · Mapping</p>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-3xl space-y-4 px-4 py-6 sm:px-6">
+    <div className="max-w-3xl">
+      <PageHeader title={m.subscriptionName} description="What you receive here, and your own version of it." />
         <section className="space-y-3 rounded-xl border border-ink-200 bg-white p-5">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-[15px] font-semibold text-ink-900">What you receive</h2>
@@ -210,7 +201,6 @@ export function PortalMappingPage() {
             </>
           )}
         </section>
-      </main>
 
       {editing && (
         <MapperEditorServicesContext.Provider value={services}>

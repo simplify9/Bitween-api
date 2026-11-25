@@ -211,6 +211,7 @@ public static class Permissions
     {
         public const string SubscriptionsView = "portal-subscriptions.view";
         public const string ExchangesView = "portal-exchanges.view";
+        public const string ExchangesOperate = "portal-exchanges.operate";
         public const string ExchangeFilesView = "portal-exchange-files.view";
         public const string ExchangeErrorsView = "portal-exchange-errors.view";
         public const string MappingsView = "portal-mappings.view";
@@ -409,7 +410,8 @@ public static class PermissionCatalog
 
         Area("portal-exchanges", "Their exchanges", "Partner portal",
             "The exchanges that ran for the partner.",
-            (View, "Browse their exchanges: status, times and counts.")),
+            (View, "Browse their exchanges: status, times and counts."),
+            (Operate, "Retry their failed exchanges, with the current mapping and details.")),
 
         Area("portal-exchange-files", "Exchange files", "Partner portal",
             "What each of their exchanges received, sent and got back.",

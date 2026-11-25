@@ -95,6 +95,7 @@ namespace SW.Bitween.Domain
             SourceXchangeId = xchange.SourceXchangeId;
             SourceValues = xchange.SourceValues;
             ResponseSubscriptionId = xchange.ResponseSubscriptionId;
+            ResponseMessageTypeName = xchange.ResponseMessageTypeName;
             RetryFor = xchange.Id;
             CorrelationId = xchange.CorrelationId;
         }
@@ -119,6 +120,7 @@ namespace SW.Bitween.Domain
             SourceXchangeId = xchange.SourceXchangeId;
             SourceValues = xchange.SourceValues;
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
+            ResponseMessageTypeName = subscription.ResponseMessageTypeName;
             RetryFor = xchange.Id;
             CorrelationId = xchange.CorrelationId;
         }

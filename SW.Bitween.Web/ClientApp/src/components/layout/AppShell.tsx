@@ -9,6 +9,7 @@ import {
   Menu as MenuIcon,
   PanelLeftClose,
   PanelLeftOpen,
+  KeyRound,
   UserRound,
   X,
   Search as SearchIcon,
@@ -227,7 +228,7 @@ function SidebarContent({
   const scroll = useScrollEdges(`${collapsed.join()}|${railed}|${session?.permissions.length ?? 0}`);
   if (!session) return null;
 
-  const groups = visibleGroups(session.permissions);
+  const groups = visibleGroups(session.permissions, !!session.partner);
 
   const toggleGroup = (label: string) =>
     setCollapsed((prev) => {
@@ -308,6 +309,9 @@ function SidebarContent({
                       <li key={item.path}>
                         <NavLink
                           to={item.path}
+                          // Only its own address when another entry lives under it, as every portal
+                          // page does under the portal's Exchanges.
+                          end={groups.some((g) => g.items.some((other) => other.path.startsWith(item.path + "/")))}
                           onClick={onNavigate}
                           aria-label={railed ? item.label : undefined}
                           onMouseEnter={railed ? (e) => showTip(e.currentTarget, item.label) : undefined}
@@ -390,16 +394,26 @@ function SidebarContent({
                     {session.user.displayName}
                   </span>
                   <span className="block truncate text-[11px] text-ink-400">
-                    {session.roles.map((r) => r.name).join(", ") || "No roles"}
+                    {/* A partner's people see whose portal this is: their company's. */}
+                    {[session.partner?.name, session.roles.map((r) => r.name).join(", ") || "No roles"]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 </span>
               )}
             </button>
           }
         >
-          <MenuItem onSelect={() => navigate("/profile")}>
-            <UserRound className="size-4" /> Your profile
-          </MenuItem>
+          {/* The profile page is ours; a partner's people have their password to change and nothing else. */}
+          {session.partner ? (
+            <MenuItem onSelect={() => navigate("/change-password")}>
+              <KeyRound className="size-4" /> Change password
+            </MenuItem>
+          ) : (
+            <MenuItem onSelect={() => navigate("/profile")}>
+              <UserRound className="size-4" /> Your profile
+            </MenuItem>
+          )}
           <MenuItem onSelect={() => void signOut()}>
             <LogOut className="size-4" /> Sign out
           </MenuItem>
@@ -412,6 +426,7 @@ function SidebarContent({
 const RAILED_KEY = "bitween-nav-railed";
 
 export function AppShell() {
+  const { session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [railed, setRailed] = useState(() => localStorage.getItem(RAILED_KEY) === "1");
   const { pathname, search } = useLocation();
@@ -445,7 +460,11 @@ export function AppShell() {
   // a page asks for things in its own effects, which run after this but before a passive one.
   useLayoutEffect(() => setCurrentPage(pathname + search), [pathname, search]);
   // Work still running from before a reload, or finished while away, shows in the header again.
-  useEffect(() => void refreshBackground(), []);
+  // A partner's people start none, and may not list them.
+  const partner = !!session?.partner;
+  useEffect(() => {
+    if (!partner) void refreshBackground();
+  }, [partner]);
 
   // ⌘K / Ctrl+K anywhere, as in most tools people already use; "/" too, when not typing.
   useEffect(() => {

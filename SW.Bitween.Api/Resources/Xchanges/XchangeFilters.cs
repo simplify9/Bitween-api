@@ -53,7 +53,7 @@ internal static class XchangeFilters
     /// </para>
     /// </remarks>
     internal static async Task<IQueryable<XchangeRow>> FilteredRowsAsync(BitweenDbContext dbContext,
-        SearchyRequest searchyRequest, string status = null)
+        SearchyRequest searchyRequest, string status = null, int? partnerId = null)
     {
         searchyRequest.DatesToUtc();
         // Async, and inside here rather than in the callers, so a "select all matching" over a run
@@ -61,7 +61,11 @@ internal static class XchangeFilters
         await ResolveReceiveAttemptFilterAsync(searchyRequest, dbContext);
         var stateReady = await XchangeStateReadiness.IsReadyAsync(dbContext);
 
-        var query = from xchange in dbContext.Set<Xchange>().WhereState(searchyRequest, stateReady, status)
+        // A partner's own only, on the exchange's own column so its index answers: the portal's counts.
+        var exchanges = partnerId is { } partner
+            ? dbContext.Set<Xchange>().Where(x => x.PartnerId == partner)
+            : dbContext.Set<Xchange>();
+        var query = from xchange in exchanges.WhereState(searchyRequest, stateReady, status)
                     join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id into xr
                     from result in xr.DefaultIfEmpty()
                     join agg in dbContext.Set<XchangeAggregation>() on xchange.Id equals agg.Id into xa
@@ -90,7 +94,7 @@ internal static class XchangeFilters
                         PartnerId = xchange.PartnerId ?? subscriber.PartnerId
                     };
 
-        query = query.ApplySpecialFilters(searchyRequest, dbContext);
+        query = query.ApplySpecialFilters(searchyRequest, dbContext, rollUps: partnerId == null);
         if (status != null && !stateReady)
             query = query.WhereStatus(status, dbContext);
         return query.AsNoTracking().Search(searchyRequest.Conditions);
@@ -203,10 +207,11 @@ internal static class XchangeFilters
 
     /// <summary>
     /// Applies the special filters and removes them from <paramref name="searchyRequest"/>, leaving
-    /// the plain per-column ones for Searchy to handle.
+    /// the plain per-column ones for Searchy to handle. <paramref name="rollUps"/> false, for the
+    /// partner portal: an id doesn't also find the exchanges rolled up into it, which they don't see.
     /// </summary>
     internal static IQueryable<XchangeRow> ApplySpecialFilters(this IQueryable<XchangeRow> query,
-        SearchyRequest searchyRequest, BitweenDbContext dbContext)
+        SearchyRequest searchyRequest, BitweenDbContext dbContext, bool rollUps = true)
     {
         var condition = searchyRequest.Conditions.FirstOrDefault();
         if (condition == null)
@@ -219,17 +224,21 @@ internal static class XchangeFilters
             switch (idFilter.Rule)
             {
                 case SearchyRule.EqualsTo:
-                    query = query.Where(i =>
-                        i.Id == value || i.RetryFor == value || i.AggregationXchangeId == value);
+                    query = rollUps
+                        ? query.Where(i => i.Id == value || i.RetryFor == value || i.AggregationXchangeId == value)
+                        : query.Where(i => i.Id == value || i.RetryFor == value);
                     break;
                 case SearchyRule.Contains:
                     {
                         var valueAsArray = idFilter.ValueStringArray;
-                        query = query.Where(i =>
-                            valueAsArray.Any(v => i.RetryFor == v) ||
-                            valueAsArray.Any(v => i.AggregationXchangeId == v) ||
-                            valueAsArray.Any(v => i.Id == v)
-                        );
+                        query = rollUps
+                            ? query.Where(i =>
+                                valueAsArray.Any(v => i.RetryFor == v) ||
+                                valueAsArray.Any(v => i.AggregationXchangeId == v) ||
+                                valueAsArray.Any(v => i.Id == v))
+                            : query.Where(i =>
+                                valueAsArray.Any(v => i.RetryFor == v) ||
+                                valueAsArray.Any(v => i.Id == v));
                         break;
                     }
 

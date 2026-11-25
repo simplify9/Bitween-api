@@ -9,6 +9,8 @@ export interface NavItem {
   icon: LucideIcon;
   /** Visible when the session holds ANY of these. */
   permissions: PermissionKey[];
+  /** A partner's people's page: in their sidebar only, and theirs holds nothing else. */
+  partner: boolean;
 }
 
 export interface NavGroup {
@@ -21,6 +23,7 @@ const GROUP_LABELS: Record<NavGroupId, string> = {
   subscriptions: "Subscriptions",
   configuration: "Configuration",
   administration: "Administration",
+  portal: "Partner portal",
 };
 
 /**
@@ -40,6 +43,7 @@ export const NAV_GROUPS: NavGroup[] = (Object.keys(GROUP_LABELS) as NavGroupId[]
         path: `/${page.path}`,
         icon: page.nav.icon,
         permissions: page.permission ? [page.permission, ...(page.alsoFor ?? [])] : [],
+        partner: page.audience === "partner",
       },
     ];
   }),
@@ -48,10 +52,12 @@ export const NAV_GROUPS: NavGroup[] = (Object.keys(GROUP_LABELS) as NavGroupId[]
 export const navItemVisible = (item: NavItem, permissions: PermissionKey[]) =>
   item.permissions.some((p) => permissions.includes(p));
 
-export const visibleGroups = (permissions: PermissionKey[]): NavGroup[] =>
-  NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => navItemVisible(i, permissions)) })).filter(
-    (g) => g.items.length > 0,
-  );
+/** The sidebar for these permissions: a partner's people's own pages, or everyone else's. */
+export const visibleGroups = (permissions: PermissionKey[], partner = false): NavGroup[] =>
+  NAV_GROUPS.map((g) => ({
+    ...g,
+    items: g.items.filter((i) => i.partner === partner && navItemVisible(i, permissions)),
+  })).filter((g) => g.items.length > 0);
 
 /**
  * Where to land after signing in with nowhere particular to go: the dashboard when the session
@@ -63,7 +69,8 @@ export const visibleGroups = (permissions: PermissionKey[]): NavGroup[] =>
  * from a colleague both still end where they were headed.
  */
 export const homePath = (session: Session): string => {
-  if (session.partner) return "/portal";
+  // Their first page: Exchanges, unless their role doesn't show them.
+  if (session.partner) return visibleGroups(session.permissions, true)[0]?.items[0]?.path ?? "/portal";
   if (session.permissions.includes("dashboard.view")) return "/dashboard";
   const groups = visibleGroups(session.permissions);
   return groups[0]?.items[0]?.path ?? "/profile";

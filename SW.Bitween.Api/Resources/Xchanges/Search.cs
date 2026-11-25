@@ -36,14 +36,48 @@ namespace SW.Bitween.Resources.Xchanges
             if (!lookup)
                 await requestContext.EnsurePermission(dbContext, Model.Permissions.Exchanges.View, Model.Permissions.Dashboard.View);
 
+            if (!lookup)
+                return await SearchAsync(searchyRequest, null);
+
+            // Only id and information type, so the lookup has nothing to hide from a caller without
+            // the view permission. It returned whole rows before - errors, promoted values, source
+            // values - to anyone signed in. Capped, because exchanges run to millions and a lookup
+            // with no page size would otherwise list every one of them.
+            var query = await QueryAsync(searchyRequest, null);
+            await using var dr = await dbContext.Database.BeginTransactionAsync(IsolationLevel.ReadUncommitted);
+            return await Page(query, searchyRequest).Take(LookupLimit).ToDictionaryAsync(k => k.Id, v => v.DocumentName);
+        }
+
+        /// <summary>
+        /// The page of exchanges a filter matches, with its total when asked for. With
+        /// <paramref name="partnerId"/>, only that partner's: what the partner portal lists, the same
+        /// rows our team's list shows, filtered on the exchange's own partner so its index answers.
+        /// The caller has checked who may see them.
+        /// </summary>
+        internal async Task<SearchyResponse<XchangeRow>> SearchAsync(SearchyRequest searchyRequest, int? partnerId)
+        {
+            var query = await QueryAsync(searchyRequest, partnerId);
+            await using var dr = await dbContext.Database.BeginTransactionAsync(IsolationLevel.ReadUncommitted);
+            var r = await Page(query, searchyRequest).ToListAsync();
+            return await FinishAsync(searchyRequest, query, r);
+        }
+
+        private static IQueryable<XchangeRow> Page(IQueryable<XchangeRow> query, SearchyRequest searchyRequest) =>
+            query.OrderByDescending(p => p.StartedOn).AsNoTracking().Search(searchyRequest.Conditions,
+                searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex);
+
+        private async Task<IQueryable<XchangeRow>> QueryAsync(SearchyRequest searchyRequest, int? partnerId)
+        {
             searchyRequest.DatesToUtc();
             await XchangeFilters.ResolveReceiveAttemptFilterAsync(searchyRequest, dbContext);
             var stateReady = await Services.XchangeStates.XchangeStateReadiness.IsReadyAsync(dbContext);
-            await using var dr = await dbContext.Database.BeginTransactionAsync(IsolationLevel.ReadUncommitted);
 
             // The status and latest-only filters on the exchange's own columns once they are filled
             // in, which their index answers; before that, ApplySpecialFilters below works them out.
-            var query = from xchange in dbContext.Set<Xchange>().WhereState(searchyRequest, stateReady)
+            var exchanges = partnerId is { } partner
+                ? dbContext.Set<Xchange>().Where(x => x.PartnerId == partner)
+                : dbContext.Set<Xchange>();
+            var query = from xchange in exchanges.WhereState(searchyRequest, stateReady)
                         join result in dbContext.Set<XchangeResult>() on xchange.Id equals result.Id into xr
                         from result in xr.DefaultIfEmpty()
                         join agg in dbContext.Set<XchangeAggregation>() on xchange.Id equals agg.Id into xa
@@ -111,20 +145,12 @@ namespace SW.Bitween.Resources.Xchanges
                             Warning = result.Warning
                         };
 
-            query = query.ApplySpecialFilters(searchyRequest, dbContext);
+            return query.ApplySpecialFilters(searchyRequest, dbContext, rollUps: partnerId == null);
+        }
 
-            var s = query.OrderByDescending(p => p.StartedOn).AsNoTracking().Search(searchyRequest.Conditions,
-                searchyRequest.Sorts, searchyRequest.PageSize, searchyRequest.PageIndex);
-
-            // Only id and information type, so the lookup has nothing to hide from a caller without
-            // the view permission. It returned whole rows before - errors, promoted values, source
-            // values - to anyone signed in. Capped, because exchanges run to millions and a lookup
-            // with no page size would otherwise list every one of them.
-            if (lookup)
-                return await s.Take(LookupLimit).ToDictionaryAsync(k => k.Id, v => v.DocumentName);
-
-            var r = await s.ToListAsync();
-
+        private async Task<SearchyResponse<XchangeRow>> FinishAsync(SearchyRequest searchyRequest,
+            IQueryable<XchangeRow> query, List<XchangeRow> r)
+        {
             // Shown here, never used: a long source value is cut the way the editor's examples are,
             // so a page of rows stays small whatever a subscription reads. The exchange keeps it whole.
             foreach (var row in r.Where(row => row.SourceValues != null))

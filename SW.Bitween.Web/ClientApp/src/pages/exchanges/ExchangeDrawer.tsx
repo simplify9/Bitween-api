@@ -3,7 +3,6 @@ import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, FileText, Loader2, Play, RotateCcw } from "lucide-react";
 import { api, ApiRequestError, type ExchangeDocStage, type ExchangeRow } from "../../api";
-import { useSessionCan } from "../../auth/useSessionCan";
 import { Badge, Button, InlineNotice, ProblemText } from "../../components/ui/basics";
 import { ConfirmDialog } from "../../components/ui/overlays";
 import { HighlightedDocument } from "../../components/ui/HighlightedDocument";
@@ -17,6 +16,7 @@ import { journeyStages } from "./journey";
 import { RetryChain } from "./RetryChain";
 import { ExplainFailure } from "./ExplainFailure";
 import { hasRetryChain, newestAttempt, retryTreeQuery } from "./retryTree";
+import { useExchangeSource } from "./exchangeSource";
 import { keys } from "../../api/queryKeys";
 
 const STAGE_TONES: Record<JourneyStage["state"], { ring: string; badge: ReactNode }> = {
@@ -178,12 +178,15 @@ const GONE_FOR_GOOD = new Set(["FILE_EXPIRED", "FILE_MISSING", "NOT_FOUND"]);
  */
 export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
   const stages = journeyStages(x);
-  const canOperate = useSessionCan("exchanges.operate");
+  const source = useExchangeSource();
+  const { partner, listPath } = source;
+  const canOperate = source.canRetry;
   const queryClient = useQueryClient();
   // An aggregation's exchange is the roll-up - its payload is the list of links to
-  // everything it collected, so it is the one exchange worth offering that drill from.
+  // everything it collected, so it is the one exchange worth offering that drill from. Our wiring:
+  // a partner's people neither see it nor may list the subscriptions it is read from.
   const isRollUp =
-    useSubscriptionsCache().data?.find((i) => i.id === x.subscriptionId)?.type === "Aggregation";
+    useSubscriptionsCache(!partner).data?.find((i) => i.id === x.subscriptionId)?.type === "Aggregation";
 
   const files: Record<ExchangeDocStage, ExchangeRow["files"]["input"]> = {
     Input: x.files.input,
@@ -203,7 +206,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
     error: activeError,
   } = useQuery({
     queryKey: keys.exchanges.document(activeKey),
-    queryFn: () => api.getExchangeDocument(activeKey!),
+    queryFn: () => source.readDocument(activeKey!),
     enabled: activeKey !== null,
     // A file the bucket deleted stays deleted; asking again only keeps "Loading…" up for the backoff.
     retry: (failures, error) =>
@@ -212,7 +215,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
 
   // The same query the chain below reads, so asking here costs nothing extra - and only asked
   // for at all when the row says there is a chain to read.
-  const { data: chain } = useQuery({ ...retryTreeQuery(x.id), enabled: hasRetryChain(x) });
+  const { data: chain } = useQuery({ ...retryTreeQuery(x.id, source), enabled: hasRetryChain(x) });
   const newest = chain ? newestAttempt(chain, x.id) : null;
 
   const [confirming, setConfirming] = useState(false);
@@ -222,7 +225,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
   const invalidate = () => void queryClient.invalidateQueries({ queryKey: keys.exchanges.all });
 
   const retry = useMutation({
-    mutationFn: (reset: boolean) => api.retryExchange(x.id, { reset }),
+    mutationFn: (reset: boolean) => source.retryExchange(x.id, reset),
     onSuccess: ({ id }) => {
       setConfirming(false);
       setStartedId(id);
@@ -310,7 +313,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
       {x.exception && (
         <ExceptionBlock
           text={x.exception}
-          action={(x.status === "failed" || x.status === "badResponse") && <ExplainFailure xchangeId={x.id} />}
+          action={!partner && (x.status === "failed" || x.status === "badResponse") && <ExplainFailure xchangeId={x.id} />}
         />
       )}
 
@@ -357,7 +360,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
           {x.correlationId ? (
             <span className="inline-flex items-center gap-0.5">
               <Link
-                to={`/exchanges?correlationId=${encodeURIComponent(x.correlationId)}`}
+                to={`${listPath}?correlationId=${encodeURIComponent(x.correlationId)}`}
                 title="Show every exchange with this correlation id"
                 className="font-mono text-xs break-all text-ink-700 hover:link"
               >
@@ -371,10 +374,10 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
         </MetaItem>
         <MetaItem label="Related">
           <Link
-            to={`/exchanges?ids=${encodeURIComponent(x.id)}`}
+            to={`${listPath}?ids=${encodeURIComponent(x.id)}`}
             className="text-[13px] font-medium text-ink-700 hover:link"
           >
-            Retries &amp; aggregation family
+            {partner ? "Its retries" : <>Retries &amp; aggregation family</>}
           </Link>
         </MetaItem>
         {isRollUp && (
@@ -452,10 +455,13 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
               <span className="text-[13px] text-ink-500">
                 scheduled for {formatDateTime(x.scheduledRetryOn)}
               </span>
-              <Button size="sm" onClick={() => setConfirmingRunNow(true)}>
-                <Play className="size-3.5" aria-hidden />
-                Run now
-              </Button>
+              {/* Ours to hurry along, not a partner's. */}
+              {!partner && (
+                <Button size="sm" onClick={() => setConfirmingRunNow(true)}>
+                  <Play className="size-3.5" aria-hidden />
+                  Run now
+                </Button>
+              )}
             </>
           ) : (
             (x.status === "failed" || x.status === "badResponse") &&
@@ -468,7 +474,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
                 </Badge>
                 {newest && newest.id !== x.id && (
                   <Link
-                    to={`/exchanges?ids=${encodeURIComponent(newest.id)}`}
+                    to={`${listPath}?ids=${encodeURIComponent(newest.id)}`}
                     className="text-[13px] font-medium text-ink-700 hover:link"
                   >
                     Open the newest attempt to retry from there
@@ -487,7 +493,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
       )}
 
       {/* A bad response can come without error text: then Explain has no error box to sit on. */}
-      {!x.exception && (x.status === "failed" || x.status === "badResponse") && (
+      {!partner && !x.exception && (x.status === "failed" || x.status === "badResponse") && (
         <div className={`flex items-center gap-2 ${canOperate ? "" : "border-t border-ink-100 pt-3"}`}>
           <ExplainFailure xchangeId={x.id} />
         </div>
@@ -496,6 +502,7 @@ export function ExchangeDrawer({ x }: { x: ExchangeRow }) {
       {confirming && (
         <RetryDialog
           count={1}
+          chooseReset={source.canChooseReset}
           busy={retry.isPending}
           onConfirm={(reset) => retry.mutate(reset)}
           onClose={() => setConfirming(false)}

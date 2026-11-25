@@ -83,9 +83,9 @@ public class PartnerPortalTests(BitweenFixture fixture)
 
         var role = await PartnerRoleAsync(db, Permissions.Portal.ExchangesView);
         scope.As(await AccountAsync(db, world.Mine.Id, role));
-        var handler = ActivatorUtilities.CreateInstance<Resources.Portal.Xchanges>(scope.ServiceProvider);
+        var handler = ActivatorUtilities.CreateInstance<Resources.Portal.SearchExchanges>(scope.ServiceProvider);
 
-        var page = (PortalXchangePage)await handler.Handle(new PortalXchangeSearch { Size = 100 });
+        var page = (SearchyResponse<XchangeRow>)await handler.Handle(new SearchyRequest("") { PageSize = 100 });
 
         var ids = page.Result.Select(r => r.Id).ToList();
         Assert.Contains(mine, ids);
@@ -101,25 +101,26 @@ public class PartnerPortalTests(BitweenFixture fixture)
         var failed = await ExchangeAsync(db, world.MySubscription, world.Mine, exception: "Connection refused to 10.0.0.5");
 
         // A scope each, as each request has its own: a request context is signed in once.
-        async Task<PortalXchangeRow> RowAs(params string[] permissions)
+        async Task<XchangeRow> RowAs(params string[] permissions)
         {
             var account = await AccountAsync(db, world.Mine.Id, await PartnerRoleAsync(db, permissions));
             await using var request = fixture.CreateScope();
             request.As(account);
-            var handler = ActivatorUtilities.CreateInstance<Resources.Portal.Xchanges>(request.ServiceProvider);
-            var page = (PortalXchangePage)await handler.Handle(new PortalXchangeSearch { Status = "failed", Size = 100 });
+            var handler = ActivatorUtilities.CreateInstance<Resources.Portal.SearchExchanges>(request.ServiceProvider);
+            var page = (SearchyResponse<XchangeRow>)await handler.Handle(
+                new SearchyRequest($"filter=Id:1:{failed}") { PageSize = 100 });
             return page.Result.Single(r => r.Id == failed);
         }
 
         var bare = await RowAs(Permissions.Portal.ExchangesView);
-        Assert.Equal("failed", bare.Status);
-        Assert.Null(bare.Error);
-        Assert.Null(bare.Files);
+        Assert.False(bare.Status);
+        Assert.Null(bare.Exception);
+        Assert.Null(bare.InputUrl);
 
         var full = await RowAs(Permissions.Portal.ExchangesView, Permissions.Portal.ExchangeErrorsView,
             Permissions.Portal.ExchangeFilesView);
-        Assert.Equal("Connection refused to 10.0.0.5", full.Error);
-        Assert.Contains(full.Files!, f => f.Kind == "input");
+        Assert.Equal("Connection refused to 10.0.0.5", full.Exception);
+        Assert.NotNull(full.InputUrl);
     }
 
     [Fact]
@@ -131,9 +132,9 @@ public class PartnerPortalTests(BitweenFixture fixture)
         // An administrator holds the portal keys - that is what lets them hand out partner roles -
         // but has no partner, so there is nobody's data for the portal to show them.
         scope.As(await AccountAsync(db, null, Role.AdministratorId));
-        var handler = ActivatorUtilities.CreateInstance<Resources.Portal.Xchanges>(scope.ServiceProvider);
+        var handler = ActivatorUtilities.CreateInstance<Resources.Portal.SearchExchanges>(scope.ServiceProvider);
 
-        var refused = await Assert.ThrowsAsync<SWUnauthorizedException>(() => handler.Handle(new PortalXchangeSearch()));
+        var refused = await Assert.ThrowsAsync<SWUnauthorizedException>(() => handler.Handle(new SearchyRequest("")));
         Assert.Contains("NOT_A_PARTNER_ACCOUNT", refused.Message);
     }
 

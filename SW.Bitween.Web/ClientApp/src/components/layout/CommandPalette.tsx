@@ -5,6 +5,7 @@ import { useNavigate } from "react-router";
 import { Clock, CornerDownLeft, FileText, Plus, Search } from "lucide-react";
 import { api } from "../../api";
 import { keys } from "../../api/queryKeys";
+import { inPortal } from "../../auth/guards";
 import { useSession } from "../../auth/useSession";
 import { NAV_GROUPS } from "../../nav";
 import { PAGES, type PageId } from "../../pages";
@@ -55,7 +56,8 @@ function matches(items: Item[], query: string): Item[] {
  */
 export function CommandPalette({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate();
-  const { can } = useSession();
+  const { can, session } = useSession();
+  const partner = !!session?.partner;
   const [query, setQuery] = useState("");
   const panel = useRef<HTMLDivElement>(null);
   useModalFocus(panel);
@@ -91,7 +93,9 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
     return (Object.keys(PAGES) as PageId[])
       .filter((id) => !PAGES[id].path.includes(":"))
       .filter((id) => {
-        const { permission, alsoFor = [] } = PAGES[id];
+        const { permission, alsoFor = [], audience } = PAGES[id];
+        // A partner's people find their portal's pages, and everyone else none of them.
+        if ((audience === "partner") !== partner) return false;
         return !permission || can(permission) || alsoFor.some(can);
       })
       .map((id) => {
@@ -107,7 +111,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
           words: (page.keywords ?? []).join(" "),
         };
       });
-  }, [can]);
+  }, [can, partner]);
 
   const things = useMemo<Item[]>(() => {
     const of = <T,>(
@@ -196,7 +200,8 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
 
   const results = useMemo<Item[]>(() => {
     if (!query.trim()) {
-      const recent = recentVisits().map((v) => ({
+      // Another person's visits on this browser, ours or a partner's, aren't offered across that line.
+      const recent = recentVisits().filter((v) => inPortal(v.path) === partner).map((v) => ({
         key: `recent:${v.path}`,
         section: "Recent" as const,
         label: v.title,
@@ -216,7 +221,7 @@ export function CommandPalette({ onClose }: { onClose: () => void }) {
       return n <= PER_KIND;
     });
     return [...matches(pages, query), ...capped];
-  }, [query, pages, things]);
+  }, [query, pages, things, partner]);
 
   const go = (item: Item | null) => {
     if (!item) return;

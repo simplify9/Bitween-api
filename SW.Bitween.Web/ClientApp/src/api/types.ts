@@ -2723,57 +2723,12 @@ export interface RetrySuggestion {
 
 // --- Partner portal ---
 
-export interface PortalSummary {
-  partnerName: string;
-  running: number;
-  succeeded: number;
-  failed: number;
-}
-
 export interface PortalSubscription {
   id: string;
   name: string;
   type: string;
   documentName: string;
   paused: boolean;
-}
-
-export type PortalExchangeStatus = "running" | "success" | "failed";
-
-export interface PortalExchangeQuery {
-  status: PortalExchangeStatus | null;
-  subscriptionId: string | null;
-  /** Zero-based. */
-  page: number;
-  size: number;
-}
-
-export interface PortalExchangeFile {
-  kind: "input" | "output" | "response";
-  name: string | null;
-  size: number;
-  /** Opens without signing in; handed out only for the partner's own exchanges. */
-  url: string;
-}
-
-export interface PortalExchange {
-  id: string;
-  startedOn: string;
-  finishedOn: string | null;
-  status: PortalExchangeStatus;
-  documentName: string;
-  subscriptionId: number | null;
-  subscriptionName: string | null;
-  /** Null without the exchange errors permission, and for anything but a failure. */
-  error: string | null;
-  /** Null without the exchange files permission. */
-  files: PortalExchangeFile[] | null;
-}
-
-/** No total: the page says only whether there is another. */
-export interface PortalExchangePage {
-  result: PortalExchange[];
-  hasMore: boolean;
 }
 
 /** A place a partner is connected, and whether they map it their own way there. */

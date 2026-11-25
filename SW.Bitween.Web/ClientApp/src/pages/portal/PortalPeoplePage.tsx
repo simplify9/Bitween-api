@@ -1,16 +1,15 @@
 import { useState } from "react";
-import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, UserPlus } from "lucide-react";
+import { UserPlus } from "lucide-react";
 import { api, type PortalInvite, type PortalPerson } from "../../api";
 import { keys } from "../../api/queryKeys";
-import { useSession } from "../../auth/useSession";
 import { useSessionCan } from "../../auth/useSessionCan";
 import { Badge, Button, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { CopyField } from "../../components/ui/CopyField";
 import { Field, Select, TextInput } from "../../components/ui/forms";
 import { ConfirmDialog, Dialog } from "../../components/ui/overlays";
 import { Panel } from "../../components/ui/Panel";
+import { PageHeader } from "../../components/layout/PageHeader";
 import { Table } from "../../components/ui/Table";
 import { formatDateTime, timeAgo } from "../../lib/dates";
 
@@ -20,7 +19,6 @@ import { formatDateTime, timeAgo } from "../../lib/dates";
  * their admins, so another admin's row has nothing to change.
  */
 export function PortalPeoplePage() {
-  const { session } = useSession();
   const canEdit = useSessionCan("portal-people.edit");
   const queryClient = useQueryClient();
   const people = useQuery({ queryKey: keys.portal.people, queryFn: () => api.listPortalPeople() });
@@ -68,19 +66,8 @@ export function PortalPeoplePage() {
     );
 
   return (
-    <div className="min-h-screen bg-canvas">
-      <header className="flex items-center gap-3 border-b border-ink-200 bg-white px-4 py-2.5 sm:px-6">
-        <Link to="/portal" className="text-ink-500 hover:text-ink-900" title="Back to the portal">
-          <ArrowLeft className="size-4" />
-          <span className="sr-only">Back to the portal</span>
-        </Link>
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[15px] font-semibold text-ink-900">People</h1>
-          <p className="text-xs text-ink-500">{session?.partner?.name} · Who can sign in to this portal</p>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-5xl space-y-4 px-4 py-6 sm:px-6">
+    <div className="max-w-5xl">
+      <PageHeader title="People" description="Who at your company can sign in to this portal, and with which role." />
         <Panel
           title="Your company's people"
           description="Only your company's. Only we can make or change one of your admins."
@@ -189,7 +176,6 @@ export function PortalPeoplePage() {
             </>
           )}
         </Panel>
-      </main>
 
       {adding && roles.data && (
         <AddPersonDialog

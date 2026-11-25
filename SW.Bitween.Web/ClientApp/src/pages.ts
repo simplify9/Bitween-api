@@ -1,5 +1,7 @@
 import {
   Activity,
+  Building2,
+  FileCog,
   ArrowLeftRight,
   Cable,
   CalendarClock,
@@ -48,7 +50,7 @@ import type { PermissionKey } from "./api";
  *    RetryPoliciesPage for the whole of one.
  */
 
-export type NavGroupId = "operate" | "subscriptions" | "configuration" | "administration";
+export type NavGroupId = "operate" | "subscriptions" | "configuration" | "administration" | "portal";
 
 export interface PageDef<Id extends string = string> {
   /** "subscriptions/:id" - relative to the app root, as the router takes it. */
@@ -67,6 +69,12 @@ export interface PageDef<Id extends string = string> {
   layout?: "full";
   /** Found by the command palette under these words too. */
   keywords?: string[];
+  /**
+   * A partner's people's page, in the partner portal: shown and opened only by them, and none of
+   * the others by them. Our administrators hold the portal's permissions too, so permissions alone
+   * can't keep the two apart.
+   */
+  audience?: "partner";
 }
 
 const definePages = <Id extends string>(pages: Record<Id, PageDef<NoInfer<Id>>>) => pages;
@@ -467,6 +475,50 @@ export const PAGES = definePages({
   },
 
   profile: { path: "profile", title: "Your profile", keywords: ["password", "account"] },
+  // ── Partner portal: a partner's people's pages, and nothing else for them ──
+  portalExchanges: {
+    path: "portal",
+    title: "Exchanges",
+    permission: "portal-exchanges.view",
+    nav: { group: "portal", icon: ArrowLeftRight },
+    audience: "partner",
+  },
+  portalMappings: {
+    path: "portal/mappings",
+    title: "Mappings",
+    permission: "portal-mappings.view",
+    nav: { group: "portal", icon: FileCog },
+    audience: "partner",
+  },
+  portalMapping: {
+    path: "portal/mappings/:subscriptionId",
+    title: "Mapping",
+    permission: "portal-mappings.view",
+    parent: "portalMappings",
+    audience: "partner",
+  },
+  portalSubscriptions: {
+    path: "portal/subscriptions",
+    title: "Subscriptions",
+    permission: "portal-subscriptions.view",
+    nav: { group: "portal", icon: Layers },
+    audience: "partner",
+  },
+  portalDetails: {
+    path: "portal/details",
+    title: "Your details",
+    permission: "portal-properties.view",
+    nav: { group: "portal", icon: Building2 },
+    audience: "partner",
+  },
+  portalPeople: {
+    path: "portal/people",
+    title: "People",
+    permission: "portal-people.view",
+    alsoFor: ["portal-people.edit"],
+    nav: { group: "portal", icon: Users },
+    audience: "partner",
+  },
 });
 
 export type PageId = keyof typeof PAGES;

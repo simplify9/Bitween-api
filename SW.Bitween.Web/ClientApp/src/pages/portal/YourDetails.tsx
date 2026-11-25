@@ -28,13 +28,13 @@ export function YourDetails() {
 
   if (details.isPending)
     return (
-      <Panel title="Your details">
+      <Panel title="Details">
         <LoadingBlock />
       </Panel>
     );
   if (details.isError)
     return (
-      <Panel title="Your details">
+      <Panel title="Details">
         <LoadError error={details.error} what="your details" onRetry={() => void details.refetch()} />
       </Panel>
     );
@@ -43,8 +43,8 @@ export function YourDetails() {
   const editable = d.properties.filter((p) => p.editable);
   return (
     <Panel
-      title="Your details"
-      description="What we hold for your company, such as where we deliver to you."
+      title="Details"
+      description="Only what we show you. A secret one you can replace but not read."
       action={
         canEdit &&
         editable.length > 0 && (
