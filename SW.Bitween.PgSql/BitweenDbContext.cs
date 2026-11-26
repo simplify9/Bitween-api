@@ -700,7 +700,9 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.ToTable("Roles");
                 b.HasKey(p => p.Id);
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
-                b.HasIndex(p => p.Name).IsUnique();
+                // A name is unique among one partner's own roles, and among ours: two partners may
+                // each make an "Operations". RoleValidation also keeps an owned role's name clear of ours.
+                b.HasIndex(p => new { p.PartnerId, p.Name }).IsUnique();
 
                 b.Property(p => p.Name).IsRequired().HasMaxLength(100);
                 b.Property(p => p.Description).HasMaxLength(500);

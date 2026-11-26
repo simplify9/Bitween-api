@@ -63,6 +63,9 @@ namespace SW.Bitween.Model
 
         /// <summary>Null routes everything on the gateway to this integration.</summary>
         public IPropertyMatchSpecification? MatchExpression { get; set; }
+
+        /// <summary>The route's partner maps its subscription their own way, made in the partner portal.</summary>
+        public bool OwnMapping { get; set; }
     }
 
     public class BusGatewayRouteCreate

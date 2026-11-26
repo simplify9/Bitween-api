@@ -143,6 +143,9 @@ namespace SW.Bitween.Model
 
         /// <summary>Null when the partner has none, and so can't call a JWT gateway.</summary>
         public string? PartnerLoginIdentity { get; set; }
+
+        /// <summary>The partner maps this subscription their own way, made in the partner portal.</summary>
+        public bool OwnMapping { get; set; }
     }
 
     public class ApiGatewayPartnerCreate

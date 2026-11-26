@@ -21,6 +21,9 @@ namespace SW.Bitween.Resources.Partners
 
             await EnsureNothingPointsAtIt(key);
 
+            // The roles their admin made for their own people go with them; nobody else can hold one.
+            dbContext.RemoveRange(await dbContext.Set<Role>().Where(r => r.PartnerId == key).ToListAsync());
+            await dbContext.SaveChangesAsync();
             await dbContext.DeleteByKeyAsync<Partner>(key);
             return null;
         }

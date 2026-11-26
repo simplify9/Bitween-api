@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Copy, EyeOff, ShieldCheck, Trash2 } from "lucide-react";
-import { api, type ActionId, type PermissionKey } from "../../api";
+import { type ActionId, type PermissionKey } from "../../api";
 import {
   ACTION_LABELS,
   ACTION_ORDER,
@@ -22,7 +22,8 @@ import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { DeleteDialog, counted } from "../../components/ui/DeleteDialog";
 import { MoreActionsMenu } from "../../components/layout/HeaderActions";
 import { BackLink } from "../../components/ui/BackLink";
-import { keys } from "../../api/queryKeys";
+import { useTeamSource } from "./teamSource";
+import { READY_MADE_TITLE } from "./RolesPage";
 import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { splitErrors } from "../../lib/fieldErrors";
 import { usePageTitle } from "../../lib/pageTitle";
@@ -88,12 +89,13 @@ export function RoleEditor() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { can } = useSession();
+  const team = useTeamSource();
   const catalog = usePermissionCatalog();
   const phone = usePhone();
 
   const source = useQuery({
-    queryKey: keys.roles.detail(sourceId),
-    queryFn: () => api.getRole(sourceId!),
+    queryKey: team.keys.role(sourceId),
+    queryFn: () => team.getRole(sourceId!),
     enabled: sourceId !== null,
     retry: false,
   });
@@ -121,7 +123,8 @@ export function RoleEditor() {
       setName("");
       setDescription("");
       setGranted(new Set());
-      setForPartners(searchParams.get("forPartners") === "1");
+      // A partner's admin makes roles for their own people only.
+      setForPartners(team.partner || searchParams.get("forPartners") === "1");
       setLoadedFor(identity);
     } else if (source.data) {
       setName(isNew ? `Copy of ${source.data.name}` : source.data.name);
@@ -130,10 +133,14 @@ export function RoleEditor() {
       setForPartners(source.data.forPartners);
       setLoadedFor(identity);
     }
-  }, [source.data, sourceId, isNew, loaded, identity, searchParams]);
+  }, [source.data, sourceId, isNew, loaded, identity, searchParams, team.partner]);
 
   const isSystem = !isNew && (source.data?.isSystem ?? false);
-  const editable = !isSystem && (isNew ? can("roles.create") : can("roles.edit"));
+  // One we made, as a partner's admin sees it: theirs to give, not to change.
+  const readyMade = team.partner && !isNew && !isSystem && source.data?.partnerId === null;
+  const editable = !isSystem && !readyMade && (isNew ? team.can.createRole : team.can.editRole);
+  // What a partner's admin may put in a role: what they hold, never managing people (only we make their admins).
+  const offered = (key: PermissionKey) => !team.partner || (can(key) && key !== "portal-people.edit");
 
   const dirty = useMemo(() => {
     if (!granted) return false;
@@ -152,12 +159,13 @@ export function RoleEditor() {
       // Only what the form shows: a duplicate of Administrator carries the partner portal keys too,
       // which a team role can't hold and this form doesn't offer.
       const shown = new Set(allKeysIn(areas));
-      const input = { name, description, permissions: [...granted!].filter((p) => shown.has(p)) };
-      return isNew ? api.createRole({ ...input, forPartners }) : api.updateRole(id!, input);
+      // And for a partner's admin, only what they may give: a duplicate of Partner admin manages people.
+      const input = { name, description, permissions: [...granted!].filter((p) => shown.has(p) && offered(p)) };
+      return team.saveRole(isNew ? null : id!, input, forPartners);
     },
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: keys.roles.all });
-      leave(() => navigate("/team/roles", { replace: true }));
+      for (const key of team.keys.all) void queryClient.invalidateQueries({ queryKey: key });
+      leave(() => navigate(team.rolesPath, { replace: true }));
     },
   });
   // See Roles/RoleValidation.cs.
@@ -173,7 +181,7 @@ export function RoleEditor() {
     return (
       <div className="py-16 text-center text-sm text-ink-500">
         This role no longer exists.{" "}
-        <Link to="/team/roles" className="font-medium link">
+        <Link to={team.rolesPath} className="font-medium link">
           Back to roles
         </Link>
       </div>
@@ -183,6 +191,7 @@ export function RoleEditor() {
   const toggle = (areaId: string, actionId: ActionId) => {
     if (!editable) return;
     const key = permissionKey(areaId, actionId);
+    if (!offered(key)) return;
     const next = new Set(granted);
     if (next.has(key)) {
       next.delete(key);
@@ -192,7 +201,7 @@ export function RoleEditor() {
       }
     } else {
       next.add(key);
-      if (actionId !== "view") next.add(permissionKey(areaId, "view"));
+      if (actionId !== "view" && offered(permissionKey(areaId, "view"))) next.add(permissionKey(areaId, "view"));
     }
     setGranted(next);
   };
@@ -202,27 +211,41 @@ export function RoleEditor() {
     const next = new Set(granted);
     for (const action of actionIds) {
       const key = permissionKey(areaId, action);
+      if (!offered(key)) continue;
       if (allOn) next.delete(key);
       else next.add(key);
     }
     setGranted(next);
   };
+  // Shown to a partner's admin beside a box they can't tick.
+  const notOffered = (key: PermissionKey) =>
+    key === "portal-people.edit" ? "Only we can let someone manage your people." : "You can only give what you can do yourself.";
 
   return (
     <div className="pb-24">
       {leaveDialog}
-      <BackLink to="/team/roles" label="Roles" />
+      <BackLink to={team.rolesPath} label="Roles" />
 
       <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2.5 text-[22px] font-semibold tracking-tight text-ink-900">
             {isNew ? "New role" : source.data?.name}
-            {isSystem && (
+            {isSystem && !team.partner && (
               <Badge tone="ink">
                 <ShieldCheck className="size-3" /> Built-in
               </Badge>
             )}
-            {!isNew && forPartners && (
+            {(readyMade || (isSystem && team.partner)) && (
+              <Badge tone="ink" title={READY_MADE_TITLE}>
+                <ShieldCheck className="size-3" /> Ready-made
+              </Badge>
+            )}
+            {!team.partner && source.data?.partnerName && (
+              <Badge tone="ink" title={`Made by ${source.data.partnerName}'s admin, for ${source.data.partnerName}'s people only.`}>
+                {source.data.partnerName}&apos;s own
+              </Badge>
+            )}
+            {!isNew && forPartners && !team.partner && (
               <Badge tone="ink" title="For a partner's people: holds partner portal permissions only, and only partner accounts can hold it.">
                 Partner role
               </Badge>
@@ -230,7 +253,9 @@ export function RoleEditor() {
           </h1>
           {!isNew && source.data && (
             <p className="mt-1 text-sm text-ink-500">
-              {source.data.memberCount} member{source.data.memberCount === 1 ? "" : "s"} hold this role.
+              {team.partner
+                ? `${source.data.memberCount} of your people ${source.data.memberCount === 1 ? "holds" : "hold"} this role.`
+                : `${source.data.memberCount} member${source.data.memberCount === 1 ? "" : "s"} hold this role.`}
             </p>
           )}
         </div>
@@ -242,24 +267,26 @@ export function RoleEditor() {
               {
                 label: "Duplicate",
                 icon: <Copy className="size-4" />,
-                onSelect: () => navigate(`/team/roles/new?from=${id}`),
-                hidden: !can("roles.create"),
+                onSelect: () => navigate(`${team.rolesPath}/new?from=${id}`),
+                hidden: !team.can.createRole,
               },
               {
                 label: "Delete",
                 icon: <Trash2 className="size-4" />,
                 danger: true,
                 onSelect: () => setConfirmingDelete(true),
-                hidden: isSystem || !can("roles.delete"),
+                hidden: isSystem || readyMade || !team.can.deleteRole,
               },
             ]}
           />
         )}
       </div>
 
-      {isSystem && (
+      {(isSystem || readyMade) && (
         <div className="mb-6 rounded-xl border border-ink-200 bg-ink-50 px-4 py-3 text-sm text-ink-600">
-          {forPartners
+          {team.partner
+            ? "We made this role. You can give it to your people, and Duplicate it to make your own from it."
+            : forPartners
             ? "This role is built in and ready to give to a partner's people. It picks up new partner portal permissions as they arrive, and can't be edited or deleted. Create a role to choose permissions yourself."
             : "This role is built in: it always holds every permission, so there's always someone who can manage the instance. It can't be edited or deleted."}
         </div>
@@ -287,7 +314,7 @@ export function RoleEditor() {
                   placeholder="What is this role for?"
                 />
               </Field>
-              {isNew && (
+              {isNew && !team.partner && (
                 <div className="sm:col-span-2">
                   <div className="mb-1.5 text-[13px] font-medium text-ink-700">Who it's for</div>
                   <SegmentedControl
@@ -346,9 +373,9 @@ export function RoleEditor() {
                                   <input
                                     type="checkbox"
                                     aria-label={`${area.label}: ${ACTION_LABELS[action]}`}
-                                    title={`${key} - ${def.description}`}
+                                    title={offered(key) ? `${key} - ${def.description}` : notOffered(key)}
                                     checked={granted.has(key)}
-                                    disabled={!editable}
+                                    disabled={!editable || !offered(key)}
                                     onChange={() => toggle(area.id, action)}
                                     className="size-5 cursor-pointer rounded accent-crimson-600 disabled:cursor-default"
                                   />
@@ -414,9 +441,9 @@ export function RoleEditor() {
                                 <input
                                   type="checkbox"
                                   aria-label={`${area.label}: ${ACTION_LABELS[action]}`}
-                                  title={`${key} - ${def.description}`}
+                                  title={offered(key) ? `${key} - ${def.description}` : notOffered(key)}
                                   checked={granted.has(key)}
-                                  disabled={!editable}
+                                  disabled={!editable || !offered(key)}
                                   onChange={() => toggle(area.id, action)}
                                   className="size-4 cursor-pointer rounded accent-crimson-600 disabled:cursor-default"
                                 />
@@ -447,8 +474,9 @@ export function RoleEditor() {
           {forPartners ? (
             <div className="rounded-xl border border-ink-200 bg-white p-4 text-sm text-ink-600">
               <h2 className="mb-1 text-[15px] font-semibold text-ink-900">Partner portal</h2>
-              Whoever holds this role signs in to the partner portal and sees only their own partner&apos;s data,
-              whatever is ticked here. Nothing else in Bitween opens for them.
+              {team.partner
+                ? "Whoever holds this role sees only your company's data, whatever is ticked here."
+                : "Whoever holds this role signs in to the partner portal and sees only their own partner's data, whatever is ticked here. Nothing else in Bitween opens for them."}
             </div>
           ) : (
             <AccessPreview permissions={granted} total={allKeysIn(areas).length} partner={forPartners} />
@@ -456,7 +484,7 @@ export function RoleEditor() {
 
           {/* A role that doesn't exist yet has no history, and a system role's grants are
               computed rather than stored, so nothing ever edits one. */}
-          {!isNew && !isSystem && <HistoryCard entityName="Role" entityKey={id} />}
+          {!isNew && !isSystem && !team.partner && <HistoryCard entityName="Role" entityKey={id} />}
         </div>
       </div>
 
@@ -471,7 +499,7 @@ export function RoleEditor() {
               <FormError>{refused.rest}</FormError>
             </div>
             <div className="flex shrink-0 gap-2">
-              <Button onClick={() => leave(() => navigate("/team/roles", { replace: true }))}>Cancel</Button>
+              <Button onClick={() => leave(() => navigate(team.rolesPath, { replace: true }))}>Cancel</Button>
               <Button variant="primary" busy={save.isPending} onClick={() => save.mutate()}>
                 {isNew ? "Create role" : "Save changes"}
               </Button>
@@ -488,14 +516,14 @@ export function RoleEditor() {
           body={
             <>
               <strong className="font-medium text-ink-800">{source.data?.name}</strong> will be gone
-              for good. Members holding it must be moved to another role first.
+              for good. {team.partner ? "People" : "Members"} holding it must be moved to another role first.
             </>
           }
           confirmLabel="Delete role"
           onConfirm={async () => {
-            await api.deleteRole(id!);
-            void queryClient.invalidateQueries({ queryKey: keys.roles.all });
-            leave(() => navigate("/team/roles", { replace: true }));
+            await team.deleteRole(id!);
+            for (const key of team.keys.all) void queryClient.invalidateQueries({ queryKey: key });
+            leave(() => navigate(team.rolesPath, { replace: true }));
           }}
           onClose={() => setConfirmingDelete(false)}
         />

@@ -37,12 +37,14 @@ interface RawAccount {
   partnerName?: string | null;
 }
 
-interface RawRole {
+export interface RawRole {
   id: number;
   name: string;
   description: string | null;
   isSystem: boolean;
   forPartners?: boolean;
+  partnerId?: number | null;
+  partnerName?: string | null;
   permissions: string[] | null;
   memberCount: number;
   createdOn: string;
@@ -66,13 +68,15 @@ const toUser = (r: RawAccount): User => ({
   partner: r.partnerId != null ? { id: String(r.partnerId), name: r.partnerName ?? null } : null,
 });
 
-const toRole = (r: RawRole): Role => ({
+export const toRole = (r: RawRole): Role => ({
   id: String(r.id),
   name: r.name,
   description: r.description ?? "",
   permissions: r.permissions ?? [],
   isSystem: r.isSystem,
   forPartners: r.forPartners ?? false,
+  partnerId: r.partnerId != null ? String(r.partnerId) : null,
+  partnerName: r.partnerName ?? null,
   createdOn: r.createdOn,
   memberCount: r.memberCount,
 });
@@ -96,6 +100,10 @@ export const teamMethods = {
   // - permission catalog -
   async getPermissionCatalog(): Promise<PermissionArea[]> {
     return await get<PermissionArea[]>("/permissions");
+  },
+  /** The partner portal's areas only: all a partner's admin needs, and all the portal hands out. */
+  async getPortalPermissionCatalog(): Promise<PermissionArea[]> {
+    return await get<PermissionArea[]>("/portal/permissions");
   },
 
   // - members -

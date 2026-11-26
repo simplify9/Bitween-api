@@ -48,7 +48,7 @@ namespace SW.Bitween.Resources.Accounts
             if (request.PartnerId is { } partnerId &&
                 (partnerId == Partner.SystemId || !await dbContext.Set<Partner>().AnyAsync(p => p.Id == partnerId)))
                 throw new SWValidationException("PARTNER_NOT_FOUND", $"No partner exists with the id {partnerId}.");
-            await AccountRoles.EnsureRolesSuit(dbContext, roleIds, request.PartnerId is not null);
+            await AccountRoles.EnsureRolesSuit(dbContext, roleIds, request.PartnerId);
 
             // No password at all when this instance signs in through Microsoft only - the account
             // exists purely to be matched by email.

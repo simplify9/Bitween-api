@@ -53,11 +53,9 @@ import {
   PartnersPage,
   PartnerChangesPage,
   PortalMappingPage,
-  PortalPeoplePage,
   PortalExchangesPage,
   PortalMappingsPage,
   PortalSubscriptionsPage,
-  PortalDetailsPage,
   ProfilePage,
   QueueHealthPage,
   ResponseSubscriptionsPage,
@@ -79,6 +77,7 @@ import {
 } from "./routePages";
 
 import { LoadingBlock } from "./components/ui/basics";
+import { PartnerTeamSource } from "./pages/team/teamSource";
 
 /** "/" → undefined (no basename); "/prefix/" → "/prefix" if ever remounted. */
 const basename = import.meta.env.BASE_URL.replace(/\/+$/, "") || undefined;
@@ -122,8 +121,32 @@ const PAGE_ELEMENTS: Record<PageId, ReactNode> = {
   portalMappings: <PortalMappingsPage />,
   portalMapping: <PortalMappingPage />,
   portalSubscriptions: <PortalSubscriptionsPage />,
-  portalDetails: <PortalDetailsPage />,
-  portalPeople: <PortalPeoplePage />,
+  portalDetails: <PartnerPage portal />,
+  portalPeople: (
+    <PartnerTeamSource>
+      <MembersPage />
+    </PartnerTeamSource>
+  ),
+  portalPerson: (
+    <PartnerTeamSource>
+      <MembersPage />
+    </PartnerTeamSource>
+  ),
+  portalRoles: (
+    <PartnerTeamSource>
+      <RolesPage />
+    </PartnerTeamSource>
+  ),
+  portalRoleNew: (
+    <PartnerTeamSource>
+      <RoleEditor />
+    </PartnerTeamSource>
+  ),
+  portalRole: (
+    <PartnerTeamSource>
+      <RoleEditor />
+    </PartnerTeamSource>
+  ),
   dataSources: <DataSourcesPage />,
   dataSourceNew: <DataSourceNewPage />,
   dataSource: <DataSourcePage />,

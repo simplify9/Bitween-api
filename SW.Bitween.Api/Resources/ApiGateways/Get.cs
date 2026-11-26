@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SW.Bitween.Domain;
 using SW.Bitween.Domain.Gateway;
 using SW.PrimitiveTypes;
 using System.Linq;
@@ -25,6 +26,12 @@ namespace SW.Bitween.Resources.ApiGateways
             if (gateway == null)
                 throw new SWNotFoundException($"ApiGateway with id '{key}' was not found");
 
+            var subscriptionIds = gateway.Partners.Select(p => p.SubscriptionId).Distinct().ToList();
+            var own = (await dbContext.Set<PartnerMapping>().AsNoTracking()
+                    .Where(m => subscriptionIds.Contains(m.SubscriptionId))
+                    .Select(m => new { m.SubscriptionId, m.PartnerId }).ToListAsync())
+                .Select(m => (m.SubscriptionId, m.PartnerId)).ToHashSet();
+
             return new ApiGatewayRow
             {
                 Id = gateway.Id,
@@ -41,7 +48,8 @@ namespace SW.Bitween.Resources.ApiGateways
                     SubscriptionId = p.SubscriptionId,
                     PartnerName = p.Partner.Name,
                     SubscriptionName = p.Subscription.Name,
-                    PartnerLoginIdentity = p.Partner.LoginIdentity
+                    PartnerLoginIdentity = p.Partner.LoginIdentity,
+                    OwnMapping = own.Contains((p.SubscriptionId, p.PartnerId))
                 }).ToList()
             };
         }

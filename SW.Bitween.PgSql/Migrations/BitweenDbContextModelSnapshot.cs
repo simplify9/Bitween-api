@@ -313,6 +313,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("name");
 
+                    b.Property<int?>("PartnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("partner_id");
+
                     b.Property<string>("Permissions")
                         .HasColumnType("text")
                         .HasColumnName("permissions");
@@ -326,13 +330,13 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasKey("Id")
                         .HasName("pk_roles");
 
-                    b.HasIndex("Name")
-                        .IsUnique()
-                        .HasDatabaseName("ix_roles_name");
-
                     b.HasIndex("PresetKey")
                         .IsUnique()
                         .HasDatabaseName("ix_roles_preset_key");
+
+                    b.HasIndex("PartnerId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_roles_partner_id_name");
 
                     b.ToTable("Roles", "infolink");
 

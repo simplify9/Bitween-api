@@ -39,25 +39,60 @@ export interface PartnerDraft {
   portalAccess?: Record<string, PortalAccessLevel>;
 }
 
-export function PartnerFields({
-  draft,
-  onChange,
-  canEdit,
-  isSystem = false,
-  /** null until the partner exists - a key can only be issued against a real one. */
-  partnerId,
-  credentials,
-  /** The page edits the name in its own title; a dialog has to ask for it. */
-  showName = false,
-}: {
+interface PartnerFieldsProps {
   draft: PartnerDraft;
   onChange: (draft: PartnerDraft) => void;
   canEdit: boolean;
   isSystem?: boolean;
+  /** null until the partner exists - a key can only be issued against a real one. */
   partnerId: number | null;
   credentials: ApiCredentialRef[];
+  /** The page edits the name in its own title; a dialog has to ask for it. */
   showName?: boolean;
-}) {
+  /**
+   * As a partner's people see their own partner: only the properties we show them, values changed
+   * only where we let them, and none of the rest (how they sign in, their keys) which is ours to set.
+   */
+  portal?: { editable: (key: string) => boolean };
+}
+
+export function PartnerFields(props: PartnerFieldsProps) {
+  return props.portal ? <TheirPartnerFields {...props} portal={props.portal} /> : <OurPartnerFields {...props} />;
+}
+
+/** Their own partner, as a partner's people see it: the properties panel alone. */
+function TheirPartnerFields({
+  draft,
+  onChange,
+  canEdit,
+  portal,
+}: PartnerFieldsProps & { portal: NonNullable<PartnerFieldsProps["portal"]> }) {
+  return (
+    <Panel title="Properties" description="Only what we show you. A secret one you can replace but not read.">
+      <KeyValueEditor
+        rows={draft.properties}
+        onChange={(properties) => onChange({ ...draft, properties })}
+        keyLabel="Property"
+        valueLabel="Value"
+        editable={canEdit}
+        valuesOnly={(row) => portal.editable(row.key.trim())}
+        // Marks which are secret, so they show masked; they can't lock or unlock one. No column when none is.
+        secrets={draft.secretProperties.length > 0 ? { names: draft.secretProperties, onChange: () => {} } : undefined}
+        emptyText="Nothing to show yet."
+      />
+    </Panel>
+  );
+}
+
+function OurPartnerFields({
+  draft,
+  onChange,
+  canEdit,
+  isSystem = false,
+  partnerId,
+  credentials,
+  showName = false,
+}: PartnerFieldsProps) {
   const queryClient = useQueryClient();
   const partnerSubscriptions = usePartnerSubscriptions();
   const [addingKey, setAddingKey] = useState(false);

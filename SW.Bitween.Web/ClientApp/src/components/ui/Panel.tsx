@@ -86,6 +86,7 @@ export function UnsavedBar({
   onSave,
   onDiscard,
   blocked,
+  saveLabel = "Save changes",
 }: {
   error?: string;
   busy: boolean;
@@ -93,6 +94,8 @@ export function UnsavedBar({
   onDiscard: () => void;
   /** Why the edits can't be saved yet; Save stays off and this is shown instead of an error. */
   blocked?: string;
+  /** "Send for approval" where saving doesn't use the change at once. */
+  saveLabel?: string;
 }) {
   return (
     <div className="fixed inset-x-0 bottom-0 z-30 border-t border-ink-200 bg-white/95 backdrop-blur lg:left-[var(--sidebar-w,15.5rem)]">
@@ -105,7 +108,7 @@ export function UnsavedBar({
         <div className="flex shrink-0 gap-2">
           <Button onClick={onDiscard}>Discard</Button>
           <Button variant="primary" busy={busy} disabled={!!blocked} onClick={onSave}>
-            Save changes
+            {saveLabel}
           </Button>
         </div>
       </div>

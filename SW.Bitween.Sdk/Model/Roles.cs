@@ -33,6 +33,10 @@ public class RoleRow
     /// <summary>For a partner's own people; see <see cref="RoleCreate.ForPartners"/>.</summary>
     public bool ForPartners { get; set; }
 
+    /// <summary>The partner whose admin made it, for their own people only; null for ours and built-in ones.</summary>
+    public int? PartnerId { get; set; }
+    public string? PartnerName { get; set; }
+
     public List<string> Permissions { get; set; } = [];
     public int MemberCount { get; set; }
     public DateTime CreatedOn { get; set; }

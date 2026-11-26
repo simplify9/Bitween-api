@@ -3,7 +3,7 @@ import { RolePicker } from "./RolePicker";
 import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, KeyRound, LockOpen, Send, Trash2, UserRoundCheck, UserRoundX, X } from "lucide-react";
-import { api, getAppConfig, type InviteResult, type User } from "../../api";
+import { api, ApiRequestError, getAppConfig, type InviteResult, type User } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSession } from "../../auth/useSession";
 import { HistoryList } from "../../components/config/HistoryCard";
@@ -18,11 +18,14 @@ import { formatDate, formatDateTime, timeAgo, timeUntil } from "../../lib/dates"
 import { inviteActive, statusBadge } from "./memberStatus";
 import { ConnectedAppsList } from "./ConnectedApps";
 import { keys } from "../../api/queryKeys";
+import { rolesForSide, useGrantableRoles, useTeamSource } from "./teamSource";
 
 /** Where a member's invite stands, in a sentence. */
-function inviteLine(u: User) {
+function inviteLine(u: User, partner: boolean) {
   if (!u.invite) return "They have no password yet, and no invite has been made.";
   if (!inviteActive(u)) return `Their invite expired ${timeAgo(u.invite.expiresOn)}.`;
+  // The portal doesn't say how it went out.
+  if (partner) return `Invited. The link works until ${formatDateTime(u.invite.expiresOn)}.`;
   if (u.invite.emailedOn)
     return `Invite emailed ${timeAgo(u.invite.emailedOn)}. The link works until ${formatDateTime(u.invite.expiresOn)}.`;
   return `An invite link was made to send by hand. It works until ${formatDateTime(u.invite.expiresOn)}.`;
@@ -40,9 +43,23 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () => void }) {
   const { session, can } = useSession();
   const queryClient = useQueryClient();
+  const source = useTeamSource();
+  const partner = source.partner;
+  const accountId = Number(userId);
 
-  const user = useQuery({ queryKey: keys.users.detail(userId), queryFn: () => api.getUser(userId), retry: false });
-  const roles = useQuery({ queryKey: keys.roles.list, queryFn: () => api.listRoles() });
+  const user = useQuery({
+    queryKey: partner ? [...source.keys.members, "one", userId] : keys.users.detail(userId),
+    queryFn: async () => {
+      if (!partner) return api.getUser(userId);
+      // Read out of their company's list; someone not in it isn't there for them.
+      const found = (await source.listMembers()).find((m) => m.id === userId);
+      if (!found) throw new ApiRequestError("NOT_FOUND", "This person is no longer here.");
+      return found;
+    },
+    retry: false,
+  });
+  const roles = useQuery({ queryKey: source.keys.roles, queryFn: () => source.listRoles() });
+  const grantable = useGrantableRoles(user.data?.partner?.id ?? null);
   const appConfig = useQuery({ queryKey: keys.appConfig, queryFn: getAppConfig });
   const mailOn = Boolean(appConfig.data?.mailServerConfigured);
   const passwordsOff = Boolean(appConfig.data?.disableEmailPasswordLogin);
@@ -67,19 +84,22 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
   }, [onClose]);
 
   const invalidate = () => {
-    void queryClient.invalidateQueries({ queryKey: keys.users.all });
-    void queryClient.invalidateQueries({ queryKey: keys.roles.all });
+    for (const key of source.keys.all) void queryClient.invalidateQueries({ queryKey: key });
   };
 
   const saveRoles = useMutation({
-    mutationFn: (roleIds: string[]) => api.updateUserRoles(userId, roleIds),
+    mutationFn: async (roleIds: string[]) => {
+      await (partner ? api.setPortalPersonRole(accountId, Number(roleIds[0])) : api.updateUserRoles(userId, roleIds));
+    },
     onSuccess: () => {
       setDraftRoleIds(null);
       invalidate();
     },
   });
   const setDisabled = useMutation({
-    mutationFn: (disabled: boolean) => api.setUserDisabled(userId, disabled),
+    mutationFn: async (disabled: boolean) => {
+      await (partner ? api.setPortalPersonDisabled(accountId, disabled) : api.setUserDisabled(userId, disabled));
+    },
     onSuccess: invalidate,
   });
   const unlock = useMutation({
@@ -88,7 +108,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
   });
 
   const invite = useMutation({
-    mutationFn: () => api.inviteUser(userId),
+    mutationFn: () => (partner ? api.invitePortalPersonAgain(accountId) : api.inviteUser(userId)),
     onSuccess: (result) => {
       setIssuedInvite(result);
       invalidate();
@@ -104,7 +124,10 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
   });
 
   const isSelf = session?.user.id === userId;
-  const editable = can("users.edit");
+  // A partner's admin changes only whom the server says they may: not another admin, nobody beyond them.
+  const editable = partner ? source.can.editMember && Boolean(user.data?.canChange) : can("users.edit");
+  const canInvite = partner ? editable : can("users.create");
+  const canRemove = partner ? editable : can("users.delete");
 
   const body = () => {
     if (user.isPending) return <LoadingBlock label="Loading member…" />;
@@ -115,7 +138,9 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
         </div>
       );
     if (user.isError)
-      return <p className="px-5 py-8 text-sm text-ink-500">This member no longer exists.</p>;
+      return (
+        <p className="px-5 py-8 text-sm text-ink-500">{partner ? "This person is no longer here." : "This member no longer exists."}</p>
+      );
     const u = user.data;
     const currentRoles = draftRoleIds ?? u.roleIds;
     const rolesDirty =
@@ -138,10 +163,10 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
           </div>
         </div>
 
-        {!u.hasPassword && !passwordsOff && !isSelf && can("users.create") && (
+        {!u.hasPassword && (partner || !passwordsOff) && !isSelf && canInvite && (
           <Section title="Invite">
             <div className="space-y-2.5">
-              <p className="text-sm text-ink-700">{inviteLine(u)}</p>
+              <p className="text-sm text-ink-700">{inviteLine(u, partner)}</p>
               {u.invite?.emailError && !issuedInvite && (
                 <FormError>The invite email couldn&apos;t be sent: {u.invite.emailError}</FormError>
               )}
@@ -165,7 +190,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
               )}
               <Button size="sm" busy={invite.isPending} onClick={() => invite.mutate()}>
                 <Send className="size-3.5" />
-                {mailOn ? (u.invite ? "Resend invite" : "Send invite") : "Make a new invite link"}
+                {partner ? "Send invite again" : mailOn ? (u.invite ? "Resend invite" : "Send invite") : "Make a new invite link"}
               </Button>
               <p className="text-[13px] text-ink-500">
                 A new invite stops the earlier link working.
@@ -175,13 +200,13 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
           </Section>
         )}
 
-        <Section title="Roles">
+        <Section title={partner ? "Role" : "Roles"}>
           {editable ? (
             <div className="space-y-2.5">
               {/* Each side holds its own roles only, so only those are offered. */}
               <RolePicker
                 legend="Their role"
-                roles={(roles.data ?? []).filter((role) => role.forPartners === Boolean(u.partner))}
+                roles={partner ? (grantable.data ?? []) : rolesForSide(roles.data ?? [], u.partner?.id ?? null)}
                 value={currentRoles}
                 onChange={(roleId) => setDraftRoleIds([roleId])}
               />
@@ -208,6 +233,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
 
         <Section title="Details">
           <dl className="space-y-2 text-sm">
+            {!partner && (
             <div className="flex justify-between gap-4">
               <dt
                 className="text-ink-500"
@@ -217,10 +243,13 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
               </dt>
               <dd className="text-ink-800">{u.partner ? (u.partner.name ?? "Deleted partner") : "Our team"}</dd>
             </div>
-            <div className="flex justify-between gap-4">
-              <dt className="text-ink-500">Member since</dt>
-              <dd className="text-ink-800">{formatDate(u.createdOn)}</dd>
-            </div>
+            )}
+            {u.createdOn && (
+              <div className="flex justify-between gap-4">
+                <dt className="text-ink-500">{partner ? "Added" : "Member since"}</dt>
+                <dd className="text-ink-800">{formatDate(u.createdOn)}</dd>
+              </div>
+            )}
             <div className="flex justify-between gap-4">
               <dt className="text-ink-500">Last signed in</dt>
               <dd className="text-ink-800">{u.lastActiveOn ? timeAgo(u.lastActiveOn) : "Never"}</dd>
@@ -228,11 +257,14 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
           </dl>
         </Section>
 
-        <Section title="Connected apps">
-          <ConnectedAppsList accountId={u.id} canDisconnect={editable || isSelf} />
-        </Section>
+        {/* A partner's people reach only the portal, never an app connected to Bitween. */}
+        {!partner && (
+          <Section title="Connected apps">
+            <ConnectedAppsList accountId={u.id} canDisconnect={editable || isSelf} />
+          </Section>
+        )}
 
-        {(editable || can("users.delete")) && !isSelf && (
+        {(editable || canRemove) && !isSelf && (
           <Section title="Account actions">
             <div className="space-y-3">
               {editable && issuedPassword && (
@@ -273,7 +305,8 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                   </div>
                 </div>
               )}
-              {editable && !issuedPassword && (
+              {/* Their admin only invites: they never choose a password for someone. */}
+              {editable && !partner && !issuedPassword && (
                 <form
                   className="space-y-2"
                   onSubmit={(e) => {
@@ -333,16 +366,18 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
                     )}
                   </Button>
                   <p className="mt-1 text-[13px] text-ink-500">
-                    Disabled members can't sign in, but keep their history and roles.
+                    {partner
+                      ? "They can't sign in while disabled, and keep their role."
+                      : "Disabled members can't sign in, but keep their history and roles."}
                   </p>
                 </div>
               )}
               <FormError>{setDisabled.error?.message}</FormError>
-              <Can permission="users.delete">
+              {canRemove && (
                 <Button size="sm" variant="danger" onClick={() => setConfirming("remove")}>
-                  <Trash2 className="size-3.5" /> Remove from team
+                  <Trash2 className="size-3.5" /> {partner ? "Remove" : "Remove from team"}
                 </Button>
-              </Can>
+              )}
             </div>
           </Section>
         )}
@@ -372,7 +407,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
         tabIndex={-1}
         role="dialog"
         aria-modal="true"
-        aria-label="Member details"
+        aria-label={partner ? "Person details" : "Member details"}
         className="absolute inset-y-0 right-0 flex w-full max-w-md flex-col overflow-y-auto bg-white shadow-2xl outline-none"
       >
         <button
@@ -387,7 +422,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
 
       {confirming === "remove" && user.data && (
         <ConfirmDialog
-          title="Remove this member?"
+          title={partner ? "Remove this person?" : "Remove this member?"}
           body={
             <>
               <strong className="font-medium text-ink-800">{user.data.displayName}</strong> will lose
@@ -396,7 +431,7 @@ export function MemberDrawer({ userId, onClose }: { userId: string; onClose: () 
           }
           confirmLabel="Remove member"
           onConfirm={async () => {
-            await api.deleteUser(userId);
+            await (partner ? api.removePortalPerson(accountId) : api.deleteUser(userId));
             invalidate();
             onClose();
           }}

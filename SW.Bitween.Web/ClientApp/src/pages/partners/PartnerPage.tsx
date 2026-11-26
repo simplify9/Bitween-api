@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
-import { api } from "../../api";
+import { api, SECRET_SENTINEL, type PortalProperties } from "../../api";
 import { Can } from "../../auth/guards";
 import { useSessionCan } from "../../auth/useSessionCan";
+import { useSession } from "../../auth/useSession";
 import { HistoryCard } from "../../components/config/HistoryCard";
-import { Badge, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
+import { Badge, Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
 import { Checkbox } from "../../components/ui/forms";
 import { SegmentedControl } from "../../components/ui/SegmentedControl";
 import { isNotFound } from "../../components/ui/isNotFound";
@@ -22,8 +23,17 @@ import { useLeaveGuard } from "../../lib/useLeaveGuard";
 import { PartnerFields, type PartnerDraft } from "../../components/config/PartnerFields";
 import { partnerChanges, partnerDirty, partnerDraftOf } from "../../components/config/partnerDraft";
 import { usePageTitle } from "../../lib/pageTitle";
+import { formatDateTime, timeAgo } from "../../lib/dates";
 
-export function PartnerPage() {
+/**
+ * A partner's page. With `portal`, their own partner as their people see it, under Your details:
+ * the same page, with only the properties we show them and nothing that is ours to set.
+ */
+export function PartnerPage({ portal = false }: { portal?: boolean }) {
+  return portal ? <TheirPartnerPage /> : <OurPartnerPage />;
+}
+
+function OurPartnerPage() {
   const { id = "" } = useParams();
   const partnerId = Number(id);
   const navigate = useNavigate();
@@ -262,6 +272,8 @@ export function PartnerPage() {
             </Panel>
           )}
 
+          {!p.isSystem && <OwnMappingsPanel partnerId={partnerId} />}
+
           <Can permission="exchanges.view">
             <Panel title="Recent exchanges" description="Latest traffic involving this partner.">
               <ExchangesList items={p.recentExchanges} hide={["partner"]} />
@@ -303,6 +315,179 @@ export function PartnerPage() {
             leave(() => navigate("/partners", { replace: true }));
           }}
           onClose={() => setDeleting(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+/** The subscriptions this partner maps their own way, from the portal; each opens where the rules and history are. */
+function OwnMappingsPanel({ partnerId }: { partnerId: number }) {
+  const own = useQuery({ queryKey: keys.partners.ownMappings(partnerId), queryFn: () => api.listPartnerOwnMappings(partnerId) });
+  if (own.isPending || (own.data && own.data.length === 0)) return null;
+  return (
+    <Panel
+      title="Their own mappings"
+      description="Subscriptions they map their own way, made in the partner portal. Open one for the rules and history."
+    >
+      {own.isError ? (
+        <LoadError error={own.error} what="their own mappings" onRetry={() => void own.refetch()} />
+      ) : (
+        <MiniTable
+          rows={own.data}
+          rowKey={(m) => m.subscriptionId}
+          empty=""
+          columns={[
+            {
+              header: "Subscription",
+              wrap: true,
+              cell: (m) => (
+                <Link to={`/subscriptions/${m.subscriptionId}`} className="block font-medium text-ink-800 hover:link">
+                  {m.subscriptionName}
+                </Link>
+              ),
+            },
+            {
+              header: "Changed",
+              headerTitle: "When they last changed it, and who",
+              cell: (m) =>
+                m.changedOn ? (
+                  <span className="text-[12.5px] text-ink-600" title={`${formatDateTime(m.changedOn)}${m.changedBy ? ` by ${m.changedBy}` : ""}`}>
+                    {timeAgo(m.changedOn)}
+                  </span>
+                ) : (
+                  "-"
+                ),
+            },
+            {
+              header: "",
+              align: "right",
+              cell: (m) =>
+                m.waiting ? (
+                  <Badge tone="warn" title="A change of theirs waits for approval on Partner changes">
+                    Waiting
+                  </Badge>
+                ) : null,
+            },
+          ]}
+        />
+      )}
+    </Panel>
+  );
+}
+
+/** Their own partner under Your details: the properties we show them, changed where we let them, through approval when it's on. */
+function TheirPartnerPage() {
+  const { session, can } = useSession();
+  const queryClient = useQueryClient();
+  const canEdit = can("portal-properties.edit");
+  const details = useQuery({ queryKey: keys.portal.properties, queryFn: () => api.getPortalProperties() });
+  const [draft, setDraft] = useState<PartnerDraft | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  // A change sent for approval says so in the waiting notice instead.
+  const [saved, setSaved] = useState(false);
+  const name = session?.partner?.name ?? "Your details";
+  usePageTitle(name);
+
+  const draftOf = useCallback(
+    (d: PortalProperties): PartnerDraft => ({
+      name,
+      // A secret one arrives without its value, and shows masked until they replace it.
+      properties: d.properties.map((p) => ({ key: p.key, value: p.secret ? SECRET_SENTINEL : (p.value ?? "") })),
+      secretProperties: d.properties.filter((p) => p.secret).map((p) => p.key),
+      loginIdentity: "",
+    }),
+    [name],
+  );
+
+  useEffect(() => {
+    if (!loaded && details.data) {
+      setDraft(draftOf(details.data));
+      setLoaded(true);
+    }
+  }, [details.data, loaded, draftOf]);
+
+  const editable = new Set((details.data?.properties ?? []).filter((p) => p.editable).map((p) => p.key));
+  const dirty = !!details.data && !!draft && partnerDirty(draft, draftOf(details.data));
+
+  const save = useMutation({
+    // A secret left masked is sent empty, which keeps it.
+    mutationFn: () =>
+      api.savePortalProperties(
+        Object.fromEntries(
+          draft!.properties.filter((r) => editable.has(r.key)).map((r) => [r.key, r.value === SECRET_SENTINEL ? "" : r.value]),
+        ),
+      ),
+    onSuccess: async (result) => {
+      setSaved(!result.waiting);
+      await queryClient.invalidateQueries({ queryKey: keys.portal.properties });
+      setLoaded(false);
+    },
+  });
+  const withdraw = useMutation({
+    mutationFn: () => api.withdrawPortalProperties(),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: keys.portal.properties }),
+  });
+  const { dialog: leaveDialog } = useLeaveGuard(dirty);
+
+  if (details.isPending) return <LoadingBlock label="Loading your details…" />;
+  if (details.isError)
+    return <LoadError error={details.error} what="your details" onRetry={() => void details.refetch()} />;
+  const d = details.data;
+
+  return (
+    <div className="pb-24">
+      {leaveDialog}
+      <div className="mb-6">
+        <h1 className="text-[22px] font-semibold tracking-tight text-ink-900">{name}</h1>
+        <p className="mt-1 text-sm text-ink-500">
+          {d.needsApproval ? "Your changes wait for our approval before they're used." : "Your changes are used from your next exchange."}
+        </p>
+      </div>
+
+      <div className="max-w-3xl space-y-4">
+        {d.waiting ? (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg bg-warn-100 px-3 py-2 text-[13px] text-ink-700">
+            <span className="min-w-0 flex-1">
+              Your change to {Object.keys(d.waiting.values).join(", ")} from {formatDateTime(d.waiting.requestedOn)} waits for our
+              approval.
+            </span>
+            {canEdit && (
+              <Button size="sm" busy={withdraw.isPending} onClick={() => withdraw.mutate()} title="Take your change back before we decide on it">
+                Take it back
+              </Button>
+            )}
+          </div>
+        ) : (
+          d.rejected && (
+            <p className="rounded-lg bg-ink-100 px-3 py-2 text-[13px] text-ink-700">
+              We didn&apos;t approve your last change ({formatDateTime(d.rejected.decidedOn)})
+              {d.rejected.note ? `: ${d.rejected.note}` : "."}
+            </p>
+          )
+        )}
+        {saved && !d.waiting && !dirty && <p className="text-[13px] text-ok-700">Saved.</p>}
+        <FormError>{withdraw.error?.message}</FormError>
+
+        {draft && (
+          <PartnerFields
+            draft={draft}
+            onChange={setDraft}
+            canEdit={canEdit}
+            partnerId={null}
+            credentials={[]}
+            portal={{ editable: (key) => editable.has(key) }}
+          />
+        )}
+      </div>
+
+      {canEdit && dirty && (
+        <UnsavedBar
+          busy={save.isPending}
+          error={save.error?.message}
+          onSave={() => save.mutate()}
+          onDiscard={() => setLoaded(false)}
+          saveLabel={d.needsApproval ? "Send for approval" : "Save changes"}
         />
       )}
     </div>
