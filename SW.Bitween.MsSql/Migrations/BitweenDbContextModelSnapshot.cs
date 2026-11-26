@@ -255,6 +255,9 @@ namespace SW.Bitween.MsSql.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<int?>("PartnerId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Permissions")
                         .HasColumnType("nvarchar(max)");
 
@@ -265,12 +268,12 @@ namespace SW.Bitween.MsSql.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Name")
-                        .IsUnique();
-
                     b.HasIndex("PresetKey")
                         .IsUnique()
                         .HasFilter("[PresetKey] IS NOT NULL");
+
+                    b.HasIndex("PartnerId", "Name")
+                        .IsUnique();
 
                     b.ToTable("Roles", (string)null);
 

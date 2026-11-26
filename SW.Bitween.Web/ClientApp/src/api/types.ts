@@ -31,6 +31,9 @@ export interface Role {
    * that belong to a partner. Fixed when the role is created.
    */
   forPartners: boolean;
+  /** The partner whose admin made it, for their own people only; null for ours and built-in ones. */
+  partnerId: string | null;
+  partnerName: string | null;
   createdOn: string;
   memberCount: number;
 }
@@ -59,6 +62,11 @@ export interface User {
   invite: MemberInvite | null;
   /** The partner whose person this is, signing in to the partner portal; null for our own people. */
   partner?: { id: string; name: string | null } | null;
+  /**
+   * Only in the partner portal, where their admin sees their own company's people: whether this
+   * admin may change them (not themselves, not another of their admins, nothing beyond the admin).
+   */
+  canChange?: boolean;
 }
 
 export interface MemberInvite {
@@ -1105,6 +1113,8 @@ export interface ApiGatewayAttachment {
   subscriptionName: string;
   /** null when the partner has none - it can't call a gateway that takes tokens. */
   partnerLoginIdentity: string | null;
+  /** The partner maps this subscription their own way, made in the partner portal. */
+  ownMapping: boolean;
 }
 /** How a gateway's callers prove who they are: the gateway chooses, not the caller. */
 export type GatewayAuthMethod = "PartnerKey" | "Jwt" | "Signature";
@@ -1160,6 +1170,8 @@ export interface BusGatewayRoute {
   partnerName: string | null;
   /** null = route matches every message of the gateway's type. */
   matchExpression: MatchGroup | null;
+  /** The route's partner maps its subscription their own way, made in the partner portal. */
+  ownMapping: boolean;
 }
 export interface BusGateway {
   id: number;
@@ -2819,6 +2831,8 @@ export interface PortalPerson {
   disabled: boolean;
   /** Invited and hasn't chosen a password yet. */
   invited: boolean;
+  hasPassword?: boolean;
+  createdOn?: string;
   inviteExpiresOn: string | null;
   lastSignInOn: string | null;
   isYou: boolean;
@@ -2827,6 +2841,17 @@ export interface PortalPerson {
 }
 
 /** A role a partner's admin may give. */
+/** A subscription one partner maps their own way, as their partner page lists it. */
+export interface PartnerOwnMapping {
+  subscriptionId: number;
+  subscriptionName: string;
+  /** Null when only a change of theirs waits, with no mapping of their own in use yet. */
+  changedOn: string | null;
+  changedBy: string | null;
+  inUse: boolean;
+  waiting: boolean;
+}
+
 export interface PortalRoleChoice {
   id: number;
   name: string;

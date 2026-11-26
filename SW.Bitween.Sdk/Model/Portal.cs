@@ -137,6 +137,18 @@ public class PortalMappingSample
 }
 
 /// <summary>A partner using their own mapping of a subscription, as the subscription's page lists them.</summary>
+/// <summary>A subscription one partner maps their own way, as their partner page lists it.</summary>
+public class PartnerOwnMapping
+{
+    public int SubscriptionId { get; set; }
+    public string SubscriptionName { get; set; } = null!;
+    /// <summary>Null when only a change of theirs waits, with no mapping of their own in use yet.</summary>
+    public DateTime? ChangedOn { get; set; }
+    public string? ChangedBy { get; set; }
+    public bool InUse { get; set; }
+    public bool Waiting { get; set; }
+}
+
 public class SubscriptionPartnerMapping
 {
     public int PartnerId { get; set; }
@@ -186,6 +198,11 @@ public class PortalPerson
     /// <summary>Invited and hasn't chosen a password yet.</summary>
     public bool Invited { get; set; }
 
+    /// <summary>Has chosen a password; false while invited, or with no invite that still counts.</summary>
+    public bool HasPassword { get; set; }
+
+    public DateTime CreatedOn { get; set; }
+
     /// <summary>When their latest invite stops working; null when they aren't waiting on one.</summary>
     public DateTime? InviteExpiresOn { get; set; }
 
@@ -208,6 +225,22 @@ public class PortalRoleChoice
     public string Name { get; set; } = null!;
     public string? Description { get; set; }
     public bool BuiltIn { get; set; }
+}
+
+/// <summary>One of the roles a partner's admin sees: ours for partners, built-in ones, and their own.</summary>
+public class PortalRoleRequest
+{
+    public int Id { get; set; }
+}
+
+/// <summary>A role a partner's admin makes or changes for their own company's people.</summary>
+public class PortalRoleSave
+{
+    /// <summary>Set to change one of their own roles; left out to make one.</summary>
+    public int? Id { get; set; }
+    public string Name { get; set; } = null!;
+    public string? Description { get; set; }
+    public List<string> Permissions { get; set; } = [];
 }
 
 public class PortalAddPerson

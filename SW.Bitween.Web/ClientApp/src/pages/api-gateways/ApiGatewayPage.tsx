@@ -542,12 +542,19 @@ export function ApiGatewayPage() {
                   // padding did. `wrap` is what the width strategy says a name should use anyway.
                   wrap: true,
                   cell: (a) => (
-                    <Link
-                      to={`/partners/${a.partnerId}`}
-                      className="font-medium text-ink-800 hover:link"
-                    >
-                      {a.partnerName}
-                    </Link>
+                    <span className="inline-flex flex-wrap items-center gap-1.5">
+                      <Link
+                        to={`/partners/${a.partnerId}`}
+                        className="font-medium text-ink-800 hover:link"
+                      >
+                        {a.partnerName}
+                      </Link>
+                      {a.ownMapping && (
+                        <Badge tone="ink" title="They map this subscription their own way, made in the partner portal. The subscription's Transformation panel has their rules and history.">
+                          Own mapping
+                        </Badge>
+                      )}
+                    </span>
                   ),
                 },
                 ...(takesTokens

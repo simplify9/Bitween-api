@@ -54,6 +54,8 @@ export const keys = {
     /** Adapter properties a partner overrides, per partner. */
     adapterProperties: (id: number | null | undefined) =>
       ["partners", "adapter-properties", id] as const,
+    /** The subscriptions a partner maps their own way. */
+    ownMappings: (id: number) => ["partners", "own-mappings", id] as const,
   },
 
   apiGateways: {
@@ -182,6 +184,10 @@ export const keys = {
     properties: ["portal", "properties"] as const,
     informationTypes: ["portal", "informationTypes"] as const,
     peopleRoles: ["portal", "peopleRoles"] as const,
+    /** A partner's admin's roles: ours for partners and their own. */
+    roles: ["portal", "roles"] as const,
+    role: (id: string | null | undefined) => ["portal", "roles", id] as const,
+    permissionCatalog: ["portal", "permissionCatalog"] as const,
     change: (id: number) => ["portal", "change", id] as const,
     propertyChange: (id: number) => ["portal", "propertyChange", id] as const,
     history: (subscriptionId: string, partnerId: number) => ["portal", "history", subscriptionId, partnerId] as const,

@@ -13,9 +13,11 @@ import type {
   PortalPerson,
   PortalProperties,
   PortalRoleChoice,
+  PartnerOwnMapping,
   SubscriptionPartnerMapping,
 } from "../types";
 import { get, post } from "./request";
+import { toRole, type RawRole } from "./team";
 
 /** The partner portal: always the signed-in partner's own data, scoped by the server. */
 export const portalMethods: Pick<
@@ -55,6 +57,11 @@ export const portalMethods: Pick<
   | "setPortalPersonRole"
   | "setPortalPersonDisabled"
   | "removePortalPerson"
+  | "listPortalRoles"
+  | "getPortalRole"
+  | "savePortalRole"
+  | "deletePortalRole"
+  | "listPartnerOwnMappings"
 > = {
   listPortalSubscriptions: () =>
     get<{ id: number; name: string; type: string; documentName: string; paused: boolean }[]>("/portal/subscriptions").then(
@@ -152,6 +159,14 @@ export const portalMethods: Pick<
   removePortalPerson: async (accountId) => {
     await post("/portal/removeperson", { accountId });
   },
+  listPortalRoles: async () => (await get<RawRole[]>("/portal/roles")).map(toRole),
+  getPortalRole: async (id) => toRole(await get<RawRole>(`/portal/role?id=${encodeURIComponent(id)}`)),
+  savePortalRole: async ({ id, ...input }) =>
+    String(await post<number>("/portal/saverole", { ...input, ...(id ? { id: Number(id) } : {}) })),
+  deletePortalRole: async (id) => {
+    await post("/portal/deleterole", { id: Number(id) });
+  },
+  listPartnerOwnMappings: (partnerId) => get<PartnerOwnMapping[]>(`/partners/${partnerId}/ownmappings`),
 };
 
 const savedOf = (r: PortalMappingSaved | null): PortalMappingSaved => ({ waiting: r?.waiting ?? false });

@@ -27,7 +27,8 @@ internal static class PortalPeople
     /// </summary>
     public static async Task<List<Role>> GrantableAsync(BitweenDbContext db, PortalCaller caller)
     {
-        var roles = await db.Set<Role>().AsNoTracking().Where(r => r.ForPartners).ToListAsync();
+        var roles = await db.Set<Role>().AsNoTracking()
+            .Where(r => r.ForPartners && (r.PartnerId == null || r.PartnerId == caller.PartnerId)).ToListAsync();
         return roles
             .Select(r => (Role: r, Grants: r.GetEffectivePermissions() ?? []))
             .Where(r => !r.Grants.Contains(AdminKey) && r.Grants.All(caller.Granted.Contains))
@@ -87,7 +88,7 @@ public class People(BitweenDbContext dbContext, RequestContext requestContext) :
             .OrderBy(a => a.DisplayName)
             .Select(a => new
             {
-                a.Id, a.DisplayName, a.Email, a.Disabled, a.LastSignInOn,
+                a.Id, a.DisplayName, a.Email, a.Disabled, a.LastSignInOn, a.CreatedOn,
                 HasPassword = a.Password != null && a.Password != ""
             })
             .ToListAsync();
@@ -120,6 +121,8 @@ public class People(BitweenDbContext dbContext, RequestContext requestContext) :
                 Role = held.Count == 1 ? held[0] : null,
                 Disabled = a.Disabled,
                 Invited = !a.HasPassword && invites.ContainsKey(a.Id),
+                HasPassword = a.HasPassword,
+                CreatedOn = a.CreatedOn,
                 InviteExpiresOn = !a.HasPassword && invites.TryGetValue(a.Id, out var on) ? on : null,
                 LastSignInOn = a.LastSignInOn,
                 IsYou = a.Id == me,

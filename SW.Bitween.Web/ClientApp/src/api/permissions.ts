@@ -1,4 +1,6 @@
+import { useContext } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { SessionContext } from "../auth/useSession";
 import { api } from ".";
 import type { ActionId, PermissionArea, PermissionKey } from "./types";
 import { keys } from "./queryKeys";
@@ -24,11 +26,15 @@ export const ACTION_ORDER: ActionId[] = ["view", "create", "edit", "delete", "op
 export const permissionKey = (areaId: string, actionId: ActionId): PermissionKey =>
   `${areaId}.${actionId}`;
 
-/** Static per deployment, so it's fetched once and kept. */
+/**
+ * Static per deployment, so it's fetched once and kept. A partner's people read the partner
+ * portal's areas only, through the portal: the rest is ours, and so is the address it's served at.
+ */
 export function usePermissionCatalog() {
+  const partner = Boolean(useContext(SessionContext)?.session?.partner);
   return useQuery({
-    queryKey: keys.permissionCatalog,
-    queryFn: () => api.getPermissionCatalog(),
+    queryKey: partner ? keys.portal.permissionCatalog : keys.permissionCatalog,
+    queryFn: () => (partner ? api.getPortalPermissionCatalog() : api.getPermissionCatalog()),
   });
 }
 

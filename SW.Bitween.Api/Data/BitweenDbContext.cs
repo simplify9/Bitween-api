@@ -861,7 +861,11 @@ namespace SW.Bitween
                 b.ToTable("Roles");
                 b.HasKey(p => p.Id);
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
-                b.HasIndex(p => p.Name).IsUnique();
+                // A name is unique among one partner's own roles, and among ours: two partners may
+                // each make an "Operations". RoleValidation also keeps an owned role's name clear of ours.
+                // No filter: SQL Server then counts our roles' empty partner as one value, so our names
+                // stay unique there too (it would otherwise leave rows without a partner out).
+                b.HasIndex(p => new { p.PartnerId, p.Name }).IsUnique().HasFilter(null);
 
                 b.Property(p => p.Name).IsRequired().HasMaxLength(100);
                 b.Property(p => p.Description).HasMaxLength(500);

@@ -47,8 +47,9 @@ internal static class AccountRoles
             throw new SWValidationException("ROLE_NOT_FOUND",
                 $"These roles don't exist: {string.Join(", ", unknown)}.");
 
-        var isPartner = await dbContext.Set<Account>().AnyAsync(a => a.Id == accountId && a.PartnerId != null);
-        await EnsureRolesSuit(dbContext, wanted, isPartner);
+        var partnerId = await dbContext.Set<Account>().Where(a => a.Id == accountId).Select(a => a.PartnerId)
+            .FirstOrDefaultAsync();
+        await EnsureRolesSuit(dbContext, wanted, partnerId);
 
         var existing = await dbContext.Set<AccountRoleLink>().Where(l => l.AccountId == accountId).ToListAsync();
 
@@ -75,12 +76,15 @@ internal static class AccountRoles
 
     /// <summary>
     /// A partner's person holds partner roles only, and our own people never hold one: the two
-    /// sides never share a role, so neither can be handed the other's access.
+    /// sides never share a role, so neither can be handed the other's access. A role one partner's
+    /// admin made goes only to that partner's people.
     /// </summary>
-    public static async Task EnsureRolesSuit(BitweenDbContext dbContext, List<int> roleIds, bool isPartner)
+    public static async Task EnsureRolesSuit(BitweenDbContext dbContext, List<int> roleIds, int? partnerId)
     {
+        var isPartner = partnerId is not null;
         var misfits = await dbContext.Set<Role>().AsNoTracking()
-            .Where(r => roleIds.Contains(r.Id) && r.ForPartners != isPartner)
+            .Where(r => roleIds.Contains(r.Id) &&
+                        (r.ForPartners != isPartner || (r.PartnerId != null && r.PartnerId != partnerId)))
             .Select(r => r.Name)
             .ToListAsync();
 

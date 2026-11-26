@@ -49,6 +49,7 @@ export function RouteList({
         condition: conditionText(r.matchExpression),
         subscriptionName: r.subscriptionName || `#${r.subscriptionId}`,
         partner: r.partnerName ?? "Any partner",
+        ownMapping: r.ownMapping,
         health: routeHealth(row),
       };
     });
@@ -106,6 +107,7 @@ export function RouteList({
             onSelect={() => onSelect(d.route.id)}
             condition={d.condition}
             partner={d.partner}
+            ownMapping={d.ownMapping}
             subscriptionName={d.subscriptionName}
             health={d.health}
             dirty={dirtyRouteId === d.route.id}
@@ -129,6 +131,7 @@ function Row({
   onSelect,
   condition,
   partner,
+  ownMapping = false,
   subscriptionName,
   health,
   dirty,
@@ -137,6 +140,8 @@ function Row({
   onSelect: () => void;
   condition: string;
   partner: string;
+  /** The partner maps the subscription their own way. */
+  ownMapping?: boolean;
   subscriptionName: string;
   health: keyof typeof HEALTH_DOT;
   dirty: boolean;
@@ -181,6 +186,14 @@ function Row({
         <span className="min-w-0 flex-1 truncate text-ink-600" title={subscriptionName}>
           {subscriptionName}
         </span>
+        {ownMapping && (
+          <span
+            className="shrink-0 rounded bg-ink-100 px-1 text-[11px] font-medium text-ink-700"
+            title="They map this subscription their own way, made in the partner portal. The subscription's Transformation panel has their rules and history."
+          >
+            Own mapping
+          </span>
+        )}
       </span>
     </button>
   );

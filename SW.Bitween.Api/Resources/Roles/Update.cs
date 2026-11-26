@@ -29,7 +29,7 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
         // created is as much a step past your own access as creating one.
         await GrantLimits.EnsureCallerHoldsPermissions(dbContext, requestContext,
             (role.Permissions ?? []).Concat(model.Permissions ?? []));
-        await RoleValidation.EnsureNameIsFree(dbContext, model.Name, key);
+        await RoleValidation.EnsureNameIsFree(dbContext, model.Name, key, role.PartnerId);
 
         role.Update(model.Name, model.Description, model.Permissions);
         await dbContext.SaveChangesAsync();

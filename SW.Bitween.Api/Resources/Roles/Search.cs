@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using SW.Bitween.Domain;
 using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Model;
 using SW.EfCoreExtensions;
@@ -23,6 +24,8 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext) :
                 Description = role.Description,
                 IsSystem = role.IsSystem,
                 ForPartners = role.ForPartners,
+                PartnerId = role.PartnerId,
+                PartnerName = dbContext.Set<Partner>().Where(p => p.Id == role.PartnerId).Select(p => p.Name).FirstOrDefault(),
                 Permissions = role.Permissions,
                 CreatedOn = role.CreatedOn,
                 MemberCount = dbContext.Set<AccountRoleLink>().Count(l => l.RoleId == role.Id)

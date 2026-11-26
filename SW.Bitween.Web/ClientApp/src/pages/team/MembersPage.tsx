@@ -2,8 +2,7 @@ import { useMemo } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useQuery } from "@tanstack/react-query";
 import { UserPlus, UsersRound } from "lucide-react";
-import { api, getAppConfig, type User } from "../../api";
-import { Can } from "../../auth/guards";
+import { getAppConfig, type User } from "../../api";
 import { useSession } from "../../auth/useSession";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { Avatar } from "../../components/ui/Avatar";
@@ -19,6 +18,7 @@ import { SearchBox } from "../../components/ui/SearchBox";
 import { CardList } from "../../components/ui/RowCard";
 import { usePhone } from "../../lib/useMediaQuery";
 import { usePageTitle } from "../../lib/pageTitle";
+import { useTeamSource } from "./teamSource";
 
 const STATUS_FILTERS: { value: string; label: string }[] = [
   { value: "all", label: "All" },
@@ -35,8 +35,9 @@ export function MembersPage() {
   const status = searchParams.get("status") ?? "all";
   const addOpen = searchParams.get("add") === "1";
 
-  const users = useQuery({ queryKey: keys.users.list, queryFn: () => api.listUsers() });
-  const roles = useQuery({ queryKey: keys.roles.list, queryFn: () => api.listRoles() });
+  const source = useTeamSource();
+  const users = useQuery({ queryKey: source.keys.members, queryFn: () => source.listMembers() });
+  const roles = useQuery({ queryKey: source.keys.roles, queryFn: () => source.listRoles() });
   const appConfig = useQuery({ queryKey: keys.appConfig, queryFn: getAppConfig });
   const passwordsOff = Boolean(appConfig.data?.disableEmailPasswordLogin);
   const { can } = useSession();
@@ -73,14 +74,19 @@ export function MembersPage() {
   }, [users.data, q, status]);
 
   const openMember = (user: User) =>
-    navigate(`/team/members/${user.id}?${searchParams.toString()}`);
+    navigate(`${source.membersPath}/${user.id}?${searchParams.toString()}`);
+  const addLabel = source.partner ? "Invite someone" : "Add member";
 
   return (
     <div>
       <PageHeader
-        title="Members"
-        description="Everyone who can sign in to this Bitween instance, and what each of them is allowed to do."
-        help={{
+        title={source.partner ? "People" : "Members"}
+        description={
+          source.partner
+            ? "Who at your company can sign in, and with which role. Only we can make or change one of your admins."
+            : "Everyone who can sign in to this Bitween instance, and what each of them is allowed to do."
+        }
+        help={source.partner ? undefined : {
           title: "How access works",
           body: (
             <>
@@ -100,7 +106,13 @@ export function MembersPage() {
       />
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <SearchBox value={searchText} onChange={setSearchText} label="Search members" placeholder="Search by name or email" className="min-w-56 flex-1 sm:max-w-xs" />
+        <SearchBox
+          value={searchText}
+          onChange={setSearchText}
+          label={source.partner ? "Search people" : "Search members"}
+          placeholder="Search by name or email"
+          className="min-w-56 flex-1 sm:max-w-xs"
+        />
 
         <div className="flex rounded-lg border border-ink-200 bg-white p-0.5">
           {STATUS_FILTERS.map((f) => (
@@ -117,20 +129,21 @@ export function MembersPage() {
         </div>
 
         <div className="ml-auto">
-          <Can permission="users.create">
+          {source.can.addMember && (
             <Button variant="primary" onClick={() => setParam("add", "1")}>
-              <UserPlus className="size-4" /> Add member
+              <UserPlus className="size-4" /> {addLabel}
             </Button>
-          </Can>
+          )}
         </div>
       </div>
 
       {/* Without a mail server an invite is a link the admin sends by hand, and nobody can reset a
           forgotten password themselves. Said once, here, where people are added. */}
-      {appConfig.data && !appConfig.data.mailServerConfigured && can("users.create") && (
+      {appConfig.data && !appConfig.data.mailServerConfigured && source.can.addMember && (
         <p className="mb-4 rounded-lg border border-ink-200 bg-ink-50 px-3 py-2 text-[13px] text-ink-600">
-          Bitween can&apos;t email members yet, so invites give you a link to send yourself, and there&apos;s
-          no Forgot password on the sign-in page.{" "}
+          {source.partner
+            ? "We can't send emails yet, so an invite gives you a link to send yourself."
+            : "Bitween can't email members yet, so invites give you a link to send yourself, and there's no Forgot password on the sign-in page."}{" "}
           {can("settings.view") && (
             <Link to="/settings?section=Mail%20server" className="font-medium link">
               Set up a mail server
@@ -140,34 +153,36 @@ export function MembersPage() {
       )}
 
       {users.isPending ? (
-        <LoadingBlock label="Loading members…" />
+        <LoadingBlock label={source.partner ? "Loading people…" : "Loading members…"} />
       ) : users.isError ? (
-        <LoadError error={users.error} what="members" onRetry={() => void users.refetch()} />
+        <LoadError error={users.error} what={source.partner ? "your company's people" : "members"} onRetry={() => void users.refetch()} />
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<UsersRound />}
-          title={q || status !== "all" ? "No members match" : "No members yet"}
+          title={q || status !== "all" ? (source.partner ? "Nobody matches" : "No members match") : source.partner ? "Nobody yet" : "No members yet"}
           action={
             q || status !== "all" ? (
               <Button onClick={() => setSearchParams({})}>Clear filters</Button>
             ) : (
-              <Can permission="users.create">
+              source.can.addMember && (
                 <Button variant="primary" onClick={() => setParam("add", "1")}>
-                  <UserPlus className="size-4" /> Add member
+                  <UserPlus className="size-4" /> {addLabel}
                 </Button>
-              </Can>
+              )
             )
           }
         >
           {q || status !== "all"
             ? "Try a different search or filter."
-            : "Add the first person to your team."}
+            : source.partner
+              ? "Invite the first person at your company."
+              : "Add the first person to your team."}
         </EmptyState>
       ) : phone ? (
         <CardList
           rows={filtered}
           rowKey={(u) => u.id}
-          label="Members"
+          label={source.partner ? "People" : "Members"}
           onRowClick={openMember}
           card={(user) => ({
             title: (
@@ -180,7 +195,7 @@ export function MembersPage() {
             technical: user.email,
             subtitle: (
               <span className="flex flex-wrap items-center gap-1">
-                <PartnerBadge user={user} />
+                {!source.partner && <PartnerBadge user={user} />}
                 {user.roleIds.map((rid) => (
                   <Badge key={rid}>{roleName(rid)}</Badge>
                 ))}
@@ -196,14 +211,18 @@ export function MembersPage() {
           <table className="w-full min-w-160 text-sm">
             <thead>
               <tr className="border-b border-ink-100 text-left text-xs text-ink-500">
-                <th className="px-4 py-2.5 font-medium">Member</th>
-                <th
-                  className="px-4 py-2.5 font-medium"
-                  title="Our team signs in to Bitween; a partner's people sign in to the partner portal and see only that partner's data."
-                >
-                  Belongs to
+                <th className="px-4 py-2.5 font-medium">{source.partner ? "Person" : "Member"}</th>
+                {!source.partner && (
+                  <th
+                    className="px-4 py-2.5 font-medium"
+                    title="Our team signs in to Bitween; a partner's people sign in to the partner portal and see only that partner's data."
+                  >
+                    Belongs to
+                  </th>
+                )}
+                <th className="px-4 py-2.5 font-medium" title="What they can see and do">
+                  {source.partner ? "Role" : "Roles"}
                 </th>
-                <th className="px-4 py-2.5 font-medium">Roles</th>
                 <th className="px-4 py-2.5 font-medium">Status</th>
                 <th className="px-4 py-2.5 font-medium">Last signed in</th>
               </tr>
@@ -226,9 +245,11 @@ export function MembersPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="px-4 py-2.5">
-                    {user.partner ? <PartnerBadge user={user} /> : <span className="text-ink-500">Our team</span>}
-                  </td>
+                  {!source.partner && (
+                    <td className="px-4 py-2.5">
+                      {user.partner ? <PartnerBadge user={user} /> : <span className="text-ink-500">Our team</span>}
+                    </td>
+                  )}
                   <td className="px-4 py-2.5">
                     <div className="flex flex-wrap gap-1">
                       {user.roleIds.map((rid) => (
@@ -255,7 +276,7 @@ export function MembersPage() {
           // just set) carries over and is shown under the next member's name.
           key={openMemberId}
           userId={openMemberId}
-          onClose={() => navigate(`/team/members?${searchParams.toString()}`)}
+          onClose={() => navigate(`${source.membersPath}?${searchParams.toString()}`)}
         />
       )}
     </div>

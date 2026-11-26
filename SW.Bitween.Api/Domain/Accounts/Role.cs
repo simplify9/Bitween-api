@@ -54,6 +54,10 @@ public class Role : BaseEntity, IAudited
         ForPartners = forPartners;
     }
 
+    /// <summary>A partner role one partner's admin made for their own company's people.</summary>
+    public static Role OwnedBy(int partnerId, string name, string description, IEnumerable<string> permissions) =>
+        new(name, description, permissions, forPartners: true) { PartnerId = partnerId };
+
     public string Name { get; private set; }
     public string Description { get; private set; }
 
@@ -72,6 +76,12 @@ public class Role : BaseEntity, IAudited
     /// so a role already held can never change which kind of account it suits.
     /// </summary>
     public bool ForPartners { get; private set; }
+
+    /// <summary>
+    /// The partner whose admin made this role, which only that partner's people see and hold; null
+    /// for every role our team made or Bitween built in. Fixed when the role is created.
+    /// </summary>
+    public int? PartnerId { get; private set; }
 
     /// <summary>Which built-in partner role this is; null for every other role, built-in or custom.</summary>
     public string PresetKey { get; private set; }

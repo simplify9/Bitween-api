@@ -252,6 +252,9 @@ namespace SW.Bitween.MySql.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<int?>("PartnerId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Permissions")
                         .HasColumnType("longtext");
 
@@ -262,10 +265,10 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("Name")
+                    b.HasIndex("PresetKey")
                         .IsUnique();
 
-                    b.HasIndex("PresetKey")
+                    b.HasIndex("PartnerId", "Name")
                         .IsUnique();
 
                     b.ToTable("Roles", (string)null);

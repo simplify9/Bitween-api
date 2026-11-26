@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SW.Bitween.Domain;
 using SW.Bitween.Domain.Gateway;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
@@ -43,7 +44,9 @@ public class SearchAttachments(BitweenDbContext dbContext, RequestContext reques
                     SubscriptionId = p.SubscriptionId,
                     PartnerName = p.Partner.Name,
                     SubscriptionName = p.Subscription.Name,
-                    PartnerLoginIdentity = p.Partner.LoginIdentity
+                    PartnerLoginIdentity = p.Partner.LoginIdentity,
+                    OwnMapping = dbContext.Set<PartnerMapping>()
+                        .Any(m => m.SubscriptionId == p.SubscriptionId && m.PartnerId == p.PartnerId)
                 })
                 .ToListAsync();
 

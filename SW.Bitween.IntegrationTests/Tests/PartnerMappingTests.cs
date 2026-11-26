@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using SW.Bitween.Domain;
 using SW.Bitween.Domain.Accounts;
+using SW.Bitween.Domain.Gateway;
 using SW.Bitween.IntegrationTests.Fixtures;
 using SW.Bitween.Model;
 using SW.Bitween.Services;
@@ -209,6 +210,56 @@ public class PartnerMappingTests(BitweenFixture fixture)
                 .Handle(world.Subscription.Id, new RemovePartnerMappingModel { PartnerId = world.Mine.Id });
         }
         Assert.Equal(ours, await RulesOfNewExchange(world.Subscription, world.Mine));
+    }
+
+    [Fact]
+    public async Task Our_team_sees_their_own_mapping_on_the_partner_and_on_each_gateway()
+    {
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        var world = await SetUpAsync(db, Rules(("id", "orderId")));
+        await SaveAs(world.Person, world.Subscription.Id, Rules(("reference", "orderId")));
+
+        // Both partners reach the same subscription through each gateway; only one maps it their own way.
+        var api = new ApiGateway
+        {
+            Name = Unique("Own gw"), UrlName = Guid.NewGuid().ToString("N")[..12],
+            Partners =
+            [
+                new ApiGatewayPartner { PartnerId = world.Mine.Id, SubscriptionId = world.Subscription.Id },
+                new ApiGatewayPartner { PartnerId = world.Other.Id, SubscriptionId = world.Subscription.Id }
+            ]
+        };
+        var bus = new BusGateway { Name = Unique("Own bus"), DocumentId = world.Subscription.DocumentId };
+        db.AddRange(api, bus);
+        await db.SaveChangesAsync();
+        db.AddRange(new BusGatewayRoute { BusGatewayId = bus.Id, SubscriptionId = world.Subscription.Id, PartnerId = world.Mine.Id },
+            new BusGatewayRoute { BusGatewayId = bus.Id, SubscriptionId = world.Subscription.Id, PartnerId = world.Other.Id });
+        await db.SaveChangesAsync();
+
+        await using var read = fixture.CreateScope();
+        read.Superuser();
+        var listed = (List<PartnerOwnMapping>)await ActivatorUtilities
+            .CreateInstance<Resources.Partners.OwnMappings>(read.ServiceProvider).Handle(world.Mine.Id);
+        var own = Assert.Single(listed);
+        Assert.Equal(world.Subscription.Id, own.SubscriptionId);
+        Assert.Equal("Mapper", own.ChangedBy);
+        Assert.Empty((List<PartnerOwnMapping>)await ActivatorUtilities
+            .CreateInstance<Resources.Partners.OwnMappings>(read.ServiceProvider).Handle(world.Other.Id));
+
+        var gateway = (ApiGatewayRow)await ActivatorUtilities
+            .CreateInstance<Resources.ApiGateways.Get>(read.ServiceProvider).Handle(api.Id);
+        Assert.True(gateway.Partners.Single(p => p.PartnerId == world.Mine.Id).OwnMapping);
+        Assert.False(gateway.Partners.Single(p => p.PartnerId == world.Other.Id).OwnMapping);
+        var page = await ActivatorUtilities.CreateInstance<Resources.ApiGateways.SearchAttachments>(read.ServiceProvider)
+            .Handle(new SearchApiGatewayAttachmentsModel { ApiGatewayId = api.Id });
+        var rows = (List<ApiGatewayPartnerDto>)page.GetType().GetProperty("Result")!.GetValue(page)!;
+        Assert.Equal([true, false], rows.OrderBy(r => r.PartnerId != world.Mine.Id).Select(r => r.OwnMapping));
+
+        var routes = ((BusGatewayRow)await ActivatorUtilities
+            .CreateInstance<Resources.BusGateways.Get>(read.ServiceProvider).Handle(bus.Id)).Routes;
+        Assert.True(routes.Single(r => r.PartnerId == world.Mine.Id).OwnMapping);
+        Assert.False(routes.Single(r => r.PartnerId == world.Other.Id).OwnMapping);
     }
 
     [Fact]

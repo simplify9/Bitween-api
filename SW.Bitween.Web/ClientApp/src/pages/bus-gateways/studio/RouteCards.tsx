@@ -42,7 +42,7 @@ export function RouteCards({
                   <HealthBadge isRunning={row.isRunning} consecutiveFailures={row.consecutiveFailures} />
                 </>
               ),
-              subtitle: `${conditionText(r.matchExpression)} · ${r.partnerName ?? "Any partner"}`,
+              subtitle: `${conditionText(r.matchExpression)} · ${r.partnerName ?? "Any partner"}${r.ownMapping ? " · own mapping" : ""}`,
               footer: (
                 <div className="flex flex-col gap-2">
                   {row?.lastException && (

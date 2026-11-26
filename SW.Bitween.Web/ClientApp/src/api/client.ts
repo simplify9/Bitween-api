@@ -90,6 +90,7 @@ import type {
   PartnerRow,
   PermissionArea,
   PermissionKey,
+  PartnerOwnMapping,
   IssuedServiceToken,
   ServiceAccount,
   QueueHealthSnapshot,
@@ -228,6 +229,7 @@ export interface ApiClient {
   /** The catalog the backend enforces, so the role matrix can never offer a grant it ignores. */
   getPermissionCatalog(): Promise<PermissionArea[]>;
   listRoles(): Promise<Role[]>;
+  getPortalPermissionCatalog(): Promise<PermissionArea[]>;
   getRole(id: string): Promise<Role>;
   createRole(input: { name: string; description: string; permissions: PermissionKey[]; forPartners?: boolean }): Promise<Role>;
   updateRole(
@@ -998,4 +1000,12 @@ export interface ApiClient {
   setPortalPersonRole(accountId: number, roleId: number): Promise<void>;
   setPortalPersonDisabled(accountId: number, disabled: boolean): Promise<void>;
   removePortalPerson(accountId: number): Promise<void>;
+  /** The roles a partner's admin sees: ours for partners, built-in ones, and their own. */
+  listPortalRoles(): Promise<Role[]>;
+  getPortalRole(id: string): Promise<Role>;
+  /** Makes one of their own roles, or changes one; returns its id. */
+  savePortalRole(input: { id?: string; name: string; description: string; permissions: PermissionKey[] }): Promise<string>;
+  deletePortalRole(id: string): Promise<void>;
+  /** The subscriptions a partner maps their own way, for their partner page. */
+  listPartnerOwnMappings(partnerId: number): Promise<PartnerOwnMapping[]>;
 }

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { apiPath, renderApp } from "../../../__tests__/support/renderApp";
@@ -32,43 +32,43 @@ function backend(needsApproval = false) {
   return { handlers, saved };
 }
 
-describe("a partner's own details in the portal", () => {
+const EDITOR = ["portal-properties.view", "portal-properties.edit"];
+
+describe("a partner's own details, on our own Partner page", () => {
   it("shows what we show them, a secret without its value, and changes only what they may", async () => {
     const { handlers, saved } = backend();
-    const { user } = renderApp("/portal/details", {
-      as: { partner: ACME, permissions: ["portal-properties.view", "portal-properties.edit"] },
-      handlers,
-    });
+    const { user } = renderApp("/portal/details", { as: { partner: ACME, permissions: EDITOR }, handlers });
 
-    expect(await screen.findByText("https://acme/in")).toBeVisible();
-    expect(screen.getByText("Secret")).toBeVisible();
+    expect(await screen.findByRole("heading", { name: "Acme Freight" })).toBeVisible();
+    expect(screen.getByDisplayValue("https://acme/in")).toBeEnabled();
+    expect(screen.getByDisplayValue("A-1")).toBeDisabled();
+    expect(screen.getByDisplayValue("accountNo")).toBeDisabled();
+    expect(screen.getByLabelText("Value 2")).toHaveTextContent("••••••••");
+    // None of ours: keys, how they sign in, adding or removing a property, locking one.
+    expect(screen.queryByText("API keys")).not.toBeInTheDocument();
+    expect(screen.queryByText("Login server identity")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Add property/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mark apiKey secret" })).toBeDisabled();
 
-    await user.click(screen.getByRole("button", { name: "Change" }));
-    const dialog = screen.getByRole("dialog", { name: "Change your details" });
-    expect(within(dialog).queryByLabelText("accountNo")).not.toBeInTheDocument();
-    expect(within(dialog).getByLabelText(/apiKey/)).toHaveValue("");
-    await user.clear(within(dialog).getByLabelText("webhookUrl"));
-    await user.type(within(dialog).getByLabelText("webhookUrl"), "https://acme/v2");
-    await user.click(within(dialog).getByRole("button", { name: "Save" }));
+    await user.clear(screen.getByDisplayValue("https://acme/in"));
+    await user.type(screen.getByLabelText("Value 3"), "https://acme/v2");
+    await user.click(screen.getByRole("button", { name: "Save changes" }));
 
     await waitFor(() => expect(saved).toEqual([{ values: { apiKey: "", webhookUrl: "https://acme/v2" } }]));
   });
 
   it("says a change waits for approval when their changes need it", async () => {
     const { handlers } = backend(true);
-    const { user } = renderApp("/portal/details", {
-      as: { partner: ACME, permissions: ["portal-properties.view", "portal-properties.edit"] },
-      handlers,
-    });
+    const { user } = renderApp("/portal/details", { as: { partner: ACME, permissions: EDITOR }, handlers });
 
-    await user.click(await screen.findByRole("button", { name: "Change" }));
+    await user.type(await screen.findByDisplayValue("https://acme/in"), "/v2");
     await user.click(screen.getByRole("button", { name: "Send for approval" }));
     expect(await screen.findByText(/waits for our approval/)).toBeVisible();
   });
 
   it("can't be changed by a role that may only look", async () => {
     renderApp("/portal/details", { as: { partner: ACME, permissions: ["portal-properties.view"] }, handlers: backend().handlers });
-    await screen.findByText("https://acme/in");
-    expect(screen.queryByRole("button", { name: "Change" })).not.toBeInTheDocument();
+    expect(await screen.findByDisplayValue("https://acme/in")).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Replace" })).not.toBeInTheDocument();
   });
 });

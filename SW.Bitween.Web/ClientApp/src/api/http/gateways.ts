@@ -34,6 +34,7 @@ interface RawApiGatewayPartner {
   partnerName: string;
   subscriptionName: string;
   partnerLoginIdentity?: string | null;
+  ownMapping?: boolean;
 }
 interface RawGatewayAuthentication {
   method: GatewayAuthMethod;
@@ -67,6 +68,7 @@ interface RawBusGatewayRoute {
   partnerId: number | null;
   partnerName: string | null;
   matchExpression: RawMatchSpec | null;
+  ownMapping?: boolean;
 }
 interface RawBusGateway {
   id: number;
@@ -91,6 +93,7 @@ const toApiGatewayAttachment = (p: RawApiGatewayPartner): ApiGatewayAttachment =
   subscriptionId: p.subscriptionId,
   subscriptionName: p.subscriptionName,
   partnerLoginIdentity: p.partnerLoginIdentity ?? null,
+  ownMapping: p.ownMapping ?? false,
 });
 
 const toApiGatewayRow = (raw: RawApiGateway): ApiGatewayRow => ({
@@ -132,6 +135,7 @@ const toBusGatewayRoute = (r: RawBusGatewayRoute): BusGatewayRoute => ({
   partnerId: r.partnerId,
   partnerName: r.partnerName,
   matchExpression: toMatchGroup(r.matchExpression),
+  ownMapping: r.ownMapping ?? false,
 });
 
 /** Where the gateway reads from, shared by the row and the detail shapes. */
