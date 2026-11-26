@@ -1174,6 +1174,7 @@ namespace SW.Bitween.Web
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
+                endpoints.MapCqApi();
                 endpoints.MapHub<SW.Bitween.Services.Background.BackgroundRequestHub>(
                     SW.Bitween.Services.Background.BackgroundRequestHub.Path);
                 // /health keeps answering as it always has - the process is up - because probes
