@@ -18,7 +18,7 @@
     <PackageReference Include="DocumentFormat.OpenXml.Framework" Version="3.5.1" Aliases="OpenXml" />
     <PackageReference Include="MSTest.TestAdapter" Version="3.7.1" />
     <PackageReference Include="MSTest.TestFramework" Version="3.7.1" />
-    <PackageReference Include="SimplyWorks.CqApi" Version="8.2.6" />
+    <PackageReference Include="SimplyWorks.CqApi" Version="10.0.1" />
     <PackageReference Include="SimplyWorks.Bus" Version="10.1.0" />
   </ItemGroup>
 
