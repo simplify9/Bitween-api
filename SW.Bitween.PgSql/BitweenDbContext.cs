@@ -703,6 +703,8 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 // A name is unique among one partner's own roles, and among ours: two partners may
                 // each make an "Operations". RoleValidation also keeps an owned role's name clear of ours.
                 b.HasIndex(p => new { p.PartnerId, p.Name }).IsUnique();
+                // Postgres counts every empty partner as different, so ours get their own unique index.
+                b.HasIndex(p => p.Name, "ix_roles_name_ours").IsUnique().HasFilter("partner_id IS NULL");
 
                 b.Property(p => p.Name).IsRequired().HasMaxLength(100);
                 b.Property(p => p.Description).HasMaxLength(500);

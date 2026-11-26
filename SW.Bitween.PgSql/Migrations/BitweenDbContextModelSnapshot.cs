@@ -338,6 +338,11 @@ namespace SW.Bitween.PgSql.Migrations
                         .IsUnique()
                         .HasDatabaseName("ix_roles_partner_id_name");
 
+                    b.HasIndex(new[] { "Name" }, "ix_roles_name_ours")
+                        .IsUnique()
+                        .HasDatabaseName("ix_roles_name")
+                        .HasFilter("partner_id IS NULL");
+
                     b.ToTable("Roles", "infolink");
 
                     b.HasData(

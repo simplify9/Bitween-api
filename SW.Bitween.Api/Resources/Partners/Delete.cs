@@ -22,9 +22,12 @@ namespace SW.Bitween.Resources.Partners
             await EnsureNothingPointsAtIt(key);
 
             // The roles their admin made for their own people go with them; nobody else can hold one.
+            // One transaction, so a partner that can't go keeps its roles.
+            await using var transaction = await dbContext.Database.BeginTransactionAsync();
             dbContext.RemoveRange(await dbContext.Set<Role>().Where(r => r.PartnerId == key).ToListAsync());
             await dbContext.SaveChangesAsync();
             await dbContext.DeleteByKeyAsync<Partner>(key);
+            await transaction.CommitAsync();
             return null;
         }
 

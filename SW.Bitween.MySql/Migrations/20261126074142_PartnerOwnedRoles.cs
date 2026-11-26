@@ -51,6 +51,13 @@ namespace SW.Bitween.MySql.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            // First, so names that would clash stop the downgrade before anything is dropped.
+            migrationBuilder.CreateIndex(
+                name: "IX_Roles_Name",
+                table: "Roles",
+                column: "Name",
+                unique: true);
+
             migrationBuilder.DropIndex(
                 name: "IX_Roles_PartnerId_Name",
                 table: "Roles");
@@ -58,12 +65,6 @@ namespace SW.Bitween.MySql.Migrations
             migrationBuilder.DropColumn(
                 name: "PartnerId",
                 table: "Roles");
-
-            migrationBuilder.CreateIndex(
-                name: "IX_Roles_Name",
-                table: "Roles",
-                column: "Name",
-                unique: true);
         }
     }
 }

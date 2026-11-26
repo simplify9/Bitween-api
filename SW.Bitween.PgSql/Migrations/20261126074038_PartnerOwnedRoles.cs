@@ -57,6 +57,14 @@ namespace SW.Bitween.PgSql.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
+            // First, so names that would clash stop the downgrade before anything is dropped.
+            migrationBuilder.CreateIndex(
+                name: "ix_roles_name",
+                schema: "infolink",
+                table: "Roles",
+                column: "name",
+                unique: true);
+
             migrationBuilder.DropIndex(
                 name: "ix_roles_partner_id_name",
                 schema: "infolink",
@@ -66,13 +74,6 @@ namespace SW.Bitween.PgSql.Migrations
                 name: "partner_id",
                 schema: "infolink",
                 table: "Roles");
-
-            migrationBuilder.CreateIndex(
-                name: "ix_roles_name",
-                schema: "infolink",
-                table: "Roles",
-                column: "name",
-                unique: true);
         }
     }
 }

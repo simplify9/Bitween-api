@@ -75,7 +75,8 @@ function TheirPartnerFields({
         keyLabel="Property"
         valueLabel="Value"
         editable={canEdit}
-        valuesOnly={(row) => portal.editable(row.key.trim())}
+        // The key as stored, as the editable set and the save have it.
+        valuesOnly={(row) => portal.editable(row.key)}
         // Marks which are secret, so they show masked; they can't lock or unlock one. No column when none is.
         secrets={draft.secretProperties.length > 0 ? { names: draft.secretProperties, onChange: () => {} } : undefined}
         emptyText="Nothing to show yet."

@@ -163,6 +163,24 @@ public class PartnerRolesTests(BitweenFixture fixture)
     }
 
     [Fact]
+    public async Task The_database_keeps_our_names_unique_and_lets_two_partners_share_one()
+    {
+        var w = await SetUpAsync();
+        var name = $"Shared {Guid.NewGuid():N}";
+        await using var scope = fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        db.AddRange(Role.OwnedBy(w.Mine, name, null, Looks), Role.OwnedBy(w.Other, name, null, Looks),
+            new Role(name, null, Looks, forPartners: true));
+        await db.SaveChangesAsync();
+
+        // Past the checks in code, as two saves at once would be.
+        await using var again = fixture.CreateScope();
+        var db2 = again.ServiceProvider.GetRequiredService<BitweenDbContext>();
+        db2.Add(new Role(name, null, Looks, forPartners: true));
+        await Assert.ThrowsAsync<DbUpdateException>(() => db2.SaveChangesAsync());
+    }
+
+    [Fact]
     public async Task Our_team_sees_whose_a_role_is_and_it_goes_with_its_partner()
     {
         var w = await SetUpAsync();
