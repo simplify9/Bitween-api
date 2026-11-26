@@ -46,7 +46,7 @@ test("a custom role grants exactly what was ticked, in the nav, by URL, and at t
     name: roleName,
     permissions: [{ area: "Exchanges", action: "View" }],
   });
-  const email = await addMember(page, { name: "Watcher Only", roles: [roleName] });
+  const email = await addMember(page, { name: "Watcher Only", role: roleName });
 
   await signOut(page);
   await signIn(page, email, FIRST_PASSWORD);
@@ -81,7 +81,7 @@ test("a custom role grants exactly what was ticked, in the nav, by URL, and at t
 
 test("Viewer can read but not write", async ({ page }) => {
   await signInAsAdmin(page);
-  const email = await addMember(page, { name: "Read Only", roles: ["Viewer"] });
+  const email = await addMember(page, { name: "Read Only", role: "Viewer" });
 
   await signOut(page);
   await signIn(page, email, FIRST_PASSWORD);
@@ -117,7 +117,7 @@ test("editing a role changes what its members can do, without them signing in ag
   const roleName = `PW Growing ${Date.now()}`;
   await signInAsAdmin(page);
   await createRole(page, { name: roleName, permissions: [{ area: "Exchanges", action: "View" }] });
-  const email = await addMember(page, { name: "Gains Access", roles: [roleName] });
+  const email = await addMember(page, { name: "Gains Access", role: roleName });
 
   await signOut(page);
   await signIn(page, email, FIRST_PASSWORD);

@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { Link } from "react-router";
+import { OurPageLink } from "./exchangeSource";
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import type { ExchangeRow } from "../../api";
 import { Badge } from "../../components/ui/basics";
@@ -54,27 +54,27 @@ export function ExchangeDetailPanel({
               {x.aggregationXchangeId && <Badge tone="neutral">Aggregated</Badge>}
               <span className="min-w-0 text-[13px] text-ink-500">
                 {x.subscriptionName ? (
-                  <Link to={`/subscriptions/${x.subscriptionId}`} className="font-semibold text-ink-900 hover:link">
+                  <OurPageLink to={`/subscriptions/${x.subscriptionId}`} className="font-semibold text-ink-900 hover:link">
                     {x.subscriptionName}
-                  </Link>
+                  </OurPageLink>
                 ) : (
                   <span>No subscription</span>
                 )}
                 {x.partnerName && (
                   <>
                     {" · "}
-                    <Link to={`/partners/${x.partnerId}`} className="text-ink-700 hover:link">
+                    <OurPageLink to={`/partners/${x.partnerId}`} className="text-ink-700 hover:link">
                       {x.partnerName}
-                    </Link>
+                    </OurPageLink>
                   </>
                 )}
                 {" · "}
-                <Link
+                <OurPageLink
                   to={`/information-types/${x.informationTypeId}`}
                   className="font-mono text-xs text-ink-700 hover:link"
                 >
                   {x.informationTypeCode}
-                </Link>
+                </OurPageLink>
               </span>
             </div>
             <div className="flex shrink-0 items-center">

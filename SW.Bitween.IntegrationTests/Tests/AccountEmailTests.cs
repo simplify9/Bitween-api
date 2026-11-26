@@ -232,7 +232,8 @@ public class AccountEmailTests(BitweenFixture fixture)
             Name = "Invited Person",
             Email = email,
             Invite = true,
-            RoleIds = roleIds.ToList()
+            // Every account holds one role; Viewer when the test doesn't care which.
+            RoleIds = roleIds.Length > 0 ? roleIds.ToList() : [Role.ViewerId]
         });
     }
 

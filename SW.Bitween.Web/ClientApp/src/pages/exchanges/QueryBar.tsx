@@ -3,6 +3,7 @@ import { Bookmark, Check, ChevronDown, Clock, Link as LinkIcon, Plus, Search, Tr
 import { SearchSelect, type SearchSelectOption } from "../../components/ui/SearchSelect";
 import { Button } from "../../components/ui/basics";
 import { AskButton, type AskedQuestion } from "./AskExchanges";
+import { useExchangeSource } from "./exchangeSource";
 import { Dropdown } from "./Dropdown";
 import {
   BUILT_IN_VIEWS,
@@ -54,6 +55,8 @@ export function QueryBar({
   onAsked: (asked: AskedQuestion) => void;
 }) {
   const chips = filterChips(searchParams, lookups);
+  // A partner's people ask no AI about our traffic: Ask reads every exchange.
+  const { partner } = useExchangeSource();
 
   return (
     <div className="flex flex-wrap items-stretch gap-2">
@@ -67,7 +70,7 @@ export function QueryBar({
         <SearchField searchParams={searchParams} apply={apply} />
       </div>
       <ViewsMenu searchParams={searchParams} apply={apply} />
-      <AskButton apply={apply} onAsked={onAsked} />
+      {!partner && <AskButton apply={apply} onAsked={onAsked} />}
     </div>
   );
 }
@@ -648,6 +651,7 @@ function AddFilterMenu({
   const [open, setOpen] = useState(false);
   const needle = find.trim().toLowerCase();
   const matches = (text: string) => !needle || text.toLowerCase().includes(needle);
+  const { hiddenFilters } = useExchangeSource();
   const propertyKeys = options.propertyKeys.filter((o) => matches(o.label) || matches(o.sublabel ?? ""));
 
   const close = () => {
@@ -706,7 +710,7 @@ function AddFilterMenu({
             </label>
             <div role="menu" aria-label="Add a filter" className="max-h-[26rem] overflow-y-auto p-1.5">
               {MENU.map((g, i) => {
-                const items = g.items.filter((it) => matches(it.label));
+                const items = g.items.filter((it) => matches(it.label) && !hiddenFilters.has(it.kind));
                 const groupNode = items.length > 0 && (
                   <div key={g.group} className="pb-1">
                     <p className="px-2 pt-2 pb-1 text-[11px] font-medium tracking-wide text-ink-500 uppercase">{g.group}</p>
@@ -783,7 +787,11 @@ function SearchField({ searchParams, apply }: { searchParams: URLSearchParams; a
   const [text, setText] = useState("");
   const [active, setActive] = useState(0);
   const [focused, setFocused] = useState(false);
-  const suggestions = useMemo(() => searchSuggestions(text, searchParams), [text, searchParams]);
+  const { hiddenFilters } = useExchangeSource();
+  const suggestions = useMemo(
+    () => searchSuggestions(text, searchParams).filter((s) => !(s.key === "error" && hiddenFilters.has("error"))),
+    [text, searchParams, hiddenFilters],
+  );
   const inputRef = useRef<HTMLInputElement>(null);
   const listId = useId();
   const open = focused && suggestions.length > 0;

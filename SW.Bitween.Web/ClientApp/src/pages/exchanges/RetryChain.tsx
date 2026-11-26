@@ -7,6 +7,7 @@ import { namesSomething } from "../../components/config/subscriptionLabels";
 import { timeAgo, timeUntil } from "../../lib/dates";
 import { StatusBadge } from "./shared";
 import { retryTreeQuery } from "./retryTree";
+import { useExchangeSource } from "./exchangeSource";
 
 const childrenOf = (tree: RetryTree, id: string | null) =>
   tree.attempts
@@ -27,6 +28,7 @@ function Attempt({
   const isCurrent = node.id === currentId;
   const children = childrenOf(tree, node.id);
   const navigate = useNavigate();
+  const { listPath } = useExchangeSource();
 
   return (
     <>
@@ -34,7 +36,7 @@ function Attempt({
         // The whole row opens the attempt, the way a row of the exchange list opens its own
         // drawer - the identity on the right can no longer be a link itself, since promoted
         // properties bring a panel of their own and a button cannot sit inside a link.
-        onClick={isCurrent ? undefined : () => navigate(`/exchanges?ids=${encodeURIComponent(node.id)}`)}
+        onClick={isCurrent ? undefined : () => navigate(`${listPath}?ids=${encodeURIComponent(node.id)}`)}
         className={`flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md px-2 py-1.5 ${
           isCurrent ? "bg-ink-100/70" : "cursor-pointer hover:bg-ink-50"
         }`}
@@ -51,7 +53,7 @@ function Attempt({
           </span>
         ) : (
           <Link
-            to={`/exchanges?ids=${encodeURIComponent(node.id)}`}
+            to={`${listPath}?ids=${encodeURIComponent(node.id)}`}
             title={`Open the ${ordinal(depth + 1)} attempt at this work`}
             className="w-[68px] shrink-0 text-[11px] font-medium tracking-wide text-ink-500 uppercase hover:link"
           >
@@ -124,7 +126,7 @@ const ordinal = (n: number) => {
  * rule was enforced can fork, and those show as branches rather than being hidden.
  */
 export function RetryChain({ id }: { id: string }) {
-  const { data: tree, isLoading } = useQuery(retryTreeQuery(id));
+  const { data: tree, isLoading } = useQuery(retryTreeQuery(id, useExchangeSource()));
 
   // A line rather than a spinner block: this sits inside an already-rendered drawer, and it is
   // usually filled in before anyone looks at it - the row is prefetched on hover.

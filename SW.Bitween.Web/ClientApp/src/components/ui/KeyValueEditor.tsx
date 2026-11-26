@@ -179,6 +179,7 @@ export function KeyValueEditor({
   rowDetails,
   secrets,
   reorderable,
+  valuesOnly,
 }: {
   rows: KvRow[];
   onChange: (rows: KvRow[]) => void;
@@ -199,7 +200,15 @@ export function KeyValueEditor({
   secrets?: { names: string[]; onChange: (names: string[]) => void };
   /** Rows can be put in order; `first` names what the first row is, for editors where it's special. */
   reorderable?: { first?: { label: string; title: string } };
+  /**
+   * The rows are fixed: none added, removed, renamed or locked, and a value changes only where this
+   * says so. For a partner's people, who change only the values we let them.
+   */
+  valuesOnly?: (row: KvRow) => boolean;
 }) {
+  // Whether rows themselves may change, apart from their values.
+  const structural = editable && !valuesOnly;
+  const valueLocked = (row: KvRow) => !editable || (valuesOnly ? !valuesOnly(row) : false);
   const [focusLast, setFocusLast] = useState(false);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dropAt, setDropAt] = useState<number | null>(null);
@@ -222,7 +231,7 @@ export function KeyValueEditor({
     onChange(next);
   };
 
-  const ordering = !!reorderable && editable && rows.length > 1;
+  const ordering = !!reorderable && structural && rows.length > 1;
 
   // Names are compared case-insensitively, matching how the resolver looks a key up.
   const isSecret = (key: string) =>
@@ -252,7 +261,7 @@ export function KeyValueEditor({
     return <p className="text-sm text-ink-500">{emptyText}</p>;
   }
 
-  const columns = 2 + (ordering ? 1 : 0) + (token ? 1 : 0) + (secrets ? 1 : 0) + (editable ? 1 : 0);
+  const columns = 2 + (ordering ? 1 : 0) + (token ? 1 : 0) + (secrets ? 1 : 0) + (structural ? 1 : 0);
 
   return (
     <div>
@@ -273,7 +282,7 @@ export function KeyValueEditor({
                   Secret
                 </th>
               )}
-              {editable && <th className="w-8 pb-1.5" />}
+              {structural && <th className="w-8 pb-1.5" />}
             </tr>
           </thead>
           <tbody>
@@ -339,7 +348,7 @@ export function KeyValueEditor({
                   <td className="py-1 pr-3">
                     <input
                       value={row.key}
-                      disabled={!editable}
+                      disabled={!structural}
                       placeholder={keyPlaceholder}
                       autoFocus={focusLast && i === rows.length - 1}
                       onChange={(e) => update(i, { key: e.target.value })}
@@ -359,7 +368,7 @@ export function KeyValueEditor({
                     {secrets && (isSecret(row.key) || row.value === SECRET_SENTINEL) ? (
                       <SecretValueCell
                         value={row.value}
-                        disabled={!editable}
+                        disabled={valueLocked(row)}
                         placeholder={valuePlaceholder}
                         ariaLabel={`${valueLabel} ${i + 1}`}
                         stillSecret={isSecret(row.key)}
@@ -368,7 +377,7 @@ export function KeyValueEditor({
                     ) : (
                       <GrowingValueInput
                         value={row.value}
-                        disabled={!editable}
+                        disabled={valueLocked(row)}
                         placeholder={valuePlaceholder}
                         onChange={(value) => update(i, { value })}
                         ariaLabel={`${valueLabel} ${i + 1}`}
@@ -385,7 +394,7 @@ export function KeyValueEditor({
                       {row.key.trim() && (
                         <button
                           type="button"
-                          disabled={!editable}
+                          disabled={!structural}
                           onClick={() => toggleSecret(row.key)}
                           aria-pressed={isSecret(row.key)}
                           aria-label={`Mark ${row.key.trim()} secret`}
@@ -409,7 +418,7 @@ export function KeyValueEditor({
                       )}
                     </td>
                   )}
-                  {editable && (
+                  {structural && (
                     <td className="pt-1.5 pb-1">
                       <button
                         onClick={() => remove(i)}
@@ -434,7 +443,7 @@ export function KeyValueEditor({
         </table>
       )}
       {rows.length === 0 && <p className="pb-2 text-sm text-ink-500">{emptyText}</p>}
-      {editable && (
+      {structural && (
         <Button size="sm" onClick={add} className="mt-1.5">
           <Plus className="size-3.5" /> {addLabel ?? `Add ${keyLabel.toLowerCase()}`}
         </Button>

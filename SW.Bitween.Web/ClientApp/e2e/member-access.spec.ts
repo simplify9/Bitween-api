@@ -55,11 +55,10 @@ test("a custom role given to an existing member in the drawer lets them create a
     ],
   });
   // They start with Viewer, which can read partners but not create them.
-  const email = await addMember(page, { name: "Becomes Clerk", roles: ["Viewer"] });
+  const email = await addMember(page, { name: "Becomes Clerk", role: "Viewer" });
 
   await openMember(page, email);
-  await drawer(page).getByRole("checkbox", { name: startsWith("Viewer") }).uncheck();
-  await drawer(page).getByRole("checkbox", { name: startsWith(roleName) }).check();
+  await drawer(page).getByRole("radio", { name: startsWith(roleName) }).check();
   await drawer(page).getByRole("button", { name: "Save roles" }).click();
   await expect(drawer(page).getByRole("button", { name: "Save roles" })).toHaveCount(0);
 
@@ -125,7 +124,7 @@ test("a role with Create but not Edit can create an information type and a work 
       { area: "Work groups", action: "Create" },
     ],
   });
-  const email = await addMember(page, { name: "Create Only", roles: [roleName] });
+  const email = await addMember(page, { name: "Create Only", role: roleName });
   await signOut(page);
   await signIn(page, email, FIRST_PASSWORD);
 
@@ -164,7 +163,7 @@ test("changing a member's roles in the drawer replaces them: the new role's page
   request,
 }) => {
   await signInAsAdmin(page);
-  const email = await addMember(page, { name: "Role Swap", roles: ["Viewer"] });
+  const email = await addMember(page, { name: "Role Swap", role: "Viewer" });
 
   // Viewer reads configuration but has no Team pages; Member runs integrations but no Team
   // either - so the difference to look for is write access, e.g. "New partner".
@@ -177,15 +176,14 @@ test("changing a member's roles in the drawer replaces them: the new role's page
   await signOut(page);
   await signInAsAdmin(page);
   await openMember(page, email);
-  await drawer(page).getByRole("checkbox", { name: startsWith("Viewer") }).uncheck();
-  await drawer(page).getByRole("checkbox", { name: startsWith("Member") }).check();
+  await drawer(page).getByRole("radio", { name: startsWith("Member") }).check();
   await drawer(page).getByRole("button", { name: "Save roles" }).click();
   await expect(drawer(page).getByRole("button", { name: "Save roles" })).toHaveCount(0);
 
   // Reopened from scratch, the drawer shows what the server now holds.
   await page.reload();
-  await expect(drawer(page).getByRole("checkbox", { name: startsWith("Member") })).toBeChecked();
-  await expect(drawer(page).getByRole("checkbox", { name: startsWith("Viewer") })).not.toBeChecked();
+  await expect(drawer(page).getByRole("radio", { name: startsWith("Member") })).toBeChecked();
+  await expect(drawer(page).getByRole("radio", { name: startsWith("Viewer") })).not.toBeChecked();
   const api = await AdminApi.signIn(request);
   expect(await roleNamesOf(api, email)).toEqual(["Member"]);
 
@@ -204,7 +202,7 @@ test("a disabled member can't sign in, loses the session they had open, and can 
   browser,
 }) => {
   await signInAsAdmin(page);
-  const email = await addMember(page, { name: "Gets Disabled", roles: ["Viewer"] });
+  const email = await addMember(page, { name: "Gets Disabled", role: "Viewer" });
 
   // The member is signed in elsewhere when it happens.
   const theirs = await browser.newContext({ ignoreHTTPSErrors: true });
@@ -248,7 +246,7 @@ test("a member locked by wrong passwords from many addresses shows as Locked, is
   request,
 }) => {
   await signInAsAdmin(page);
-  const email = await addMember(page, { name: "Guess Target", roles: ["Viewer"] });
+  const email = await addMember(page, { name: "Guess Target", role: "Viewer" });
 
   // The account-wide lock comes after 20 wrong passwords (Login.MaxFailedLoginAttempts). From a
   // single address the per-address throttle stops counting after 5, so this is guessing spread
@@ -263,7 +261,8 @@ test("a member locked by wrong passwords from many addresses shows as Locked, is
   }
 
   await page.goto("team/members");
-  const status = page.getByRole("row", { name: new RegExp(email) }).getByRole("cell").nth(2);
+  // Member, Belongs to, Roles, Status.
+  const status = page.getByRole("row", { name: new RegExp(email) }).getByRole("cell").nth(3);
   await expect(status).toHaveText("Locked");
 
   await signOut(page);
@@ -304,8 +303,7 @@ test("the only administrator can't take Administrator off themselves: the drawer
   await signInAsAdmin(page);
   await openMember(page, ADMIN_EMAIL);
   await expect(drawer(page).getByText("You", { exact: true })).toBeVisible();
-  await drawer(page).getByRole("checkbox", { name: startsWith("Administrator") }).uncheck();
-  await drawer(page).getByRole("checkbox", { name: startsWith("Viewer") }).check();
+  await drawer(page).getByRole("radio", { name: startsWith("Viewer") }).check();
   await drawer(page).getByRole("button", { name: "Save roles" }).click();
 
   await expect(drawer(page).getByRole("alert")).toContainText(
@@ -315,8 +313,8 @@ test("the only administrator can't take Administrator off themselves: the drawer
 
   // Nothing was half-applied either: after a reload the drawer still shows Administrator alone.
   await page.reload();
-  await expect(drawer(page).getByRole("checkbox", { name: startsWith("Administrator") })).toBeChecked();
-  await expect(drawer(page).getByRole("checkbox", { name: startsWith("Viewer") })).not.toBeChecked();
+  await expect(drawer(page).getByRole("radio", { name: startsWith("Administrator") })).toBeChecked();
+  await expect(drawer(page).getByRole("radio", { name: startsWith("Viewer") })).not.toBeChecked();
 });
 
 test("a member who can edit members but isn't an administrator can't grant Administrator, to themselves or a peer", async ({
@@ -324,7 +322,16 @@ test("a member who can edit members but isn't an administrator can't grant Admin
   request,
 }) => {
   const roleName = `PW Member Manager ${Date.now()}`;
+  // Less than the manager's own role, so it is theirs to hand out.
+  const lesserName = `PW Member Reader ${Date.now()}`;
   await signInAsAdmin(page);
+  await createRole(page, {
+    name: lesserName,
+    permissions: [
+      { area: "Members", action: "View" },
+      { area: "Roles", action: "View" },
+    ],
+  });
   await createRole(page, {
     name: roleName,
     permissions: [
@@ -334,16 +341,16 @@ test("a member who can edit members but isn't an administrator can't grant Admin
       { area: "Roles", action: "View" },
     ],
   });
-  const manager = await addMember(page, { name: "Member Manager", roles: [roleName] });
+  const manager = await addMember(page, { name: "Member Manager", role: roleName });
   // A peer holding no more than the manager does, so the manager is allowed to edit them at all.
-  const peer = await addMember(page, { name: "Managed Peer", roles: [roleName] });
+  const peer = await addMember(page, { name: "Managed Peer", role: roleName });
 
   await signOut(page);
   await signIn(page, manager, FIRST_PASSWORD);
 
   for (const target of [peer, manager]) {
     await openMember(page, target);
-    await drawer(page).getByRole("checkbox", { name: startsWith("Administrator") }).check();
+    await drawer(page).getByRole("radio", { name: startsWith("Administrator") }).check();
     await drawer(page).getByRole("button", { name: "Save roles" }).click();
     await expect(drawer(page).getByRole("alert")).toContainText("You can only grant permissions you hold yourself");
     await page.keyboard.press("Escape");
@@ -356,23 +363,24 @@ test("a member who can edit members but isn't an administrator can't grant Admin
 
   // What they hold themselves they can still hand out: the guard is about the excess, not the act.
   await openMember(page, peer);
-  await drawer(page).getByRole("checkbox", { name: startsWith(roleName) }).uncheck();
+  await drawer(page).getByRole("radio", { name: startsWith(lesserName) }).check();
   await drawer(page).getByRole("button", { name: "Save roles" }).click();
   await expect(drawer(page).getByRole("button", { name: "Save roles" })).toHaveCount(0);
-  expect(await roleNamesOf(api, peer)).toEqual([]);
+  expect(await roleNamesOf(api, peer)).toEqual([lesserName]);
 
   await signOut(page);
   await signInAsAdmin(page);
   await removeMember(page, peer);
   await removeMember(page, manager);
   await deleteRole(page, roleName);
+  await deleteRole(page, lesserName);
 });
 
 test("changing your own password on the profile page: the old one stops working, the new one signs in", async ({
   page,
 }) => {
   await signInAsAdmin(page);
-  const email = await addMember(page, { name: "Own Password", roles: ["Viewer"] });
+  const email = await addMember(page, { name: "Own Password", role: "Viewer" });
 
   await signOut(page);
   await signIn(page, email, FIRST_PASSWORD);
@@ -400,7 +408,7 @@ test("the profile page refuses a password change when the current password is wr
   page,
 }) => {
   await signInAsAdmin(page);
-  const email = await addMember(page, { name: "Wrong Current", roles: ["Viewer"] });
+  const email = await addMember(page, { name: "Wrong Current", role: "Viewer" });
 
   await signOut(page);
   await signIn(page, email, FIRST_PASSWORD);

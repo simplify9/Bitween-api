@@ -44,6 +44,7 @@ import {
   useMappingShortcuts,
   type MappingTarget,
 } from "./useMapping";
+import { useMapperEditorServices } from "./editorServices";
 
 /**
  * @param target What the editor reads and writes. Omitted, it takes the subscription in
@@ -87,6 +88,7 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
     resolved.kind === "draft" ? (resolved.sourceValues ?? null) : savedSourceValues;
 
   const { isPreviewing } = useMappingPreview(testPartnerId ?? partnerId);
+  const services = useMapperEditorServices();
 
   // Hiding the preview gives the rules the whole width, which is what a big mapping
   // wants once it is built and being read rather than checked.
@@ -195,7 +197,7 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
 
           <BuildFromSample />
 
-          <GenerateWithAi partnerId={testPartnerId ?? partnerId} />
+          {services.ai && <GenerateWithAi partnerId={testPartnerId ?? partnerId} />}
 
           <ToolbarButton
             label="Match the source fields"
@@ -214,10 +216,12 @@ function Editor({ target, onClose }: { target?: MappingTarget; onClose?: () => v
           {match && <MatchNote tally={match} />}
 
           <div className="ml-auto flex items-center gap-1.5">
-            <TestPartnerSelect
-              value={testPartnerId}
-              onChange={(partner) => dispatch({ type: "SET_TEST_PARTNER", partnerId: partner })}
-            />
+            {services.choosePartner && (
+              <TestPartnerSelect
+                value={testPartnerId}
+                onChange={(partner) => dispatch({ type: "SET_TEST_PARTNER", partnerId: partner })}
+              />
+            )}
 
             <button
               type="button"

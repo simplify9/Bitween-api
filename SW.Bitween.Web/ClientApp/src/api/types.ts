@@ -26,6 +26,14 @@ export interface Role {
   permissions: PermissionKey[];
   /** Built-in roles (Administrator) can't be edited or deleted. */
   isSystem: boolean;
+  /**
+   * For a partner's people: holds partner portal permissions only, and is given only to accounts
+   * that belong to a partner. Fixed when the role is created.
+   */
+  forPartners: boolean;
+  /** The partner whose admin made it, for their own people only; null for ours and built-in ones. */
+  partnerId: string | null;
+  partnerName: string | null;
   createdOn: string;
   memberCount: number;
 }
@@ -52,6 +60,13 @@ export interface User {
   hasPassword: boolean;
   /** Their latest invite while they have no password, expired or not; null otherwise. */
   invite: MemberInvite | null;
+  /** The partner whose person this is, signing in to the partner portal; null for our own people. */
+  partner?: { id: string; name: string | null } | null;
+  /**
+   * Only in the partner portal, where their admin sees their own company's people: whether this
+   * admin may change them (not themselves, not another of their admins, nothing beyond the admin).
+   */
+  canChange?: boolean;
 }
 
 export interface MemberInvite {
@@ -128,6 +143,11 @@ export interface Session {
    * change it instead of leaving them staring at an empty shell.
    */
   mustChangePassword: boolean;
+  /**
+   * The partner whose person this is, or null for our own people. A partner's person signs in to
+   * the partner portal and nothing else: the backend refuses them everywhere outside it.
+   */
+  partner: { id: string; name: string } | null;
 }
 
 export interface ApiError {
@@ -318,6 +338,10 @@ export interface PartnerRow extends Partner {
   propertyKeys: string[];
 }
 export interface PartnerDetail extends Partner {
+  /** What their people change in the portal waits for our team's approval. Set on its own, not by a save. */
+  changesNeedApproval: boolean;
+  /** What their people see of each property in the portal; one not named is hidden from them. */
+  portalAccess: Record<string, PortalAccessLevel>;
   apiCredentials: ApiCredentialRef[];
   apiGateways: ApiGatewayAttachmentRef[];
   busGatewayRoutes: BusGatewayRouteRef[];
@@ -1089,6 +1113,8 @@ export interface ApiGatewayAttachment {
   subscriptionName: string;
   /** null when the partner has none - it can't call a gateway that takes tokens. */
   partnerLoginIdentity: string | null;
+  /** The partner maps this subscription their own way, made in the partner portal. */
+  ownMapping: boolean;
 }
 /** How a gateway's callers prove who they are: the gateway chooses, not the caller. */
 export type GatewayAuthMethod = "PartnerKey" | "Jwt" | "Signature";
@@ -1144,6 +1170,8 @@ export interface BusGatewayRoute {
   partnerName: string | null;
   /** null = route matches every message of the gateway's type. */
   matchExpression: MatchGroup | null;
+  /** The route's partner maps its subscription their own way, made in the partner portal. */
+  ownMapping: boolean;
 }
 export interface BusGateway {
   id: number;
@@ -2703,4 +2731,188 @@ export interface RetrySuggestion {
   days: number;
   model: string | null;
   sent: string;
+}
+
+// --- Partner portal ---
+
+export interface PortalSubscription {
+  id: string;
+  name: string;
+  type: string;
+  documentName: string;
+  paused: boolean;
+}
+
+/** A place a partner is connected, and whether they map it their own way there. */
+export interface PortalMappingPlace {
+  subscriptionId: number;
+  subscriptionName: string;
+  /** How they're connected: their own subscription, an API gateway, a bus gateway route. */
+  via: string;
+  documentName: string;
+  customized: boolean;
+  /** Theirs reads an internal value ours no longer sends, so ours is used until they change it. */
+  setAside: boolean;
+  /** It maps with a mapper they can make their own version of. */
+  customizable: boolean;
+  /** A change of theirs waits for our team to approve it. */
+  waiting: boolean;
+  modifiedOn: string | null;
+}
+
+/** A place's mapping: ours as the starting point, and theirs when they have one. */
+export interface PortalMapping {
+  subscriptionId: number;
+  subscriptionName: string;
+  customizable: boolean;
+  default: Record<string, string> | null;
+  theirs: Record<string, string> | null;
+  setAside: boolean;
+  /** Their changes wait for our team's approval before they're used. */
+  needsApproval: boolean;
+  /** Their change waiting for approval; `theirs` is null when it goes back to ours. */
+  waiting: { theirs: Record<string, string> | null; requestedOn: string } | null;
+  /** Their latest change, when it was rejected and nothing came after it. */
+  rejected: { note: string | null; decidedOn: string } | null;
+}
+
+/** What became of a partner's change: used from their next exchange, or waiting for approval. */
+export interface PortalMappingSaved {
+  waiting: boolean;
+}
+
+export interface PortalMappingSample {
+  xchangeId: string;
+  startedOn: string;
+  inputName: string | null;
+}
+
+/** A partner using their own mapping of a subscription, made in the partner portal. */
+export interface SubscriptionPartnerMapping {
+  partnerId: number;
+  partnerName: string;
+  mappingRules: string;
+  changedOn: string;
+  /** Who last changed it; null when that account is gone. */
+  changedBy: string | null;
+  /** It reads a global value the subscription's mapping no longer sends, so theirs isn't used for now. */
+  setAside: boolean;
+  /** They use their own mapping now; false when listed only for a change waiting for approval. */
+  inUse: boolean;
+  /** Their change waiting for approval, or null. */
+  waitingChangeId: number | null;
+}
+
+/** One of their partner properties a partner's person may see. */
+export interface PortalProperty {
+  key: string;
+  /** Null for a secret one, which they may replace but never read. */
+  value: string | null;
+  secret: boolean;
+  editable: boolean;
+}
+
+/** Their partner properties, and a change of theirs waiting or rejected. */
+export interface PortalProperties {
+  properties: PortalProperty[];
+  needsApproval: boolean;
+  /** The new values by name, a secret one as null. */
+  waiting: { values: Record<string, string | null>; requestedOn: string } | null;
+  rejected: { note: string | null; decidedOn: string } | null;
+}
+
+/** One of a partner's people, as their admin sees them in the portal. */
+export interface PortalPerson {
+  id: number;
+  name: string;
+  email: string;
+  /** Their one role; null for an account still holding several from before one role per account. */
+  role: { id: number; name: string } | null;
+  disabled: boolean;
+  /** Invited and hasn't chosen a password yet. */
+  invited: boolean;
+  hasPassword?: boolean;
+  createdOn?: string;
+  inviteExpiresOn: string | null;
+  lastSignInOn: string | null;
+  isYou: boolean;
+  /** Not themselves and not another of their admins, which only our team changes. */
+  canChange: boolean;
+}
+
+/** A role a partner's admin may give. */
+/** A subscription one partner maps their own way, as their partner page lists it. */
+export interface PartnerOwnMapping {
+  subscriptionId: number;
+  subscriptionName: string;
+  /** Null when only a change of theirs waits, with no mapping of their own in use yet. */
+  changedOn: string | null;
+  changedBy: string | null;
+  inUse: boolean;
+  waiting: boolean;
+}
+
+export interface PortalRoleChoice {
+  id: number;
+  name: string;
+  description: string | null;
+  builtIn: boolean;
+}
+
+/** An invite's outcome: emailed, or the link to pass on. */
+export interface PortalInvite {
+  emailed: boolean;
+  emailError: string | null;
+  expiresOn: string | null;
+  link: string | null;
+}
+
+/** How much of one partner property their people see in the portal; absent from the map means hidden. */
+export type PortalAccessLevel = "visible" | "editable";
+
+export type PartnerChangeStatus = "waiting" | "live" | "approved" | "rejected" | "withdrawn";
+
+/** A change to a partner's own mapping of a subscription: theirs, from the portal, or our team's. */
+export interface PartnerChange {
+  id: number;
+  /** A change to their own mapping of a subscription, or to their own properties. */
+  kind: "mapping" | "properties";
+  /** The subscription a mapping change is for; null for a change to their properties. */
+  subscriptionId: number | null;
+  subscriptionName: string | null;
+  partnerId: number;
+  partnerName: string;
+  status: PartnerChangeStatus;
+  /** It drops their own mapping, so they get the subscription's again. */
+  backToOurs: boolean;
+  requestedOn: string;
+  /** By name; null when that account is gone. */
+  requestedBy: string | null;
+  decidedOn: string | null;
+  decidedBy: string | null;
+  /** Why it was rejected, or which version it put back. */
+  note: string | null;
+}
+
+/** One change, with the rules it asks for beside what is used for that partner now. */
+export interface PartnerChangeDetail extends PartnerChange {
+  mappingRules: string;
+  currentRules: string;
+  /** What is used for them now is the subscription's own mapping. */
+  currentIsOurs: boolean;
+  /** Why it can't be approved as it stands; null when it can. */
+  problem: string | null;
+}
+
+/** A change to a partner's properties, each value now beside what it would become; a secret one never shown. */
+export interface PartnerPropertyChangeDetail extends PartnerChange {
+  items: { key: string; current: string | null; proposed: string | null; secret: boolean }[];
+  problem: string | null;
+}
+
+/** A change in a partner's mapping history. */
+export interface PartnerChangeVersion extends PartnerChange {
+  mappingRules: string;
+  /** It was used for them once and has rules to put back. */
+  canPutBack: boolean;
 }

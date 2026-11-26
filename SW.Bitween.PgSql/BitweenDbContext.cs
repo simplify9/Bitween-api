@@ -81,6 +81,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.Name).IsRequired().HasMaxLength(200);
                 b.Property(p => p.AdapterProperties).EncryptedJsonb();
                 b.Property(p => p.SecretProperties).HasColumnType("jsonb");
+                b.Property(p => p.PortalAccess).HasColumnType("jsonb");
                 b.Property(p => p.LoginIdentity).HasMaxLength(500);
                 b.HasIndex(p => p.LoginIdentity).IsUnique();
                 b.HasMany(p => p.Subscriptions).WithOne().IsRequired(false).HasForeignKey(p => p.PartnerId)
@@ -108,7 +109,8 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                     new
                     {
                         Id = Partner.SystemId,
-                        Name = "SYSTEM"
+                        Name = "SYSTEM",
+                        ChangesNeedApproval = false
                     });
             });
 
@@ -574,6 +576,7 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.Property(p => p.LoginMethods).HasConversion<byte>();
                 // Added with service accounts; every account before them is a person (0).
                 b.Property(p => p.Kind).HasConversion<byte>();
+                b.HasIndex(p => p.PartnerId);
 
                 b.HasData(
                     new
@@ -648,16 +651,67 @@ public class BitweenDbContext(DbContextOptions options, RequestContext requestCo
                 b.HasIndex(p => p.Hash).IsUnique();
             });
 
+            // A partner's own mapping of a subscription; goes with either of them.
+            modelBuilder.Entity<PartnerMapping>(b =>
+            {
+                b.ToTable("partner_mapping");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasIndex(p => new { p.SubscriptionId, p.PartnerId }).IsUnique();
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Partner>().WithMany().HasForeignKey(p => p.PartnerId).OnDelete(DeleteBehavior.Cascade);
+                b.Property(p => p.MapperProperties).EncryptedJsonb();
+            });
+
+            modelBuilder.Entity<PartnerMappingChange>(b =>
+            {
+                b.ToTable("partner_mapping_change");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Ignore(p => p.BackToOurs);
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Partner>().WithMany().HasForeignKey(p => p.PartnerId).OnDelete(DeleteBehavior.Cascade);
+                b.Property(p => p.MapperProperties).EncryptedJsonb();
+                b.Property(p => p.Status).HasConversion<byte>();
+                b.Property(p => p.RequestedBy).HasMaxLength(50);
+                b.Property(p => p.DecidedBy).HasMaxLength(50);
+                b.Property(p => p.Note).HasMaxLength(1000);
+                b.HasIndex(p => new { p.SubscriptionId, p.PartnerId });
+                b.HasIndex(p => p.Status);
+            });
+
+            modelBuilder.Entity<PartnerPropertyChange>(b =>
+            {
+                b.ToTable("partner_property_change");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasOne<Partner>().WithMany().HasForeignKey(p => p.PartnerId).OnDelete(DeleteBehavior.Cascade);
+                b.Property(p => p.Values).EncryptedJsonb();
+                b.Property(p => p.Status).HasConversion<byte>();
+                b.Property(p => p.RequestedBy).HasMaxLength(50);
+                b.Property(p => p.DecidedBy).HasMaxLength(50);
+                b.Property(p => p.Note).HasMaxLength(1000);
+                b.HasIndex(p => p.PartnerId);
+                b.HasIndex(p => p.Status);
+            });
+
             modelBuilder.Entity<Role>(b =>
             {
                 b.ToTable("Roles");
                 b.HasKey(p => p.Id);
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
-                b.HasIndex(p => p.Name).IsUnique();
+                // A name is unique among one partner's own roles, and among ours: two partners may
+                // each make an "Operations". RoleValidation also keeps an owned role's name clear of ours.
+                b.HasIndex(p => new { p.PartnerId, p.Name }).IsUnique();
+                // Postgres counts every empty partner as different, so ours get their own unique index.
+                b.HasIndex(p => p.Name, "ix_roles_name_ours").IsUnique().HasFilter("partner_id IS NULL");
 
                 b.Property(p => p.Name).IsRequired().HasMaxLength(100);
                 b.Property(p => p.Description).HasMaxLength(500);
                 b.Property(p => p.Permissions).StoreAsJson();
+                b.Property(p => p.PresetKey).IsUnicode(false).HasMaxLength(50);
+                // One row per preset, however many nodes start at once.
+                b.HasIndex(p => p.PresetKey).IsUnique();
 
                 b.HasData(SystemRoleSeed());
             });

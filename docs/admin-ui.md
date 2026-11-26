@@ -6,7 +6,7 @@ Every page and action is gated by permissions. Anything a member cannot use is h
 
 ## Signing in
 
-The sign-in page offers email and password, Microsoft, an [OpenID Connect provider](security.md#openid-connect), or any of them together, depending on settings. With a mail server it also offers **Forgot password?**, and invite and reset emails lead to a page where the member chooses their password. After sign-in, members land on the first page their permissions allow. Sessions end after 30 minutes with no activity.
+The sign-in page offers email and password, Microsoft, an [OpenID Connect provider](security.md#openid-connect), or any of them together, depending on settings. With a mail server it also offers **Forgot password?**, and invite and reset emails lead to a page where the member chooses their password. After sign-in, members land on the first page their permissions allow, and a partner's people land on the [partner portal](security.md#partner-portal). Sessions end after 30 minutes with no activity.
 
 ## Work that takes long
 
@@ -30,7 +30,8 @@ Four things can take long, and carry on in the background once they take more th
 | **Aggregations** | Aggregation subscriptions and their sources. Create one, or roll up now. |
 | **Flow map** | A read-only map of gateways, bus message types and subscriptions, with warnings for loops, gateways without partners or routes, and messages nobody listens to. |
 | **All subscriptions** | Every subscription, filtered by type, information type, partner and status. |
-| **Partners** | Partner properties and API keys, and everything that uses each partner. |
+| **Partners** | Partner properties and API keys, and everything that uses each partner. Whether the partner's portal changes need approval, and which properties their people see or may change in the portal. |
+| **Partner changes** | Changes partners make in the [partner portal](security.md#partner-portal), to their mappings or their details, that wait for approval, beside what the partner has now, with Approve and Reject; and the latest decided. The sidebar shows how many wait. |
 | **Adapters** | Built-in and custom adapters with their settings, versions and the subscriptions that use them. With `adapter-source.view`, read the source a version was published with and compare two versions. With `adapter-source.edit`, write Python, JavaScript and TypeScript adapters in the editor; with `adapter-source.operate`, publish them and make a version current. The **Marketplace** tab lists the connectors of the registry set under Settings, marks those already installed or with an update, and installs one ([Installing from the marketplace](adapters.md#installing-from-the-marketplace)). |
 
 ### Subscription studio
@@ -82,7 +83,7 @@ their next save.
 
 | Page | What it does |
 |---|---|
-| **Team** | Members: add with an invite (emailed when a mail server is set, otherwise a link to send) or a password, resend an expired invite, assign roles, set a password, unlock, disable and remove. Invited members show as *Invited* until they choose a password. Roles: a permission matrix with a live preview of the navigation the role would see. |
+| **Team** | Members: add with an invite (emailed when a mail server is set, otherwise a link to send) or a password, resend an expired invite, choose their role (one per member), set a password, unlock, disable and remove. Invited members show as *Invited* until they choose a password. Roles: a permission matrix with a live preview of the navigation the role would see. A partner's people are added here too, as **A partner's person**, and hold partner roles; they sign in to the [partner portal](security.md#partner-portal) and see nothing else. |
 | **Settings** | Runtime settings by section, including branding with an instant preview. Values owned by the environment are shown read-only. Documents & storage shows the bucket's deletion rules and what the retention settings do, and asks before saving a change to them. **Mail server** is the server Email channels send through. **AI** is the provider and API key AI features use ([AI](configuration.md#ai)). **Notification channels** lists channels and who uses each, and links to any legacy notifiers. Each channel opens on a page of its own: Email, Microsoft Teams and Slack first, any other adapter one click away, a test message, and its recent sends. A role with the notification permissions but not Settings, such as the built-in Member and Viewer, finds only the Notification channels section here. |
 | **Audit trail** | Every configuration change with its old and new values. |
 

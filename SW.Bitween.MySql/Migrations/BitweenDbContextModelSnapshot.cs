@@ -85,6 +85,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<string>("OidcIdentity")
                         .HasColumnType("longtext");
 
+                    b.Property<int?>("PartnerId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Password")
                         .HasMaxLength(500)
                         .IsUnicode(false)
@@ -97,6 +100,8 @@ namespace SW.Bitween.MySql.Migrations
 
                     b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("PartnerId");
 
                     b.ToTable("Accounts", (string)null);
 
@@ -230,6 +235,9 @@ namespace SW.Bitween.MySql.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
 
+                    b.Property<bool>("ForPartners")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<bool>("IsSystem")
                         .HasColumnType("tinyint(1)");
 
@@ -244,12 +252,23 @@ namespace SW.Bitween.MySql.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("varchar(100)");
 
+                    b.Property<int?>("PartnerId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Permissions")
                         .HasColumnType("longtext");
 
+                    b.Property<string>("PresetKey")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
                     b.HasKey("Id");
 
-                    b.HasIndex("Name")
+                    b.HasIndex("PresetKey")
+                        .IsUnique();
+
+                    b.HasIndex("PartnerId", "Name")
                         .IsUnique();
 
                     b.ToTable("Roles", (string)null);
@@ -260,6 +279,7 @@ namespace SW.Bitween.MySql.Migrations
                             Id = 1,
                             CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Full access to everything, including members, roles and settings.",
+                            ForPartners = false,
                             IsSystem = true,
                             Name = "Administrator",
                             Permissions = "[]"
@@ -269,6 +289,7 @@ namespace SW.Bitween.MySql.Migrations
                             Id = 2,
                             CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Runs and configures integrations. Can't manage members, roles or settings.",
+                            ForPartners = false,
                             IsSystem = true,
                             Name = "Member",
                             Permissions = "[]"
@@ -278,6 +299,7 @@ namespace SW.Bitween.MySql.Migrations
                             Id = 3,
                             CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Read-only access to integrations, exchanges and configuration.",
+                            ForPartners = false,
                             IsSystem = true,
                             Name = "Viewer",
                             Permissions = "[]"
@@ -1893,6 +1915,9 @@ namespace SW.Bitween.MySql.Migrations
                     b.Property<string>("AdapterProperties")
                         .HasColumnType("longtext");
 
+                    b.Property<bool>("ChangesNeedApproval")
+                        .HasColumnType("tinyint(1)");
+
                     b.Property<string>("LoginIdentity")
                         .HasMaxLength(500)
                         .HasColumnType("varchar(500)");
@@ -1902,6 +1927,9 @@ namespace SW.Bitween.MySql.Migrations
                         .HasMaxLength(200)
                         .IsUnicode(false)
                         .HasColumnType("varchar(200)");
+
+                    b.Property<string>("PortalAccess")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("SecretProperties")
                         .HasColumnType("longtext");
@@ -1917,8 +1945,145 @@ namespace SW.Bitween.MySql.Migrations
                         new
                         {
                             Id = 1,
+                            ChangesNeedApproval = false,
                             Name = "SYSTEM"
                         });
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerMapping", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("MapperProperties")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("longtext");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("SubscriptionId", "PartnerId")
+                        .IsUnique();
+
+                    b.ToTable("PartnerMappings", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerMappingChange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DecidedBy")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("DecidedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("MapperProperties")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RequestedBy")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime>("RequestedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("SubscriptionId", "PartnerId");
+
+                    b.ToTable("PartnerMappingChanges", (string)null);
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerPropertyChange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DecidedBy")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime?>("DecidedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("varchar(1000)");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RequestedBy")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(50)");
+
+                    b.Property<DateTime>("RequestedOn")
+                        .HasColumnType("datetime(6)");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("tinyint unsigned");
+
+                    b.Property<string>("Values")
+                        .HasColumnType("longtext");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartnerId");
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("PartnerPropertyChanges", (string)null);
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.ReceiveAttempt", b =>
@@ -3410,6 +3575,45 @@ namespace SW.Bitween.MySql.Migrations
                         });
 
                     b.Navigation("ApiCredentials");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerMapping", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SW.Bitween.Domain.Subscription", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerMappingChange", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("SW.Bitween.Domain.Subscription", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerPropertyChange", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Subscription", b =>

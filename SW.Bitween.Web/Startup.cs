@@ -1151,6 +1151,10 @@ namespace SW.Bitween.Web
                 await next();
             });
 
+            // A partner's people reach the partner portal and nothing else, whatever a handler forgets
+            // to check. After authorization, so /mcp's own sign-in has run and is seen here too.
+            app.UseMiddleware<SW.Bitween.Services.PartnerPortalGate>();
+
             // After everything that decides whether a request may run, and before the request context
             // is filled in: a read the admin UI lets go on in the background keeps the first's outcome
             // and fills in the second for itself.
@@ -1170,6 +1174,7 @@ namespace SW.Bitween.Web
             app.UseEndpoints(endpoints =>
             {
                 endpoints.MapControllers();
+                endpoints.MapCqApi();
                 endpoints.MapHub<SW.Bitween.Services.Background.BackgroundRequestHub>(
                     SW.Bitween.Services.Background.BackgroundRequestHub.Path);
                 // /health keeps answering as it always has - the process is up - because probes

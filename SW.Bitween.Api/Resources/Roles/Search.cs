@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using SW.Bitween.Domain;
 using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Model;
 using SW.EfCoreExtensions;
@@ -21,6 +23,9 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext) :
                 Name = role.Name,
                 Description = role.Description,
                 IsSystem = role.IsSystem,
+                ForPartners = role.ForPartners,
+                PartnerId = role.PartnerId,
+                PartnerName = dbContext.Set<Partner>().Where(p => p.Id == role.PartnerId).Select(p => p.Name).FirstOrDefault(),
                 Permissions = role.Permissions,
                 CreatedOn = role.CreatedOn,
                 MemberCount = dbContext.Set<AccountRoleLink>().Count(l => l.RoleId == role.Id)
@@ -36,8 +41,10 @@ public class Search(BitweenDbContext dbContext, RequestContext requestContext) :
             searchyRequest.PageSize, searchyRequest.PageIndex).ToListAsync();
 
         // Built-in roles derive their grants from the catalog, so fill them in after the query.
+        var presets = await dbContext.Set<Role>().AsNoTracking().Where(r => r.PresetKey != null)
+            .ToDictionaryAsync(r => r.Id, r => r.PresetKey);
         foreach (var row in result.Where(r => r.IsSystem))
-            row.Permissions = Role.SystemPermissions(row.Id);
+            row.Permissions = Role.BuiltInPermissions(row.Id, presets.GetValueOrDefault(row.Id));
 
         return new SearchyResponse<RoleRow>
         {

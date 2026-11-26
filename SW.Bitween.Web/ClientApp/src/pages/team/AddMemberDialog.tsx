@@ -1,13 +1,21 @@
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiRequestError, getAppConfig, type InviteResult } from "../../api";
 import { Button, FormError } from "../../components/ui/basics";
 import { CopyField } from "../../components/ui/CopyField";
 import { Checkbox, Field, PasswordInput, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
+import { SegmentedControl } from "../../components/ui/SegmentedControl";
+import { PartnerPicker } from "../../components/config/pickers";
+import { RolePicker } from "./RolePicker";
 import { formatDateTime } from "../../lib/dates";
 import { PASSWORD_HINT, validatePassword } from "../../lib/passwordPolicy";
 import { keys } from "../../api/queryKeys";
+import { useGrantableRoles, useTeamSource } from "./teamSource";
+
+/** The built-in Viewer, seeded with this id on every installation (BitweenDbContext.SystemRoleSeed). */
+const VIEWER_ROLE_ID = "3";
 
 type Mode = "invite" | "password";
 
@@ -41,7 +49,7 @@ function Option({
 
 export function AddMemberDialog({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient();
-  const roles = useQuery({ queryKey: keys.roles.list, queryFn: () => api.listRoles() });
+  const source = useTeamSource();
   const appConfig = useQuery({ queryKey: keys.appConfig, queryFn: getAppConfig });
   const mailOn = Boolean(appConfig.data?.mailServerConfigured);
   // Microsoft or single sign-on only: nobody has a password, so there is none to choose or set.
@@ -52,19 +60,42 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
   const [mode, setMode] = useState<Mode>("invite");
   const [password, setPassword] = useState("");
   const [emailThem, setEmailThem] = useState(true);
-  const [roleIds, setRoleIds] = useState<string[]>([]);
+  const [roleId, setRoleId] = useState<string | null>(null);
+  // Whose person they are: ours, or a partner's, who sees only the partner portal. Each side has
+  // its own roles, so switching clears the ones ticked.
+  // A partner's admin adds only their own company's people.
+  const [side, setSide] = useState<"team" | "partner">(source.partner ? "partner" : "team");
+  const [partnerId, setPartnerId] = useState<number | null>(null);
+  const forPartner = side === "partner";
+  // Before a partner is chosen, only the partner roles every partner shares; then that partner's own too.
+  const roles = useGrantableRoles(forPartner ? String(partnerId ?? "") : null);
+  const rolesForSide = roles.data ?? [];
+  // Least access by default: Viewer for one of us, the built-in partner role for a partner's person,
+  // and the first a partner's admin may give, which is the least.
+  const defaultRole = source.partner
+    ? rolesForSide[0]
+    : forPartner
+      ? rolesForSide.find((r) => r.isSystem)
+      : rolesForSide.find((r) => r.id === VIEWER_ROLE_ID);
+  const chosenRole = roleId ?? defaultRole?.id ?? null;
   const [passwordError, setPasswordError] = useState("");
   // An invite that wasn't emailed, for whoever added the member to pass on.
   const [handOver, setHandOver] = useState<{ name: string; result: InviteResult } | null>(null);
 
   const create = useMutation({
     mutationFn: async () => {
+      if (source.partner) {
+        // Always an invite: their admin never sets a password for someone.
+        const { id, ...result } = await api.addPortalPerson({ name: displayName.trim(), email: email.trim(), roleId: Number(chosenRole) });
+        return { user: { id: String(id), displayName: displayName.trim() }, result };
+      }
       const inviting = !passwordsOff && mode === "invite";
       const user = await api.createUser({
         displayName,
         email,
-        roleIds,
+        roleIds: chosenRole ? [chosenRole] : [],
         ...(inviting ? { invite: true } : passwordsOff ? {} : { password }),
+        partnerId: forPartner && partnerId != null ? String(partnerId) : null,
       });
       if (!(inviting || (passwordsOff && mailOn && emailThem))) return { user, result: null };
       try {
@@ -76,19 +107,24 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
       }
     },
     onSuccess: ({ user, result }) => {
-      void queryClient.invalidateQueries({ queryKey: keys.users.all });
-      void queryClient.invalidateQueries({ queryKey: keys.roles.all });
+      for (const key of source.keys.all) void queryClient.invalidateQueries({ queryKey: key });
       if (result && !result.emailed) setHandOver({ name: user.displayName, result });
       else onClose();
     },
   });
 
-  const toggleRole = (id: string) =>
-    setRoleIds((prev) => (prev.includes(id) ? prev.filter((r) => r !== id) : [...prev, id]));
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!passwordsOff && mode === "password") {
+    if (!chosenRole) {
+      setPasswordError("Choose a role.");
+      return;
+    }
+    if (forPartner && partnerId == null && !source.partner) {
+      setPasswordError("Choose the partner they belong to.");
+      return;
+    }
+    if (!source.partner && !passwordsOff && mode === "password") {
       // The server rejects a weak password too; checking here saves the round trip.
       const problems = validatePassword(password);
       if (problems.length > 0) {
@@ -136,7 +172,7 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <Dialog title="Add a member" onClose={onClose}>
+    <Dialog title={source.partner ? "Invite someone" : "Add a member"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
         <Field label="Name" htmlFor="member-name">
           <TextInput
@@ -160,7 +196,50 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
           />
         </Field>
 
-        {passwordsOff ? (
+        {!source.partner && (
+        <div className="space-y-2">
+          <div className="text-[13px] font-medium text-ink-700">Who they are</div>
+          <SegmentedControl
+            label="Who they are"
+            value={side}
+            onChange={(v) => {
+              if (v === side) return;
+              setSide(v);
+              // Each side has its own roles; back to that side's default.
+              setRoleId(null);
+            }}
+            options={[
+              { value: "team", label: "Our team", title: "One of us: signs in to Bitween itself, with what their roles allow." },
+              {
+                value: "partner",
+                label: "A partner's person",
+                title: "Someone at a partner: signs in to the partner portal and sees only that partner's data.",
+              },
+            ]}
+          />
+          {forPartner && (
+            <Field label="Partner" htmlFor="member-partner" hint="Fixed once they're added.">
+              <PartnerPicker
+                id="member-partner"
+                value={partnerId}
+                onChange={(v) => {
+                  setPartnerId(v === "none" ? null : v);
+                  // Another partner's own roles aren't theirs to hold.
+                  setRoleId(null);
+                }}
+              />
+            </Field>
+          )}
+        </div>
+        )}
+
+        {source.partner ? (
+          <p className="text-[13px] text-ink-500">
+            {mailOn
+              ? "We email them a link to choose their password. It works once, for 48 hours."
+              : "You get a link to send them, to choose their password. It works once, for 48 hours."}
+          </p>
+        ) : passwordsOff ? (
           mailOn && (
             <Checkbox
               label="Email them that they've been added"
@@ -183,7 +262,7 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
           </fieldset>
         )}
 
-        {!passwordsOff && mode === "password" && (
+        {!source.partner && !passwordsOff && mode === "password" && (
           <Field label="Password" htmlFor="member-password" hint={PASSWORD_HINT}>
             <PasswordInput
               id="member-password"
@@ -196,20 +275,17 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
           </Field>
         )}
 
-        <fieldset>
-          <legend className="mb-2 block text-[13px] font-medium text-ink-700">Roles</legend>
-          <div className="max-h-56 space-y-2.5 overflow-y-auto rounded-lg border border-ink-200 p-3">
-            {(roles.data ?? []).map((role) => (
-              <Checkbox
-                key={role.id}
-                label={role.name}
-                description={role.description}
-                checked={roleIds.includes(role.id)}
-                onChange={() => toggleRole(role.id)}
-              />
-            ))}
-          </div>
-        </fieldset>
+        <RolePicker roles={rolesForSide} value={chosenRole ? [chosenRole] : []} onChange={setRoleId} />
+        <FormError>{roles.error?.message}</FormError>
+        {forPartner && !source.partner && roles.data && rolesForSide.length === 0 && (
+          <p className="text-[13px] text-ink-500">
+            No partner roles yet.{" "}
+            <Link to="/team/roles/new?forPartners=1" className="text-ink-700 underline">
+              Create one
+            </Link>{" "}
+            to choose what partners' people may see.
+          </p>
+        )}
 
         <FormError>
           {passwordError ||
@@ -220,7 +296,13 @@ export function AddMemberDialog({ onClose }: { onClose: () => void }) {
           <Button onClick={onClose}>Cancel</Button>
           {/* Waits for the instance's settings: whether passwords and mail are on decides what is sent. */}
           <Button type="submit" variant="primary" busy={create.isPending} disabled={!appConfig.data}>
-            {!passwordsOff && mode === "invite" ? (mailOn ? "Add and email invite" : "Add and make invite link") : "Add member"}
+            {source.partner
+              ? "Invite"
+              : !passwordsOff && mode === "invite"
+                ? mailOn
+                  ? "Add and email invite"
+                  : "Add and make invite link"
+                : "Add member"}
           </Button>
         </div>
       </form>

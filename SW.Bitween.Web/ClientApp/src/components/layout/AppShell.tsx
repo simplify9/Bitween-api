@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Link, NavLink, Outlet, useLocation, useNavigate } from "react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowRight,
   ChevronDown,
@@ -9,11 +9,12 @@ import {
   Menu as MenuIcon,
   PanelLeftClose,
   PanelLeftOpen,
+  KeyRound,
   UserRound,
   X,
   Search as SearchIcon,
 } from "lucide-react";
-import type { SettingRow } from "../../api";
+import { api, type SettingRow } from "../../api";
 import { useSession } from "../../auth/useSession";
 import { type Branding, useApplyBranding } from "../../lib/branding";
 import { settingsDraft, useSettingsDraft } from "../../lib/settingsDraft";
@@ -106,6 +107,29 @@ function AppFooter({ branding }: { branding: Branding }) {
         )}
       </div>
     </footer>
+  );
+}
+
+/**
+ * How many partner changes wait for approval, beside the page's name, so nobody has to open it to
+ * find out. Only drawn for someone who sees the entry, which is who may read the count.
+ */
+function WaitingCount({ railed }: { railed: boolean }) {
+  const count = useQuery({
+    queryKey: keys.portal.changeCount,
+    queryFn: () => api.countWaitingPartnerChanges(),
+    refetchInterval: 60_000,
+  });
+  if (!count.data) return null;
+  return railed ? (
+    <span className="absolute top-0.5 right-1 size-2 rounded-full bg-crimson-500" aria-label={`${count.data} waiting`} />
+  ) : (
+    <span
+      className="ml-auto rounded-full bg-crimson-600 px-1.5 text-[11px] leading-4 font-semibold text-white"
+      title={`${count.data} waiting for approval`}
+    >
+      {count.data}
+    </span>
   );
 }
 
@@ -204,7 +228,7 @@ function SidebarContent({
   const scroll = useScrollEdges(`${collapsed.join()}|${railed}|${session?.permissions.length ?? 0}`);
   if (!session) return null;
 
-  const groups = visibleGroups(session.permissions);
+  const groups = visibleGroups(session.permissions, !!session.partner);
 
   const toggleGroup = (label: string) =>
     setCollapsed((prev) => {
@@ -285,6 +309,9 @@ function SidebarContent({
                       <li key={item.path}>
                         <NavLink
                           to={item.path}
+                          // Only its own address when another entry lives under it, as every portal
+                          // page does under the portal's Exchanges.
+                          end={groups.some((g) => g.items.some((other) => other.path.startsWith(item.path + "/")))}
                           onClick={onNavigate}
                           aria-label={railed ? item.label : undefined}
                           onMouseEnter={railed ? (e) => showTip(e.currentTarget, item.label) : undefined}
@@ -312,6 +339,7 @@ function SidebarContent({
                               )}
                               <item.icon className="size-4 shrink-0" aria-hidden />
                               {!railed && <span className="truncate">{item.label}</span>}
+                              {item.id === "partnerChanges" && <WaitingCount railed={railed} />}
                             </>
                           )}
                         </NavLink>
@@ -366,16 +394,26 @@ function SidebarContent({
                     {session.user.displayName}
                   </span>
                   <span className="block truncate text-[11px] text-ink-400">
-                    {session.roles.map((r) => r.name).join(", ") || "No roles"}
+                    {/* A partner's people see whose portal this is: their company's. */}
+                    {[session.partner?.name, session.roles.map((r) => r.name).join(", ") || "No roles"]
+                      .filter(Boolean)
+                      .join(" · ")}
                   </span>
                 </span>
               )}
             </button>
           }
         >
-          <MenuItem onSelect={() => navigate("/profile")}>
-            <UserRound className="size-4" /> Your profile
-          </MenuItem>
+          {/* The profile page is ours; a partner's people have their password to change and nothing else. */}
+          {session.partner ? (
+            <MenuItem onSelect={() => navigate("/change-password")}>
+              <KeyRound className="size-4" /> Change password
+            </MenuItem>
+          ) : (
+            <MenuItem onSelect={() => navigate("/profile")}>
+              <UserRound className="size-4" /> Your profile
+            </MenuItem>
+          )}
           <MenuItem onSelect={() => void signOut()}>
             <LogOut className="size-4" /> Sign out
           </MenuItem>
@@ -388,6 +426,7 @@ function SidebarContent({
 const RAILED_KEY = "bitween-nav-railed";
 
 export function AppShell() {
+  const { session } = useSession();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [railed, setRailed] = useState(() => localStorage.getItem(RAILED_KEY) === "1");
   const { pathname, search } = useLocation();
@@ -421,7 +460,11 @@ export function AppShell() {
   // a page asks for things in its own effects, which run after this but before a passive one.
   useLayoutEffect(() => setCurrentPage(pathname + search), [pathname, search]);
   // Work still running from before a reload, or finished while away, shows in the header again.
-  useEffect(() => void refreshBackground(), []);
+  // A partner's people start none, and may not list them.
+  const partner = !!session?.partner;
+  useEffect(() => {
+    if (!partner) void refreshBackground();
+  }, [partner]);
 
   // ⌘K / Ctrl+K anywhere, as in most tools people already use; "/" too, when not typing.
   useEffect(() => {

@@ -45,6 +45,12 @@ public interface IInfolinkCache
 
     Task<Partner[]> ListPartnersAsync();
 
+    /// <summary>
+    /// The partner's own mapping of the subscription, or null when they use the subscription's.
+    /// Shared like a partner: read it, never change it.
+    /// </summary>
+    Task<PartnerMapping> PartnerMappingAsync(int subscriptionId, int partnerId) => Task.FromResult<PartnerMapping>(null);
+
     /// <summary>An API gateway with its attachments and their partners, shared like a partner.</summary>
     Task<ApiGateway> ApiGatewayByUrlNameAsync(string urlName);
 }

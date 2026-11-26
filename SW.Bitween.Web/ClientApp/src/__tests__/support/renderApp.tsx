@@ -33,6 +33,8 @@ export interface Signed {
   name?: string;
   permissions?: string[];
   roles?: { id: number; name: string }[];
+  /** Makes them a partner's person, who sees only the partner portal. */
+  partner?: { id: number; name: string };
 }
 
 /** The profile the app loads its session from. */
@@ -47,6 +49,8 @@ export const profile = (who: Signed = {}) =>
       createdOn: "2026-01-01T00:00:00Z",
       roles: who.roles ?? [{ id: 1, name: "Administrator" }],
       permissions: who.permissions ?? ALL_PERMISSIONS,
+      partnerId: who.partner?.id ?? null,
+      partnerName: who.partner?.name ?? null,
     }),
   );
 
@@ -77,6 +81,8 @@ export function renderApp(path: string, { as = {}, config = {}, handlers = [] }:
     ...(as ? [profile(as)] : []),
     // A lookup most subscription screens make and few tests care about: none, unless a test says.
     http.get(apiPath("/subscriptioncategories"), () => HttpResponse.json({ result: [], totalCount: 0 })),
+    // A partner's own mappings, which their page lists: none, unless a test says.
+    http.get(apiPath("/partners/:id/ownmappings"), () => HttpResponse.json([])),
     // A subscription's versions, which its overview lists: none recorded, unless a test says.
     http.get(apiPath("/subscriptions/history"), () => HttpResponse.json([])),
     // A receiver's bookmark, which a receiving subscription's runs show: none, unless a test says.
@@ -93,6 +99,10 @@ export function renderApp(path: string, { as = {}, config = {}, handlers = [] }:
     http.get(apiPath("/mirror/listed"), () => HttpResponse.json({ items: [], testing: null, waiting: [], error: null })),
     // Reads carried on in the background, which the header asks for as the app loads: none, unless a test says.
     http.get(apiPath("/background"), () => HttpResponse.json([])),
+    // The subscription page's list of partners with their own mapping; empty unless a test says.
+    http.get(apiPath("/subscriptions/:id/partnermappings"), () => HttpResponse.json([])),
+    // The count of partner changes waiting for approval, beside the sidebar entry; none unless a test says.
+    http.get(apiPath("/partnerchanges/count"), () => HttpResponse.json(0)),
   );
 
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });

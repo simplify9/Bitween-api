@@ -1,5 +1,7 @@
 import {
   Activity,
+  Building2,
+  FileCog,
   ArrowLeftRight,
   Cable,
   CalendarClock,
@@ -10,6 +12,7 @@ import {
   KeyRound,
   LayoutDashboard,
   Handshake,
+  ClipboardCheck,
   Layers,
   Network,
   Bot,
@@ -47,7 +50,7 @@ import type { PermissionKey } from "./api";
  *    RetryPoliciesPage for the whole of one.
  */
 
-export type NavGroupId = "operate" | "subscriptions" | "configuration" | "administration";
+export type NavGroupId = "operate" | "subscriptions" | "configuration" | "administration" | "portal";
 
 export interface PageDef<Id extends string = string> {
   /** "subscriptions/:id" - relative to the app root, as the router takes it. */
@@ -66,6 +69,12 @@ export interface PageDef<Id extends string = string> {
   layout?: "full";
   /** Found by the command palette under these words too. */
   keywords?: string[];
+  /**
+   * A partner's people's page, in the partner portal: shown and opened only by them, and none of
+   * the others by them. Our administrators hold the portal's permissions too, so permissions alone
+   * can't keep the two apart.
+   */
+  audience?: "partner";
 }
 
 const definePages = <Id extends string>(pages: Record<Id, PageDef<NoInfer<Id>>>) => pages;
@@ -260,6 +269,14 @@ export const PAGES = definePages({
     keywords: ["customers", "suppliers", "api keys"],
   },
   partner: { path: "partners/:id", title: "Partner", permission: "partners.view", parent: "partners" },
+  // Beside partners: what their people change in the portal, waiting for approval.
+  partnerChanges: {
+    path: "partner-changes",
+    title: "Partner changes",
+    permission: "partner-changes.view",
+    nav: { group: "subscriptions", icon: ClipboardCheck },
+    keywords: ["approval", "approve", "portal", "partner mapping"],
+  },
 
   // ── Configuration ──
   // First in Configuration: a data source is a connection to something outside Bitween - a broker
@@ -458,6 +475,82 @@ export const PAGES = definePages({
   },
 
   profile: { path: "profile", title: "Your profile", keywords: ["password", "account"] },
+  // ── Partner portal: a partner's people's pages, and nothing else for them ──
+  portalExchanges: {
+    path: "portal",
+    title: "Exchanges",
+    permission: "portal-exchanges.view",
+    nav: { group: "portal", icon: ArrowLeftRight },
+    audience: "partner",
+  },
+  portalMappings: {
+    path: "portal/mappings",
+    title: "Mappings",
+    permission: "portal-mappings.view",
+    nav: { group: "portal", icon: FileCog },
+    audience: "partner",
+  },
+  portalMapping: {
+    path: "portal/mappings/:subscriptionId",
+    title: "Mapping",
+    permission: "portal-mappings.view",
+    parent: "portalMappings",
+    audience: "partner",
+  },
+  portalSubscriptions: {
+    path: "portal/subscriptions",
+    title: "Subscriptions",
+    permission: "portal-subscriptions.view",
+    nav: { group: "portal", icon: Layers },
+    audience: "partner",
+  },
+  portalDetails: {
+    path: "portal/details",
+    title: "Your details",
+    permission: "portal-properties.view",
+    nav: { group: "portal", icon: Building2 },
+    audience: "partner",
+  },
+  // Our own Members and Roles pages, limited to their company: see pages/team/teamSource.tsx.
+  portalPeople: {
+    path: "portal/people",
+    title: "People",
+    permission: "portal-people.view",
+    alsoFor: ["portal-people.edit"],
+    nav: { group: "portal", icon: Users },
+    audience: "partner",
+  },
+  portalPerson: {
+    path: "portal/people/:id",
+    title: "Person",
+    permission: "portal-people.view",
+    alsoFor: ["portal-people.edit"],
+    parent: "portalPeople",
+    audience: "partner",
+  },
+  portalRoles: {
+    path: "portal/roles",
+    title: "Roles",
+    permission: "portal-people.view",
+    alsoFor: ["portal-people.edit"],
+    nav: { group: "portal", icon: ShieldCheck },
+    audience: "partner",
+  },
+  portalRoleNew: {
+    path: "portal/roles/new",
+    title: "New role",
+    permission: "portal-people.edit",
+    parent: "portalRoles",
+    audience: "partner",
+  },
+  portalRole: {
+    path: "portal/roles/:id",
+    title: "Role",
+    permission: "portal-people.view",
+    alsoFor: ["portal-people.edit"],
+    parent: "portalRoles",
+    audience: "partner",
+  },
 });
 
 export type PageId = keyof typeof PAGES;

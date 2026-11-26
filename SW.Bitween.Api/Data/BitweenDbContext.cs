@@ -256,6 +256,7 @@ namespace SW.Bitween
                 b.Property(p => p.Name).IsRequired().IsUnicode(false).HasMaxLength(200);
                 b.Property(p => p.AdapterProperties).StoreAsJson().Encrypted();
                 b.Property(p => p.SecretProperties).StoreAsJson();
+                b.Property(p => p.PortalAccess).StoreAsJson();
                 b.Property(p => p.LoginIdentity).HasMaxLength(500);
                 b.HasIndex(p => p.LoginIdentity).IsUnique();
                 b.HasMany(p => p.Subscriptions).WithOne().IsRequired(false).HasForeignKey(p => p.PartnerId)
@@ -283,7 +284,8 @@ namespace SW.Bitween
                     new
                     {
                         Id = Partner.SystemId,
-                        Name = "SYSTEM"
+                        Name = "SYSTEM",
+                        ChangesNeedApproval = false
                     });
             });
 
@@ -732,6 +734,7 @@ namespace SW.Bitween
                 b.Property(p => p.LoginMethods).HasConversion<byte>();
                 // Added with service accounts; every account before them is a person (0).
                 b.Property(p => p.Kind).HasConversion<byte>();
+                b.HasIndex(p => p.PartnerId);
 
                 b.HasData(
                     new
@@ -806,16 +809,70 @@ namespace SW.Bitween
                 b.HasIndex(p => p.Hash).IsUnique();
             });
 
+            // A partner's own mapping of a subscription; goes with either of them.
+            modelBuilder.Entity<PartnerMapping>(b =>
+            {
+                b.ToTable("PartnerMappings");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasIndex(p => new { p.SubscriptionId, p.PartnerId }).IsUnique();
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Partner>().WithMany().HasForeignKey(p => p.PartnerId).OnDelete(DeleteBehavior.Cascade);
+                b.Property(p => p.MapperProperties).StoreAsJson().Encrypted();
+            });
+
+            // Every change to a partner's own mapping, and the ones waiting for approval.
+            modelBuilder.Entity<PartnerMappingChange>(b =>
+            {
+                b.ToTable("PartnerMappingChanges");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.Ignore(p => p.BackToOurs);
+                b.HasOne<Subscription>().WithMany().HasForeignKey(p => p.SubscriptionId).OnDelete(DeleteBehavior.Cascade);
+                b.HasOne<Partner>().WithMany().HasForeignKey(p => p.PartnerId).OnDelete(DeleteBehavior.Cascade);
+                b.Property(p => p.MapperProperties).StoreAsJson().Encrypted();
+                b.Property(p => p.Status).HasConversion<byte>();
+                b.Property(p => p.RequestedBy).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.DecidedBy).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.Note).HasMaxLength(1000);
+                // One subscription and partner's history, and the waiting ones our team decides on.
+                b.HasIndex(p => new { p.SubscriptionId, p.PartnerId });
+                b.HasIndex(p => p.Status);
+            });
+
+            // A partner's changes to their own properties, waiting for approval or decided.
+            modelBuilder.Entity<PartnerPropertyChange>(b =>
+            {
+                b.ToTable("PartnerPropertyChanges");
+                b.HasKey(p => p.Id);
+                b.Property(p => p.Id).ValueGeneratedOnAdd();
+                b.HasOne<Partner>().WithMany().HasForeignKey(p => p.PartnerId).OnDelete(DeleteBehavior.Cascade);
+                b.Property(p => p.Values).StoreAsJson().Encrypted();
+                b.Property(p => p.Status).HasConversion<byte>();
+                b.Property(p => p.RequestedBy).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.DecidedBy).IsUnicode(false).HasMaxLength(50);
+                b.Property(p => p.Note).HasMaxLength(1000);
+                b.HasIndex(p => p.PartnerId);
+                b.HasIndex(p => p.Status);
+            });
+
             modelBuilder.Entity<Role>(b =>
             {
                 b.ToTable("Roles");
                 b.HasKey(p => p.Id);
                 b.Property(p => p.Id).ValueGeneratedOnAdd();
-                b.HasIndex(p => p.Name).IsUnique();
+                // A name is unique among one partner's own roles, and among ours: two partners may
+                // each make an "Operations". RoleValidation also keeps an owned role's name clear of ours.
+                // No filter: SQL Server then counts our roles' empty partner as one value, so our names
+                // stay unique there too (it would otherwise leave rows without a partner out).
+                b.HasIndex(p => new { p.PartnerId, p.Name }).IsUnique().HasFilter(null);
 
                 b.Property(p => p.Name).IsRequired().HasMaxLength(100);
                 b.Property(p => p.Description).HasMaxLength(500);
                 b.Property(p => p.Permissions).StoreAsJson();
+                b.Property(p => p.PresetKey).IsUnicode(false).HasMaxLength(50);
+                // One row per preset, however many nodes start at once.
+                b.HasIndex(p => p.PresetKey).IsUnique();
 
                 b.HasData(SystemRoleSeed());
             });
@@ -923,7 +980,7 @@ namespace SW.Bitween
 
             var revokesCache = cache != null && ChangeTracker.Entries().Any(e =>
                 e.State is EntityState.Added or EntityState.Modified or EntityState.Deleted &&
-                e.Entity is Partner or ApiCredential or ApiGateway or ApiGatewayPartner or RetryPolicy);
+                e.Entity is Partner or ApiCredential or ApiGateway or ApiGatewayPartner or RetryPolicy or PartnerMapping);
 
             // Plus any a caller queued itself, such as a delivery's response.
             var outgoing = ChangeTracker.Entries<OutboxMessage>()

@@ -46,7 +46,16 @@ public class Summary(BitweenDbContext dbContext, RequestContext requestContext, 
         // The same read the list itself is: whoever may see the exchanges, or the dashboard that
         // summarises them, may see how many there are.
         await requestContext.EnsurePermission(dbContext, Model.Permissions.Exchanges.View, Model.Permissions.Dashboard.View);
+        return await SummarizeAsync(searchyRequest, null);
+    }
 
+    /// <summary>
+    /// The counts by status, and the volume over time, of what a filter matches. With
+    /// <paramref name="partnerId"/>, only that partner's: what the partner portal counts. The caller
+    /// has checked who may see them.
+    /// </summary>
+    internal async Task<XchangeSummary> SummarizeAsync(SearchyRequest searchyRequest, int? partnerId)
+    {
         // Removed before anything else reads the request, from every condition rather than only
         // the first the special filters look at: a status filter left in a later condition would
         // reach Searchy as a column, and XchangeRow.StatusFilter is not one the database has.
@@ -57,9 +66,10 @@ public class Summary(BitweenDbContext dbContext, RequestContext requestContext, 
         // Taken before FilteredRowsAsync takes the special filters out of the request: a count finished
         // in the background filters again from this, with a database of its own.
         var asked = (SearchyRequest)searchyRequest.Clone();
-        var view = ViewKey(searchyRequest, DateTime.UtcNow);
+        // A partner's counts are kept apart from everyone else's: the same filter is another view.
+        var view = (partnerId is { } partner ? $"partner:{partner}|" : "") + ViewKey(searchyRequest, DateTime.UtcNow);
 
-        var rows = await XchangeFilters.FilteredRowsAsync(dbContext, searchyRequest);
+        var rows = await XchangeFilters.FilteredRowsAsync(dbContext, searchyRequest, partnerId: partnerId);
 
         // Read after FilteredRowsAsync, which is what moves the request's dates to UTC. The
         // StartedOn filters are plain columns, so Searchy has applied them and left them in place.
@@ -99,7 +109,7 @@ public class Summary(BitweenDbContext dbContext, RequestContext requestContext, 
         using var histogramDeadline = new CancellationTokenSource(Budget);
         var started = await Answer($"histogram:{bucketMinutes}|{view}", histogramDeadline.Token,
             ct => StartedCounts(rows, bucketMinutes, ct),
-            async (db, ct) => await StartedCounts(await XchangeFilters.FilteredRowsAsync(db, Copy(asked)), bucketMinutes, ct));
+            async (db, ct) => await StartedCounts(await XchangeFilters.FilteredRowsAsync(db, Copy(asked), partnerId: partnerId), bucketMinutes, ct));
         if (started == null)
         {
             summary.Counting = true;
@@ -114,8 +124,8 @@ public class Summary(BitweenDbContext dbContext, RequestContext requestContext, 
         // goes on the exchange table, where its index answers it.
         Task<int?> Count(string status, CancellationToken deadline) =>
             Answer($"count:{status}|{view}", deadline,
-                async ct => await CountCapped(await XchangeFilters.FilteredRowsAsync(dbContext, Copy(asked), status), status, ct),
-                async (db, ct) => await CountCapped(await XchangeFilters.FilteredRowsAsync(db, Copy(asked), status), status, ct));
+                async ct => await CountCapped(await XchangeFilters.FilteredRowsAsync(dbContext, Copy(asked), status, partnerId), status, ct),
+                async (db, ct) => await CountCapped(await XchangeFilters.FilteredRowsAsync(db, Copy(asked), status, partnerId), status, ct));
     }
 
     /// <summary>

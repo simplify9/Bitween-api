@@ -41,6 +41,7 @@ import { SUBSCRIPTION_PAGE, SUBSCRIPTION_PAGES, subscriptionPath } from "../../l
 import { PAGES, pathOf } from "../../pages";
 import { usePageTitle } from "../../lib/pageTitle";
 import { ProdBadge, ProdSection } from "../mirror/ProdSection";
+import { PartnerMappings } from "./studio/PartnerMappings";
 
 type RunState = "running" | "paused" | "off";
 
@@ -515,6 +516,7 @@ function SubscriptionStudio() {
               noneLabel="None - the document passes through unchanged"
               mapperEditorHref={`/subscriptions/${s.id}/mapper`}
             />
+            <PartnerMappings subscriptionId={String(s.id)} />
             {bindsToDataSource(draft.mapperId, "mapper") && (
               <div className="mt-3">
                 <DataSourceBinding

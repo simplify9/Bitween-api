@@ -54,6 +54,8 @@ export const keys = {
     /** Adapter properties a partner overrides, per partner. */
     adapterProperties: (id: number | null | undefined) =>
       ["partners", "adapter-properties", id] as const,
+    /** The subscriptions a partner maps their own way. */
+    ownMappings: (id: number) => ["partners", "own-mappings", id] as const,
   },
 
   apiGateways: {
@@ -162,6 +164,33 @@ export const keys = {
 
   serviceAccounts: {
     all: ["service-accounts"] as const,
+  },
+
+  portal: {
+    all: ["portal"] as const,
+    summary: ["portal", "summary"] as const,
+    subscriptions: ["portal", "subscriptions"] as const,
+    exchanges: (query: Record<string, unknown>) => ["portal", "exchanges", query] as const,
+    mappings: ["portal", "mappings"] as const,
+    /** Our team's view: who maps a subscription their own way. */
+    ofSubscription: (subscriptionId: string) => ["portal", "ofSubscription", subscriptionId] as const,
+    mapping: (subscriptionId: number) => ["portal", "mapping", subscriptionId] as const,
+    samples: (subscriptionId: number) => ["portal", "samples", subscriptionId] as const,
+    /** Our team's: changes partners made, waiting for approval or decided. */
+    changes: (waiting: boolean) => ["portal", "changes", waiting] as const,
+    changeCount: ["portal", "changes", "count"] as const,
+    /** A partner's admin's: their company's people, and the roles they may give. */
+    people: ["portal", "people"] as const,
+    properties: ["portal", "properties"] as const,
+    informationTypes: ["portal", "informationTypes"] as const,
+    peopleRoles: ["portal", "peopleRoles"] as const,
+    /** A partner's admin's roles: ours for partners and their own. */
+    roles: ["portal", "roles"] as const,
+    role: (id: string | null | undefined) => ["portal", "roles", id] as const,
+    permissionCatalog: ["portal", "permissionCatalog"] as const,
+    change: (id: number) => ["portal", "change", id] as const,
+    propertyChange: (id: number) => ["portal", "propertyChange", id] as const,
+    history: (subscriptionId: string, partnerId: number) => ["portal", "history", subscriptionId, partnerId] as const,
   },
 
   users: {

@@ -1,4 +1,6 @@
+import { useContext } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { SessionContext } from "../auth/useSession";
 import { api } from ".";
 import type { ActionId, PermissionArea, PermissionKey } from "./types";
 import { keys } from "./queryKeys";
@@ -24,13 +26,24 @@ export const ACTION_ORDER: ActionId[] = ["view", "create", "edit", "delete", "op
 export const permissionKey = (areaId: string, actionId: ActionId): PermissionKey =>
   `${areaId}.${actionId}`;
 
-/** Static per deployment, so it's fetched once and kept. */
+/**
+ * Static per deployment, so it's fetched once and kept. A partner's people read the partner
+ * portal's areas only, through the portal: the rest is ours, and so is the address it's served at.
+ */
 export function usePermissionCatalog() {
+  const partner = Boolean(useContext(SessionContext)?.session?.partner);
   return useQuery({
-    queryKey: keys.permissionCatalog,
-    queryFn: () => api.getPermissionCatalog(),
+    queryKey: partner ? keys.portal.permissionCatalog : keys.permissionCatalog,
+    queryFn: () => (partner ? api.getPortalPermissionCatalog() : api.getPermissionCatalog()),
   });
 }
+
+/** The catalog group partner roles draw from, and the only one; see PermissionCatalog.PortalGroup. */
+export const PORTAL_GROUP = "Partner portal";
+
+/** The catalog areas a role for that side may hold: partner portal ones for a partner role, the rest otherwise. */
+export const areasFor = (areas: PermissionArea[], forPartners: boolean): PermissionArea[] =>
+  areas.filter((a) => (a.group === PORTAL_GROUP) === forPartners);
 
 export const allKeysIn = (areas: PermissionArea[]): PermissionKey[] =>
   areas.flatMap((area) => area.actions.map((a) => permissionKey(area.id, a.id as ActionId)));

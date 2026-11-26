@@ -190,6 +190,30 @@ public class XchangeStateFillTests(BitweenFixture fixture) : IAsyncLifetime
     }
 
     [Fact]
+    public async Task Once_the_fill_is_done_the_partner_portal_index_is_built_and_rebuilt_if_it_goes()
+    {
+        var x = await ArrangeAsync("Fill Partner Index");
+        string Definition(BitweenDbContext db) => db.Database.SqlQueryRaw<string>(
+            $"SELECT indexdef AS \"Value\" FROM pg_indexes WHERE schemaname = 'infolink' AND indexname = '{XchangePartnerIndex.Name}'")
+            .SingleOrDefault();
+
+        // Another test's run may have built it already; this one has to build it itself.
+        await x.InDb(db => db.Database.ExecuteSqlRawAsync($"DROP INDEX IF EXISTS infolink.{XchangePartnerIndex.Name};"));
+        XchangePartnerIndex.Forget();
+        Assert.Equal(XchangeStateFillPhase.Ready, await RunToTheEndAsync());
+        var definition = await x.InDb(db => Task.FromResult(Definition(db)));
+        Assert.Contains("(partner_id, started_on)", definition);
+        Assert.Contains("WHERE (partner_id IS NOT NULL)", definition);
+
+        // An installation whose fill finished long ago, before this index existed: the next run,
+        // with nothing left to fill, builds it all the same.
+        await x.InDb(db => db.Database.ExecuteSqlRawAsync($"DROP INDEX IF EXISTS infolink.{XchangePartnerIndex.Name};"));
+        XchangePartnerIndex.Forget();
+        Assert.Equal(XchangeStateFillPhase.Ready, await RunOnceAsync(TimeSpan.FromSeconds(30)));
+        Assert.NotNull(await x.InDb(db => Task.FromResult(Definition(db))));
+    }
+
+    [Fact]
     public async Task An_index_left_unusable_by_a_build_cut_short_is_built_again()
     {
         var x = await ArrangeAsync("Fill Index Rebuild");

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using SW.Bitween.Domain;
 using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Model;
 using SW.PrimitiveTypes;
@@ -33,7 +34,9 @@ public class Profile(BitweenDbContext dbContext, RequestContext requestContext) 
                 Id = a.Id,
                 Disabled = a.Disabled,
                 Role = a.Role.ToString(),
-                MustChangePassword = a.MustChangePassword
+                MustChangePassword = a.MustChangePassword,
+                PartnerId = a.PartnerId,
+                PartnerName = dbContext.Set<Partner>().Where(p => p.Id == a.PartnerId).Select(p => p.Name).FirstOrDefault()
             })
             .SingleOrDefaultAsync();
 

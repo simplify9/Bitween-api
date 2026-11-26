@@ -55,6 +55,10 @@ interface RawXchangeRow {
   hasRetry: boolean;
   /** Absent from servers that predate it. */
   warning?: string | null;
+  /** Signed links to the files; what a partner's people read them by, having no storage keys. */
+  inputUrl?: string | null;
+  outputUrl?: string | null;
+  responseUrl?: string | null;
 }
 
 interface RawRetryNode {
@@ -123,7 +127,11 @@ const STATUS_FILTER: Record<ExchangeStatus, number> = {
   failed: 3,
 };
 
-const toExchangeRow = (raw: RawXchangeRow, partnerNameById: Map<number, string>): ExchangeRow => ({
+/**
+ * A row as the page reads it. For a partner's people (`portal`), a file is opened by its signed link,
+ * since storage keys are ours and never sent to them.
+ */
+const toExchangeRow = (raw: RawXchangeRow, partnerNameById: Map<number, string>, portal = false): ExchangeRow => ({
   id: raw.id,
   status: deriveStatus(raw),
   subscriptionId: raw.subscriptionId,
@@ -149,17 +157,14 @@ const toExchangeRow = (raw: RawXchangeRow, partnerNameById: Map<number, string>)
   // has bytes), not the file name, since gateway/manually created exchanges have
   // no name yet content still exists.
   files: {
-    input: raw.inputKey
-      ? { name: raw.inputFileName ?? "input", size: raw.inputFileSize ?? 0, key: raw.inputKey }
-      : null,
-    mapped: raw.outputKey
-      ? { name: raw.outputFileName ?? "mapped", size: raw.outputFileSize ?? 0, key: raw.outputKey }
-      : null,
-    handled: raw.responseKey
-      ? { name: raw.responseFileName ?? "handled", size: raw.responseFileSize ?? 0, key: raw.responseKey }
-      : null,
+    input: fileRef(portal ? raw.inputUrl : raw.inputKey, raw.inputFileName, raw.inputFileSize, "input"),
+    mapped: fileRef(portal ? raw.outputUrl : raw.outputKey, raw.outputFileName, raw.outputFileSize, "mapped"),
+    handled: fileRef(portal ? raw.responseUrl : raw.responseKey, raw.responseFileName, raw.responseFileSize, "handled"),
   },
 });
+
+const fileRef = (key: string | null | undefined, name: string | null | undefined, size: number | null | undefined, fallback: string) =>
+  key ? { name: name ?? fallback, size: size ?? 0, key } : null;
 
 const toScheduledRetryRow = (raw: RawDelayedRetryRow): ScheduledRetryRow => ({
   id: raw.id,
@@ -307,6 +312,13 @@ async function partnerNameMap(): Promise<Map<number, string>> {
 }
 
 export const exchangeMethods = {
+  /** A file of a partner's exchange, by the signed link their list carries. */
+  async readExchangeFileLink(url: string): Promise<string> {
+    const res = await fetch(url, { credentials: "include" });
+    if (!res.ok) throw new ApiRequestError(res.status === 404 ? "NOT_FOUND" : "FILE_UNAVAILABLE", "This file couldn't be read.");
+    return res.text();
+  },
+
   async getExchangeDocument(key: string): Promise<string> {
     const res = await get<{ data: string; key: string }>(`/bitweendocs?documentKey=${encodeURIComponent(key)}`);
     return res.data;
@@ -316,12 +328,17 @@ export const exchangeMethods = {
    * A page of exchanges and how many match. With `count: false` the total is left out, as 0, so the
    * rows come back without waiting for it: the Exchanges page has its total from the status counts.
    */
-  async searchExchanges(query: ExchangeQuery, { count = true }: { count?: boolean } = {}): Promise<Paged<ExchangeRow>> {
+  async searchExchanges(
+    query: ExchangeQuery,
+    { count = true, portal = false }: { count?: boolean; portal?: boolean } = {},
+  ): Promise<Paged<ExchangeRow>> {
+    const path = portal ? "/portal/xchangesearch" : "/xchanges";
     const [res, partnerNameById] = await Promise.all([
-      get<SearchyResponse<RawXchangeRow>>(`/xchanges?${buildExchangeQuery(query)}${count ? "" : "&count=false"}`),
-      partnerNameMap(),
+      get<SearchyResponse<RawXchangeRow>>(`${path}?${buildExchangeQuery(query)}${count ? "" : "&count=false"}`),
+      // A partner's people see only their own, and may not list partners.
+      portal ? Promise.resolve(new Map<number, string>()) : partnerNameMap(),
     ]);
-    return { result: res.result.map((r) => toExchangeRow(r, partnerNameById)), total: res.totalCount };
+    return { result: res.result.map((r) => toExchangeRow(r, partnerNameById, portal)), total: res.totalCount };
   },
 
   /**
@@ -329,9 +346,10 @@ export const exchangeMethods = {
    * out of the filter on purpose: the tabs are the choice between statuses, so each needs its
    * count under every other filter.
    */
-  async getExchangeBreakdown(query: ExchangeQuery): Promise<ExchangeBreakdown> {
+  async getExchangeBreakdown(query: ExchangeQuery, { portal = false }: { portal?: boolean } = {}): Promise<ExchangeBreakdown> {
     const params = buildExchangeFilters({ ...query, status: undefined });
-    const res = await get<ExchangeBreakdown>(`/xchanges/summary${params.toString() ? `?${searchyQueryString(params)}` : ""}`);
+    const path = portal ? "/portal/xchangesummary" : "/xchanges/summary";
+    const res = await get<ExchangeBreakdown>(`${path}${params.toString() ? `?${searchyQueryString(params)}` : ""}`);
     return {
       counts: {
         processing: res.counts?.processing ?? null,
@@ -366,8 +384,8 @@ export const exchangeMethods = {
    * Every attempt related to one exchange. Worth asking for only when the row says there is
    * something to see - `retryFor` or `hasRetry` - since most exchanges have neither.
    */
-  async getRetryTree(id: string): Promise<RetryTree> {
-    const raw = await get<RawRetryTree>(`/xchanges/retrytree?id=${encodeURIComponent(id)}`);
+  async getRetryTree(id: string, { portal = false }: { portal?: boolean } = {}): Promise<RetryTree> {
+    const raw = await get<RawRetryTree>(`${portal ? "/portal" : "/xchanges"}/retrytree?id=${encodeURIComponent(id)}`);
     return {
       rootId: raw.rootId,
       truncated: raw.truncated,

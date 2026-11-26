@@ -26,10 +26,34 @@ internal static class RoleValidation
                 $"These permissions don't exist: {string.Join(", ", unknown)}.");
     }
 
-    public static async Task EnsureNameIsFree(BitweenDbContext dbContext, string name, int? exceptId = null)
+    /// <summary>
+    /// A partner role holds partner portal permissions only, and any other role holds none, so a
+    /// partner's people and our own can never be granted from the same role.
+    /// </summary>
+    public static void EnsureFitsAudience(bool forPartners, List<string> permissions)
+    {
+        var misfits = (permissions ?? [])
+            .Where(k => PermissionCatalog.PortalKeys.Contains(k) != forPartners)
+            .Distinct()
+            .ToList();
+
+        if (misfits.Count > 0)
+            throw new SWValidationException("PERMISSIONS_DONT_FIT_ROLE", forPartners
+                ? $"A partner role can hold only partner portal permissions. Not allowed: {string.Join(", ", misfits)}."
+                : $"Partner portal permissions belong in a partner role. Not allowed: {string.Join(", ", misfits)}.");
+    }
+
+    /// <summary>
+    /// One of ours must be clear of every role, a partner's own included, so no partner ever sees
+    /// two of the same name. A partner's own must be clear of ours and of their own others, but not
+    /// of another partner's, which they never see and shouldn't learn of.
+    /// </summary>
+    public static async Task EnsureNameIsFree(BitweenDbContext dbContext, string name, int? exceptId = null,
+        int? ownerPartnerId = null)
     {
         var taken = await dbContext.Set<Role>()
-            .AnyAsync(r => r.Name == name && (exceptId == null || r.Id != exceptId));
+            .AnyAsync(r => r.Name == name && (exceptId == null || r.Id != exceptId) &&
+                           (ownerPartnerId == null || r.PartnerId == null || r.PartnerId == ownerPartnerId));
 
         if (taken)
             throw new SWValidationException("ROLE_EXISTS", $"A role named '{name}' already exists.");

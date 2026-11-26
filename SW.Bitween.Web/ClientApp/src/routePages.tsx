@@ -13,6 +13,12 @@ import { homePath } from "./nav";
 // shows a loading line meanwhile.
 export const AdapterEditorPage = lazy(() => import("./pages/adapters/AdapterEditorPage"));
 export const AdaptersPage = lazy(() => import("./pages/adapters/AdaptersPage").then((m) => ({ default: m.AdaptersPage })));
+export const PortalMappingPage = lazy(() => import("./pages/portal/PortalMappingPage").then((m) => ({ default: m.PortalMappingPage })));
+export const PortalExchangesPage = lazy(() => import("./pages/portal/PortalExchangesPage").then((m) => ({ default: m.PortalExchangesPage })));
+export const PortalMappingsPage = lazy(() => import("./pages/portal/PortalMappingsPage").then((m) => ({ default: m.PortalMappingsPage })));
+export const PortalSubscriptionsPage = lazy(() =>
+  import("./pages/portal/PortalSubscriptionsPage").then((m) => ({ default: m.PortalSubscriptionsPage })),
+);
 export const ProfilePage = lazy(() => import("./pages/ProfilePage").then((m) => ({ default: m.ProfilePage })));
 export const AuditPage = lazy(() => import("./pages/audit/AuditPage").then((m) => ({ default: m.AuditPage })));
 export const NodesPage = lazy(() => import("./pages/nodes/NodesPage").then((m) => ({ default: m.NodesPage })));
@@ -48,6 +54,9 @@ export const NotifierPage = lazy(() => import("./pages/notifiers/NotifierPage").
 export const NotifiersPage = lazy(() => import("./pages/notifiers/NotifiersPage").then((m) => ({ default: m.NotifiersPage })));
 export const PartnerPage = lazy(() => import("./pages/partners/PartnerPage").then((m) => ({ default: m.PartnerPage })));
 export const PartnersPage = lazy(() => import("./pages/partners/PartnersPage").then((m) => ({ default: m.PartnersPage })));
+export const PartnerChangesPage = lazy(() =>
+  import("./pages/partner-changes/PartnerChangesPage").then((m) => ({ default: m.PartnerChangesPage })),
+);
 export const NewScheduledJobPage = lazy(() => import("./pages/scheduled-jobs/NewScheduledJobPage").then((m) => ({ default: m.NewScheduledJobPage })));
 export const ScheduledJobsPage = lazy(() => import("./pages/scheduled-jobs/ScheduledJobsPage").then((m) => ({ default: m.ScheduledJobsPage })));
 export const AggregationsPage = lazy(() => import("./pages/aggregations/AggregationsPage").then((m) => ({ default: m.AggregationsPage })));

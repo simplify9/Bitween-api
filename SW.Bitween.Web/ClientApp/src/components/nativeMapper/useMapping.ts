@@ -6,6 +6,7 @@ import { useRules, useRulesDispatch } from "../../lib/nativeMapper/rulesEditorHo
 import { loadMapping, saveMapping, toWire } from "../../lib/nativeMapper/serialize";
 import { NATIVE_MAPPER_ID } from "../../lib/nativeMapper/types";
 import type { SourceDocument } from "../config/sourceValues";
+import { useMapperEditorServices } from "./editorServices";
 
 /**
  * Where the editor reads its mapping from and writes it back to.
@@ -30,8 +31,11 @@ export type MappingTarget =
       partnerId: number | null;
       /** What the delivered document offers, when the draft is a response subscription. */
       sourceValues?: SourceDocument | null;
-      /** Hands the rules back to the page holding the draft. */
-      onSave: (mapperProperties: Record<string, string>) => void;
+      /**
+       * Hands the rules back to the page holding the draft. A page that saves them somewhere
+       * returns the save, and the editor shows it as saved only once that has worked.
+       */
+      onSave: (mapperProperties: Record<string, string>) => void | Promise<void>;
     };
 
 /** Loads the target's rules into the editor, and clears them when the target changes. */
@@ -97,6 +101,7 @@ const PREVIEW_DEBOUNCE_MS = 500;
  * is evaluated in the browser, so what the editor shows is what a partner receives.
  */
 export function useMappingPreview(partnerId: number | null) {
+  const { previewMappingRules } = useMapperEditorServices();
   const { rules, sourceSample } = useRules();
   const dispatch = useRulesDispatch();
   const [isPreviewing, setPreviewing] = useState(false);
@@ -118,7 +123,7 @@ export function useMappingPreview(partnerId: number | null) {
       const run = ++runId.current;
       setPreviewing(true);
       try {
-        const result = await api.previewMappingRules({
+        const result = await previewMappingRules({
           mappingRules: JSON.stringify(toWire(rules)),
           sourceDocument: sourceSample,
           partnerId,
@@ -149,7 +154,7 @@ export function useMappingPreview(partnerId: number | null) {
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [rules, sourceSample, partnerId, dispatch]);
+  }, [rules, sourceSample, partnerId, dispatch, previewMappingRules]);
 
   return { isPreviewing };
 }
@@ -160,6 +165,8 @@ export function useMappingSave(target: MappingTarget) {
   const dispatch = useRulesDispatch();
   const queryClient = useQueryClient();
   const [justSaved, setJustSaved] = useState(false);
+  const [draftSaving, setDraftSaving] = useState(false);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const subscriptionId = target.kind === "subscription" ? target.subscriptionId : 0;
 
   // Cached - the loader asked for this already.
@@ -207,12 +214,21 @@ export function useMappingSave(target: MappingTarget) {
   // written when that page creates the subscription. Nothing can fail here, which is why
   // there is no error to show and no request to be pending.
   const onSaveDraft = target.kind === "draft" ? target.onSave : null;
-  const saveDraft = useCallback(() => {
-    onSaveDraft?.(saveMapping(rules, sourceSample, targetSample));
+  // A failure leaves the rules unsaved, with the reason shown, so closing still asks first.
+  const saveDraft = useCallback(async () => {
+    setDraftSaving(true);
+    setDraftError(null);
+    try {
+      await onSaveDraft?.(saveMapping(rules, sourceSample, targetSample));
+    } catch (e) {
+      setDraftError(e instanceof Error ? e.message : "The mapping couldn't be saved.");
+      return;
+    } finally {
+      setDraftSaving(false);
+    }
     dispatch({ type: "SAVED" });
     setJustSaved(true);
     setTimeout(() => setJustSaved(false), 2000);
-    return Promise.resolve();
   }, [onSaveDraft, rules, sourceSample, targetSample, dispatch]);
 
   // Resolves either way. The failure is shown from `saveError`, so a rejection here
@@ -227,9 +243,9 @@ export function useMappingSave(target: MappingTarget) {
 
   return {
     save: onSaveDraft ? saveDraft : saveSubscription,
-    isSaving: onSaveDraft ? false : mutation.isPending,
+    isSaving: onSaveDraft ? draftSaving : mutation.isPending,
     justSaved,
-    saveError: onSaveDraft || !mutation.error ? null : (mutation.error as Error).message,
+    saveError: onSaveDraft ? draftError : mutation.error ? (mutation.error as Error).message : null,
     /** The other mapper whose stored mapping this save would replace, if any. */
     replacing,
   };

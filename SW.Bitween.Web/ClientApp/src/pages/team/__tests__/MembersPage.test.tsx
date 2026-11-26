@@ -58,18 +58,18 @@ const row = (email: string) => screen.getByRole("row", { name: new RegExp(email)
 const drawer = () => screen.getByRole("dialog", { name: "Member details" });
 
 describe("the member list", () => {
-  it("changes which roles a member holds", async () => {
+  it("changes the role a member holds", async () => {
     const { handlers, sent } = team(self(), account(42, "Role Swap", "role.swap@test.local", [3]));
     const { user } = renderApp("/team/members", { handlers });
 
     await user.click(await screen.findByRole("row", { name: /role.swap@test.local/ }));
     const panel = within(drawer());
-    await user.click(await panel.findByRole("checkbox", { name: /^Viewer/ }));
-    await user.click(panel.getByRole("checkbox", { name: /^Member/ }));
+    expect(await panel.findByRole("radio", { name: /^Viewer/ })).toBeChecked();
+    await user.click(panel.getByRole("radio", { name: /^Member/ }));
     await user.click(panel.getByRole("button", { name: "Save roles" }));
     await expect.poll(() => panel.queryByRole("button", { name: "Save roles" })).toBeNull();
 
-    // The whole set is replaced, so what goes over the wire is the set the member ends up with.
+    // One role, which replaces the one they held.
     expect(sent.setRoles).toEqual([{ roleIds: [2] }]);
     // Read back from the server rather than trusting the optimistic UI. That the write reaches
     // the database is TeamMemberTests.Setting_a_members_roles_replaces_the_ones_they_held.
@@ -148,7 +148,8 @@ describe("the member list", () => {
 
     await user.click(await screen.findByRole("row", { name: new RegExp(ADMIN.email) }));
     const panel = within(drawer());
-    const role = await panel.findByRole("checkbox", { name: /^Administrator/ });
+    expect(await panel.findByRole("radio", { name: /^Administrator/ })).toBeChecked();
+    const role = panel.getByRole("radio", { name: /^Viewer/ });
 
     // Nothing destructive is even offered on your own account.
     expect(panel.queryByRole("button", { name: "Remove from team" })).not.toBeInTheDocument();
@@ -158,7 +159,7 @@ describe("the member list", () => {
     await user.click(role);
     await user.click(panel.getByRole("button", { name: "Save roles" }));
     expect(await panel.findByText(/only member with the Administrator role/i)).toBeVisible();
-    // The unchecked box in the drawer is a rejected draft, not what the server holds.
+    // The choice in the drawer is a rejected draft, not what the server holds.
     expect(row(ADMIN.email)).toHaveTextContent("Administrator");
   });
 

@@ -1,5 +1,5 @@
 import type { ApiClient } from "../client";
-import { ApiRequestError, type Paged, type Partner, type PartnerDetail, type PartnerRow } from "../types";
+import { ApiRequestError, type Paged, type Partner, type PartnerDetail, type PartnerRow, type PortalAccessLevel } from "../types";
 import { exchangeMethods } from "./exchanges";
 import { gatewayMethods } from "./gateways";
 import { matchSummary } from "../../lib/match";
@@ -31,6 +31,8 @@ interface RawPartnerDetail {
   adapterProperties: Record<string, string> | null;
   secretProperties: string[] | null;
   loginIdentity?: string | null;
+  changesNeedApproval?: boolean;
+  portalAccess?: Record<string, PortalAccessLevel> | null;
   /** By key name: when a gateway last let a call through with it. */
   keysLastUsedOn?: Record<string, string> | null;
 }
@@ -60,6 +62,7 @@ async function writePartner(
     adapterProperties?: Record<string, string>;
     secretProperties?: string[];
     loginIdentity?: string | null;
+    portalAccess?: Record<string, PortalAccessLevel>;
   },
   mutate: (creds: RawKeyAndValue[]) => RawKeyAndValue[] = (c) => c,
 ): Promise<Partner> {
@@ -73,7 +76,15 @@ async function writePartner(
   // does - would clear the identity and cut the partner off from every gateway taking tokens.
   const loginIdentity = patch.loginIdentity !== undefined ? patch.loginIdentity : (d.loginIdentity ?? null);
   const apiCredentials = mutate((d.apiCredentials ?? []).map((c) => ({ key: c.key, value: c.value })));
-  await post(`/partners/${id}`, { name, adapterProperties, secretProperties, loginIdentity, apiCredentials });
+  // Left out when unchanged: the server keeps what it has, so issuing a key never touches it.
+  await post(`/partners/${id}`, {
+    name,
+    adapterProperties,
+    secretProperties,
+    loginIdentity,
+    apiCredentials,
+    ...(patch.portalAccess ? { portalAccess: patch.portalAccess } : {}),
+  });
   return {
     id,
     name,
@@ -147,6 +158,8 @@ export const partnerMethods = {
       adapterProperties: d.adapterProperties ?? {},
       secretProperties: d.secretProperties ?? [],
       loginIdentity: d.loginIdentity ?? null,
+      changesNeedApproval: d.changesNeedApproval ?? false,
+      portalAccess: d.portalAccess ?? {},
       isSystem: id === SYSTEM_PARTNER_ID,
       createdOn: "",
       apiCredentials: (d.apiCredentials ?? []).map((c) => ({
@@ -198,6 +211,7 @@ export const partnerMethods = {
       adapterProperties?: Record<string, string>;
       secretProperties?: string[];
       loginIdentity?: string | null;
+      portalAccess?: Record<string, PortalAccessLevel>;
     },
   ): Promise<Partner> {
     return writePartner(id, await requireDetail(id), changes);

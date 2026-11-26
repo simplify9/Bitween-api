@@ -115,7 +115,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
         var partner = partnerId.HasValue ? await BitweenCache.PartnerByIdAsync(partnerId.Value) : null;
         var globalAdapterValuesSets = await BitweenCache.ListGlobalAdapterValuesSetsAsync();
         var newXchange = new Xchange(subscription, xchange, file, partner, globalAdapterValuesSets,
-            groupAttemptCounts, manualRetry);
+            groupAttemptCounts, manualRetry,
+            partner is null ? null : await BitweenCache.PartnerMappingAsync(subscription.Id, partner.Id));
         AddInputFile(newXchange, file);
         dbContext.Add(newXchange);
         await AddPromotedProperties(newXchange, file);
@@ -218,7 +219,8 @@ public class XchangeService(BitweenOptions BitweenSettings, BitweenDbContext dbC
             : null;
 
         var xchange = new Xchange(subscription, file, references, correlationId, gatewayPartner,
-            globalAdapterValuesSets, source);
+            globalAdapterValuesSets, source,
+            gatewayPartner is null ? null : await BitweenCache.PartnerMappingAsync(subscription.Id, gatewayPartner.Id));
         AddInputFile(xchange, file);
         dbContext.Add(xchange);
         await AddPromotedProperties(xchange, file);

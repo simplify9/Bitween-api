@@ -107,6 +107,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("text")
                         .HasColumnName("oidc_identity");
 
+                    b.Property<int?>("PartnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("partner_id");
+
                     b.Property<string>("Password")
                         .HasMaxLength(500)
                         .IsUnicode(false)
@@ -123,6 +127,9 @@ namespace SW.Bitween.PgSql.Migrations
                     b.HasIndex("Email")
                         .IsUnique()
                         .HasDatabaseName("ix_accounts_email");
+
+                    b.HasIndex("PartnerId")
+                        .HasDatabaseName("ix_accounts_partner_id");
 
                     b.ToTable("Accounts", "infolink");
 
@@ -284,6 +291,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("character varying(500)")
                         .HasColumnName("description");
 
+                    b.Property<bool>("ForPartners")
+                        .HasColumnType("boolean")
+                        .HasColumnName("for_partners");
+
                     b.Property<bool>("IsSystem")
                         .HasColumnType("boolean")
                         .HasColumnName("is_system");
@@ -302,16 +313,35 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("name");
 
+                    b.Property<int?>("PartnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("partner_id");
+
                     b.Property<string>("Permissions")
                         .HasColumnType("text")
                         .HasColumnName("permissions");
 
+                    b.Property<string>("PresetKey")
+                        .HasMaxLength(50)
+                        .IsUnicode(false)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("preset_key");
+
                     b.HasKey("Id")
                         .HasName("pk_roles");
 
-                    b.HasIndex("Name")
+                    b.HasIndex("PresetKey")
                         .IsUnique()
-                        .HasDatabaseName("ix_roles_name");
+                        .HasDatabaseName("ix_roles_preset_key");
+
+                    b.HasIndex("PartnerId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("ix_roles_partner_id_name");
+
+                    b.HasIndex(new[] { "Name" }, "ix_roles_name_ours")
+                        .IsUnique()
+                        .HasDatabaseName("ix_roles_name")
+                        .HasFilter("partner_id IS NULL");
 
                     b.ToTable("Roles", "infolink");
 
@@ -321,6 +351,7 @@ namespace SW.Bitween.PgSql.Migrations
                             Id = 1,
                             CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Full access to everything, including members, roles and settings.",
+                            ForPartners = false,
                             IsSystem = true,
                             Name = "Administrator",
                             Permissions = "[]"
@@ -330,6 +361,7 @@ namespace SW.Bitween.PgSql.Migrations
                             Id = 2,
                             CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Runs and configures integrations. Can't manage members, roles or settings.",
+                            ForPartners = false,
                             IsSystem = true,
                             Name = "Member",
                             Permissions = "[]"
@@ -339,6 +371,7 @@ namespace SW.Bitween.PgSql.Migrations
                             Id = 3,
                             CreatedOn = new DateTime(2022, 1, 1, 0, 0, 0, 0, DateTimeKind.Utc),
                             Description = "Read-only access to integrations, exchanges and configuration.",
+                            ForPartners = false,
                             IsSystem = true,
                             Name = "Viewer",
                             Permissions = "[]"
@@ -2311,6 +2344,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasColumnType("jsonb")
                         .HasColumnName("adapter_properties");
 
+                    b.Property<bool>("ChangesNeedApproval")
+                        .HasColumnType("boolean")
+                        .HasColumnName("changes_need_approval");
+
                     b.Property<string>("LoginIdentity")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)")
@@ -2321,6 +2358,10 @@ namespace SW.Bitween.PgSql.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)")
                         .HasColumnName("name");
+
+                    b.Property<Dictionary<string, string>>("PortalAccess")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("portal_access");
 
                     b.PrimitiveCollection<List<string>>("SecretProperties")
                         .HasColumnType("jsonb")
@@ -2339,8 +2380,178 @@ namespace SW.Bitween.PgSql.Migrations
                         new
                         {
                             Id = 1,
+                            ChangesNeedApproval = false,
                             Name = "SYSTEM"
                         });
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerMapping", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CreatedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("created_by");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_on");
+
+                    b.Property<string>("MapperProperties")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("mapper_properties");
+
+                    b.Property<string>("ModifiedBy")
+                        .HasColumnType("text")
+                        .HasColumnName("modified_by");
+
+                    b.Property<DateTime?>("ModifiedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("modified_on");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("partner_id");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("subscription_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_partner_mapping");
+
+                    b.HasIndex("PartnerId")
+                        .HasDatabaseName("ix_partner_mapping_partner_id");
+
+                    b.HasIndex("SubscriptionId", "PartnerId")
+                        .IsUnique()
+                        .HasDatabaseName("ix_partner_mapping_subscription_id_partner_id");
+
+                    b.ToTable("partner_mapping", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerMappingChange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DecidedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("decided_by");
+
+                    b.Property<DateTime?>("DecidedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_on");
+
+                    b.Property<string>("MapperProperties")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("mapper_properties");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("note");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("partner_id");
+
+                    b.Property<string>("RequestedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("requested_by");
+
+                    b.Property<DateTime>("RequestedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_on");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("smallint")
+                        .HasColumnName("status");
+
+                    b.Property<int>("SubscriptionId")
+                        .HasColumnType("integer")
+                        .HasColumnName("subscription_id");
+
+                    b.HasKey("Id")
+                        .HasName("pk_partner_mapping_change");
+
+                    b.HasIndex("PartnerId")
+                        .HasDatabaseName("ix_partner_mapping_change_partner_id");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_partner_mapping_change_status");
+
+                    b.HasIndex("SubscriptionId", "PartnerId")
+                        .HasDatabaseName("ix_partner_mapping_change_subscription_id_partner_id");
+
+                    b.ToTable("partner_mapping_change", "infolink");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerPropertyChange", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("DecidedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("decided_by");
+
+                    b.Property<DateTime?>("DecidedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("decided_on");
+
+                    b.Property<string>("Note")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)")
+                        .HasColumnName("note");
+
+                    b.Property<int>("PartnerId")
+                        .HasColumnType("integer")
+                        .HasColumnName("partner_id");
+
+                    b.Property<string>("RequestedBy")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasColumnName("requested_by");
+
+                    b.Property<DateTime>("RequestedOn")
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("requested_on");
+
+                    b.Property<byte>("Status")
+                        .HasColumnType("smallint")
+                        .HasColumnName("status");
+
+                    b.Property<string>("Values")
+                        .HasColumnType("jsonb")
+                        .HasColumnName("values");
+
+                    b.HasKey("Id")
+                        .HasName("pk_partner_property_change");
+
+                    b.HasIndex("PartnerId")
+                        .HasDatabaseName("ix_partner_property_change_partner_id");
+
+                    b.HasIndex("Status")
+                        .HasDatabaseName("ix_partner_property_change_status");
+
+                    b.ToTable("partner_property_change", "infolink");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.ReceiveAttempt", b =>
@@ -4050,6 +4261,50 @@ namespace SW.Bitween.PgSql.Migrations
                         });
 
                     b.Navigation("ApiCredentials");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerMapping", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_partner_mapping_partner_partner_id");
+
+                    b.HasOne("SW.Bitween.Domain.Subscription", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_partner_mapping_subscription_subscription_id");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerMappingChange", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_partner_mapping_change_partner_partner_id");
+
+                    b.HasOne("SW.Bitween.Domain.Subscription", null)
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_partner_mapping_change_subscription_subscription_id");
+                });
+
+            modelBuilder.Entity("SW.Bitween.Domain.PartnerPropertyChange", b =>
+                {
+                    b.HasOne("SW.Bitween.Domain.Partner", null)
+                        .WithMany()
+                        .HasForeignKey("PartnerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired()
+                        .HasConstraintName("fk_partner_property_change_partner_partner_id");
                 });
 
             modelBuilder.Entity("SW.Bitween.Domain.Subscription", b =>

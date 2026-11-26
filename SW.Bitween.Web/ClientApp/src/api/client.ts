@@ -1,5 +1,20 @@
 import type { AddBusRouteInput, AttachPartnerInput } from "./http/gateways";
 import type {
+  SubscriptionPartnerMapping,
+  PortalMapping,
+  PortalMappingPlace,
+  PortalMappingSample,
+  PortalMappingSaved,
+  PortalAccessLevel,
+  PortalProperties,
+  PortalInvite,
+  PortalPerson,
+  PortalRoleChoice,
+  PartnerChange,
+  PartnerChangeDetail,
+  PartnerChangeVersion,
+  PartnerPropertyChangeDetail,
+  PortalSubscription,
   MirrorBring,
   MirrorBringSection,
   MirrorListed,
@@ -75,6 +90,7 @@ import type {
   PartnerRow,
   PermissionArea,
   PermissionKey,
+  PartnerOwnMapping,
   IssuedServiceToken,
   ServiceAccount,
   QueueHealthSnapshot,
@@ -196,6 +212,8 @@ export interface ApiClient {
     password?: string;
     invite?: boolean;
     roleIds: string[];
+    /** Makes them a partner's person, for the partner portal; their roles must then be partner roles. */
+    partnerId?: string | null;
   }): Promise<User>;
   /** Invites a member with no password yet: emailed, or a link handed back to pass on. Replaces any earlier one. */
   inviteUser(id: string): Promise<InviteResult>;
@@ -211,8 +229,9 @@ export interface ApiClient {
   /** The catalog the backend enforces, so the role matrix can never offer a grant it ignores. */
   getPermissionCatalog(): Promise<PermissionArea[]>;
   listRoles(): Promise<Role[]>;
+  getPortalPermissionCatalog(): Promise<PermissionArea[]>;
   getRole(id: string): Promise<Role>;
-  createRole(input: { name: string; description: string; permissions: PermissionKey[] }): Promise<Role>;
+  createRole(input: { name: string; description: string; permissions: PermissionKey[]; forPartners?: boolean }): Promise<Role>;
   updateRole(
     id: string,
     input: { name: string; description: string; permissions: PermissionKey[] },
@@ -239,6 +258,8 @@ export interface ApiClient {
       secretProperties?: string[];
       /** Left out, the stored identity is kept; null clears it. */
       loginIdentity?: string | null;
+      /** Left out, what their people see in the portal is kept. */
+      portalAccess?: Record<string, PortalAccessLevel>;
     },
   ): Promise<Partner>;
   deletePartner(id: number): Promise<void>;
@@ -765,8 +786,11 @@ export interface ApiClient {
   ): Promise<Paged<NotificationChannelSend>>;
 
   // - exchanges -
-  searchExchanges(query: ExchangeQuery, opts?: { count?: boolean }): Promise<Paged<ExchangeRow>>;
-  getExchangeBreakdown(query: ExchangeQuery): Promise<ExchangeBreakdown>;
+  /** With `portal`, the signed-in partner's own, through the partner portal's API. */
+  searchExchanges(query: ExchangeQuery, opts?: { count?: boolean; portal?: boolean }): Promise<Paged<ExchangeRow>>;
+  getExchangeBreakdown(query: ExchangeQuery, opts?: { portal?: boolean }): Promise<ExchangeBreakdown>;
+  /** A file of a partner's exchange, by its signed link. */
+  readExchangeFileLink(url: string): Promise<string>;
 
   // - audit trail -
   /** Who changed what, and when. Filters narrow it; with none set it is the whole trail. */
@@ -801,7 +825,7 @@ export interface ApiClient {
   linkToBackgroundFile(id: string): Promise<{ url: string }>;
   /** How many of the selection's exchanges the export would come without files for. Changes nothing. */
   checkExchangeFilesExport(selection: BulkRetrySelection): Promise<ExportFilesCheck>;
-  getRetryTree(id: string): Promise<RetryTree>;
+  getRetryTree(id: string, opts?: { portal?: boolean }): Promise<RetryTree>;
   /**
    * Turns a plain-English question into the Exchanges page's filter, through the AI provider under
    * Settings, AI. Only the question, the time and names (partners, subscriptions, information
@@ -914,4 +938,74 @@ export interface ApiClient {
     matchesTarget: boolean;
     model: string | null;
   }>;
+
+  // --- Partner portal: the signed-in partner's own data only ---
+
+  /** The subscriptions that run for them, read-only. */
+  listPortalSubscriptions(): Promise<PortalSubscription[]>;
+  /** Every place they're connected, and whether they use their own mapping there. */
+  /** The information types of what runs for them, shaped for the Exchanges page's filters. */
+  listPortalInformationTypes(): Promise<InformationType[]>;
+  /** Retries one of their failed exchanges with the current settings; the new attempt's id. */
+  retryPortalExchange(xchangeId: string): Promise<string>;
+  listPortalMappings(): Promise<PortalMappingPlace[]>;
+  getPortalMapping(subscriptionId: number): Promise<PortalMapping>;
+  /** Saves their own mapping of a place: used from their next exchange, or waiting for approval. */
+  savePortalMapping(subscriptionId: number, mapperProperties: Record<string, string>): Promise<PortalMappingSaved>;
+  /** Removes their own mapping, so they get ours again; waits for approval like any change. */
+  resetPortalMapping(subscriptionId: number): Promise<PortalMappingSaved>;
+  /** Takes back their change waiting for approval. */
+  withdrawPortalMapping(subscriptionId: number): Promise<void>;
+  previewPortalMapping(input: { subscriptionId: number; mappingRules: string; sourceDocument: string }): Promise<{
+    outputDocument: string | null;
+    contentType: string | null;
+    ruleErrors: { target: string; reason: string }[];
+    error: string | null;
+  }>;
+  listPortalMappingSamples(subscriptionId: number): Promise<PortalMappingSample[]>;
+  getPortalMappingSample(xchangeId: string): Promise<string>;
+  /** The names of their own partner properties, never the values. */
+  listPortalPropertyKeys(): Promise<string[]>;
+  /** The partners using their own mapping of this subscription. */
+  listSubscriptionPartnerMappings(subscriptionId: string): Promise<SubscriptionPartnerMapping[]>;
+  /** Removes a partner's own mapping, so they get the subscription's again. */
+  removeSubscriptionPartnerMapping(subscriptionId: string, partnerId: number): Promise<void>;
+  /** Whether a partner's portal changes wait for our team's approval. */
+  setPartnerApproval(partnerId: number, changesNeedApproval: boolean): Promise<void>;
+  /** Changes waiting for approval, oldest first; or the latest decided, newest first. */
+  listPartnerChanges(waiting: boolean): Promise<PartnerChange[]>;
+  countWaitingPartnerChanges(): Promise<number>;
+  getPartnerChange(id: number): Promise<PartnerChangeDetail>;
+  approvePartnerChange(id: number): Promise<void>;
+  rejectPartnerChange(id: number, note: string): Promise<void>;
+  getPartnerPropertyChange(id: number): Promise<PartnerPropertyChangeDetail>;
+  approvePartnerPropertyChange(id: number): Promise<void>;
+  rejectPartnerPropertyChange(id: number, note: string): Promise<void>;
+  /** A partner's mapping of one subscription over time, newest first. */
+  listPartnerMappingHistory(subscriptionId: string, partnerId: number): Promise<PartnerChangeVersion[]>;
+  /** Puts an earlier version of a partner's mapping back, used at once. */
+  putBackPartnerMapping(changeId: number): Promise<void>;
+  /** Their own partner properties, only those we show them. */
+  getPortalProperties(): Promise<PortalProperties>;
+  /** Changes the properties they may change; used at once or waiting for approval. */
+  savePortalProperties(values: Record<string, string>): Promise<PortalMappingSaved>;
+  /** Takes back their properties change waiting for approval. */
+  withdrawPortalProperties(): Promise<void>;
+  /** Their company's people, for a partner's admin. */
+  listPortalPeople(): Promise<PortalPerson[]>;
+  /** The roles a partner's admin may give. */
+  listPortalPeopleRoles(): Promise<PortalRoleChoice[]>;
+  addPortalPerson(input: { name: string; email: string; roleId: number }): Promise<PortalInvite & { id: number }>;
+  invitePortalPersonAgain(accountId: number): Promise<PortalInvite>;
+  setPortalPersonRole(accountId: number, roleId: number): Promise<void>;
+  setPortalPersonDisabled(accountId: number, disabled: boolean): Promise<void>;
+  removePortalPerson(accountId: number): Promise<void>;
+  /** The roles a partner's admin sees: ours for partners, built-in ones, and their own. */
+  listPortalRoles(): Promise<Role[]>;
+  getPortalRole(id: string): Promise<Role>;
+  /** Makes one of their own roles, or changes one; returns its id. */
+  savePortalRole(input: { id?: string; name: string; description: string; permissions: PermissionKey[] }): Promise<string>;
+  deletePortalRole(id: string): Promise<void>;
+  /** The subscriptions a partner maps their own way, for their partner page. */
+  listPartnerOwnMappings(partnerId: number): Promise<PartnerOwnMapping[]>;
 }

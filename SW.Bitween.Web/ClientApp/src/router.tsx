@@ -1,5 +1,5 @@
-import { createBrowserRouter, type RouteObject } from "react-router";
-import { RequireAuth, RequirePermission } from "./auth/guards";
+import { Navigate, createBrowserRouter, type RouteObject } from "react-router";
+import { PORTAL_PATH, RequireAuth, RequirePartner, RequirePermission } from "./auth/guards";
 import { PAGES, type PageId } from "./pages";
 import { AppShell } from "./components/layout/AppShell";
 import { LoginPage } from "./pages/auth/Login";
@@ -51,6 +51,11 @@ import {
   NotifiersPage,
   PartnerPage,
   PartnersPage,
+  PartnerChangesPage,
+  PortalMappingPage,
+  PortalExchangesPage,
+  PortalMappingsPage,
+  PortalSubscriptionsPage,
   ProfilePage,
   QueueHealthPage,
   ResponseSubscriptionsPage,
@@ -72,6 +77,7 @@ import {
 } from "./routePages";
 
 import { LoadingBlock } from "./components/ui/basics";
+import { PartnerTeamSource } from "./pages/team/teamSource";
 
 /** "/" → undefined (no basename); "/prefix/" → "/prefix" if ever remounted. */
 const basename = import.meta.env.BASE_URL.replace(/\/+$/, "") || undefined;
@@ -110,6 +116,37 @@ const PAGE_ELEMENTS: Record<PageId, ReactNode> = {
   subscriptionMapper: <MapperEditorRoute />,
   partners: <PartnersPage />,
   partner: <PartnerPage />,
+  partnerChanges: <PartnerChangesPage />,
+  portalExchanges: <PortalExchangesPage />,
+  portalMappings: <PortalMappingsPage />,
+  portalMapping: <PortalMappingPage />,
+  portalSubscriptions: <PortalSubscriptionsPage />,
+  portalDetails: <PartnerPage portal />,
+  portalPeople: (
+    <PartnerTeamSource>
+      <MembersPage />
+    </PartnerTeamSource>
+  ),
+  portalPerson: (
+    <PartnerTeamSource>
+      <MembersPage />
+    </PartnerTeamSource>
+  ),
+  portalRoles: (
+    <PartnerTeamSource>
+      <RolesPage />
+    </PartnerTeamSource>
+  ),
+  portalRoleNew: (
+    <PartnerTeamSource>
+      <RoleEditor />
+    </PartnerTeamSource>
+  ),
+  portalRole: (
+    <PartnerTeamSource>
+      <RoleEditor />
+    </PartnerTeamSource>
+  ),
   dataSources: <DataSourcesPage />,
   dataSourceNew: <DataSourceNewPage />,
   dataSource: <DataSourcePage />,
@@ -156,16 +193,18 @@ export interface PageHandle {
 const pageRoutes: RouteObject[] = (Object.keys(PAGES) as PageId[]).map((id) => {
   const { path, permission, alsoFor } = PAGES[id];
   const element = PAGE_ELEMENTS[id];
+  const guarded = permission ? (
+    <RequirePermission permission={permission} alsoFor={alsoFor}>
+      {element}
+    </RequirePermission>
+  ) : (
+    element
+  );
   return {
     path,
     handle: { page: id } satisfies PageHandle,
-    element: permission ? (
-      <RequirePermission permission={permission} alsoFor={alsoFor}>
-        {element}
-      </RequirePermission>
-    ) : (
-      element
-    ),
+    // A partner's people's pages are theirs alone, whatever else a session holds.
+    element: PAGES[id].audience === "partner" ? <RequirePartner>{guarded}</RequirePartner> : guarded,
   };
 });
 
@@ -208,6 +247,8 @@ export const routes: RouteObject[] = [
           // itself is no longer a page - only a bookmark people may still hold.
           { path: "team", element: <TeamRedirect /> },
           ...pageRoutes,
+          // Anything else under /portal is not a page: back to the portal's first page.
+          { path: "portal/*", element: <Navigate to={PORTAL_PATH} replace /> },
           { path: "*", element: <NotFoundPage /> },
         ],
       },

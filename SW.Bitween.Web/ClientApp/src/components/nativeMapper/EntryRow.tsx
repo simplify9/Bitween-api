@@ -12,6 +12,7 @@ import { SegmentedControl } from "../ui/SegmentedControl";
 import { RuleDetail } from "./RuleDetail";
 import { ValueCell, type SourcePaths } from "./ValueCell";
 import { useSourceValues } from "./sourceValuesContext";
+import { useMapperEditorServices } from "./editorServices";
 
 /**
  * One entry written into a list, rather than one produced by walking a source list.
@@ -40,6 +41,7 @@ export function EntryRow({
   const dispatch = useRulesDispatch();
   const { ruleErrors } = useRules();
   const original = useSourceValues() !== null;
+  const { globals } = useMapperEditorServices();
   const [open, setOpen] = useState(false);
 
   const error = ruleErrors[node.errorKey];
@@ -75,7 +77,7 @@ export function EntryRow({
             <SegmentedControl
               size="sm"
               label={`Where ${named} comes from`}
-              options={sourceKindsFor(true, original)}
+              options={sourceKindsFor(true, original).filter((k) => globals || k.value !== "global" || item.from.kind === "global")}
               value={item.from.kind === "rootPath" ? "path" : item.from.kind}
               onChange={(kind) => updateItem({ from: freshSource(kind) })}
             />

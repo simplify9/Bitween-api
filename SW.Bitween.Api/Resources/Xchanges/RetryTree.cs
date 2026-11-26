@@ -57,7 +57,15 @@ public class RetryTree : IQueryHandler<XchangeRetryTreeRequest, object>
     public async Task<object> Handle(XchangeRetryTreeRequest request)
     {
         await _requestContext.EnsurePermission(_dbContext, Model.Permissions.Exchanges.View);
+        return await TreeAsync(request, null);
+    }
 
+    /// <summary>
+    /// The chain the exchange belongs to. With <paramref name="partnerId"/>, only that partner's
+    /// attempts: what the partner portal shows. The caller has checked who may see them.
+    /// </summary>
+    internal async Task<XchangeRetryTree> TreeAsync(XchangeRetryTreeRequest request, int? partnerId)
+    {
         if (string.IsNullOrWhiteSpace(request?.Id))
             throw new SWValidationException("ID_REQUIRED", "Which exchange's retries?");
 
@@ -124,7 +132,7 @@ public class RetryTree : IQueryHandler<XchangeRetryTreeRequest, object>
             join promoted in _dbContext.Set<XchangePromotedProperties>() on xchange.Id equals promoted.Id into xp
             from promoted in xp.DefaultIfEmpty()
             join document in _dbContext.Set<Document>() on xchange.DocumentId equals document.Id
-            where ids.Contains(xchange.Id)
+            where ids.Contains(xchange.Id) && (partnerId == null || xchange.PartnerId == partnerId)
             orderby xchange.StartedOn
             select new XchangeRetryNode
             {

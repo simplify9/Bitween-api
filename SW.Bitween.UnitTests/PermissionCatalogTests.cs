@@ -104,4 +104,18 @@ public class PermissionCatalogTests
         CollectionAssert.AreEqual(new List<string> { Permissions.Exchanges.View },
             role.GetEffectivePermissions());
     }
+
+    [TestMethod]
+    public void PortalKeys_AreExactlyThePortalConstants_AndNoBuiltInTeamRoleHoldsThem()
+    {
+        // The group is matched by its name, so a typo there would quietly leave a key out of what
+        // partner roles may hold.
+        var portal = typeof(Permissions.Portal).GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Select(f => (string)f.GetRawConstantValue()).ToList();
+        CollectionAssert.AreEquivalent(portal, PermissionCatalog.PortalKeys.ToList());
+
+        // Member and Viewer stay clear of them; only Administrator holds them, to hand them out.
+        Assert.IsFalse(Role.SystemPermissions(Role.MemberId).Intersect(portal).Any());
+        Assert.IsFalse(Role.SystemPermissions(Role.ViewerId).Intersect(portal).Any());
+    }
 }

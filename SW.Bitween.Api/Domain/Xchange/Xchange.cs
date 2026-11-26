@@ -51,17 +51,17 @@ namespace SW.Bitween.Domain
 
         public Xchange(Subscription subscription, XchangeFile file, string[] references = null,
             string correlationId = null, Partner gatewayPartner = null, GlobalAdapterValuesSet[] globalAdapterValuesSets = null,
-            XchangeSource source = null) :
+            XchangeSource source = null, PartnerMapping partnerMapping = null) :
             this(subscription.DocumentId, subscription.WorkGroup, file, references, subscription.Type)
         {
             SubscriptionId = subscription.Id;
             // The pinned version travels with the exchange, so a retry runs the same package.
-            MapperId = subscription.MapperRef;
+            MapperId = MapperRefFor(subscription, partnerMapping);
             HandlerId = subscription.HandlerRef;
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
             ResponseMessageTypeName = subscription.ResponseMessageTypeName;
             PartnerId = gatewayPartner?.Id ?? subscription.PartnerId;
-            MapperProperties = (subscription.MapperProperties ?? new Dictionary<string, string>()).ToDictionary()
+            MapperProperties = MapperPropertiesFor(subscription, partnerMapping)
                 .Fill(gatewayPartner, globalAdapterValuesSets).WithDataSource(subscription.DataSourceId);
             HandlerProperties = (subscription.HandlerProperties ?? new Dictionary<string, string>()).ToDictionary()
                 .Fill(gatewayPartner, globalAdapterValuesSets).FillSource(source?.Values)
@@ -70,6 +70,16 @@ namespace SW.Bitween.Domain
             SourceValues = source?.Values;
             CorrelationId = correlationId;
         }
+
+        /// <summary>
+        /// The id of the adapter that maps: the native mapper when the exchange's partner has their
+        /// own mapping of the subscription (see <see cref="PartnerMapping"/>), the subscription's otherwise.
+        /// </summary>
+        private static string MapperRefFor(Subscription subscription, PartnerMapping partnerMapping) =>
+            partnerMapping is null ? subscription.MapperRef : PartnerMappingRules.MapperId;
+
+        private static Dictionary<string, string> MapperPropertiesFor(Subscription subscription, PartnerMapping partnerMapping) =>
+            ((partnerMapping?.MapperProperties ?? subscription.MapperProperties) ?? new Dictionary<string, string>()).ToDictionary();
 
         //retry xchange
         public Xchange(Xchange xchange, XchangeFile file, IWorkGroup workGroup, bool manualRetry = false) :
@@ -85,6 +95,7 @@ namespace SW.Bitween.Domain
             SourceXchangeId = xchange.SourceXchangeId;
             SourceValues = xchange.SourceValues;
             ResponseSubscriptionId = xchange.ResponseSubscriptionId;
+            ResponseMessageTypeName = xchange.ResponseMessageTypeName;
             RetryFor = xchange.Id;
             CorrelationId = xchange.CorrelationId;
         }
@@ -92,16 +103,16 @@ namespace SW.Bitween.Domain
         //retry with reset subscription properties
         public Xchange(Subscription subscription, Xchange xchange, XchangeFile file, Partner gatewayPartner = null,
             GlobalAdapterValuesSet[] globalAdapterValuesSets = null, IReadOnlyDictionary<string, int> groupAttemptCounts = null,
-            bool manualRetry = false) :
+            bool manualRetry = false, PartnerMapping partnerMapping = null) :
             this(xchange.DocumentId, subscription.WorkGroup, file, xchange.References)
         {
             ManualRetry = manualRetry;
             SubscriptionId = xchange.SubscriptionId;
             PartnerId = xchange.PartnerId ?? subscription.PartnerId;
             // The pinned version travels with the exchange, so a retry runs the same package.
-            MapperId = subscription.MapperRef;
+            MapperId = MapperRefFor(subscription, partnerMapping);
             HandlerId = subscription.HandlerRef;
-            MapperProperties = (subscription.MapperProperties ?? new Dictionary<string, string>()).ToDictionary()
+            MapperProperties = MapperPropertiesFor(subscription, partnerMapping)
                 .Fill(gatewayPartner, globalAdapterValuesSets).WithDataSource(subscription.DataSourceId);
             HandlerProperties = (subscription.HandlerProperties ?? new Dictionary<string, string>()).ToDictionary()
                 .Fill(gatewayPartner, globalAdapterValuesSets).FillSource(xchange.SourceValues)
@@ -109,6 +120,7 @@ namespace SW.Bitween.Domain
             SourceXchangeId = xchange.SourceXchangeId;
             SourceValues = xchange.SourceValues;
             ResponseSubscriptionId = subscription.ResponseSubscriptionId;
+            ResponseMessageTypeName = subscription.ResponseMessageTypeName;
             RetryFor = xchange.Id;
             CorrelationId = xchange.CorrelationId;
         }

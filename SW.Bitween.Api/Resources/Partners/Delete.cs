@@ -1,5 +1,6 @@
 using SW.EfCoreExtensions;
 using SW.Bitween.Domain;
+using SW.Bitween.Domain.Accounts;
 using SW.Bitween.Domain.Gateway;
 using SW.PrimitiveTypes;
 using System.Collections.Generic;
@@ -20,7 +21,13 @@ namespace SW.Bitween.Resources.Partners
 
             await EnsureNothingPointsAtIt(key);
 
+            // The roles their admin made for their own people go with them; nobody else can hold one.
+            // One transaction, so a partner that can't go keeps its roles.
+            await using var transaction = await dbContext.Database.BeginTransactionAsync();
+            dbContext.RemoveRange(await dbContext.Set<Role>().Where(r => r.PartnerId == key).ToListAsync());
+            await dbContext.SaveChangesAsync();
             await dbContext.DeleteByKeyAsync<Partner>(key);
+            await transaction.CommitAsync();
             return null;
         }
 
@@ -63,6 +70,16 @@ namespace SW.Bitween.Resources.Partners
                 .ToArrayAsync();
             if (busGateways.Length > 0)
                 heldBy.Add($"a route on {Describe(busGateways)}");
+
+            // Removed accounts don't count: they can't sign in, and a partner they still point at
+            // can go, leaving them pointing at nothing.
+            var people = await dbContext.Set<Account>()
+                .Where(a => a.PartnerId == key && !a.Deleted)
+                .Select(a => a.DisplayName)
+                .Take(MaxNamed + 1)
+                .ToArrayAsync();
+            if (people.Length > 0)
+                heldBy.Add($"the portal user {Describe(people)}");
 
             if (heldBy.Count == 0)
                 return;

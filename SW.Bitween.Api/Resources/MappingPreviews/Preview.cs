@@ -70,7 +70,12 @@ public class Preview(RequestContext requestContext, BitweenDbContext dbContext,
         // right will do. Without a guard any signed-in token could map any partner's values.
         await requestContext.EnsurePermission(dbContext,
             Model.Permissions.Subscriptions.Create, Model.Permissions.Subscriptions.Edit);
+        return await Run(request, contextFactory);
+    }
 
+    /// <summary>The preview itself, once the caller may have it: the partner portal's runs this too.</summary>
+    internal static async Task<MappingPreviewResponse> Run(MappingPreviewRequest request, MappingContextFactory contextFactory)
+    {
         MappingRules rules;
         try
         {

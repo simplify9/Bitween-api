@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import type { ExchangeRow } from "../../api";
@@ -10,6 +9,7 @@ import { PromotedProps } from "../../components/config/shared";
 import { clickableRow, clickableRowClass } from "../../components/ui/clickableRow";
 import { duration, formatDateTime, timeAgo, timeUntil } from "../../lib/dates";
 import { hasRetryChain, retryTreeQuery } from "./retryTree";
+import { OurPageLink, useExchangeSource } from "./exchangeSource";
 import { journeyStages, journeySummary } from "./journey";
 import { JourneyStrip, StatusBadge, WarningBadge } from "./shared";
 
@@ -68,12 +68,13 @@ export function ExchangeList({
 }) {
   const queryClient = useQueryClient();
   const narrow = useNarrow();
+  const source = useExchangeSource();
 
   /* Hovering a row is most of a second's head start on opening it, which is enough that its
      retry chain is already there when the panel renders. Only for rows that have one - most
      exchanges do not. */
   const prefetch = (x: ExchangeRow) => {
-    if (hasRetryChain(x)) void queryClient.prefetchQuery(retryTreeQuery(x.id));
+    if (hasRetryChain(x)) void queryClient.prefetchQuery(retryTreeQuery(x.id, source));
   };
 
   const markers = (x: ExchangeRow) => (
@@ -185,13 +186,13 @@ export function ExchangeList({
                     <span className="flex min-w-0 flex-wrap items-center gap-x-1.5 text-xs text-ink-500">
                       {/* Only the links swallow the click, never the cells: an opted-out cell would
                           leave part of a clickable row doing nothing when clicked. */}
-                      <Link
+                      <OurPageLink
                         to={`/information-types/${x.informationTypeId}`}
                         onClick={(e) => e.stopPropagation()}
                         className="font-mono text-[11px] text-ink-600 hover:link"
                       >
                         {x.informationTypeCode}
-                      </Link>
+                      </OurPageLink>
                       {/* Beside the open exchange there is no Route column, so the route rides
                           along here instead of disappearing. */}
                       {compact && (
@@ -229,24 +230,24 @@ export function ExchangeList({
                   <td className={`${cell} text-[13px] whitespace-nowrap`}>
                     <span className="flex flex-col gap-0.5">
                       {x.subscriptionName ? (
-                        <Link
+                        <OurPageLink
                           to={`/subscriptions/${x.subscriptionId}`}
                           onClick={(e) => e.stopPropagation()}
                           className="font-medium text-ink-800 hover:link"
                         >
                           {x.subscriptionName}
-                        </Link>
+                        </OurPageLink>
                       ) : (
                         <span className="text-ink-500">-</span>
                       )}
                       {x.partnerName && (
-                        <Link
+                        <OurPageLink
                           to={`/partners/${x.partnerId}`}
                           onClick={(e) => e.stopPropagation()}
                           className="text-xs text-ink-500 hover:link"
                         >
                           {x.partnerName}
-                        </Link>
+                        </OurPageLink>
                       )}
                     </span>
                   </td>

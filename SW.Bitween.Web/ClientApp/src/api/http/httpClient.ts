@@ -18,6 +18,7 @@ import { notifierMethods } from "./notifiers";
 import { connectionMethods } from "./connections";
 import { notificationChannelMethods } from "./notificationChannels";
 import { partnerMethods } from "./partners";
+import { portalMethods } from "./portal";
 import { queueHealthMethods } from "./queueHealth";
 import { retryPolicyMethods } from "./retryPolicies";
 import { sessionMethods } from "./session";
@@ -59,4 +60,5 @@ export const httpClient: ApiClient = {
   ...serviceAccountMethods,
   ...settingsMethods,
   ...mirrorMethods,
+  ...portalMethods,
 };

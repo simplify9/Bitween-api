@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { RolePicker } from "./RolePicker";
 import { useNavigate, useParams } from "react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Bot, Plus } from "lucide-react";
@@ -7,7 +8,7 @@ import { Can } from "../../auth/guards";
 import { PageHeader } from "../../components/layout/PageHeader";
 import { clickableRow, clickableRowClass } from "../../components/ui/clickableRow";
 import { Badge, Button, EmptyState, FormError, LoadError, LoadingBlock } from "../../components/ui/basics";
-import { Checkbox, Field, TextInput } from "../../components/ui/forms";
+import { Field, TextInput } from "../../components/ui/forms";
 import { Dialog } from "../../components/ui/overlays";
 import { timeAgo, timeUntil } from "../../lib/dates";
 import { keys } from "../../api/queryKeys";
@@ -191,25 +192,12 @@ function NewServiceAccountDialog({ onClose, onCreated }: { onClose: () => void; 
           />
         </Field>
 
-        <fieldset>
-          <legend className="mb-2 block text-[13px] font-medium text-ink-700">Roles</legend>
-          <div className="max-h-56 space-y-2.5 overflow-y-auto rounded-lg border border-ink-200 p-3">
-            {(roles.data ?? []).map((role) => (
-              <Checkbox
-                key={role.id}
-                label={role.name}
-                description={role.description}
-                checked={roleIds.includes(role.id)}
-                onChange={() =>
-                  setRoleIds((prev) =>
-                    prev.includes(role.id) ? prev.filter((r) => r !== role.id) : [...prev, role.id],
-                  )
-                }
-              />
-            ))}
-          </div>
-          <p className="mt-1.5 text-[13px] text-ink-500">Give it only what its job needs. You issue its tokens next.</p>
-        </fieldset>
+        <RolePicker
+          roles={(roles.data ?? []).filter((role) => !role.forPartners)}
+          value={roleIds}
+          onChange={(roleId) => setRoleIds([roleId])}
+          hint="Give it only what its job needs. You issue its tokens next."
+        />
 
         <FormError>{create.error instanceof ApiRequestError ? create.error.message : create.error?.message}</FormError>
 

@@ -81,7 +81,7 @@ export async function signOut(page: Page) {
  */
 export async function addMember(
   page: Page,
-  { name, roles, password = FIRST_PASSWORD }: { name: string; roles: string[]; password?: string },
+  { name, role, password = FIRST_PASSWORD }: { name: string; role: string; password?: string },
 ) {
   const email = `pw-${name.toLowerCase().replace(/\W+/g, "-")}-${Date.now()}@example.test`;
 
@@ -89,8 +89,10 @@ export async function addMember(
   await page.getByRole("button", { name: "Add member" }).click();
   await page.fill("#member-name", name);
   await page.fill("#member-email", email);
+  // The dialog opens on sending an invite; the password box shows once this is chosen.
+  await page.getByRole("radio", { name: /Set a password now/ }).check();
   await page.fill("#member-password", password);
-  for (const role of roles) await page.getByRole("checkbox", { name: startsWith(role) }).check();
+  await page.getByRole("radio", { name: startsWith(role) }).check();
   await page.getByRole("button", { name: "Add member" }).last().click();
 
   await page.waitForSelector(`text=${email}`, { timeout: 15000 });

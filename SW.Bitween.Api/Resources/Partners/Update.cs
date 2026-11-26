@@ -23,7 +23,9 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
 
             // Read while they are still there: SetProperties copies the model's own
             // AdapterProperties over the entity's, so the stored values are gone after it runs.
+            PartnerPortalAccess.EnsureNoCaseTwins(model.AdapterProperties);
             var storedProperties = entity.AdapterProperties;
+            var storedAccess = entity.PortalAccess;
             dbContext.Entry(entity).SetProperties(model);
 
             // A secret left untouched arrives as the sentinel, because that is all Get sent. The
@@ -35,6 +37,9 @@ public class Update(BitweenDbContext dbContext, RequestContext requestContext)
                     AdapterSecretProperties.MayKeepStoredSecrets(null, null, storedProperties,
                         model.AdapterProperties ?? new Dictionary<string, string>()));
             entity.SecretProperties = model.SecretProperties?.ToList() ?? [];
+            // After SetProperties, which copied the model's, null too. A property removed in this save
+            // loses its setting either way.
+            entity.PortalAccess = PartnerPortalAccess.Validate(model.PortalAccess ?? storedAccess, entity.AdapterProperties);
             entity.LoginIdentity = await PartnerLoginIdentity.Validate(dbContext, model.LoginIdentity, key);
             await dbContext.SaveChangesAsync();
             return null;

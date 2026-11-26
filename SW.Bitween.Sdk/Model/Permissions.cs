@@ -50,6 +50,12 @@ public static class Permissions
         public const string Delete = "partners.delete";
     }
 
+    public static class PartnerChanges
+    {
+        public const string View = "partner-changes.view";
+        public const string Operate = "partner-changes.operate";
+    }
+
     public static class Documents
     {
         public const string View = "documents.view";
@@ -196,6 +202,25 @@ public static class Permissions
         /// <summary>Publish a version from the editor, and make a published version the current one.</summary>
         public const string Operate = "adapter-source.operate";
     }
+
+    /// <summary>
+    /// What a partner's own people may do in the partner portal, always limited to their partner's
+    /// data. Only partner roles hold these, and partner roles hold nothing else.
+    /// </summary>
+    public static class Portal
+    {
+        public const string SubscriptionsView = "portal-subscriptions.view";
+        public const string ExchangesView = "portal-exchanges.view";
+        public const string ExchangesOperate = "portal-exchanges.operate";
+        public const string ExchangeFilesView = "portal-exchange-files.view";
+        public const string ExchangeErrorsView = "portal-exchange-errors.view";
+        public const string MappingsView = "portal-mappings.view";
+        public const string MappingsEdit = "portal-mappings.edit";
+        public const string PropertiesView = "portal-properties.view";
+        public const string PropertiesEdit = "portal-properties.edit";
+        public const string PeopleView = "portal-people.view";
+        public const string PeopleEdit = "portal-people.edit";
+    }
 }
 
 public class PermissionActionModel
@@ -263,6 +288,11 @@ public static class PermissionCatalog
             (Create, "Create partners."),
             (Edit, "Change partner details, properties and API keys."),
             (Delete, "Delete partners.")),
+
+        Area("partner-changes", "Partner changes", "Subscriptions",
+            "What partners change in the portal: waiting for approval when their changes need it, and the history.",
+            (View, "See the changes waiting for approval, and the history of a partner's mapping."),
+            (Operate, "Approve or reject a change, or put an older version of a partner's mapping back.")),
 
         Area("documents", "Information types", "Subscriptions",
             "The kinds of business documents that flow between partners.",
@@ -369,8 +399,53 @@ public static class PermissionCatalog
         Area("mirror", "Prod mirror", "Administration",
             "A staging that copies a prod's setup, faked, to rehearse upgrades on.",
             (View, "See how close staging is to prod, and what is left to do."),
-            (Operate, "Bring prod's items onto this staging, keeping what it has, and test them with prod's traffic."))
+            (Operate, "Bring prod's items onto this staging, keeping what it has, and test them with prod's traffic.")),
+
+        // --- Partner portal ---
+        // Held only by partner roles, which hold nothing else; every one of them reaches only the
+        // signed-in partner's own data.
+        Area("portal-subscriptions", "Their subscriptions", "Partner portal",
+            "The subscriptions that deliver to or take from the partner, read-only.",
+            (View, "See their subscriptions: name, kind, information type and whether paused.")),
+
+        Area("portal-exchanges", "Their exchanges", "Partner portal",
+            "The exchanges that ran for the partner.",
+            (View, "Browse their exchanges: status, times and counts."),
+            (Operate, "Retry their failed exchanges, with the current mapping and details.")),
+
+        Area("portal-exchange-files", "Exchange files", "Partner portal",
+            "What each of their exchanges received, sent and got back.",
+            (View, "Open and download the files of their exchanges.")),
+
+        Area("portal-exchange-errors", "Exchange errors", "Partner portal",
+            "Why an exchange failed. Errors can name addresses and systems on our side.",
+            (View, "Read the error of a failed exchange.")),
+
+        Area("portal-mappings", "Their mappings", "Partner portal",
+            "How what they receive is shaped, wherever they are connected: their own version of a subscription's mapping, used for them alone.",
+            (View, "See the mapping used for them."),
+            (Edit, "Make, change and remove their own version of a mapping.")),
+
+        Area("portal-properties", "Their details", "Partner portal",
+            "Their own partner properties, such as where we deliver to them: only those you show them, secrets never in clear.",
+            (View, "See the properties you show them."),
+            (Edit, "Change the properties you let them change, and replace a secret one without seeing it.")),
+
+        Area("portal-people", "Their people", "Partner portal",
+            "Who at their company can sign in to the portal. Only our team can make or change one of their admins.",
+            (View, "See their company's people and the role each holds."),
+            (Edit, "Invite their company's people, change their roles, disable and remove them, giving only roles that can't manage people."))
     ];
+
+    /// <summary>The group partner roles draw from, and the only one.</summary>
+    public const string PortalGroup = "Partner portal";
+
+    /// <summary>The area that makes a partner's person one of their admins: managing their people.</summary>
+    public const string PortalPeopleArea = "portal-people";
+
+    /// <summary>Every key a partner role may hold.</summary>
+    public static readonly HashSet<string> PortalKeys =
+        Areas.Where(a => a.Group == PortalGroup).SelectMany(a => a.Actions.Select(x => $"{a.Id}.{x.Id}")).ToHashSet();
 
     /// <summary>Every valid permission key.</summary>
     public static readonly HashSet<string> AllKeys =

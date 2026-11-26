@@ -38,6 +38,12 @@ namespace SW.Bitween.Resources.BusGateways
                     .Select(d => new { d.Name, d.LastKnownState, d.SecretProperties })
                     .FirstOrDefaultAsync();
 
+            var subscriptionIds = gateway.Routes.Select(r => r.SubscriptionId).Distinct().ToList();
+            var own = (await dbContext.Set<PartnerMapping>().AsNoTracking()
+                    .Where(m => subscriptionIds.Contains(m.SubscriptionId))
+                    .Select(m => new { m.SubscriptionId, m.PartnerId }).ToListAsync())
+                .Select(m => (m.SubscriptionId, (int?)m.PartnerId)).ToHashSet();
+
             return new BusGatewayRow
             {
                 Id = gateway.Id,
@@ -60,7 +66,8 @@ namespace SW.Bitween.Resources.BusGateways
                     SubscriptionName = r.Subscription != null ? r.Subscription.Name : null,
                     PartnerId = r.PartnerId,
                     PartnerName = r.Partner != null ? r.Partner.Name : null,
-                    MatchExpression = r.MatchExpression
+                    MatchExpression = r.MatchExpression,
+                    OwnMapping = r.PartnerId != null && own.Contains((r.SubscriptionId, r.PartnerId))
                 }).ToList()
             };
         }

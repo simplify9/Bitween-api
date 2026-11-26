@@ -16,6 +16,7 @@ public class Create(BitweenDbContext dbContext, RequestContext requestContext)
             var entity = new Partner(model.Name);
             // Same field the update handler writes, applied in the same transaction as
             // the insert, so a partner is never created half-configured.
+            PartnerPortalAccess.EnsureNoCaseTwins(model.AdapterProperties);
             if (model.AdapterProperties != null)
                 entity.AdapterProperties = model.AdapterProperties;
             entity.SecretProperties = model.SecretProperties?.ToList() ?? [];
